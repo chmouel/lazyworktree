@@ -1,0 +1,79 @@
+# Example function to jump between git worktrees using lazyworktree and GitHub
+# CLI
+_git_repo_slug() {
+    local dir="$1"
+    local url provider slug
+
+    url=$(cd "$dir" 2>/dev/null && git remote get-url origin 2>/dev/null) || return 1
+
+    case "$url" in
+        *github.com* ) provider=github ;;
+        *gitlab.com* ) provider=gitlab ;;
+        * ) provider=unknown ;;
+    esac
+
+    slug=$(echo "$url" | sed -E 's#^.*[:/]([^/]+/[^/]+)(\.git)?$#\1#')
+
+    [[ -n "$slug" ]] || return 1
+    print "$provider:$slug"
+}
+
+# Example function to jump between git worktrees using lazyworktree
+worktree_jump() {
+    local dir="$1"; shift
+    local id provider repo slug
+
+    id=$(_git_repo_slug "$dir" 2>/dev/null)
+
+    if [[ -n "$id" ]]; then
+        provider=${id%%:*}
+        slug=${id#*:}
+        repo="$slug"
+    else
+        repo=$(basename "$dir")
+    fi
+
+    local wt_root="$HOME/.local/share/worktrees/$repo"
+
+    # Direct jump if worktree name provided
+    if [[ -n "$1" && -d "$wt_root/$1" ]]; then
+        cd "$wt_root/$1" || return 1
+        return
+    fi
+
+    cd "$dir" || return 1
+
+    local tmp=${TMPDIR:-/tmp}/.chosen-worktree.$$
+    lazyworktree "$@" >| "$tmp"
+
+    [[ -s "$tmp" ]] && cd "$(cat "$tmp")"
+    rm -f "$tmp"
+}
+
+_worktree_jump() {
+    local dir="$1"
+    local id repo slug wt_root
+
+    id=$(_git_repo_slug "$dir" 2>/dev/null)
+    if [[ -n "$id" ]]; then
+        slug=${id#*:}
+        repo="$slug"
+    else
+        repo=$(basename "$dir")
+    fi
+
+    wt_root="$HOME/.local/share/worktrees/$repo"
+    [[ -d "$wt_root" ]] || return
+
+    local -a dirs
+    dirs=(${wt_root}/*(/:t))
+    _describe 'worktree' dirs
+}
+
+if [[ -d ~/git/myrepo ]]; then
+    pm() { worktree_jump ~/git/myrepo "$@" }
+    _pm() { _worktree_jump ~/git/myrepo }
+    compdef _pm pm
+fi
+
+# vim: ft=zsh
