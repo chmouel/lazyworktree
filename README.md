@@ -13,6 +13,11 @@ A Textual-based TUI for managing Git worktrees efficiently. Visualize status, ma
 - **LazyGit Integration**: Launch `lazygit` directly for the selected worktree.
 - **Shell Integration**: Jump (cd) directly to selected worktrees upon exit.
 
+# Screenshots
+
+<img width="1752" height="1071" alt="image" src="https://github.com/user-attachments/assets/b1143b79-dec3-4c72-be69-f88c49f6d160" />
+<img width="1734" height="1077" alt="image" src="https://github.com/user-attachments/assets/047cba26-7886-436c-a782-0530f8efe12e" />
+
 ## Prerequisites
 
 - **Python**: 3.12+
