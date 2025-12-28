@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["rich>=14.2.0", "textual>=6.11.0"]
+dependencies = ["rich>=14.2.0", "textual>=6.11.0", "PyYAML>=6.0.1"]
 
 [project.scripts]
 lazyworktree = "main:main"

@@ -54,6 +54,38 @@ pm() { worktree_jump ~/path/to/your/main/repo "$@"; }
 
 Now you can run `pm` to open the TUI, select a worktree, and upon pressing `Enter`, your shell will `cd` into that directory.
 
+## Custom Initialization and Termination
+
+You can create a `.wt` file in your main repository to define custom commands to run when creating or removing a worktree. This format is inspired by [wt](https://github.com/taecontrol/wt).
+
+### Example `.wt` configuration
+
+```yaml
+init_commands:
+    - link_topsymlinks
+    - cp $MAIN_WORKTREE_PATH/.env $WORKTREE_PATH/.env
+    - npm install
+    - code .
+
+terminate_commands:
+    - echo "Cleaning up $WORKTREE_NAME"
+```
+
+The following environment variables are available to your commands:
+
+- `WORKTREE_BRANCH`: Name of the git branch.
+- `MAIN_WORKTREE_PATH`: Path to the main repository.
+- `WORKTREE_PATH`: Path to the new worktree being created or removed.
+- `WORKTREE_NAME`: Name of the worktree (directory name).
+
+### Special Commands
+
+- `link_topsymlinks`: This is a high-level automation command that:
+  - Symlinks all untracked and ignored files from the root of the main worktree to the new worktree (excluding subdirectories).
+  - Symlinks common editor configurations (`.vscode`, `.idea`, `.cursor`, `.claude`).
+  - Ensures a `tmp/` directory exists in the new worktree.
+  - Automatically runs `direnv allow` if a `.envrc` file is present.
+
 ## Key Bindings
 
 | Key | Action |

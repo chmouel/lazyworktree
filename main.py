@@ -4,45 +4,9 @@
 # dependencies = [
 #     "textual",
 #     "rich",
+#     "PyYAML",
 # ]
 # ///
-#
-# From shell use something like this (zsh)
-# This add zsh completion as well so when i do pm <TAB> it will complete a worktree dir
-# worktree_jump() {
-#     local dir="$1"
-#     shift
-#     local repo_name
-#     repo_name=$(cd "${dir}" && gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
-#     [[ -z $repo_name ]] && repo_name=$(basename "${dir}")
-#     local wt_root="${HOME}/.local/share/worktrees/${repo_name}"
-#     if [[ -n $1 && -d ${wt_root}/$1 ]]; then
-#         cd "${wt_root}/$1"
-#         return
-#     fi
-#     cd "${dir}"
-#     rm -f /tmp/.chosen-worktree
-#     git-wt-status "$@" > /tmp/.chosen-worktree
-#     [[ -s /tmp/.chosen-worktree ]] && cd "$(cat /tmp/.chosen-worktree)"
-# }
-#
-# _worktree_jump() {
-#     local dir="$1"
-#     local repo_name
-#     repo_name=$(cd "${dir}" && gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
-#     [[ -z $repo_name ]] && repo_name=$(basename "${dir}")
-#     local wt_root="${HOME}/.local/share/worktrees/${repo_name}"
-#     local -a dirs
-#     dirs=(${wt_root}/*(/:t))
-#     _describe 'worktree' dirs
-# }
-#
-# if [[ -d ~/git/pac/main/ ]]; then
-#     pm() { worktree_jump ~/git/pac/main "$@"; }
-#     _pm() { _worktree_jump ~/git/pac/main; }
-#     compdef _pm pm
-#     alias pmm="cd ~/git/pac/main/"
-# fi
 #
 import asyncio
 import json
@@ -52,8 +16,10 @@ import sys
 import webbrowser
 import shutil
 import re
+import yaml
 from dataclasses import dataclass
 from typing import List, Optional, Iterable
+
 
 from textual import on, work, events
 from textual.app import App, ComposeResult
@@ -1412,6 +1378,97 @@ class GitWtStatus(App):
         self.update_details_view()
         self.notify("PR data fetched successfully!")
 
+    async def _get_main_worktree_path(self) -> str:
+        """Find the main worktree path."""
+        try:
+            raw_wts = await self.run_git(["git", "worktree", "list", "--porcelain"])
+            for line in raw_wts.splitlines():
+                if line.startswith("worktree "):
+                    return line.split(" ", 1)[1]
+        except Exception:
+            pass
+        return os.getcwd()
+
+    async def _link_topsymlinks(self, main_path: str, target_path: str) -> None:
+        """Symlink untracked/ignored files and editor configs from main worktree."""
+        try:
+            # Get ignored/untracked files from main worktree (root only)
+            process = await asyncio.create_subprocess_exec(
+                "git",
+                "ls-files",
+                "--others",
+                "--ignored",
+                "--exclude-standard",
+                cwd=main_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await process.communicate()
+            out = stdout.decode(errors="replace")
+
+            for line in out.splitlines():
+                line = line.strip()
+                # Skip subdirectories and specific files
+                if (
+                    not line
+                    or "/" in line
+                    or line == ".DS_Store"
+                    or ".mypy_cache" in line
+                ):
+                    continue
+                src = os.path.join(main_path, line)
+                dst = os.path.join(target_path, line)
+                if os.path.exists(src) and not os.path.exists(dst):
+                    try:
+                        os.symlink(src, dst)
+                    except OSError:
+                        pass
+
+            # Symlink editor configs
+            for editordir in [".cursor", ".claude", ".idea", ".vscode"]:
+                src = os.path.join(main_path, editordir)
+                dst = os.path.join(target_path, editordir)
+                if os.path.isdir(src) and not os.path.exists(dst):
+                    try:
+                        os.symlink(src, dst)
+                    except OSError:
+                        pass
+
+            # Ensure tmp directory exists
+            os.makedirs(os.path.join(target_path, "tmp"), exist_ok=True)
+
+            # Direnv support
+            if os.path.exists(os.path.join(target_path, ".envrc")) and shutil.which(
+                "direnv"
+            ):
+                process = await asyncio.create_subprocess_exec(
+                    "direnv", "allow", ".", cwd=target_path
+                )
+                await process.communicate()
+        except Exception as e:
+            self.notify(f"Error in link_topsymlinks: {e}", severity="error")
+
+    async def _run_wt_commands(self, commands: List[str], cwd: str, env: dict) -> None:
+        """Run initialization or termination commands from .wt config."""
+        for cmd in commands:
+            if cmd == "link_topsymlinks":
+                main_path = env.get("MAIN_WORKTREE_PATH")
+                if main_path:
+                    await self._link_topsymlinks(main_path, cwd)
+            else:
+                expanded_cmd = os.path.expandvars(cmd)
+                try:
+                    process = await asyncio.create_subprocess_shell(
+                        expanded_cmd,
+                        cwd=cwd,
+                        env=env,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+                    await process.communicate()
+                except Exception as e:
+                    self.notify(f"Error running command '{cmd}': {e}", severity="error")
+
     def action_sort(self) -> None:
         self.sort_by_active = not self.sort_by_active
         sort_name = "Last Active" if self.sort_by_active else "Path"
@@ -1437,32 +1494,58 @@ class GitWtStatus(App):
         self.push_screen(HelpScreen())
 
     def action_create(self) -> None:
-        def on_submit(name: Optional[str]):
+        async def on_submit(name: Optional[str]):
             if not name:
                 return
-
-            # Sanitize
             name = name.strip()
             if not name:
                 return
 
             self.notify(f"Creating worktree {name}...")
-            self.repo_name = self._get_repo_key()
-            new_path_root = os.path.expanduser(f"{WORKTREE_DIR}/{self.repo_name}")
+            repo_key = self._get_repo_key()
+            new_path_root = os.path.expanduser(f"{WORKTREE_DIR}/{repo_key}")
             new_path = os.path.join(new_path_root, name)
             os.makedirs(new_path_root, exist_ok=True)
 
             try:
+                main_path = await self._get_main_worktree_path()
                 # Run git worktree add
-                subprocess.run(["git", "worktree", "add", new_path, name], check=True)
+                process = await asyncio.create_subprocess_exec(
+                    "git", "worktree", "add", new_path, name
+                )
+                await process.communicate()
+
+                if process.returncode != 0:
+                    self.notify(f"Failed to create worktree {name}", severity="error")
+                    return
+
+                # Load .wt config
+                config_path = os.path.join(main_path, ".wt")
+                if os.path.exists(config_path):
+                    try:
+                        with open(config_path, "r") as f:
+                            config = yaml.safe_load(f)
+                        init_commands = config.get("init_commands", [])
+                        env = os.environ.copy()
+                        env["WORKTREE_BRANCH"] = name
+                        env["MAIN_WORKTREE_PATH"] = main_path
+                        env["WORKTREE_PATH"] = new_path
+                        env["WORKTREE_NAME"] = name
+                        await self._run_wt_commands(init_commands, new_path, env)
+                    except Exception as config_err:
+                        self.notify(
+                            f"Error loading .wt config: {config_err}", severity="error"
+                        )
+
                 self.notify(f"Created worktree {name}")
                 self.refresh_data()
-            except subprocess.CalledProcessError as e:
-                self.notify(f"Failed to create worktree: {e}", severity="error")
             except Exception as e:
                 self.notify(f"Error: {e}", severity="error")
 
-        self.push_screen(InputScreen("Enter new branch/worktree name:"), on_submit)
+        self.push_screen(
+            InputScreen("Enter new branch/worktree name:"),
+            lambda name: self.run_worker(on_submit(name)),
+        )
 
     async def _apply_delta(self, diff_text: str) -> tuple[str, bool]:
         use_delta = shutil.which("delta") is not None
@@ -1648,24 +1731,47 @@ class GitWtStatus(App):
             self.notify("Cannot delete main worktree", severity="error")
             return
 
-        def on_confirm(confirm: bool):
-            if confirm:
-                self.notify(f"Deleting {wt.branch}...")
-                try:
-                    subprocess.run(
-                        ["git", "worktree", "remove", "--force", path], check=True
-                    )
-                    subprocess.run(["git", "branch", "-D", wt.branch], check=True)
-                    self.notify("Worktree deleted")
-                    self.refresh_data()
-                except subprocess.CalledProcessError as e:
-                    self.notify(f"Failed to delete: {e}", severity="error")
+        async def do_delete(confirm: Optional[bool]):
+            if not confirm:
+                return
+            self.notify(f"Deleting {wt.branch}...")
+            try:
+                main_path = await self._get_main_worktree_path()
+                config_path = os.path.join(main_path, ".wt")
+                if os.path.exists(config_path):
+                    try:
+                        with open(config_path, "r") as f:
+                            config = yaml.safe_load(f)
+                        terminate_commands = config.get("terminate_commands", [])
+                        env = os.environ.copy()
+                        env["WORKTREE_BRANCH"] = wt.branch
+                        env["MAIN_WORKTREE_PATH"] = main_path
+                        env["WORKTREE_PATH"] = path
+                        env["WORKTREE_NAME"] = os.path.basename(path)
+                        await self._run_wt_commands(terminate_commands, main_path, env)
+                    except Exception as config_err:
+                        self.notify(
+                            f"Error loading .wt config: {config_err}", severity="error"
+                        )
+
+                process = await asyncio.create_subprocess_exec(
+                    "git", "worktree", "remove", "--force", path
+                )
+                await process.communicate()
+                process = await asyncio.create_subprocess_exec(
+                    "git", "branch", "-D", wt.branch
+                )
+                await process.communicate()
+                self.notify("Worktree deleted")
+                self.refresh_data()
+            except Exception as e:
+                self.notify(f"Failed to delete: {e}", severity="error")
 
         self.push_screen(
             ConfirmScreen(
                 f"Are you sure you want to delete worktree?\n\nPath: {path}\nBranch: {wt.branch}"
             ),
-            on_confirm,
+            lambda confirm: self.run_worker(do_delete(confirm)),
         )
 
     def action_absorb(self) -> None:
@@ -1687,31 +1793,56 @@ class GitWtStatus(App):
             self.notify("Cannot absorb main worktree", severity="error")
             return
 
-        def on_confirm(confirm: bool):
-            if confirm:
-                self.notify(f"Absorbing {wt.branch}...")
-                try:
-                    main_branch = asyncio.run(self.get_main_branch())
-                    subprocess.run(
-                        ["git", "checkout", main_branch], cwd=path, check=True
-                    )
-                    subprocess.run(
-                        ["git", "merge", "--no-edit", wt.branch], cwd=path, check=True
-                    )
-                    subprocess.run(
-                        ["git", "worktree", "remove", "--force", path], check=True
-                    )
-                    subprocess.run(["git", "branch", "-D", wt.branch], check=True)
-                    self.notify("Worktree absorbed successfully")
-                    self.refresh_data()
-                except subprocess.CalledProcessError as e:
-                    self.notify(f"Failed to absorb: {e}", severity="error")
+        async def do_absorb(confirm: Optional[bool]):
+            if not confirm:
+                return
+            self.notify(f"Absorbing {wt.branch}...")
+            try:
+                main_path = await self._get_main_worktree_path()
+                config_path = os.path.join(main_path, ".wt")
+                if os.path.exists(config_path):
+                    try:
+                        with open(config_path, "r") as f:
+                            config = yaml.safe_load(f)
+                        terminate_commands = config.get("terminate_commands", [])
+                        env = os.environ.copy()
+                        env["WORKTREE_BRANCH"] = wt.branch
+                        env["MAIN_WORKTREE_PATH"] = main_path
+                        env["WORKTREE_PATH"] = path
+                        env["WORKTREE_NAME"] = os.path.basename(path)
+                        await self._run_wt_commands(terminate_commands, main_path, env)
+                    except Exception as config_err:
+                        self.notify(
+                            f"Error loading .wt config: {config_err}", severity="error"
+                        )
+
+                main_branch = await self.get_main_branch()
+                process = await asyncio.create_subprocess_exec(
+                    "git", "checkout", main_branch, cwd=path
+                )
+                await process.communicate()
+                process = await asyncio.create_subprocess_exec(
+                    "git", "merge", "--no-edit", wt.branch, cwd=path
+                )
+                await process.communicate()
+                process = await asyncio.create_subprocess_exec(
+                    "git", "worktree", "remove", "--force", path
+                )
+                await process.communicate()
+                process = await asyncio.create_subprocess_exec(
+                    "git", "branch", "-D", wt.branch
+                )
+                await process.communicate()
+                self.notify("Worktree absorbed successfully")
+                self.refresh_data()
+            except Exception as e:
+                self.notify(f"Failed to absorb: {e}", severity="error")
 
         self.push_screen(
             ConfirmScreen(
                 f"Absorb worktree to main branch?\n\nPath: {path}\nBranch: {wt.branch}\n\nThis will merge changes to main and delete the worktree."
             ),
-            on_confirm,
+            lambda confirm: self.run_worker(do_absorb(confirm)),
         )
 
     def action_lazygit(self) -> None:
