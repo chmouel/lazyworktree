@@ -147,6 +147,13 @@ class GitWtStatus(App):
         self._repo_key: Optional[str] = None
         self._cache: dict = {}
         self._divergence_cache: dict = {}
+        self._notified_errors: set[str] = set()
+
+    def _notify_once(self, key: str, message: str, severity: str = "error") -> None:
+        if key in self._notified_errors:
+            return
+        self._notified_errors.add(key)
+        self.notify(message, severity=severity)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -243,18 +250,29 @@ class GitWtStatus(App):
         repo_name = ""
         try:
             repo_name = subprocess.check_output(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"], text=True, stderr=subprocess.DEVNULL).strip()
-        except Exception: repo_name = ""
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            repo_name = ""
+        except Exception as exc:
+            self._notify_once("repo_name_gh", f"Failed to resolve repo name via gh: {exc}")
+            repo_name = ""
         if not repo_name:
             try:
                 remote_url = subprocess.check_output(["git", "remote", "get-url", "origin"], text=True, stderr=subprocess.DEVNULL).strip()
                 match = re.search(r"[:/]([^/]+/[^/]+)(\.git)?$", remote_url)
                 if match: repo_name = match.group(1)
-            except Exception: pass
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                pass
+            except Exception as exc:
+                self._notify_once("repo_name_remote", f"Failed to resolve repo name from origin: {exc}")
         if not repo_name:
             try:
                 toplevel = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True, stderr=subprocess.DEVNULL).strip()
                 repo_name = os.path.basename(toplevel)
-            except Exception: repo_name = "unknown"
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                repo_name = "unknown"
+            except Exception as exc:
+                self._notify_once("repo_name_toplevel", f"Failed to resolve repo name from git: {exc}")
+                repo_name = "unknown"
         return repo_name or "unknown"
 
     def _get_repo_key(self) -> str:
@@ -277,7 +295,10 @@ class GitWtStatus(App):
             cache_path = self._cache_file()
             if os.path.exists(cache_path):
                 with open(cache_path, "r", encoding="utf-8") as f: return json.load(f)
-        except Exception: pass
+        except json.JSONDecodeError as exc:
+            self._notify_once("cache_decode", f"Invalid cache file format: {exc}")
+        except OSError as exc:
+            self._notify_once("cache_read", f"Failed to read cache file: {exc}")
         return {}
 
     def _save_cache(self, data: dict) -> None:
@@ -285,7 +306,8 @@ class GitWtStatus(App):
             cache_path = self._cache_file()
             os.makedirs(os.path.dirname(cache_path), exist_ok=True)
             with open(cache_path, "w", encoding="utf-8") as f: json.dump(data, f)
-        except Exception: pass
+        except OSError as exc:
+            self._notify_once("cache_write", f"Failed to write cache file: {exc}")
 
     def _write_last_selected(self, path: str) -> None:
         if not path: return
@@ -293,7 +315,8 @@ class GitWtStatus(App):
         try:
             os.makedirs(os.path.dirname(last_selected), exist_ok=True)
             with open(last_selected, "w", encoding="utf-8") as handle: handle.write(f"{path}\n")
-        except Exception: pass
+        except OSError as exc:
+            self._notify_once("last_selected_write", f"Failed to save last selected worktree: {exc}")
 
     def _select_worktree(self, path: str) -> None:
         if path:
@@ -305,10 +328,22 @@ class GitWtStatus(App):
         try:
             proc = await asyncio.create_subprocess_exec(*args, cwd=cwd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
             stdout, stderr = await proc.communicate()
-            if proc.returncode not in set(ok_returncodes): return ""
+            if proc.returncode not in set(ok_returncodes):
+                detail = stderr.decode(errors="replace").strip() or stdout.decode(errors="replace").strip()
+                command = " ".join(args)
+                suffix = f": {detail}" if detail else f" (exit {proc.returncode})"
+                self._notify_once(f"git_fail:{cwd}:{command}", f"Command failed: {command}{suffix}")
+                return ""
             out = stdout.decode(errors="replace")
             return out.strip() if strip else out
-        except Exception: return ""
+        except FileNotFoundError as exc:
+            command = args[0] if args else "command"
+            self._notify_once(f"cmd_missing:{command}", f"Command not found: {command}")
+            return ""
+        except Exception as exc:
+            command = " ".join(args)
+            self._notify_once(f"cmd_error:{cwd}:{command}", f"Failed to run command: {command}: {exc}")
+            return ""
 
     async def _run_command_checked(self, args: List[str], cwd: Optional[str], error_prefix: str) -> bool:
         try:
@@ -382,7 +417,8 @@ class GitWtStatus(App):
             try:
                 prs = json.loads(pr_raw)
                 for p in prs: pr_map[p["headRefName"]] = PRInfo(p["number"], p["state"], p["title"], p["url"])
-            except Exception: pass
+            except json.JSONDecodeError as exc:
+                self._notify_once("pr_json_decode", f"Failed to parse PR data: {exc}")
         for wt in self.worktrees:
             if wt.branch in pr_map: wt.pr = pr_map[wt.branch]
         self._pr_data_loaded = True
