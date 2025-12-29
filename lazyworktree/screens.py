@@ -77,15 +77,22 @@ class InputScreen(ModalScreen[str]):
     }
     """
 
-    def __init__(self, prompt: str, placeholder: str = ""):
+    def __init__(self, prompt: str, placeholder: str = "", value: str = ""):
         super().__init__()
         self.prompt = prompt
         self.placeholder = placeholder
+        self.value = value
 
     def compose(self) -> ComposeResult:
         with Container(id="dialog"):
             yield Label(self.prompt)
-            yield Input(placeholder=self.placeholder)
+            yield Input(value=self.value, placeholder=self.placeholder)
+
+    def on_mount(self) -> None:
+        input_widget = self.query_one(Input)
+        input_widget.focus()
+        if self.value:
+            input_widget.select_all()
 
     @on(Input.Submitted)
     def submit(self, event: Input.Submitted):

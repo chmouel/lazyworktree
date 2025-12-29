@@ -51,6 +51,7 @@ class GitWtStatusCommands(Provider):
     COMMANDS = [
         ("Jump to worktree", "jump", "Jump to selected worktree"),
         ("Create worktree", "create", "Create a new worktree"),
+        ("Rename worktree", "rename", "Rename selected worktree"),
         ("Delete worktree", "delete", "Delete selected worktree"),
         ("Absorb worktree", "absorb", "Merge worktree to main and delete it"),
         ("View diff", "diff", "View full diff of changes"),
@@ -135,6 +136,7 @@ class GitWtStatus(App):
         Binding("f", "fetch", "Fetch", show=False),
         Binding("p", "fetch_prs", "PR Info"),
         Binding("c", "create", "Create", show=False),
+        Binding("m", "rename", "Rename", show=False),
         Binding("d", "diff", "Diff"),
         Binding("D", "delete", "Delete"),
         Binding("s", "sort", "Sort", show=False),
@@ -1292,6 +1294,57 @@ class GitWtStatus(App):
         status_log.scroll_home(animate=False)
         status_log.focus()
         self._set_focused_pane(status_log)
+
+    def action_rename(self) -> None:
+        table = self.query_one("#worktree-table", DataTable)
+        if table.row_count == 0:
+            return
+        try:
+            row_key = table.coordinate_to_cell_key((table.cursor_row, 0)).row_key
+            path = str(row_key.value)
+        except Exception:
+            return
+        wt = next((w for w in self.worktrees if w.path == path), None)
+        if not wt:
+            return
+        if wt.is_main:
+            self.notify("Cannot rename main worktree", severity="error")
+            return
+
+        async def do_rename(new_name: Optional[str]):
+            if not new_name:
+                return
+            new_name = new_name.strip()
+            if not new_name or new_name == wt.branch:
+                return
+
+            self.notify(f"Renaming {wt.branch} to {new_name}...")
+            repo_key = self._get_repo_key()
+            new_path_root = os.path.expanduser(f"{self.worktree_dir}/{repo_key}")
+            new_path = os.path.join(new_path_root, new_name)
+
+            if os.path.exists(new_path):
+                self.notify(f"Destination {new_path} already exists", severity="error")
+                return
+
+            try:
+                success = await self._git.rename_worktree(
+                    path, new_path, wt.branch, new_name
+                )
+                if success:
+                    self.notify(f"Renamed worktree to {new_name}")
+                    self.refresh_data()
+            except Exception as e:
+                self.notify(f"Failed to rename: {e}", severity="error")
+
+        self.push_screen(
+            InputScreen(
+                f"Enter new name for '{wt.branch}':",
+                value=wt.branch,
+                placeholder=wt.branch,
+            ),
+            lambda name: self.run_worker(do_rename(name)),
+        )
 
     def action_delete(self) -> None:
         table = self.query_one("#worktree-table", DataTable)

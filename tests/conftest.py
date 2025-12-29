@@ -51,6 +51,7 @@ def fake_repo(tmp_path: Path) -> FakeRepo:
     _git(["init", "-b", "main"], cwd=repo, env=env)
     _git(["config", "user.name", "Test User"], cwd=repo, env=env)
     _git(["config", "user.email", "test@example.com"], cwd=repo, env=env)
+    _git(["config", "commit.gpgsign", "false"], cwd=repo, env=env)
 
     (repo / "README.md").write_text("hello\n", encoding="utf-8")
     _git(["add", "README.md"], cwd=repo, env=env)

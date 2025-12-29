@@ -295,3 +295,32 @@ class GitService:
             if line.startswith("worktree "):
                 return line.split(" ", 1)[1]
         return os.getcwd()
+
+    async def rename_worktree(
+        self, old_path: str, new_path: str, old_branch: str, new_branch: str
+    ) -> bool:
+        # 1. Move the worktree directory
+        moved = await self.run_command_checked(
+            ["git", "worktree", "move", old_path, new_path],
+            cwd=None,
+            error_prefix=f"Failed to move worktree from {old_path} to {new_path}",
+        )
+        if not moved:
+            return False
+
+        # 2. Rename the branch
+        # We can run this from anywhere, but let's run it from the new path to be safe
+        renamed = await self.run_command_checked(
+            ["git", "branch", "-m", old_branch, new_branch],
+            cwd=new_path,
+            error_prefix=f"Failed to rename branch from {old_branch} to {new_branch}",
+        )
+        if not renamed:
+            # Attempt to rollback worktree move?
+            # It's risky to auto-rollback as it might fail too.
+            # For now, we report the partial failure via the return value (False)
+            # but the UI has already seen the move succeed.
+            # The user might end up with a moved worktree but old branch name.
+            pass
+
+        return renamed

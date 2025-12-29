@@ -6,7 +6,7 @@ A Textual-based TUI for managing Git worktrees efficiently. Visualize status, ma
 
 ## Features
 
-- **Worktree Management**: Create, delete, and absorb worktrees seamlessly.
+- **Worktree Management**: Create, rename, delete, and absorb worktrees seamlessly.
 - **Status at a Glance**: View dirty state, ahead/behind counts, and divergence from main.
 - **Forge Integration**: Fetch and display associated Pull Request (GitHub) or Merge Request (GitLab) status (via `gh` or `glab` CLI).
 - **Diff Viewer**: Integrated diff viewer with optional `delta` support.
