@@ -170,6 +170,14 @@ Notes:
 - Set `auto_fetch_prs` to `true` to fetch PR data on startup.
 - Use `max_untracked_diffs: 0` to hide untracked diffs; `max_diff_chars: 0` disables truncation.
 
+## Speed performance
+
+`lazyworktree` is designed to be super snappy:
+
+- **Caching**: It stores the state of your worktrees in `.worktree-cache.json` within your repository-specific folder in your worktree root. This allows the TUI to render in milliseconds upon startup.
+- **Background Updates**: As soon as the UI is visible, a background task refreshes the data from Git and updates the cache automatically.
+- **Welcome Screen**: If no worktrees are detected (e.g., during first-time use or in an unconfigured directory), a welcome screen guides you through the setup.
+
 ## Copyright
 
 [Apache-2.0](./LICENSE)

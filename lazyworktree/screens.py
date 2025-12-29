@@ -442,3 +442,70 @@ class CommitDiffScroll(VerticalScroll):
         screen = getattr(self, "screen", None)
         if screen and hasattr(screen, "_set_header_collapsed"):
             screen._set_header_collapsed(self.scroll_y > 0)
+
+
+class WelcomeScreen(ModalScreen):
+    CSS = """
+    WelcomeScreen {
+        align: center middle;
+    }
+    #dialog {
+        grid-size: 1;
+        grid-gutter: 1;
+        grid-rows: auto auto auto 1fr;
+        padding: 1 2;
+        width: 70;
+        height: 60%;
+        border: thick $primary;
+        background: $surface;
+    }
+    #title {
+        content-align: center middle;
+        text-style: bold;
+        color: $accent;
+        height: 3;
+    }
+    #message {
+        content-align: center middle;
+        height: auto;
+        margin: 1 0;
+    }
+    #buttons {
+        layout: horizontal;
+        align: center middle;
+        height: auto;
+        margin-top: 2;
+    }
+    Button {
+        margin: 0 1;
+    }
+    """
+    
+    def __init__(self, current_dir: str, worktree_dir: str):
+        super().__init__()
+        self.current_dir = current_dir
+        self.worktree_dir = worktree_dir
+
+    def compose(self) -> ComposeResult:
+        with Container(id="dialog"):
+            yield Label("Welcome to LazyWorktree", id="title")
+            yield Label(
+                f"No worktrees found.\n\n"
+                f"Current Directory: [yellow]{self.current_dir}[/]\n"
+                f"Worktree Root: [blue]{self.worktree_dir}[/]\n\n"
+                "Please ensure you are in a git repository or the configured worktree root.\n"
+                "You may need to initialize a repository or configure 'worktree_dir' in config.",
+                id="message"
+            )
+            with Container(id="buttons"):
+                yield Button("Quit", variant="error", id="quit")
+                yield Button("Retry", variant="primary", id="retry")
+
+    @on(Button.Pressed, "#quit")
+    def action_quit(self):
+        self.app.exit()
+
+    @on(Button.Pressed, "#retry")
+    def action_retry(self):
+        self.dismiss(True)
+
