@@ -673,7 +673,10 @@ class GitWtStatus(App):
                 index = table.get_row_index(current_row_key)
                 table.move_cursor(row=index)
             except Exception:
-                pass
+                if table.row_count > 0:
+                    table.move_cursor(row=0)
+        elif table.row_count > 0:
+            table.move_cursor(row=0)
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         table = self._try_query_one("#worktree-table", DataTable)
