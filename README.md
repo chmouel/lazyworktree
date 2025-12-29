@@ -8,7 +8,7 @@ A Textual-based TUI for managing Git worktrees efficiently. Visualize status, ma
 
 - **Worktree Management**: Create, delete, and absorb worktrees seamlessly.
 - **Status at a Glance**: View dirty state, ahead/behind counts, and divergence from main.
-- **GitHub Integration**: Fetch and display associated Pull Request status (via `gh` CLI).
+- **Forge Integration**: Fetch and display associated Pull Request (GitHub) or Merge Request (GitLab) status (via `gh` or `glab` CLI).
 - **Diff Viewer**: Integrated diff viewer with optional `delta` support.
 - **LazyGit Integration**: Launch `lazygit` directly for the selected worktree.
 - **Shell Integration**: Jump (cd) directly to selected worktrees upon exit.
@@ -22,7 +22,7 @@ A Textual-based TUI for managing Git worktrees efficiently. Visualize status, ma
 
 - **Python**: 3.12+
 - **Git**: 2.31+ (recommended)
-- **GitHub CLI (`gh`)**: Required for repo resolution and PR status.
+- **Forge CLI**: GitHub CLI (`gh`) or GitLab CLI (`glab`) for repo resolution and PR/MR status.
 - **uv**: Recommended for dependency management and running.
 
 **Optional:**
@@ -131,7 +131,7 @@ You can configure this behavior in `config.yaml` via the `trust_mode` setting:
 | `c` | Create new worktree |
 | `D` | Delete selected worktree |
 | `d` | View diff (auto-refreshes) |
-| `p` | Fetch GitHub PR status |
+| `p` | Fetch PR/MR status |
 | `g` | Open LazyGit |
 | `r` | Refresh list |
 | `/` | Filter worktrees |
@@ -141,7 +141,7 @@ You can configure this behavior in `config.yaml` via the `trust_mode` setting:
 
 Worktrees are expected to be organized under
 `~/.local/share/worktrees/<repo_name>` by default, though the script attempts
-to resolve locations via `gh repo view`.
+to resolve locations via `gh repo view` or `glab repo view`.
 
 ### Global Config (YAML)
 
