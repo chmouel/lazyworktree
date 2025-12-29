@@ -21,6 +21,7 @@ class FakeGit:
         cwd: str | None = None,
         ok_returncodes: Iterable[int] = (0,),
         strip: bool = True,
+        silent: bool = False,
     ) -> str:
         self.calls.append((tuple(args), cwd))
         out = self._outputs.get((tuple(args), cwd), "")

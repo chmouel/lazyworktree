@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 from typing import Iterable, Optional, Callable, Awaitable
 
 from .models import PRInfo, WorktreeInfo
@@ -22,6 +23,7 @@ class GitService:
         self._runner = runner
         self._semaphore = asyncio.Semaphore(24)
         self._main_branch: Optional[str] = None
+        self._git_host: Optional[str] = None
 
     async def run_git(
         self,
@@ -29,6 +31,7 @@ class GitService:
         cwd: Optional[str] = None,
         ok_returncodes: Iterable[int] = (0,),
         strip: bool = True,
+        silent: bool = False,
     ) -> str:
         if self._runner is not None:
             return await self._runner(
@@ -43,6 +46,8 @@ class GitService:
             )
             stdout, stderr = await proc.communicate()
             if proc.returncode not in set(ok_returncodes):
+                if silent:
+                    return ""
                 detail = (
                     stderr.decode(errors="replace").strip()
                     or stdout.decode(errors="replace").strip()
@@ -58,6 +63,8 @@ class GitService:
             out = stdout.decode(errors="replace")
             return out.strip() if strip else out
         except FileNotFoundError:
+            if silent:
+                return ""
             command = args[0] if args else "command"
             self._notify_once(
                 f"cmd_missing:{command}",
@@ -66,6 +73,8 @@ class GitService:
             )
             return ""
         except Exception as exc:
+            if silent:
+                return ""
             command = " ".join(args)
             self._notify_once(
                 f"cmd_error:{cwd}:{command}",
@@ -190,7 +199,66 @@ class GitService:
 
         return await asyncio.gather(*(get_wt_info(wt) for wt in wts))
 
+    async def _detect_host(self) -> str:
+        if self._git_host:
+            return self._git_host
+        # Try finding origin URL
+        try:
+            remote_url = await self.run_git(
+                ["git", "remote", "get-url", "origin"], silent=True
+            )
+            # Match standard git URLs:
+            # git@github.com:user/repo.git
+            # https://github.com/user/repo.git
+            # ssh://git@gitlab.com:2222/user/repo.git
+            match = re.search(
+                r"(?:git@|https?://|ssh://|git://)(?:[^@]+@)?([^/:]+)", remote_url
+            )
+            if match:
+                hostname = match.group(1).lower()
+                if "gitlab" in hostname:
+                    self._git_host = "gitlab"
+                    return "gitlab"
+                if "github" in hostname:
+                    self._git_host = "github"
+                    return "github"
+        except Exception:
+            pass
+
+        self._git_host = "unknown"
+        return "unknown"
+
+    async def _fetch_gitlab_prs(self) -> Optional[dict[str, PRInfo]]:
+        pr_raw = await self.run_git(
+            ["glab", "api", "merge_requests?state=all&per_page=100"], silent=False
+        )
+        if not pr_raw:
+            return None
+        try:
+            prs = json.loads(pr_raw)
+        except json.JSONDecodeError as exc:
+            self._notify_once(
+                "pr_json_decode_glab",
+                f"Failed to parse GLAB PR data: {exc}",
+                severity="error",
+            )
+            return None
+        pr_map: dict[str, PRInfo] = {}
+        for p in prs:
+            state = p.get("state", "").upper()
+            if state == "OPENED":
+                state = "OPEN"
+            pr_map[p["source_branch"]] = PRInfo(
+                p["iid"], state, p["title"], p["web_url"]
+            )
+        return pr_map
+
     async def fetch_pr_map(self) -> Optional[dict[str, PRInfo]]:
+        host = await self._detect_host()
+        if host == "gitlab":
+            return await self._fetch_gitlab_prs()
+
+        # Default to github logic (or if explicitly detected)
         pr_raw = await self.run_git(
             [
                 "gh",
@@ -202,7 +270,8 @@ class GitService:
                 "headRefName,state,number,title,url",
                 "--limit",
                 "100",
-            ]
+            ],
+            silent=host == "unknown",  # Silence if we aren't sure it's github
         )
         if pr_raw == "":
             return None

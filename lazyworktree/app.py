@@ -368,6 +368,29 @@ class GitWtStatus(App):
                 "repo_name_gh", f"Failed to resolve repo name via gh: {exc}"
             )
             repo_name = ""
+
+        if not repo_name:
+            try:
+                out = subprocess.check_output(
+                    ["glab", "repo", "view", "-F", "json"],
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                ).strip()
+                if out:
+                    data = json.loads(out)
+                    repo_name = data.get("path_with_namespace", "")
+            except (
+                FileNotFoundError,
+                subprocess.CalledProcessError,
+                json.JSONDecodeError,
+            ):
+                repo_name = ""
+            except Exception as exc:
+                self._notify_once(
+                    "repo_name_glab", f"Failed to resolve repo name via glab: {exc}"
+                )
+                repo_name = ""
+
         if not repo_name:
             try:
                 remote_url = subprocess.check_output(
