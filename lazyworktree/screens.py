@@ -480,7 +480,7 @@ class WelcomeScreen(ModalScreen):
         margin: 0 1;
     }
     """
-    
+
     def __init__(self, current_dir: str, worktree_dir: str):
         super().__init__()
         self.current_dir = current_dir
@@ -495,7 +495,7 @@ class WelcomeScreen(ModalScreen):
                 f"Worktree Root: [blue]{self.worktree_dir}[/]\n\n"
                 "Please ensure you are in a git repository or the configured worktree root.\n"
                 "You may need to initialize a repository or configure 'worktree_dir' in config.",
-                id="message"
+                id="message",
             )
             with Container(id="buttons"):
                 yield Button("Quit", variant="error", id="quit")
@@ -508,4 +508,3 @@ class WelcomeScreen(ModalScreen):
     @on(Button.Pressed, "#retry")
     def action_retry(self):
         self.dismiss(True)
-

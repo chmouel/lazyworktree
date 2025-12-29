@@ -519,7 +519,7 @@ class GitWtStatus(App):
         header = self.query_one(Header)
         header.loading = True
         self._pr_data_loaded = False
-        
+
         # Try to load from cache first for immediate feedback
         self._cache = self._load_cache()
         cached_wts = []
@@ -544,22 +544,24 @@ class GitWtStatus(App):
                     cached_wts.append(wt)
                 except Exception:
                     continue
-            
+
             if cached_wts:
                 self.worktrees = cached_wts
                 self.update_table()
 
         # Fetch fresh data
         self.worktrees = await self.get_worktrees()
-        
+
         if not self.worktrees and not self._cache.get("worktrees"):
-             def show_welcome():
-                 self.push_screen(
-                     WelcomeScreen(os.getcwd(), self.worktree_dir),
-                     self._welcome_callback
-                 )
-             self.call_from_thread(show_welcome)
-        
+
+            def show_welcome():
+                self.push_screen(
+                    WelcomeScreen(os.getcwd(), self.worktree_dir),
+                    self._welcome_callback,
+                )
+
+            show_welcome()
+
         cache_data = {
             "worktrees": [
                 {
@@ -580,17 +582,17 @@ class GitWtStatus(App):
             ]
         }
         self._save_cache(cache_data)
-        
+
         fetch_success: Optional[bool] = None
         if self._config.auto_fetch_prs and not self._auto_fetch_prs_done:
             self._auto_fetch_prs_done = True
             self.notify("Fetching PR data from GitHub...")
             fetch_success = await self.fetch_pr_data()
-            
+
         self.update_table()
         header.loading = False
         self.update_details_view()
-        
+
         if fetch_success is not None:
             if fetch_success:
                 self.notify("PR data fetched successfully!")
