@@ -74,6 +74,7 @@ class AppConfig:
     max_untracked_diffs: int = 10
     max_diff_chars: int = 200_000
     trust_mode: str = "tofu"
+    debug_log: str | None = None
 
 
 def _parse_config(data: object) -> AppConfig:
@@ -84,6 +85,13 @@ def _parse_config(data: object) -> AppConfig:
         worktree_dir = worktree_dir.strip() or None
     else:
         worktree_dir = None
+    
+    debug_log = data.get("debug_log")
+    if isinstance(debug_log, str):
+        debug_log = debug_log.strip() or None
+    else:
+        debug_log = None
+
     init_commands = tuple(normalize_command_list(data.get("init_commands")))
     terminate_commands = tuple(normalize_command_list(data.get("terminate_commands")))
     sort_by_active = _coerce_bool(data.get("sort_by_active"), True)
@@ -108,6 +116,7 @@ def _parse_config(data: object) -> AppConfig:
         max_untracked_diffs=max_untracked_diffs,
         max_diff_chars=max_diff_chars,
         trust_mode=trust_mode,
+        debug_log=debug_log,
     )
 
 

@@ -7,6 +7,7 @@ import shutil
 import re
 import yaml
 from pathlib import Path
+from datetime import datetime
 from typing import List, Optional, Iterable
 
 from textual import on, work, events
@@ -168,6 +169,17 @@ class GitWtStatus(App):
         self._auto_fetch_prs_done = False
         self._trust_manager = TrustManager()
         self._debounce_timer: Optional[Timer] = None
+
+    def log_debug(self, message: str) -> None:
+        if not self._config.debug_log:
+            return
+        try:
+            timestamp = datetime.now().isoformat()
+            with open(self._config.debug_log, "a", encoding="utf-8") as f:
+                f.write(f"[{timestamp}] {message}\n")
+        except Exception as e:
+            # Fallback to notify if logging fails, but don't recurse
+            self._notify_once("debug_log_fail", f"Failed to write to debug log: {e}")
 
     def _notify_once(self, key: str, message: str, severity: str = "error") -> None:
         if key in self._notified_errors:
@@ -1063,13 +1075,21 @@ class GitWtStatus(App):
                     self.notify("Operation cancelled")
                     return
 
+                self.log_debug(f"Creating worktree {name} at {new_path}")
                 process = await asyncio.create_subprocess_exec(
-                    "git", "worktree", "add", new_path, name
+                    "git", "worktree", "add", new_path, name,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
                 )
-                await process.communicate()
+                stdout, stderr = await process.communicate()
+                
                 if process.returncode != 0:
-                    self.notify(f"Failed to create worktree {name}", severity="error")
+                    err_msg = stderr.decode(errors="replace").strip()
+                    self.log_debug(f"Failed to create worktree {name}. Exit code: {process.returncode}\nStderr: {err_msg}")
+                    self.notify(f"Failed to create worktree {name}: {err_msg}", severity="error")
                     return
+                
+                self.log_debug(f"Worktree {name} created successfully")
 
                 init_commands = list(self._config.init_commands)
                 init_commands.extend(repo_cmds)

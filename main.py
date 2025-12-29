@@ -25,8 +25,16 @@ from lazyworktree.app import GitWtStatus
     default=None,
     help="Override the default worktree root directory.",
 )
+@click.option(
+    "--debug-log",
+    type=click.Path(dir_okay=False, writable=True),
+    default=None,
+    help="Path to debug log file.",
+)
 @click.argument("initial_filter", nargs=-1)
-def main(worktree_dir: str | None, initial_filter: tuple[str, ...]) -> None:
+def main(
+    worktree_dir: str | None, debug_log: str | None, initial_filter: tuple[str, ...]
+) -> None:
     config = load_config()
     resolved_dir = None
     if worktree_dir:
@@ -38,8 +46,12 @@ def main(worktree_dir: str | None, initial_filter: tuple[str, ...]) -> None:
         # Fallback to default if not specified anywhere
         resolved_dir = os.path.expanduser("~/.local/share/worktrees")
 
-    # Update config with the authoritative worktree_dir
-    config = replace(config, worktree_dir=resolved_dir)
+    # Update config with the authoritative worktree_dir and debug_log if provided
+    updates = {"worktree_dir": resolved_dir}
+    if debug_log:
+        updates["debug_log"] = os.path.expanduser(debug_log)
+    
+    config = replace(config, **updates)
 
     filter_value = " ".join(initial_filter).strip()
     app = GitWtStatus(initial_filter=filter_value, config=config)

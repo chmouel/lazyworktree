@@ -19,6 +19,7 @@ def test_load_config_from_path(tmp_path) -> None:
         "auto_fetch_prs: true\n"
         "max_untracked_diffs: 0\n"
         "max_diff_chars: 250000\n"
+        "debug_log: /tmp/debug.log\n"
         "init_commands:\n"
         "  - link_topsymlinks\n"
         "terminate_commands: echo bye\n",
@@ -28,6 +29,7 @@ def test_load_config_from_path(tmp_path) -> None:
     config = load_config(str(config_path))
 
     assert config.worktree_dir == "/tmp/worktrees"
+    assert config.debug_log == "/tmp/debug.log"
     assert list(config.init_commands) == ["link_topsymlinks"]
     assert list(config.terminate_commands) == ["echo bye"]
     assert config.sort_by_active is False
