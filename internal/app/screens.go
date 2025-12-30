@@ -70,11 +70,11 @@ type WelcomeScreen struct {
 
 // CommitScreen represents a commit detail screen
 type CommitScreen struct {
-	header      string
-	diff        string
-	useDelta    bool
-	viewport    viewport.Model
-	headerShown bool
+	meta     commitMeta
+	stat     string
+	diff     string
+	useDelta bool
+	viewport viewport.Model
 }
 
 // CommandPaletteScreen represents a simple command palette with filtering
@@ -805,17 +805,15 @@ func (s *WelcomeScreen) View() string {
 }
 
 // NewCommitScreen creates a new commit detail screen
-func NewCommitScreen(header, diff string, useDelta bool) *CommitScreen {
-	content := fmt.Sprintf("%s\n\n%s", header, diff)
-	vp := viewport.New(95, 95)
-	vp.SetContent(content)
+func NewCommitScreen(meta commitMeta, stat, diff string, useDelta bool) *CommitScreen {
+	vp := viewport.New(110, 60)
 
 	return &CommitScreen{
-		header:      header,
-		diff:        diff,
-		useDelta:    useDelta,
-		viewport:    vp,
-		headerShown: true,
+		meta:     meta,
+		stat:     stat,
+		diff:     diff,
+		useDelta: useDelta,
+		viewport: vp,
 	}
 }
 
@@ -856,10 +854,61 @@ func (s *CommitScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return s, cmd
 }
 
+func (s *CommitScreen) buildBody() string {
+	parts := []string{}
+	if strings.TrimSpace(s.stat) != "" {
+		parts = append(parts, s.stat)
+	}
+	if strings.TrimSpace(s.diff) != "" {
+		parts = append(parts, s.diff)
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+func (s *CommitScreen) renderHeader() string {
+	label := lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Bold(true)
+	value := lipgloss.NewStyle().Foreground(lipgloss.Color("15"))
+	subjectStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	bodyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("250"))
+
+	lines := []string{
+		fmt.Sprintf("%s %s", label.Render("Commit:"), value.Render(s.meta.sha)),
+		fmt.Sprintf("%s %s <%s>", label.Render("Author:"), value.Render(s.meta.author), value.Render(s.meta.email)),
+		fmt.Sprintf("%s %s", label.Render("Date:"), value.Render(s.meta.date)),
+	}
+	if s.meta.subject != "" {
+		lines = append(lines, "")
+		lines = append(lines, subjectStyle.Render(s.meta.subject))
+	}
+	if len(s.meta.body) > 0 {
+		for _, l := range s.meta.body {
+			if strings.TrimSpace(l) == "" {
+				lines = append(lines, "")
+				continue
+			}
+			lines = append(lines, bodyStyle.Render(l))
+		}
+	}
+
+	header := strings.Join(lines, "\n")
+	return lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("60")).
+		Padding(0, 1).
+		Render(header)
+}
+
 // View renders the commit screen
 func (s *CommitScreen) View() string {
-	width := 95
-	height := 95
+	width := maxInt(100, s.viewport.Width)
+	height := maxInt(30, s.viewport.Height)
+
+	// Set viewport content combining stats + diff; viewport scrolls the diff section
+	body := s.buildBody()
+	s.viewport.SetContent(body)
+
+	header := s.renderHeader()
+	content := lipgloss.JoinVertical(lipgloss.Left, header, s.viewport.View())
 
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -868,5 +917,5 @@ func (s *CommitScreen) View() string {
 		Width(width).
 		Height(height)
 
-	return boxStyle.Render(s.viewport.View())
+	return boxStyle.Render(content)
 }

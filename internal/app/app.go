@@ -48,11 +48,28 @@ type (
 		pruned    int
 		failed    int
 	}
+	commitLoadingMsg struct {
+		meta commitMeta
+	}
+	commitLoadedMsg struct {
+		meta commitMeta
+		stat string
+		diff string
+	}
 )
 
 type commitLogEntry struct {
 	sha     string
 	message string
+}
+
+type commitMeta struct {
+	sha     string
+	author  string
+	email   string
+	date    string
+	subject string
+	body    []string
 }
 
 const (
@@ -568,6 +585,16 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.statusContent = summary
 		return m, nil
+
+	case commitLoadingMsg:
+		m.currentScreen = screenCommit
+		m.commitScreen = NewCommitScreen(msg.meta, "Loading…", "", m.git.UseDelta())
+		return m, nil
+
+	case commitLoadedMsg:
+		m.commitScreen = NewCommitScreen(msg.meta, msg.stat, msg.diff, m.git.UseDelta())
+		m.currentScreen = screenCommit
+		return m, nil
 	}
 
 	return m, tea.Batch(cmds...)
@@ -717,8 +744,8 @@ func (m *AppModel) updateDetailsView() tea.Cmd {
 
 	wt := m.filteredWts[m.selectedIndex]
 	return func() tea.Msg {
-		// Get status
-		statusRaw := m.git.RunGit(m.ctx, []string{"git", "status", "--short"}, wt.Path, []int{0}, true, false)
+		// Get status (using porcelain format for reliable machine parsing)
+		statusRaw := m.git.RunGit(m.ctx, []string{"git", "status", "--porcelain=v2"}, wt.Path, []int{0}, true, false)
 		logRaw := m.git.RunGit(m.ctx, []string{"git", "log", "-20", "--pretty=format:%h%x09%s"}, wt.Path, []int{0}, true, false)
 
 		// Parse log
@@ -1173,15 +1200,53 @@ func (m *AppModel) openCommitView() tea.Cmd {
 	entry := m.logEntries[cursor]
 	wt := m.filteredWts[m.selectedIndex]
 
-	return func() tea.Msg {
-		header := m.git.RunGit(m.ctx, []string{"git", "show", "--quiet", "--pretty=fuller", entry.sha}, wt.Path, []int{0}, false, false)
+	loadingMeta := commitMeta{
+		sha:     entry.sha,
+		subject: "Loading commit…",
+	}
+
+	fetchCmd := func() tea.Msg {
+		metaRaw := m.git.RunGit(m.ctx, []string{"git", "show", "--quiet", "--pretty=format:%H%x1f%an%x1f%ae%x1f%ad%x1f%s%x1f%b", entry.sha}, wt.Path, []int{0}, false, false)
+		stat := m.git.RunGit(m.ctx, []string{"git", "show", "--stat", "--oneline", entry.sha}, wt.Path, []int{0}, false, false)
 		diff := m.git.RunGit(m.ctx, []string{"git", "show", "--patch", entry.sha}, wt.Path, []int{0}, false, false)
 		diff = m.git.ApplyDelta(diff)
 
-		m.currentScreen = screenCommit
-		m.commitScreen = NewCommitScreen(header, diff, m.git.UseDelta())
-		return nil
+		meta := parseCommitMeta(metaRaw)
+		return commitLoadedMsg{
+			meta: meta,
+			stat: stat,
+			diff: diff,
+		}
 	}
+
+	return tea.Batch(
+		func() tea.Msg { return commitLoadingMsg{meta: loadingMeta} },
+		fetchCmd,
+	)
+}
+
+func parseCommitMeta(raw string) commitMeta {
+	parts := strings.Split(raw, "\x1f")
+	meta := commitMeta{}
+	if len(parts) > 0 {
+		meta.sha = parts[0]
+	}
+	if len(parts) > 1 {
+		meta.author = parts[1]
+	}
+	if len(parts) > 2 {
+		meta.email = parts[2]
+	}
+	if len(parts) > 3 {
+		meta.date = parts[3]
+	}
+	if len(parts) > 4 {
+		meta.subject = parts[4]
+	}
+	if len(parts) > 5 {
+		meta.body = strings.Split(parts[5], "\n")
+	}
+	return meta
 }
 
 func (m *AppModel) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -1374,7 +1439,7 @@ func (m *AppModel) renderScreen() string {
 		return m.helpScreen.View()
 	case screenCommit:
 		if m.commitScreen == nil {
-			m.commitScreen = NewCommitScreen("", "", m.git.UseDelta())
+			m.commitScreen = NewCommitScreen(commitMeta{}, "", "", m.git.UseDelta())
 		}
 		return m.commitScreen.View()
 	case screenConfirm:
@@ -1896,36 +1961,72 @@ func (m *AppModel) buildStatusContent(statusRaw string) string {
 
 	lines := []string{}
 	for _, line := range strings.Split(statusRaw, "\n") {
-		if line == "" {
+		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 
-		// Parse git status --short format (XY filename)
-		if len(line) < 3 {
-			lines = append(lines, line)
+		// Parse git status --porcelain=v2 format
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
 			continue
 		}
 
-		status := line[:2]
-		filename := strings.TrimSpace(line[2:])
+		var status, filename string
 
-		// Format based on status
-		var formatted string
-		switch {
-		case strings.HasPrefix(status, "M"):
-			formatted = fmt.Sprintf("%s %s", modifiedStyle.Render("M "), filename)
-		case strings.HasPrefix(status, "A"):
-			formatted = fmt.Sprintf("%s %s", addedStyle.Render("A "), filename)
-		case strings.HasPrefix(status, "D"):
-			formatted = fmt.Sprintf("%s %s", deletedStyle.Render("D "), filename)
-		case strings.HasPrefix(status, "??"):
-			formatted = fmt.Sprintf("%s %s", untrackedStyle.Render("??"), filename)
-		case strings.HasPrefix(status, "R"):
-			formatted = fmt.Sprintf("%s %s", modifiedStyle.Render("R "), filename)
+		switch fields[0] {
+		case "1": // Ordinary changed entry: 1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
+			if len(fields) < 9 {
+				continue
+			}
+			status = fields[1] // XY status code (e.g., ".M", "M.", "MM")
+			filename = fields[8]
+		case "?": // Untracked: ? <path>
+			status = " ?" // Single ? with space for alignment
+			filename = fields[1]
+		case "2": // Renamed/copied: 2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path><sep><origPath>
+			if len(fields) < 10 {
+				continue
+			}
+			status = fields[1]
+			filename = fields[9]
 		default:
-			formatted = line
+			continue // Skip unhandled entry types
 		}
 
+		// Determine style based on status code
+		var style lipgloss.Style
+		x := status[0] // index status
+		y := status[1] // working tree status
+		switch {
+		case status == " ?":
+			style = untrackedStyle
+		case x == 'D' || y == 'D':
+			style = deletedStyle
+		case x == 'A' || y == 'A':
+			style = addedStyle
+		case x == 'M' || y == 'M' || x == '.' || y == '.':
+			style = modifiedStyle
+		case x == 'R' || y == 'R':
+			style = modifiedStyle
+		default:
+			style = lipgloss.NewStyle()
+		}
+
+		// Convert porcelain dots to spaces for display (. means "unchanged")
+		displayStatus := strings.ReplaceAll(status, ".", " ")
+
+		// Format: "XY filename" with proper alignment
+		// Render each status character separately to avoid ANSI codes wrapping spaces
+		var statusRendered string
+		for _, char := range displayStatus {
+			if char == ' ' {
+				statusRendered += " "
+			} else {
+				statusRendered += style.Render(string(char))
+			}
+		}
+
+		formatted := fmt.Sprintf("%s %s", statusRendered, filename)
 		lines = append(lines, formatted)
 	}
 	return strings.Join(lines, "\n")

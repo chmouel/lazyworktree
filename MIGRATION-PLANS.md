@@ -335,23 +335,25 @@ The Go port has a **solid architectural foundation** with proper separation of c
 ---
 
 ### 3.4 Commit Detail Viewer
-**Status:** Integrated
+**Status:** ✅ Complete (bug fix applied 2025-12-30)
 **Python Reference:** `lazyworktree/app.py:1235-1269`, `app.py:1572-1609`
 **Complexity:** Medium
 
 **Current Status:**
 - CommitScreen exists at `internal/app/screens.go:498-551`
 - Triggered on Enter in log pane; shows `git show` output with delta if available
+- ✅ **Bug Fixed (2025-12-30):** Resolved blank screen issue where viewport content was set after rendering, causing one-frame delay
 
 **Requirements:**
-- Press Enter in log pane to open commit detail
-- Show commit metadata: SHA, author, date, message
-- Show commit diff with syntax highlighting
-- Scrollable content with vim-style navigation
+- Press Enter in log pane to open commit detail ✅
+- Show commit metadata: SHA, author, date, message ✅
+- Show commit diff with syntax highlighting ✅
+- Scrollable content with vim-style navigation ✅
 - Header collapses on scroll (optional enhancement)
 
 **Files Modified:**
-- `internal/app/app.go`: Added commit selection handling at lines 359-369 and commit viewer logic
+- `internal/app/app.go`: Added commit selection handling and async commit loading with `commitLoadingMsg`/`commitLoadedMsg` pattern
+- `internal/app/screens.go`: CommitScreen.View() fixed to set viewport content before rendering (line 902-921)
 
 ---
 
@@ -605,6 +607,6 @@ The Go implementation will achieve feature parity when:
 
 ---
 
-**Last Updated:** 2025-12-30
-**Go Version:** Based on commit `2ced21c`
+**Last Updated:** 2025-12-30 (Commit view bug fix applied)
+**Go Version:** Based on commit `2ced21c` + commit view rendering fix
 **Python Version:** Latest on main branch
