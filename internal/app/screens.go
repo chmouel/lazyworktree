@@ -175,8 +175,17 @@ func (s *ConfirmScreen) View() string {
 		Height(height-6).
 		Align(lipgloss.Center, lipgloss.Center)
 
-	// Focused button gets highlighted background and reversed colors
-	focusedButtonStyle := lipgloss.NewStyle().
+	// Focused confirm button: white text on red background
+	focusedConfirmStyle := lipgloss.NewStyle().
+		Width((width-6)/2).
+		Align(lipgloss.Center).
+		Padding(0, 1).
+		Foreground(lipgloss.Color("0")). // Black
+		Background(lipgloss.Color("1")). // Red
+		Bold(true)
+
+	// Focused cancel button: black text on gray background
+	focusedCancelStyle := lipgloss.NewStyle().
 		Width((width-6)/2).
 		Align(lipgloss.Center).
 		Padding(0, 1).
@@ -192,12 +201,12 @@ func (s *ConfirmScreen) View() string {
 	var confirmButton, cancelButton string
 	if s.selectedButton == 0 {
 		// Confirm is focused
-		confirmButton = focusedButtonStyle.Render("[Confirm]")
+		confirmButton = focusedConfirmStyle.Render("[Confirm]")
 		cancelButton = unfocusedButtonStyle.Render("[Cancel]")
 	} else {
 		// Cancel is focused
 		confirmButton = unfocusedButtonStyle.Render("[Confirm]")
-		cancelButton = focusedButtonStyle.Render("[Cancel]")
+		cancelButton = focusedCancelStyle.Render("[Cancel]")
 	}
 
 	content := fmt.Sprintf("%s\n\n%s  %s",

@@ -143,9 +143,8 @@ type AppModel struct {
 	pendingDetailsIndex int
 
 	// Confirm screen
-	confirmScreen  *ConfirmScreen
-	confirmAction  func() tea.Cmd
-	confirmMessage string
+	confirmScreen *ConfirmScreen
+	confirmAction func() tea.Cmd
 
 	// Trust / repo commands
 	repoConfig      *config.RepoConfig
