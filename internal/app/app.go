@@ -1126,10 +1126,20 @@ func (m *Model) showPruneMerged() tea.Cmd {
 
 	m.confirmScreen = NewConfirmScreen("Prune merged PR worktrees?\n\n" + strings.Join(lines, "\n"))
 	m.confirmAction = func() tea.Cmd {
-		return func() tea.Msg {
+		// Collect terminate commands once (same for all worktrees in this repo)
+		terminateCmds := m.collectTerminateCommands()
+
+		// Build the prune routine that runs terminate commands per-worktree
+		pruneRoutine := func() tea.Msg {
 			pruned := 0
 			failed := 0
 			for _, wt := range merged {
+				// Run terminate commands for each worktree with its environment
+				if len(terminateCmds) > 0 {
+					env := m.buildCommandEnv(wt.Branch, wt.Path)
+					_ = m.git.ExecuteCommands(m.ctx, terminateCmds, wt.Path, env)
+				}
+
 				ok1 := m.git.RunCommandChecked(m.ctx, []string{"git", "worktree", "remove", "--force", wt.Path}, "", fmt.Sprintf("Failed to remove worktree %s", wt.Path))
 				ok2 := m.git.RunCommandChecked(m.ctx, []string{"git", "branch", "-D", wt.Branch}, "", fmt.Sprintf("Failed to delete branch %s", wt.Branch))
 				if ok1 && ok2 {
@@ -1146,6 +1156,9 @@ func (m *Model) showPruneMerged() tea.Cmd {
 				failed:    failed,
 			}
 		}
+
+		// Check trust for repo commands before running
+		return m.runCommandsWithTrust(terminateCmds, "", nil, pruneRoutine)
 	}
 	m.currentScreen = screenConfirm
 	return nil
