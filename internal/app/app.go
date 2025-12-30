@@ -87,6 +87,7 @@ type AppModel struct {
 	prDataLoaded  bool
 	repoKey       string
 	currentScreen screenType
+	helpScreen    *HelpScreen
 	inputScreen   *InputScreen
 	inputSubmit   func(string) (tea.Cmd, bool)
 	showingFilter bool
@@ -399,6 +400,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "?":
 			m.currentScreen = screenHelp
+			m.helpScreen = NewHelpScreen(m.windowWidth, m.windowHeight)
 			return m, nil
 
 		case "g":
@@ -861,10 +863,28 @@ func (m *AppModel) openCommitView() tea.Cmd {
 func (m *AppModel) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.currentScreen {
 	case screenHelp:
+		if m.helpScreen == nil {
+			m.helpScreen = NewHelpScreen(m.windowWidth, m.windowHeight)
+		}
 		if msg.String() == "q" || msg.String() == "esc" {
+			// If currently searching, esc clears search; otherwise close help
+			if m.helpScreen.searching || m.helpScreen.searchQuery != "" {
+				m.helpScreen.searching = false
+				m.helpScreen.searchInput.Blur()
+				m.helpScreen.searchInput.SetValue("")
+				m.helpScreen.searchQuery = ""
+				m.helpScreen.refreshContent()
+				return m, nil
+			}
 			m.currentScreen = screenNone
+			m.helpScreen = nil
 			return m, nil
 		}
+		hs, cmd := m.helpScreen.Update(msg)
+		if updated, ok := hs.(*HelpScreen); ok {
+			m.helpScreen = updated
+		}
+		return m, cmd
 	case screenConfirm:
 		if msg.String() == "y" || msg.String() == "enter" {
 			// Perform delete
@@ -908,8 +928,11 @@ func (m *AppModel) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *AppModel) renderScreen() string {
 	switch m.currentScreen {
 	case screenHelp:
-		helpScreen := NewHelpScreen()
-		return helpScreen.View()
+		if m.helpScreen == nil {
+			m.helpScreen = NewHelpScreen(m.windowWidth, m.windowHeight)
+		}
+		m.helpScreen.SetSize(m.windowWidth, m.windowHeight)
+		return m.helpScreen.View()
 	case screenConfirm:
 		if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
 			wt := m.filteredWts[m.selectedIndex]

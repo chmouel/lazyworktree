@@ -42,7 +42,13 @@ type InputScreen struct {
 
 // HelpScreen represents a help screen
 type HelpScreen struct {
-	viewport viewport.Model
+	viewport    viewport.Model
+	width       int
+	height      int
+	fullText    []string
+	searchInput textinput.Model
+	searching   bool
+	searchQuery string
 }
 
 // TrustScreen represents a trust confirmation screen
@@ -240,8 +246,8 @@ func (s *InputScreen) View() string {
 	return boxStyle.Render(content)
 }
 
-// NewHelpScreen creates a new help screen
-func NewHelpScreen() *HelpScreen {
+// NewHelpScreen creates a new help screen sized to the current window
+func NewHelpScreen(maxWidth, maxHeight int) *HelpScreen {
 	helpText := `# Git Worktree Status Help
 
 **Navigation**
@@ -287,12 +293,36 @@ func NewHelpScreen() *HelpScreen {
 PR data is not fetched by default for speed.
 Press p to fetch PR information from GitHub.`
 
-	vp := viewport.New(80, 30)
-	vp.SetContent(helpText)
-
-	return &HelpScreen{
-		viewport: vp,
+	width := 80
+	height := 30
+	if maxWidth > 0 {
+		width = minInt(120, maxInt(60, maxWidth))
 	}
+	if maxHeight > 0 {
+		height = minInt(60, maxInt(25, maxHeight))
+	}
+
+	vp := viewport.New(width, maxInt(5, height-3))
+	fullLines := strings.Split(helpText, "\n")
+
+	ti := textinput.New()
+	ti.Placeholder = "Search help (/ to start, Enter to apply, Esc to clear)"
+	ti.CharLimit = 64
+	ti.Prompt = "/ "
+	ti.SetValue("")
+	ti.Blur()
+	ti.Width = maxInt(20, width-6)
+
+	hs := &HelpScreen{
+		viewport:    vp,
+		width:       width,
+		height:      height,
+		fullText:    fullLines,
+		searchInput: ti,
+	}
+
+	hs.refreshContent()
+	return hs
 }
 
 // Init initializes the help screen
@@ -300,33 +330,108 @@ func (s *HelpScreen) Init() tea.Cmd {
 	return nil
 }
 
-// Update handles updates for the help screen
+// Update handles updates for the help screen, including search
 func (s *HelpScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "esc", "q":
-			return s, tea.Quit
+		case "/":
+			if !s.searching {
+				s.searching = true
+				s.searchInput.Focus()
+				return s, textinput.Blink
+			}
+		case "enter":
+			if s.searching {
+				s.searchQuery = strings.TrimSpace(s.searchInput.Value())
+				s.searching = false
+				s.searchInput.Blur()
+				s.refreshContent()
+				return s, nil
+			}
+		case "esc":
+			if s.searching || s.searchQuery != "" {
+				s.searching = false
+				s.searchInput.SetValue("")
+				s.searchQuery = ""
+				s.searchInput.Blur()
+				s.refreshContent()
+				return s, nil
+			}
 		}
 	}
+
+	if s.searching {
+		s.searchInput, cmd = s.searchInput.Update(msg)
+		return s, cmd
+	}
+
 	s.viewport, cmd = s.viewport.Update(msg)
 	return s, cmd
 }
 
-// View renders the help screen
+func (s *HelpScreen) refreshContent() {
+	content := s.renderContent()
+	s.viewport.SetContent(content)
+	s.viewport.GotoTop()
+}
+
+// SetSize updates the help screen dimensions (useful on terminal resize)
+func (s *HelpScreen) SetSize(width, height int) {
+	if width > 0 {
+		s.width = width
+	}
+	if height > 0 {
+		s.height = height
+	}
+	s.viewport.Width = s.width
+	s.viewport.Height = maxInt(5, s.height-2)
+}
+
+func (s *HelpScreen) renderContent() string {
+	if strings.TrimSpace(s.searchQuery) == "" {
+		return strings.Join(s.fullText, "\n")
+	}
+
+	query := strings.ToLower(s.searchQuery)
+	lineStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("229")).Background(lipgloss.Color("60")).Bold(true)
+	lines := []string{}
+	for _, line := range s.fullText {
+		if strings.Contains(strings.ToLower(line), query) {
+			lines = append(lines, lineStyle.Render(line))
+		}
+	}
+
+	if len(lines) == 0 {
+		return fmt.Sprintf("No help entries match %q", s.searchQuery)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// View renders the help screen as a full-screen overlay
 func (s *HelpScreen) View() string {
-	width := 80
-	height := 30
+	content := s.renderContent()
 
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("6")).
-		Padding(1, 2).
-		Width(width).
-		Height(height)
+	// Keep viewport sized to available area (minus header/search lines)
+	vHeight := maxInt(5, s.height-2)
+	s.viewport.Width = s.width
+	s.viewport.Height = vHeight
+	s.viewport.SetContent(content)
 
-	return boxStyle.Render(s.viewport.View())
+	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color("60")).Bold(true).Padding(0, 1)
+	title := titleStyle.Render(" Help — / search • q/esc close ")
+
+	searchLine := s.searchInput.View()
+
+	lines := []string{title}
+	if searchLine != "" {
+		lines = append(lines, searchLine)
+	}
+	lines = append(lines, s.viewport.View())
+
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 // NewTrustScreen creates a new trust screen
