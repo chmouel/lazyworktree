@@ -49,7 +49,7 @@ worktree_jump() {
 
     local tmp selected
     tmp=$(mktemp "${TMPDIR:-/tmp}/lazyworktree.selection.XXXXXX") || return 1
-    lazyworktree --output-selection="$tmp" "$@"
+    lazyworktree --output-selection="$tmp"
     local rc=$?
     if [[ $rc -ne 0 ]]; then
         rm -f "$tmp"
@@ -61,6 +61,36 @@ worktree_jump() {
         [[ -n "$selected" && -d "$selected" ]] && cd "$selected" || true
     fi
     rm -f "$tmp"
+}
+
+worktree_go_last() {
+    local dir="$1"
+    local id repo slug last_selected selected
+
+    if [[ -z "$dir" || ! -d "$dir" ]]; then
+        print -u2 "worktree_go_last: invalid directory: $dir"
+        return 1
+    fi
+
+    id=$(_git_repo_slug "$dir" 2>/dev/null)
+    if [[ -n "$id" ]]; then
+        slug=${id#*:}
+        repo="$slug"
+    else
+        repo=$(basename "$dir")
+    fi
+
+    last_selected="$HOME/.local/share/worktrees/$repo/.last-selected"
+    if [[ -f "$last_selected" ]]; then
+        selected=$(<"$last_selected")
+        if [[ -n "$selected" && -d "$selected" ]]; then
+            cd "$selected" || return 1
+            return
+        fi
+    fi
+
+    print -u2 "No last selected worktree found"
+    return 1
 }
 
 _worktree_jump() {

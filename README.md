@@ -76,11 +76,27 @@ Example configuration:
 source /path/to/lazyworktree/shell/functions.shell
 
 # Create an alias for a specific repository
-# assumes worktrees are stored in ~/.local/share/worktrees/<repo_name>
+# worktree storage key is derived from the origin remote (e.g. github.com:owner/repo)
+# and falls back to the directory basename when no remote is set.
 pm() { worktree_jump ~/path/to/your/main/repo "$@"; }
 ```
 
 Now you can run `pm` to open the TUI, select a worktree, and upon pressing `Enter`, your shell will `cd` into that directory.
+
+You can also jump directly to a worktree by name and enable completion:
+
+```bash
+pm() { worktree_jump ~/path/to/your/main/repo "$@"; }
+_pm() { _worktree_jump ~/path/to/your/main/repo; }
+compdef _pm pm
+```
+
+If you want a shortcut to the last-selected worktree, use the built-in
+`worktree_go_last` helper (reads the `.last-selected` file):
+
+```bash
+alias pl='worktree_go_last ~/path/to/your/main/repo'
+```
 
 ## Custom Initialization and Termination
 
