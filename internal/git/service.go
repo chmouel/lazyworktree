@@ -83,6 +83,40 @@ func (s *Service) UseDelta() bool {
 	return s.useDelta
 }
 
+// ExecuteCommands runs shell commands with optional environment and cwd
+func (s *Service) ExecuteCommands(ctx context.Context, commands []string, cwd string, env map[string]string) error {
+	for _, cmdStr := range commands {
+		if strings.TrimSpace(cmdStr) == "" {
+			continue
+		}
+		command := exec.CommandContext(ctx, "bash", "-lc", cmdStr)
+		if cwd != "" {
+			command.Dir = cwd
+		}
+		command.Env = append(os.Environ(), formatEnv(env)...)
+		out, err := command.CombinedOutput()
+		if err != nil {
+			detail := strings.TrimSpace(string(out))
+			if detail != "" {
+				return fmt.Errorf("%s: %s", cmdStr, detail)
+			}
+			return fmt.Errorf("%s: %w", cmdStr, err)
+		}
+	}
+	return nil
+}
+
+func formatEnv(env map[string]string) []string {
+	if len(env) == 0 {
+		return nil
+	}
+	formatted := make([]string, 0, len(env))
+	for k, v := range env {
+		formatted = append(formatted, fmt.Sprintf("%s=%s", k, v))
+	}
+	return formatted
+}
+
 // acquireSemaphore acquires a semaphore token
 func (s *Service) acquireSemaphore() {
 	<-s.semaphore

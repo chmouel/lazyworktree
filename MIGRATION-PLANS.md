@@ -9,14 +9,14 @@ The Go port has a **solid architectural foundation** with proper separation of c
 **Architecture Status:** ✅ Complete
 **Core TUI:** ✅ Complete
 **Git Operations:** ⚠️ Partial (rename works; create/delete/prune/absorb still stubbed)
-**Feature Parity:** ✅ ~65-70% complete (P2 diff/delta/debounced shipped; P1 mutations/.wt still missing)
+**Feature Parity:** ✅ ~70-75% complete (P1 mutations shipped; `.wt` commands/TOFU partially integrated; command palette still missing)
 
 **Recent Updates:**
 - ✅ Rename worktree implemented with modal validation (non-main guard, conflict checks)
 - ✅ Three-part diff with delta highlighting and auto-diff when dirty
 - ✅ Debounced detail view updates plus vim-style navigation and adaptive layout tuning
-- ✅ Create/Delete/Prune implemented (basic flows; `.wt`/TOFU/env commands still outstanding)
-- ✅ Absorb worktree, Welcome screen trigger, Commit detail viewer wired (no `.wt`/TOFU yet)
+- ✅ Create/Delete/Prune/Absorb implemented with init/terminate command hooks + TOFU prompt for `.wt`
+- ✅ Welcome screen trigger when empty repo; commit detail viewer integrated; help overlay searchable
 
 ---
 
@@ -77,13 +77,13 @@ The Go port has a **solid architectural foundation** with proper separation of c
 - Repository command loading (`.wt` file)
 
 **Files Modified:**
-- `internal/app/app.go`: `showCreateWorktree()` implemented with two-step prompts (branch + base)
+- `internal/app/app.go`: `showCreateWorktree()` implemented with two-step prompts (branch + base) and init commands (global + `.wt`) via TOFU prompt
 - `internal/app/screens.go`: InputScreen reused (no schema changes)
 
 ---
 
 ### 1.2 Delete Worktree Command
-**Status:** Implemented (confirmation + delete routine) at `internal/app/app.go:744-802`
+**Status:** Implemented (confirmation + delete routine + TOFU/.wt terminate commands) at `internal/app/app.go:744-802`
 **Python Reference:** `lazyworktree/app.py:1390-1419`, `app.py:1346-1388`
 **Complexity:** High
 
@@ -104,7 +104,7 @@ The Go port has a **solid architectural foundation** with proper separation of c
 - Repository command loading (`.wt` file)
 
 **Files Modified:**
-- `internal/app/app.go`: Delete workflow implemented (confirmation + routine)
+- `internal/app/app.go`: Delete workflow implemented (confirmation + routine, terminate commands with trust prompt)
 - Delete helper routine added (`deleteWorktreeCmd`)
 
 ---
@@ -143,6 +143,7 @@ The Go port has a **solid architectural foundation** with proper separation of c
 - Batch delete each worktree using delete routine
 - Show notification with count of successfully deleted worktrees
 - Refresh worktree list after completion
+**Note:** Terminate commands not applied yet during prune batch deletion
 
 **Dependencies:**
 - ConfirmScreen (already exists)
@@ -290,15 +291,15 @@ The Go port has a **solid architectural foundation** with proper separation of c
 ---
 
 ### 3.2 Repository-Specific Configuration (.wt files)
-**Status:** Security implemented, execution not integrated
+**Status:** Implemented (TOFU prompt; create/delete/absorb run `.wt` commands; prune pending)
 **Python Reference:** `lazyworktree/app.py:214-256`
 **Complexity:** High
 
 **Current Status:**
 - TrustManager exists at `internal/security/trust.go`
-- TOFU workflow implemented
-- Loading `.wt` file not implemented
-- Execution not integrated
+- TOFU workflow wired to `.wt` execution for create/delete/absorb
+- `.wt` loading implemented from repo root
+- Prune path still skips terminate commands (future improvement)
 
 **Requirements:**
 - Load `.wt` file from main repository root
@@ -307,9 +308,9 @@ The Go port has a **solid architectural foundation** with proper separation of c
 - Merge with global config commands
 - Execute with environment variables set
 
-**Files to Modify:**
-- `internal/config/config.go`: Add `.wt` file loading
-- `internal/app/app.go`: Integrate into create/delete workflows
+**Files Modified:**
+- `internal/config/config.go`: Added `.wt` file loading
+- `internal/app/app.go`: Integrated into create/delete/absorb workflows with trust prompt
 
 ---
 
@@ -416,9 +417,9 @@ The Go port has a **solid architectural foundation** with proper separation of c
 ## Implementation Roadmap
 
 ### Phase 1: Core Mutations (Weeks 1-2)
-- [ ] Implement `.wt` file loading and TOFU integration
-- [x] Implement Create Worktree (1.1) — basic flow without `.wt`/TOFU
-- [x] Implement Delete Worktree (1.2) — basic flow without `.wt`/TOFU
+- [x] Implement `.wt` file loading and TOFU integration (create/delete/absorb)
+- [x] Implement Create Worktree (1.1)
+- [x] Implement Delete Worktree (1.2)
 - [x] Implement Rename Worktree (1.3)
 
 ### Phase 2: Advanced Operations (Weeks 3-4)
@@ -430,8 +431,8 @@ The Go port has a **solid architectural foundation** with proper separation of c
 ### Phase 3: UX Polish (Week 5)
 - [ ] Add Command Palette (2.1)
 - [x] Add Debounced Updates (2.5)
-- [ ] Integrate Commit Detail Viewer (3.4)
-- [ ] Integrate Welcome Screen (3.3)
+- [x] Integrate Commit Detail Viewer (3.4)
+- [x] Integrate Welcome Screen (3.3)
 
 ### Phase 4: Advanced Features (Week 6)
 - [ ] Implement `link_topsymlinks` (3.1)
@@ -490,18 +491,18 @@ The Go port has a **solid architectural foundation** with proper separation of c
 - [x] Integrate CommitScreen (implemented at lines 498-551 and used)
 
 ### `internal/config/config.go`
-- [ ] Add `.wt` file loading
-- [ ] Add repository command merging
-- [ ] Add environment variable expansion utilities
+- [x] Add `.wt` file loading
+- [x] Add repository command merging
+- [x] Add environment variable expansion utilities
 
 ### `internal/git/service.go`
 - [x] Add `BuildThreePartDiff()` method (lines 530-590)
 - [x] Add `ApplyDelta()` method (lines 65-87)
-- [ ] Add `ExecuteRepoCommands()` method with environment
+- [x] Add `ExecuteRepoCommands()` method with environment
 
 ### `internal/security/trust.go`
-- [ ] Integrate TOFU workflow into app
-- [ ] Add trust screen trigger logic
+- [x] Integrate TOFU workflow into app
+- [x] Add trust screen trigger logic
 
 ### New Files to Create
 - [ ] `internal/commands/symlinks.go` - Special commands
@@ -578,18 +579,18 @@ The Go implementation will achieve feature parity when:
 | PR Integration | ✅ | ✅ | Complete | - |
 | Status View | ✅ | ✅ | Complete | - |
 | Log View | ✅ | ✅ | Complete | - |
-| Create Worktree | ✅ | ⚠️ | Basic (no `.wt`/TOFU) | P1 |
-| Delete Worktree | ✅ | ⚠️ | Basic (no `.wt`/TOFU) | P1 |
+| Create Worktree | ✅ | ✅ | Complete | P1 |
+| Delete Worktree | ✅ | ✅ | Complete | P1 |
 | Rename Worktree | ✅ | ✅ | Complete | P1 |
 | Prune Merged | ✅ | ✅ | Complete | P1 |
-| Absorb Worktree | ✅ | ⚠️ | Basic (no `.wt`/TOFU) | P2 |
+| Absorb Worktree | ✅ | ⚠️ | Basic (no `.wt`/TOFU terminate commands for prune) | P2 |
 | Diff View (Basic) | ✅ | ✅ | Complete | - |
 | Diff View (Full) | ✅ | ❌ | Missing | P2 |
 | Delta Integration | ✅ | ✅ | Complete | P2 |
 | Command Palette | ✅ | ❌ | Missing | P2 |
 | Commit Details | ✅ | ✅ | Complete | P3 |
 | Welcome Screen | ✅ | ✅ | Complete | P3 |
-| .wt Execution | ✅ | ❌ | Missing | P1 |
+| .wt Execution | ✅ | ⚠️ | Basic (TOFU prompt; prune batch pending) | P1 |
 | TOFU Security | ✅ | ⚠️ | Not integrated | P1 |
 | link_topsymlinks | ✅ | ❌ | Missing | P3 |
 | Debouncing | ✅ | ✅ | Complete | P2 |

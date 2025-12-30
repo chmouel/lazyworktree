@@ -94,6 +94,7 @@ type AppModel struct {
 	repoKey       string
 	currentScreen screenType
 	helpScreen    *HelpScreen
+	trustScreen   *TrustScreen
 	inputScreen   *InputScreen
 	inputSubmit   func(string) (tea.Cmd, bool)
 	commitScreen  *CommitScreen
@@ -124,6 +125,15 @@ type AppModel struct {
 	// Confirm callbacks
 	confirmAction  func() tea.Cmd
 	confirmMessage string
+
+	// Trust / repo commands
+	repoConfig      *config.RepoConfig
+	repoConfigPath  string
+	pendingCommands []string
+	pendingCmdEnv   map[string]string
+	pendingCmdCwd   string
+	pendingAfter    tea.Cmd
+	pendingTrust    string
 
 	// Log cache for commit detail viewer
 	logEntries []commitLogEntry
@@ -474,6 +484,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Handle error
 			return m, nil
 		}
+		m.ensureRepoConfig()
 		m.worktrees = msg.worktrees
 		m.updateTable()
 		m.saveCache()
@@ -811,27 +822,30 @@ func (m *AppModel) showCreateWorktree() tea.Cmd {
 			}
 
 			m.inputScreen.errorMsg = ""
-			return func() tea.Msg {
-				if err := os.MkdirAll(m.getWorktreeDir(), 0o755); err != nil {
-					return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)}
-				}
+			if err := os.MkdirAll(m.getWorktreeDir(), 0o755); err != nil {
+				return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }, true
+			}
 
-				ok := m.git.RunCommandChecked(
-					m.ctx,
-					[]string{"git", "worktree", "add", "-b", newBranch, targetPath, baseBranch},
-					"",
-					fmt.Sprintf("Failed to create worktree %s", newBranch),
-				)
-				if !ok {
-					return errMsg{err: fmt.Errorf("failed to create worktree %s", newBranch)}
-				}
+			ok := m.git.RunCommandChecked(
+				m.ctx,
+				[]string{"git", "worktree", "add", "-b", newBranch, targetPath, baseBranch},
+				"",
+				fmt.Sprintf("Failed to create worktree %s", newBranch),
+			)
+			if !ok {
+				return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree %s", newBranch)} }, true
+			}
 
+			env := m.buildCommandEnv(newBranch, targetPath)
+			initCmds := m.collectInitCommands()
+			after := func() tea.Msg {
 				worktrees, err := m.git.GetWorktrees(m.ctx)
 				return worktreesLoadedMsg{
 					worktrees: worktrees,
 					err:       err,
 				}
-			}, true
+			}
+			return m.runCommandsWithTrust(initCmds, targetPath, env, after), true
 		}
 
 		return textinput.Blink, false
@@ -999,14 +1013,23 @@ func (m *AppModel) showAbsorbWorktree() tea.Cmd {
 				_ = m.git.RunCommandChecked(m.ctx, []string{"git", "-C", wt.Path, "merge", "--no-edit", wt.Branch}, "", fmt.Sprintf("Failed to merge %s into %s", wt.Branch, mainBranch))
 			}
 
-			m.git.RunCommandChecked(m.ctx, []string{"git", "worktree", "remove", "--force", wt.Path}, "", fmt.Sprintf("Failed to remove worktree %s", wt.Path))
-			m.git.RunCommandChecked(m.ctx, []string{"git", "branch", "-D", wt.Branch}, "", fmt.Sprintf("Failed to delete branch %s", wt.Branch))
+			env := m.buildCommandEnv(wt.Branch, wt.Path)
+			terminateCmds := m.collectTerminateCommands()
+			after := func() tea.Msg {
+				m.git.RunCommandChecked(m.ctx, []string{"git", "worktree", "remove", "--force", wt.Path}, "", fmt.Sprintf("Failed to remove worktree %s", wt.Path))
+				m.git.RunCommandChecked(m.ctx, []string{"git", "branch", "-D", wt.Branch}, "", fmt.Sprintf("Failed to delete branch %s", wt.Branch))
 
-			worktrees, err := m.git.GetWorktrees(m.ctx)
-			return worktreesLoadedMsg{
-				worktrees: worktrees,
-				err:       err,
+				worktrees, err := m.git.GetWorktrees(m.ctx)
+				return worktreesLoadedMsg{
+					worktrees: worktrees,
+					err:       err,
+				}
 			}
+			cmd := m.runCommandsWithTrust(terminateCmds, wt.Path, env, after)
+			if cmd != nil {
+				return cmd()
+			}
+			return nil
 		}
 	}
 	m.currentScreen = screenConfirm
@@ -1014,17 +1037,21 @@ func (m *AppModel) showAbsorbWorktree() tea.Cmd {
 }
 
 func (m *AppModel) deleteWorktreeCmd(wt *models.WorktreeInfo) func() tea.Cmd {
-	return func() tea.Cmd {
-		return func() tea.Msg {
-			m.git.RunCommandChecked(m.ctx, []string{"git", "worktree", "remove", "--force", wt.Path}, "", fmt.Sprintf("Failed to remove worktree %s", wt.Path))
-			m.git.RunCommandChecked(m.ctx, []string{"git", "branch", "-D", wt.Branch}, "", fmt.Sprintf("Failed to delete branch %s", wt.Branch))
+	env := m.buildCommandEnv(wt.Branch, wt.Path)
+	terminateCmds := m.collectTerminateCommands()
+	afterCmd := func() tea.Msg {
+		m.git.RunCommandChecked(m.ctx, []string{"git", "worktree", "remove", "--force", wt.Path}, "", fmt.Sprintf("Failed to remove worktree %s", wt.Path))
+		m.git.RunCommandChecked(m.ctx, []string{"git", "branch", "-D", wt.Branch}, "", fmt.Sprintf("Failed to delete branch %s", wt.Branch))
 
-			worktrees, err := m.git.GetWorktrees(m.ctx)
-			return worktreesLoadedMsg{
-				worktrees: worktrees,
-				err:       err,
-			}
+		worktrees, err := m.git.GetWorktrees(m.ctx)
+		return worktreesLoadedMsg{
+			worktrees: worktrees,
+			err:       err,
 		}
+	}
+
+	return func() tea.Cmd {
+		return m.runCommandsWithTrust(terminateCmds, wt.Path, env, afterCmd)
 	}
 }
 
@@ -1140,6 +1167,42 @@ func (m *AppModel) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		}
+	case screenTrust:
+		if m.trustScreen == nil {
+			m.currentScreen = screenNone
+			return m, nil
+		}
+		switch msg.String() {
+		case "t", "T":
+			if m.pendingTrust != "" {
+				_ = m.trustManager.TrustFile(m.pendingTrust)
+			}
+			var after tea.Msg
+			if m.pendingAfter != nil {
+				after = m.pendingAfter()
+			}
+			cmd := m.runCommands(m.pendingCommands, m.pendingCmdCwd, m.pendingCmdEnv, after)
+			m.clearPendingTrust()
+			m.currentScreen = screenNone
+			return m, cmd
+		case "b", "B":
+			after := m.pendingAfter
+			m.clearPendingTrust()
+			m.currentScreen = screenNone
+			if after != nil {
+				return m, after
+			}
+			return m, nil
+		case "c", "C", "esc":
+			m.clearPendingTrust()
+			m.currentScreen = screenNone
+			return m, nil
+		}
+		ts, cmd := m.trustScreen.Update(msg)
+		if updated, ok := ts.(*TrustScreen); ok {
+			m.trustScreen = updated
+		}
+		return m, cmd
 	case screenCommit:
 		if m.commitScreen == nil {
 			m.currentScreen = screenNone
@@ -1208,6 +1271,11 @@ func (m *AppModel) renderScreen() string {
 		}
 		confirmScreen := NewConfirmScreen(msg)
 		return confirmScreen.View()
+	case screenTrust:
+		if m.trustScreen == nil {
+			return ""
+		}
+		return m.trustScreen.View()
 	case screenWelcome:
 		if m.welcomeScreen == nil {
 			cwd, _ := os.Getwd()
@@ -1277,6 +1345,109 @@ func (m *AppModel) getWorktreeDir() string {
 // GetSelectedPath returns the selected worktree path (for shell integration)
 func (m *AppModel) GetSelectedPath() string {
 	return m.selectedPath
+}
+
+func (m *AppModel) buildCommandEnv(branch, wtPath string) map[string]string {
+	return map[string]string{
+		"WORKTREE_BRANCH":    branch,
+		"MAIN_WORKTREE_PATH": m.git.GetMainWorktreePath(m.ctx),
+		"WORKTREE_PATH":      wtPath,
+		"WORKTREE_NAME":      filepath.Base(wtPath),
+	}
+}
+
+func (m *AppModel) collectInitCommands() []string {
+	cmds := []string{}
+	cmds = append(cmds, m.config.InitCommands...)
+	if m.repoConfig != nil {
+		cmds = append(cmds, m.repoConfig.InitCommands...)
+	}
+	return cmds
+}
+
+func (m *AppModel) collectTerminateCommands() []string {
+	cmds := []string{}
+	cmds = append(cmds, m.config.TerminateCommands...)
+	if m.repoConfig != nil {
+		cmds = append(cmds, m.repoConfig.TerminateCommands...)
+	}
+	return cmds
+}
+
+func (m *AppModel) runCommandsWithTrust(cmds []string, cwd string, env map[string]string, after tea.Msg) tea.Cmd {
+	if len(cmds) == 0 {
+		if after == nil {
+			return nil
+		}
+		return func() tea.Msg { return after }
+	}
+
+	trustMode := strings.ToLower(strings.TrimSpace(m.config.TrustMode))
+	// If trust mode set to never, skip repo commands
+	if trustMode == "never" {
+		if after == nil {
+			return nil
+		}
+		return func() tea.Msg { return after }
+	}
+
+	// Determine trust status if repo config exists
+	trustPath := m.repoConfigPath
+	status := security.TrustStatusTrusted
+	if m.repoConfig != nil && trustPath != "" {
+		status = m.trustManager.CheckTrust(trustPath)
+	}
+
+	if trustMode == "always" || status == security.TrustStatusTrusted {
+		return m.runCommands(cmds, cwd, env, after)
+	}
+
+	// TOFU: prompt user
+	if trustPath != "" {
+		m.pendingCommands = cmds
+		m.pendingCmdEnv = env
+		m.pendingCmdCwd = cwd
+		m.pendingAfter = func() tea.Msg { return after }
+		m.pendingTrust = trustPath
+		m.trustScreen = NewTrustScreen(trustPath, cmds)
+		m.currentScreen = screenTrust
+	}
+	return nil
+}
+
+func (m *AppModel) runCommands(cmds []string, cwd string, env map[string]string, after tea.Msg) tea.Cmd {
+	return func() tea.Msg {
+		if err := m.git.ExecuteCommands(m.ctx, cmds, cwd, env); err != nil {
+			return errMsg{err: err}
+		}
+		if after != nil {
+			return after
+		}
+		return nil
+	}
+}
+
+func (m *AppModel) clearPendingTrust() {
+	m.pendingCommands = nil
+	m.pendingCmdEnv = nil
+	m.pendingCmdCwd = ""
+	m.pendingAfter = nil
+	m.pendingTrust = ""
+	m.trustScreen = nil
+}
+
+func (m *AppModel) ensureRepoConfig() {
+	if m.repoConfig != nil || m.repoConfigPath != "" {
+		return
+	}
+	mainPath := m.git.GetMainWorktreePath(m.ctx)
+	repoCfg, cfgPath, err := config.LoadRepoConfig(mainPath)
+	if err != nil {
+		m.statusContent = fmt.Sprintf("Failed to load .wt: %v", err)
+		return
+	}
+	m.repoConfigPath = cfgPath
+	m.repoConfig = repoCfg
 }
 
 type layoutDims struct {

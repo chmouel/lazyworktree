@@ -23,6 +23,13 @@ type AppConfig struct {
 	DebugLog          string
 }
 
+// RepoConfig represents repository-scoped commands from .wt
+type RepoConfig struct {
+	InitCommands      []string
+	TerminateCommands []string
+	Path              string
+}
+
 // DefaultConfig returns a new AppConfig with default values
 func DefaultConfig() *AppConfig {
 	return &AppConfig{
@@ -149,6 +156,34 @@ func parseConfig(data map[string]interface{}) *AppConfig {
 	}
 
 	return cfg
+}
+
+// LoadRepoConfig loads repository-specific commands from .wt in repoPath
+func LoadRepoConfig(repoPath string) (*RepoConfig, string, error) {
+	if repoPath == "" {
+		return nil, "", fmt.Errorf("empty repo path")
+	}
+	wtPath := filepath.Join(repoPath, ".wt")
+	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+		return nil, wtPath, nil
+	}
+
+	dataBytes, err := os.ReadFile(wtPath)
+	if err != nil {
+		return nil, wtPath, err
+	}
+
+	var yamlData map[string]interface{}
+	if err := yaml.Unmarshal(dataBytes, &yamlData); err != nil {
+		return nil, wtPath, err
+	}
+
+	cfg := &RepoConfig{
+		Path:              wtPath,
+		InitCommands:      normalizeCommandList(yamlData["init_commands"]),
+		TerminateCommands: normalizeCommandList(yamlData["terminate_commands"]),
+	}
+	return cfg, wtPath, nil
 }
 
 // getConfigDir returns the XDG config directory
