@@ -16,19 +16,14 @@ repos:
       - id: mixed-line-ending
   - repo: local
     hooks:
-      - id: tests
-        name: pytest
-        entry: python3 scripts/pre_commit_tests.py
+      - id: lint
+        name: golangci
+        entry: golangci-lint run ./...
         language: system
         pass_filenames: false
-        types: [file, python]
+        types: [file, go]
       - id: formatting
         language: system
-        name: format with ruff
-        types: [file, python]
-        entry: ruff format lazyworktree tests
-      - id: lint
-        language: system
-        name: lint with ruff
-        types: [file, python]
-        entry: ruff check --fix --unsafe-fixes lazyworktree tests
+        name: format with gofumpt
+        types: [file, go]
+        entry: gofumpt -w ./cmd/lazyworktree/ ./internal/
