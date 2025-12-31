@@ -42,6 +42,9 @@ snapshot:
 release:
   prerelease: "false"
 
+checksum:
+  name_template: "checksums.txt"
+
 nfpms:
   - file_name_template: >-
       lazyworktree-
@@ -74,7 +77,6 @@ universal_binaries:
   - ids:
       - lazyworktree
     replace: true
-    name_template: "lazyworktree-{{ .Version }}-universal-{{ .OS }}"
 
 aurs:
   - name: lazyworktree-bin
