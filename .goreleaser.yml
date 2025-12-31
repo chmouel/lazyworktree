@@ -1,5 +1,6 @@
 builds:
-  - env:
+  - id: lazyworktree
+    env:
       - CGO_ENABLED=0
     main: ./cmd/lazyworktree
     binary: lazyworktree
@@ -17,7 +18,7 @@ archives:
   - name_template: >-
       {{ .Binary }}_
       {{- .Version }}_
-      {{- .Os }}_
+      {{- .OS }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else }}{{ .Arch }}{{ end }}
     format_overrides:
@@ -40,12 +41,12 @@ snapshot:
   name_template: "{{ .Tag }}-next"
 
 release:
-  prerelease: "false"
+  prerelease: false
 
 nfpms:
   - file_name_template: >-
       lazyworktree-
-      {{- .Version}}_{{.Os}}-
+      {{- .Version}}_{{.OS}}-
       {{- if eq .Arch "amd64" }}x86_64
       {{- else }}{{ .Arch }}{{ end }}
     homepage: https://github.com/chmouel/lazyworktree
@@ -71,8 +72,10 @@ changelog:
       - Update README.md
 
 universal_binaries:
-  - replace: true
-    name_template: "lazyworktree-{{ .Version }}-universal-{{ .Os }}"
+  - ids:
+      - lazyworktree
+    replace: true
+    name_template: "lazyworktree-{{ .Version }}-universal-{{ .OS }}"
 
 aurs:
   - name: lazyworktree-bin
