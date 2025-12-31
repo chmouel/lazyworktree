@@ -655,7 +655,7 @@ func (s *Service) FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
 	result := make([]*models.PRInfo, 0, len(prs))
 	for _, p := range prs {
 		state, _ := p["state"].(string)
-		if strings.ToUpper(state) != prStateOpen {
+		if !strings.EqualFold(state, prStateOpen) {
 			continue
 		}
 		number, _ := p["number"].(float64)
