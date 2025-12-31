@@ -162,7 +162,7 @@ You can configure this behavior in `config.yaml` via the `trust_mode` setting:
 
 ## Custom Commands
 
-You can define custom keybindings in your `~/.config/lazyworktree/config.yaml` to execute commands in the selected worktree. Custom commands are executed interactively (the TUI suspends, just like when launching `lazygit`).
+You can define custom keybindings in your `~/.config/lazyworktree/config.yaml` to execute commands in the selected worktree. Custom commands are executed interactively (the TUI suspends, just like when launching `lazygit`) and show up in the command palette.
 
 ### Configuration Format
 
@@ -195,8 +195,8 @@ custom_commands:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `command` | string | **required** | The command to execute |
-| `description` | string | `""` | Description shown in help screen |
-| `show_help` | bool | `false` | Whether to show this command in the help screen (`?`) |
+| `description` | string | `""` | Description shown in the help screen and command palette |
+| `show_help` | bool | `false` | Whether to show this command in the help screen (`?`) and footer hints |
 | `wait` | bool | `false` | Wait for key press after command completes (useful for quick commands like `ls` or `make test`) |
 
 ### Environment Variables

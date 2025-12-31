@@ -30,8 +30,9 @@ const (
 	keyEnter = "enter"
 	keyEsc   = "esc"
 
-	errBranchEmpty        = "Branch name cannot be empty."
-	errNoWorktreeSelected = "No worktree selected."
+	errBranchEmpty           = "Branch name cannot be empty."
+	errNoWorktreeSelected    = "No worktree selected."
+	customCommandPlaceholder = "Custom command"
 )
 
 type (
@@ -1682,9 +1683,13 @@ func (m *Model) showCommandPalette() tea.Cmd {
 		{id: "pr", label: "Open PR (o)", description: "Open PR in browser"},
 		{id: "help", label: "Help (?)", description: "Show help"},
 	}
+	items = append(items, m.customPaletteItems()...)
 
 	m.paletteScreen = NewCommandPaletteScreen(items)
 	m.paletteSubmit = func(action string) tea.Cmd {
+		if _, ok := m.config.CustomCommands[action]; ok {
+			return m.executeCustomCommand(action)
+		}
 		switch action {
 		case "create":
 			return m.showCreateWorktree()
@@ -1716,6 +1721,63 @@ func (m *Model) showCommandPalette() tea.Cmd {
 	}
 	m.currentScreen = screenPalette
 	return textinput.Blink
+}
+
+func (m *Model) customPaletteItems() []paletteItem {
+	keys := m.customCommandKeys()
+	if len(keys) == 0 {
+		return nil
+	}
+
+	items := make([]paletteItem, 0, len(keys))
+	for _, key := range keys {
+		cmd := m.config.CustomCommands[key]
+		if cmd == nil {
+			continue
+		}
+		label := m.customCommandLabel(cmd, key)
+		description := customCommandPlaceholder
+		if cmd.Description != "" {
+			description = cmd.Command
+		}
+		items = append(items, paletteItem{
+			id:          key,
+			label:       label,
+			description: description,
+		})
+	}
+
+	return items
+}
+
+func (m *Model) customCommandKeys() []string {
+	if len(m.config.CustomCommands) == 0 {
+		return nil
+	}
+
+	keys := make([]string, 0, len(m.config.CustomCommands))
+	for key, cmd := range m.config.CustomCommands {
+		if cmd == nil || strings.TrimSpace(cmd.Command) == "" {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func (m *Model) customCommandLabel(cmd *config.CustomCommand, key string) string {
+	label := ""
+	if cmd != nil {
+		label = strings.TrimSpace(cmd.Description)
+		if label == "" {
+			label = strings.TrimSpace(cmd.Command)
+		}
+	}
+	if label == "" {
+		label = customCommandPlaceholder
+	}
+	return fmt.Sprintf("%s (%s)", label, key)
 }
 
 func (m *Model) deleteWorktreeCmd(wt *models.WorktreeInfo) func() tea.Cmd {
@@ -2613,6 +2675,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 			hints = append(hints, m.renderKeyHint("o", "Open PR"))
 		}
 	}
+	hints = append(hints, m.customFooterHints()...)
 	hints = append(hints,
 		m.renderKeyHint("D", "Delete"),
 		m.renderKeyHint("/", "Filter"),
@@ -2621,6 +2684,30 @@ func (m *Model) renderFooter(layout layoutDims) string {
 		m.renderKeyHint("P", "Palette"),
 	)
 	return footerStyle.Width(layout.width).Render(strings.Join(hints, "  "))
+}
+
+func (m *Model) customFooterHints() []string {
+	keys := m.customCommandKeys()
+	if len(keys) == 0 {
+		return nil
+	}
+
+	hints := make([]string, 0, len(keys))
+	for _, key := range keys {
+		cmd := m.config.CustomCommands[key]
+		if cmd == nil || !cmd.ShowHelp {
+			continue
+		}
+		label := strings.TrimSpace(cmd.Description)
+		if label == "" {
+			label = strings.TrimSpace(cmd.Command)
+		}
+		if label == "" {
+			label = customCommandPlaceholder
+		}
+		hints = append(hints, m.renderKeyHint(key, label))
+	}
+	return hints
 }
 
 func (m *Model) renderKeyHint(key, label string) string {

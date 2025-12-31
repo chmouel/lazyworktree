@@ -2,6 +2,7 @@ package app
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -133,6 +134,67 @@ func TestShowCreateWorktreeFromChangesNoSelection(t *testing.T) {
 	}
 	if m.statusContent != errNoWorktreeSelected {
 		t.Errorf("Expected status %q, got %q", errNoWorktreeSelected, m.statusContent)
+	}
+}
+
+func TestShowCommandPaletteIncludesCustomCommands(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		CustomCommands: map[string]*config.CustomCommand{
+			"x": {
+				Command:     "make test",
+				Description: "Run tests",
+				ShowHelp:    true,
+			},
+		},
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	cmd := m.showCommandPalette()
+	if cmd == nil {
+		t.Fatal("showCommandPalette returned nil command")
+	}
+	if m.paletteScreen == nil {
+		t.Fatal("paletteScreen should be initialized")
+	}
+
+	items := m.paletteScreen.items
+	found := false
+	for _, item := range items {
+		if item.id == "x" {
+			found = true
+			if item.label != "Run tests (x)" {
+				t.Errorf("Expected label 'Run tests (x)', got %q", item.label)
+			}
+			if item.description != "make test" {
+				t.Errorf("Expected description 'make test', got %q", item.description)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatal("custom command item not found in command palette")
+	}
+}
+
+func TestRenderFooterIncludesCustomHelpHints(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		CustomCommands: map[string]*config.CustomCommand{
+			"x": {
+				Command:     "make test",
+				Description: "Run tests",
+				ShowHelp:    true,
+			},
+		},
+	}
+	m := NewModel(cfg, "")
+	layout := m.computeLayout()
+	footer := m.renderFooter(layout)
+
+	if !strings.Contains(footer, "Run tests") {
+		t.Fatalf("expected footer to include custom command label, got %q", footer)
 	}
 }
 

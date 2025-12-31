@@ -26,7 +26,7 @@ terminate_commands:
 # Fields:
 #   command: The command to execute (required)
 #   description: Description shown in help screen (optional)
-#   show_help: Show in help screen (default: false)
+#   show_help: Show in help screen and footer hints (default: false)
 #   wait: Wait for key press after command completes (default: false, useful for quick commands like ls or make test)
 custom_commands:
   e:
