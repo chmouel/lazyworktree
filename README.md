@@ -285,6 +285,9 @@ sort_by_active: true
 auto_fetch_prs: false
 max_untracked_diffs: 10
 max_diff_chars: 200000
+delta_args:
+  - --syntax-theme
+  - Dracula
 trust_mode: "tofu" # Options: "tofu" (default), "never", "always"
 init_commands:
   - link_topsymlinks
@@ -306,6 +309,7 @@ Notes:
 - Set `sort_by_active` to `false` to sort by path.
 - Set `auto_fetch_prs` to `true` to fetch PR data on startup.
 - Use `max_untracked_diffs: 0` to hide untracked diffs; `max_diff_chars: 0` disables truncation.
+- `delta_args` sets arguments passed to `delta` (default: `--syntax-theme Dracula`).
 
 ## CI Status Display
 

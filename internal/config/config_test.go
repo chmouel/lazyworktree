@@ -17,6 +17,7 @@ func TestDefaultConfig(t *testing.T) {
 	assert.False(t, cfg.AutoFetchPRs)
 	assert.Equal(t, 10, cfg.MaxUntrackedDiffs)
 	assert.Equal(t, 200000, cfg.MaxDiffChars)
+	assert.Equal(t, []string{"--syntax-theme", "Dracula"}, cfg.DeltaArgs)
 	assert.Equal(t, "tofu", cfg.TrustMode)
 	assert.Empty(t, cfg.WorktreeDir)
 	assert.Empty(t, cfg.InitCommands)
@@ -24,6 +25,52 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Empty(t, cfg.DebugLog)
 	assert.NotNil(t, cfg.CustomCommands)
 	assert.Empty(t, cfg.CustomCommands)
+}
+
+func TestNormalizeArgsList(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected []string
+	}{
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: []string{},
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: []string{},
+		},
+		{
+			name:     "whitespace only string",
+			input:    "   ",
+			expected: []string{},
+		},
+		{
+			name:     "string with multiple args",
+			input:    "--syntax-theme Dracula --paging=never",
+			expected: []string{"--syntax-theme", "Dracula", "--paging=never"},
+		},
+		{
+			name:     "list with multiple args",
+			input:    []interface{}{"--syntax-theme", "Dracula"},
+			expected: []string{"--syntax-theme", "Dracula"},
+		},
+		{
+			name:     "list with empty elements",
+			input:    []interface{}{"--syntax-theme", "", nil, "Dracula"},
+			expected: []string{"--syntax-theme", "Dracula"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeArgsList(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
 func TestNormalizeCommandList(t *testing.T) {
@@ -312,6 +359,7 @@ func TestParseConfig(t *testing.T) {
 				assert.False(t, cfg.AutoFetchPRs)
 				assert.Equal(t, 10, cfg.MaxUntrackedDiffs)
 				assert.Equal(t, 200000, cfg.MaxDiffChars)
+				assert.Equal(t, []string{"--syntax-theme", "Dracula"}, cfg.DeltaArgs)
 				assert.Equal(t, "tofu", cfg.TrustMode)
 			},
 		},
@@ -394,6 +442,33 @@ func TestParseConfig(t *testing.T) {
 			},
 			validate: func(t *testing.T, cfg *AppConfig) {
 				assert.Equal(t, 100000, cfg.MaxDiffChars)
+			},
+		},
+		{
+			name: "delta_args string",
+			data: map[string]interface{}{
+				"delta_args": "--syntax-theme Dracula",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, []string{"--syntax-theme", "Dracula"}, cfg.DeltaArgs)
+			},
+		},
+		{
+			name: "delta_args list",
+			data: map[string]interface{}{
+				"delta_args": []interface{}{"--syntax-theme", "Dracula"},
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, []string{"--syntax-theme", "Dracula"}, cfg.DeltaArgs)
+			},
+		},
+		{
+			name: "delta_args empty list",
+			data: map[string]interface{}{
+				"delta_args": []interface{}{},
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Empty(t, cfg.DeltaArgs)
 			},
 		},
 		{
@@ -536,6 +611,7 @@ func TestLoadConfig(t *testing.T) {
 		assert.NotNil(t, cfg)
 		assert.Equal(t, DefaultConfig().SortByActive, cfg.SortByActive)
 		assert.Equal(t, DefaultConfig().MaxUntrackedDiffs, cfg.MaxUntrackedDiffs)
+		assert.Equal(t, DefaultConfig().DeltaArgs, cfg.DeltaArgs)
 	})
 
 	t.Run("valid config file", func(t *testing.T) {
@@ -549,6 +625,9 @@ sort_by_active: false
 auto_fetch_prs: true
 max_untracked_diffs: 20
 max_diff_chars: 100000
+delta_args:
+  - --syntax-theme
+  - Dracula
 trust_mode: always
 init_commands:
   - echo "init"
@@ -567,6 +646,7 @@ terminate_commands:
 		assert.True(t, cfg.AutoFetchPRs)
 		assert.Equal(t, 20, cfg.MaxUntrackedDiffs)
 		assert.Equal(t, 100000, cfg.MaxDiffChars)
+		assert.Equal(t, []string{"--syntax-theme", "Dracula"}, cfg.DeltaArgs)
 		assert.Equal(t, "always", cfg.TrustMode)
 		assert.Equal(t, []string{"echo \"init\""}, cfg.InitCommands)
 		assert.Equal(t, []string{"echo \"cleanup\""}, cfg.TerminateCommands)

@@ -51,6 +51,7 @@ type Service struct {
 	gitHost     string
 	notifiedSet map[string]bool
 	useDelta    bool
+	deltaArgs   []string
 	debugLogger *log.Logger
 }
 
@@ -85,6 +86,15 @@ func NewService(notify NotifyFn, notifyOnce NotifyOnceFn) *Service {
 // SetDebugLogger attaches a logger for debug output.
 func (s *Service) SetDebugLogger(logger *log.Logger) {
 	s.debugLogger = logger
+}
+
+// SetDeltaArgs sets additional delta arguments used when formatting diffs.
+func (s *Service) SetDeltaArgs(args []string) {
+	if len(args) == 0 {
+		s.deltaArgs = nil
+		return
+	}
+	s.deltaArgs = append([]string{}, args...)
 }
 
 func (s *Service) debugf(format string, args ...interface{}) {
@@ -128,7 +138,11 @@ func (s *Service) ApplyDelta(ctx context.Context, diff string) string {
 		return diff
 	}
 
-	cmd := exec.CommandContext(ctx, "delta", "--no-gitconfig", "--paging=never")
+	args := []string{"--no-gitconfig", "--paging=never"}
+	if len(s.deltaArgs) > 0 {
+		args = append(args, s.deltaArgs...)
+	}
+	cmd := exec.CommandContext(ctx, "delta", args...)
 	cmd.Stdin = strings.NewReader(diff)
 	output, err := cmd.Output()
 	if err != nil {

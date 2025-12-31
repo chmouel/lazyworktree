@@ -4,6 +4,11 @@ auto_fetch_prs: false
 max_untracked_diffs: 10
 max_diff_chars: 200000
 
+# Extra arguments passed to delta for diff rendering
+delta_args:
+  - --syntax-theme
+  - Dracula
+
 # Security setting for executing commands from .wt files
 # Options: "tofu" (default - ask on first use/change), "never", "always"
 trust_mode: "tofu"

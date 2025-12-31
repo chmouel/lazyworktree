@@ -29,6 +29,7 @@ type AppConfig struct {
 	AutoFetchPRs      bool
 	MaxUntrackedDiffs int
 	MaxDiffChars      int
+	DeltaArgs         []string
 	TrustMode         string
 	DebugLog          string
 	CustomCommands    map[string]*CustomCommand
@@ -48,6 +49,7 @@ func DefaultConfig() *AppConfig {
 		AutoFetchPRs:      false,
 		MaxUntrackedDiffs: 10,
 		MaxDiffChars:      200000,
+		DeltaArgs:         []string{"--syntax-theme", "Dracula"},
 		TrustMode:         "tofu",
 		CustomCommands:    make(map[string]*CustomCommand),
 	}
@@ -79,6 +81,35 @@ func normalizeCommandList(value interface{}) []string {
 		}
 		return commands
 	}
+	return []string{}
+}
+
+func normalizeArgsList(value interface{}) []string {
+	if value == nil {
+		return []string{}
+	}
+
+	switch v := value.(type) {
+	case string:
+		text := strings.TrimSpace(v)
+		if text == "" {
+			return []string{}
+		}
+		return strings.Fields(text)
+	case []interface{}:
+		args := []string{}
+		for _, item := range v {
+			if item == nil {
+				continue
+			}
+			text := strings.TrimSpace(fmt.Sprintf("%v", item))
+			if text != "" {
+				args = append(args, text)
+			}
+		}
+		return args
+	}
+
 	return []string{}
 }
 
@@ -182,6 +213,9 @@ func parseConfig(data map[string]interface{}) *AppConfig {
 	cfg.AutoFetchPRs = coerceBool(data["auto_fetch_prs"], false)
 	cfg.MaxUntrackedDiffs = coerceInt(data["max_untracked_diffs"], 10)
 	cfg.MaxDiffChars = coerceInt(data["max_diff_chars"], 200000)
+	if _, ok := data["delta_args"]; ok {
+		cfg.DeltaArgs = normalizeArgsList(data["delta_args"])
+	}
 
 	if trustMode, ok := data["trust_mode"].(string); ok {
 		trustMode = strings.ToLower(strings.TrimSpace(trustMode))
