@@ -469,7 +469,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case 0:
 				// Jump to worktree
 				if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
-					m.selectedPath = m.filteredWts[m.selectedIndex].Path
+					selectedPath := m.filteredWts[m.selectedIndex].Path
+					m.persistLastSelected(selectedPath)
+					m.selectedPath = selectedPath
 					return m, tea.Quit
 				}
 			case 2:
@@ -2338,8 +2340,32 @@ func (m *Model) GetSelectedPath() string {
 	return m.selectedPath
 }
 
+func (m *Model) persistCurrentSelection() {
+	idx := m.selectedIndex
+	if idx < 0 || idx >= len(m.filteredWts) {
+		idx = m.worktreeTable.Cursor()
+	}
+	if idx < 0 || idx >= len(m.filteredWts) {
+		return
+	}
+	m.persistLastSelected(m.filteredWts[idx].Path)
+}
+
+func (m *Model) persistLastSelected(path string) {
+	if strings.TrimSpace(path) == "" {
+		return
+	}
+	repoKey := m.getRepoKey()
+	lastSelectedPath := filepath.Join(m.getWorktreeDir(), repoKey, models.LastSelectedFilename)
+	if err := os.MkdirAll(filepath.Dir(lastSelectedPath), 0o750); err != nil {
+		return
+	}
+	_ = os.WriteFile(lastSelectedPath, []byte(path+"\n"), 0o600)
+}
+
 // Close releases background resources (cancel contexts, timers)
 func (m *Model) Close() {
+	m.persistCurrentSelection()
 	if m.detailUpdateCancel != nil {
 		m.detailUpdateCancel()
 	}

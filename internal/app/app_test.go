@@ -1,10 +1,13 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -134,6 +137,54 @@ func TestShowCreateWorktreeFromChangesNoSelection(t *testing.T) {
 	}
 	if m.statusContent != errNoWorktreeSelected {
 		t.Errorf("Expected status %q, got %q", errNoWorktreeSelected, m.statusContent)
+	}
+}
+
+func TestPersistLastSelectedWritesFile(t *testing.T) {
+	worktreeDir := t.TempDir()
+	cfg := &config.AppConfig{
+		WorktreeDir: worktreeDir,
+	}
+	m := NewModel(cfg, "")
+	m.repoKey = "example/repo"
+
+	selected := filepath.Join(t.TempDir(), "worktree")
+	m.persistLastSelected(selected)
+
+	lastSelectedPath := filepath.Join(worktreeDir, "example", "repo", models.LastSelectedFilename)
+	// #nosec G304 -- test reads from a temp dir path we control.
+	data, err := os.ReadFile(lastSelectedPath)
+	if err != nil {
+		t.Fatalf("expected last-selected file to be created: %v", err)
+	}
+	if got := string(data); got != selected+"\n" {
+		t.Fatalf("expected %q, got %q", selected+"\n", got)
+	}
+}
+
+func TestClosePersistsCurrentSelection(t *testing.T) {
+	worktreeDir := t.TempDir()
+	cfg := &config.AppConfig{
+		WorktreeDir: worktreeDir,
+	}
+	m := NewModel(cfg, "")
+	m.repoKey = "example/repo"
+
+	selected := filepath.Join(t.TempDir(), "worktree")
+	m.filteredWts = []*models.WorktreeInfo{{Path: selected}}
+	m.worktreeTable.SetRows([]table.Row{{"worktree"}})
+	m.selectedIndex = 0
+
+	m.Close()
+
+	lastSelectedPath := filepath.Join(worktreeDir, "example", "repo", models.LastSelectedFilename)
+	// #nosec G304 -- test reads from a temp dir path we control.
+	data, err := os.ReadFile(lastSelectedPath)
+	if err != nil {
+		t.Fatalf("expected last-selected file to be created: %v", err)
+	}
+	if got := string(data); got != selected+"\n" {
+		t.Fatalf("expected %q, got %q", selected+"\n", got)
 	}
 }
 
