@@ -3,7 +3,7 @@
 A Bubble Tea-based TUI for managing Git worktrees efficiently. Visualize status, manage branches, and jump between worktrees with ease.
 
 ![Go](https://img.shields.io/badge/go-1.25%2B-blue)
-![Coverage](https://img.shields.io/badge/Coverage-24.0%25-red)
+![Coverage](https://img.shields.io/badge/Coverage-42.8%25-yellow)
 
 ## Features
 
