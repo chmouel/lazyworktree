@@ -258,6 +258,7 @@ custom_commands:
 **Command Palette Actions:**
 
 - **Create from PR/MR**: Select an open PR/MR to create a worktree. Auto-generates a name (`pr{number}-{sanitized-title}`) that you can edit.
+- **Create from changes**: Create a new worktree from the current uncommitted changes in the selected worktree. Stashes all changes (including untracked files), creates a new worktree, and applies the stashed changes to it. Requires a worktree to be selected and have uncommitted changes.
 
 ### Mouse Controls
 

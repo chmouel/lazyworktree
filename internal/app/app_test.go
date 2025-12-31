@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/chmouel/lazyworktree/internal/config"
+	"github.com/chmouel/lazyworktree/internal/models"
 )
 
 func TestFilterPaletteItemsEmptyQueryReturnsAll(t *testing.T) {
@@ -78,5 +79,102 @@ func TestHandleMouseDoesNotPanic(t *testing.T) {
 	result, _ = m.handleMouse(mouseMsg)
 	if result == nil {
 		t.Fatal("handleMouse returned nil model")
+	}
+}
+
+func TestShowCommandPaletteIncludesCreateFromChanges(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	// Show command palette
+	cmd := m.showCommandPalette()
+	if cmd == nil {
+		t.Fatal("showCommandPalette returned nil command")
+	}
+
+	// Check that palette screen was created
+	if m.paletteScreen == nil {
+		t.Fatal("paletteScreen should be initialized")
+	}
+
+	// Check that palette includes create-from-changes
+	items := m.paletteScreen.items
+	found := false
+	for _, item := range items {
+		if item.id == "create-from-changes" {
+			found = true
+			if item.label != "Create from changes" {
+				t.Errorf("Expected label 'Create from changes', got %q", item.label)
+			}
+			if item.description != "Create a new worktree from current uncommitted changes" {
+				t.Errorf("Expected description 'Create a new worktree from current uncommitted changes', got %q", item.description)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatal("create-from-changes item not found in command palette")
+	}
+}
+
+func TestShowCreateWorktreeFromChangesNoSelection(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.selectedIndex = -1 // No selection
+
+	cmd := m.showCreateWorktreeFromChanges()
+	if cmd != nil {
+		t.Error("Expected nil command when no worktree is selected")
+	}
+	if m.statusContent != errNoWorktreeSelected {
+		t.Errorf("Expected status %q, got %q", errNoWorktreeSelected, m.statusContent)
+	}
+}
+
+func TestCreateFromChangesReadyMsg(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	// Create a mock worktree
+	wt := &models.WorktreeInfo{
+		Path:   "/tmp/test-worktree",
+		Branch: "main",
+	}
+
+	msg := createFromChangesReadyMsg{
+		worktree:      wt,
+		currentBranch: "main",
+	}
+
+	// Handle the message
+	cmd := m.handleCreateFromChangesReady(msg)
+	if cmd == nil {
+		t.Fatal("handleCreateFromChangesReady returned nil command")
+	}
+
+	// Check that input screen was set up
+	if m.inputScreen == nil {
+		t.Fatal("inputScreen should be initialized")
+	}
+
+	if m.inputScreen.prompt != "Create worktree from changes: branch name" {
+		t.Errorf("Expected prompt 'Create worktree from changes: branch name', got %q", m.inputScreen.prompt)
+	}
+
+	// Check default value
+	if m.inputScreen.value != "main-changes" {
+		t.Errorf("Expected default value 'main-changes', got %q", m.inputScreen.value)
+	}
+
+	if m.currentScreen != screenInput {
+		t.Errorf("Expected currentScreen to be screenInput, got %v", m.currentScreen)
 	}
 }

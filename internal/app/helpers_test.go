@@ -193,13 +193,13 @@ func TestFuzzyScoreLower(t *testing.T) {
 
 func TestPaletteMatchScore(t *testing.T) {
 	tests := []struct {
-		name            string
-		query           string // will be lowercased in test
-		item            paletteItem
-		wantOk          bool
-		labelBetter     bool        // if true, label match should have better (lower) score than description
-		compareItem     paletteItem // item to compare score with
-		exactBetter     bool        // if true, exact match should have better score than fuzzy
+		name        string
+		query       string // will be lowercased in test
+		item        paletteItem
+		wantOk      bool
+		labelBetter bool        // if true, label match should have better (lower) score than description
+		compareItem paletteItem // item to compare score with
+		exactBetter bool        // if true, exact match should have better score than fuzzy
 	}{
 		{
 			name:   "empty query",
@@ -286,10 +286,10 @@ func TestFilterPaletteItems(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		query    string
-		wantIDs  []string
-		wantLen  int
+		name    string
+		query   string
+		wantIDs []string
+		wantLen int
 	}{
 		{
 			name:    "empty query returns all",

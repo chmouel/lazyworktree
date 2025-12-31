@@ -386,3 +386,51 @@ func TestCleanup(t *testing.T) {
 	// Should be safe to call multiple times
 	m.Close()
 }
+
+// TestCommandPaletteCreateFromChanges tests that the create-from-changes command appears in the palette
+func TestCommandPaletteCreateFromChanges(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	tm := teatest.NewTestModel(
+		t,
+		NewModel(cfg, ""),
+		teatest.WithInitialTermSize(120, 40),
+	)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Press 'ctrl+p' to show command palette
+	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlP})
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify output contains the create-from-changes option
+	teatest.WaitFor(
+		t, tm.Output(),
+		func(bts []byte) bool {
+			return bytes.Contains(bts, []byte("Create from changes")) ||
+				bytes.Contains(bts, []byte("create-from-changes"))
+		},
+		teatest.WithCheckInterval(100*time.Millisecond),
+		teatest.WithDuration(2*time.Second),
+	)
+
+	// Press escape to close palette
+	tm.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	time.Sleep(50 * time.Millisecond)
+
+	// Quit
+	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+
+	tm.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	fm := tm.FinalModel(t)
+	m, ok := fm.(*Model)
+	if !ok {
+		t.Fatal("Final model is not *Model type")
+	}
+
+	if m.currentScreen == screenPalette {
+		t.Error("Command palette should be closed after pressing escape")
+	}
+}
