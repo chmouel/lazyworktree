@@ -793,7 +793,22 @@ func screenName(screen screenType) string {
 
 // handleMouse processes mouse events for scrolling and clicking
 func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	// Skip mouse handling when on a modal screen
+	// Handle mouse scrolling for specific screens
+	if m.currentScreen == screenCommit && m.commitScreen != nil {
+		if msg.Action == tea.MouseActionPress {
+			switch msg.Button {
+			case tea.MouseButtonWheelUp:
+				m.commitScreen.viewport.ScrollUp(3)
+				return m, nil
+			case tea.MouseButtonWheelDown:
+				m.commitScreen.viewport.ScrollDown(3)
+				return m, nil
+			}
+		}
+		return m, nil
+	}
+
+	// Skip mouse handling when on other modal screens
 	if m.currentScreen != screenNone {
 		return m, nil
 	}
@@ -956,6 +971,21 @@ func (m *Model) View() string {
 			// We can pass 0,0 to use its internal defaults or a specific size
 			// In SetSize below we'll ensure it has a good "popup" size
 			return m.overlayPopup(baseView, m.helpScreen.View(), 4)
+		}
+	case screenCommit:
+		if m.commitScreen != nil {
+			// Resize viewport to fit window
+			vpWidth := int(float64(m.windowWidth) * 0.95)
+			vpHeight := int(float64(m.windowHeight) * 0.85)
+			if vpWidth < 80 {
+				vpWidth = 80
+			}
+			if vpHeight < 20 {
+				vpHeight = 20
+			}
+			m.commitScreen.viewport.Width = vpWidth
+			m.commitScreen.viewport.Height = vpHeight
+			return m.overlayPopup(baseView, m.commitScreen.View(), 2)
 		}
 	case screenConfirm:
 		if m.confirmScreen != nil {
@@ -2005,8 +2035,8 @@ func (m *Model) openCommitView() tea.Cmd {
 
 	fetchCmd := func() tea.Msg {
 		metaRaw := m.git.RunGit(m.ctx, []string{"git", "show", "--quiet", "--pretty=format:%H%x1f%an%x1f%ae%x1f%ad%x1f%s%x1f%b", entry.sha}, wt.Path, []int{0}, false, false)
-		stat := m.git.RunGit(m.ctx, []string{"git", "show", "--stat", "--oneline", entry.sha}, wt.Path, []int{0}, false, false)
-		diff := m.git.RunGit(m.ctx, []string{"git", "show", "--patch", entry.sha}, wt.Path, []int{0}, false, false)
+		stat := m.git.RunGit(m.ctx, []string{"git", "show", "--stat", "--pretty=format:", entry.sha}, wt.Path, []int{0}, false, false)
+		diff := m.git.RunGit(m.ctx, []string{"git", "show", "--patch", "--pretty=format:", entry.sha}, wt.Path, []int{0}, false, false)
 		diff = m.git.ApplyDelta(m.ctx, diff)
 
 		meta := parseCommitMeta(metaRaw)

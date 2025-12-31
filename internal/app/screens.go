@@ -1386,7 +1386,6 @@ func (s *CommitScreen) renderHeader() string {
 // View renders the commit screen
 func (s *CommitScreen) View() string {
 	width := maxInt(100, s.viewport.Width)
-	height := maxInt(30, s.viewport.Height)
 
 	header := s.renderHeader()
 	content := lipgloss.JoinVertical(lipgloss.Left, header, s.viewport.View())
@@ -1395,8 +1394,7 @@ func (s *CommitScreen) View() string {
 		Border(lipgloss.ThickBorder()).
 		BorderForeground(colorBorder).
 		Padding(0, 1).
-		Width(width).
-		Height(height)
+		Width(width)
 
 	return boxStyle.Render(content)
 }
