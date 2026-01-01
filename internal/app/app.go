@@ -37,7 +37,11 @@ const (
 	errNoWorktreeSelected    = "No worktree selected."
 	customCommandPlaceholder = "Custom command"
 
-	detailsCacheTTL = 2 * time.Second
+	detailsCacheTTL  = 2 * time.Second
+	debounceDelay    = 200 * time.Millisecond
+	ciCacheTTL       = 30 * time.Second
+	defaultDirPerms  = 0o750
+	defaultFilePerms = 0o600
 )
 
 type (
@@ -226,7 +230,8 @@ type Model struct {
 	debugLogFile *os.File
 }
 
-// NewModel creates a new application model
+// NewModel creates a new application model with the given configuration.
+// initialFilter is an optional filter string to apply on startup.
 func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -237,8 +242,8 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 
 	if strings.TrimSpace(cfg.DebugLog) != "" {
 		logDir := filepath.Dir(cfg.DebugLog)
-		if err := os.MkdirAll(logDir, 0o750); err == nil {
-			file, err := os.OpenFile(cfg.DebugLog, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		if err := os.MkdirAll(logDir, defaultDirPerms); err == nil {
+			file, err := os.OpenFile(cfg.DebugLog, os.O_CREATE|os.O_WRONLY|os.O_APPEND, defaultFilePerms)
 			if err == nil {
 				debugLogFile = file
 				debugLogger = log.New(file, "", log.LstdFlags)
@@ -334,7 +339,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 		filteredWts:     []*models.WorktreeInfo{},
 		sortByActive:    cfg.SortByActive,
 		filterQuery:     initialFilter,
-		cache:           make(map[string]interface{}),
+		cache:           make(map[string]any),
 		divergenceCache: make(map[string]string),
 		notifiedErrors:  make(map[string]bool),
 		ciCache:         make(map[string]*ciCacheEntry),
@@ -391,311 +396,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.currentScreen != screenNone {
 			return m.handleScreenKey(msg)
 		}
+		return m.handleKeyMsg(msg)
 
-		// Handle filter input first - when filtering, only escape/enter should exit
-		if m.showingFilter {
-			switch msg.String() {
-			case keyEnter, keyEsc:
-				m.showingFilter = false
-				m.filterInput.Blur()
-				m.worktreeTable.Focus()
-				return m, nil
-			default:
-				m.filterInput, cmd = m.filterInput.Update(msg)
-				m.filterQuery = m.filterInput.Value()
-				m.updateTable()
-				return m, cmd
-			}
-		}
+	case worktreesLoadedMsg, cachedWorktreesMsg, pruneResultMsg, absorbMergeResultMsg:
+		return m.handleWorktreeMessages(msg)
 
-		// Check for custom commands first - allows users to override built-in keys
-		if _, ok := m.config.CustomCommands[msg.String()]; ok {
-			return m, m.executeCustomCommand(msg.String())
-		}
-
-		switch msg.String() {
-		case "ctrl+c", "q":
-			if m.selectedPath != "" {
-				return m, tea.Quit
-			}
-			m.quitting = true
-			return m, tea.Quit
-
-		case "1":
-			m.focusedPane = 0
-			m.worktreeTable.Focus()
-			return m, nil
-
-		case "2":
-			m.focusedPane = 1
-			return m, nil
-
-		case "3":
-			m.focusedPane = 2
-			m.logTable.Focus()
-			return m, nil
-
-		case "tab", "]":
-			m.focusedPane = (m.focusedPane + 1) % 3
-			switch m.focusedPane {
-			case 0:
-				m.worktreeTable.Focus()
-			case 2:
-				m.logTable.Focus()
-			}
-			return m, nil
-
-		case "[":
-			m.focusedPane = (m.focusedPane - 1 + 3) % 3
-			switch m.focusedPane {
-			case 0:
-				m.worktreeTable.Focus()
-			case 2:
-				m.logTable.Focus()
-			}
-			return m, nil
-
-		case "j", "down":
-			switch m.focusedPane {
-			case 0:
-				m.worktreeTable, cmd = m.worktreeTable.Update(msg)
-				cmds = append(cmds, cmd)
-				cmds = append(cmds, m.debouncedUpdateDetailsView())
-			case 1:
-				m.statusViewport, cmd = m.statusViewport.Update(msg)
-				cmds = append(cmds, cmd)
-			default:
-				m.logTable, cmd = m.logTable.Update(msg)
-				cmds = append(cmds, cmd)
-			}
-			return m, tea.Batch(cmds...)
-
-		case "k", "up":
-			switch m.focusedPane {
-			case 0:
-				m.worktreeTable, cmd = m.worktreeTable.Update(msg)
-				cmds = append(cmds, cmd)
-				cmds = append(cmds, m.debouncedUpdateDetailsView())
-			case 1:
-				m.statusViewport, cmd = m.statusViewport.Update(msg)
-				cmds = append(cmds, cmd)
-			default:
-				m.logTable, cmd = m.logTable.Update(msg)
-				cmds = append(cmds, cmd)
-			}
-			return m, tea.Batch(cmds...)
-
-		case "ctrl+d", " ": // Page down
-			switch m.focusedPane {
-			case 1:
-				m.statusViewport.HalfPageDown()
-				return m, nil
-			case 2:
-				m.logTable, cmd = m.logTable.Update(msg)
-				return m, cmd
-			}
-			return m, nil
-
-		case "ctrl+u": // Page up
-			switch m.focusedPane {
-			case 1:
-				m.statusViewport.HalfPageUp()
-				return m, nil
-			case 2:
-				m.logTable, cmd = m.logTable.Update(msg)
-				return m, cmd
-			}
-			return m, nil
-
-		case "pgdown":
-			switch m.focusedPane {
-			case 1:
-				m.statusViewport.PageDown()
-				return m, nil
-			case 2:
-				m.logTable, cmd = m.logTable.Update(msg)
-				return m, cmd
-			}
-			return m, nil
-
-		case "pgup":
-			switch m.focusedPane {
-			case 1:
-				m.statusViewport.PageUp()
-				return m, nil
-			case 2:
-				m.logTable, cmd = m.logTable.Update(msg)
-				return m, cmd
-			}
-			return m, nil
-
-		case "G": // Go to bottom (shift+g)
-			if m.focusedPane == 1 {
-				m.statusViewport.GotoBottom()
-				return m, nil
-			}
-			return m, nil
-
-		case keyEnter:
-			switch m.focusedPane {
-			case 0:
-				// Jump to worktree
-				if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
-					selectedPath := m.filteredWts[m.selectedIndex].Path
-					m.persistLastSelected(selectedPath)
-					m.selectedPath = selectedPath
-					return m, tea.Quit
-				}
-			case 2:
-				// Open commit view
-				return m, m.openCommitView()
-			}
-			return m, nil
-
-		case "r":
-			m.loading = true
-			return m, m.refreshWorktrees()
-
-		case "c":
-			return m, m.showCreateWorktree()
-
-		case "D":
-			return m, m.showDeleteWorktree()
-
-		case "d":
-			return m, m.showDiff()
-
-		case "p":
-			// Clear CI cache when pressing 'p' to force refresh
-			m.ciCache = make(map[string]*ciCacheEntry)
-			if !m.prDataLoaded {
-				m.loading = true
-				return m, m.fetchPRData()
-			}
-			// If PR data already loaded, just refresh current view to re-fetch CI
-			return m, m.maybeFetchCIStatus()
-
-		case "R":
-			m.loading = true
-			m.statusContent = "Fetching remotes..."
-			return m, m.fetchRemotes()
-		case "f":
-			m.showingFilter = true
-			m.filterInput.Focus()
-			return m, textinput.Blink
-
-		case "s":
-			m.sortByActive = !m.sortByActive
-			m.updateTable()
-			return m, nil
-
-		case "/":
-			m.showingFilter = true
-			m.filterInput.Focus()
-			return m, textinput.Blink
-
-		case "ctrl+p", "P":
-			return m, m.showCommandPalette()
-
-		case "?":
-			m.currentScreen = screenHelp
-			m.helpScreen = NewHelpScreen(m.windowWidth, m.windowHeight, m.config.CustomCommands)
-			return m, nil
-
-		case "g":
-			// If in status pane, go to top, otherwise open lazygit
-			if m.focusedPane == 1 {
-				m.statusViewport.GotoTop()
-				return m, nil
-			}
-			return m, m.openLazyGit()
-
-		case "o":
-			return m, m.openPR()
-
-		case "m":
-			return m, m.showRenameWorktree()
-
-		case "A":
-			return m, m.showAbsorbWorktree()
-
-		case "X":
-			return m, m.showPruneMerged()
-
-		case keyEsc:
-			if m.currentScreen == screenPalette {
-				m.currentScreen = screenNone
-				m.paletteScreen = nil
-				return m, nil
-			}
-			return m, nil
-		}
-
-		// Handle table input
-		if m.focusedPane == 0 {
-			m.worktreeTable, cmd = m.worktreeTable.Update(msg)
-			return m, tea.Batch(cmd, m.debouncedUpdateDetailsView())
-		}
-
-	case worktreesLoadedMsg:
-		m.worktreesLoaded = true
-		m.loading = false
-		if msg.err != nil {
-			m.statusContent = fmt.Sprintf("Error loading worktrees: %v", msg.err)
-			return m, nil
-		}
-		m.worktrees = msg.worktrees
-		m.detailsCache = make(map[string]*detailsCacheEntry)
-		m.ensureRepoConfig()
-		m.updateTable()
-		m.saveCache()
-		if len(m.worktrees) == 0 {
-			cwd, _ := os.Getwd()
-			m.welcomeScreen = NewWelcomeScreen(cwd, m.getWorktreeDir())
-			m.currentScreen = screenWelcome
-			return m, nil
-		}
-		if m.currentScreen == screenWelcome {
-			m.currentScreen = screenNone
-			m.welcomeScreen = nil
-		}
-		if m.config.AutoFetchPRs && !m.prDataLoaded {
-			m.loading = true
-			return m, m.fetchPRData()
-		}
-		return m, m.updateDetailsView()
-
-	case cachedWorktreesMsg:
-		if m.worktreesLoaded || len(msg.worktrees) == 0 {
-			return m, nil
-		}
-		m.worktrees = msg.worktrees
-		m.updateTable()
-		if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
-			m.infoContent = m.buildInfoContent(m.filteredWts[m.selectedIndex])
-		}
-		m.statusContent = "Refreshing worktrees..."
-		return m, nil
-
-	case prDataLoadedMsg:
-		m.loading = false
-		if msg.err == nil && msg.prMap != nil {
-			for _, wt := range m.worktrees {
-				if pr, ok := msg.prMap[wt.Branch]; ok {
-					wt.PR = pr
-				}
-			}
-			m.prDataLoaded = true
-			// Update columns before rows to include the PR column
-			m.updateTableColumns(m.worktreeTable.Width())
-			m.updateTable()
-			return m, m.updateDetailsView()
-		}
-		return m, nil
 	case openPRsLoadedMsg:
 		return m, m.handleOpenPRsLoaded(msg)
+
 	case createFromChangesReadyMsg:
 		return m, m.handleCreateFromChangesReady(msg)
+
+	case prDataLoadedMsg, ciStatusLoadedMsg:
+		return m.handlePRMessages(msg)
 
 	case statusUpdatedMsg:
 		if msg.info != "" {
@@ -712,22 +425,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Trigger CI fetch if worktree has a PR and cache is stale
 		return m, m.maybeFetchCIStatus()
-
-	case ciStatusLoadedMsg:
-		if msg.err == nil && msg.checks != nil {
-			m.ciCache[msg.branch] = &ciCacheEntry{
-				checks:    msg.checks,
-				fetchedAt: time.Now(),
-			}
-			// Refresh info content to show CI status
-			if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
-				wt := m.filteredWts[m.selectedIndex]
-				if wt.Branch == msg.branch {
-					m.infoContent = m.buildInfoContent(wt)
-				}
-			}
-		}
-		return m, nil
 
 	case debouncedDetailsMsg:
 		// Only update if the index matches and is still valid
@@ -748,31 +445,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusContent = "Remotes fetched"
 		return m, m.refreshWorktrees()
 
-	case pruneResultMsg:
-		m.loading = false
-		if msg.err == nil && msg.worktrees != nil {
-			m.worktrees = msg.worktrees
-			m.updateTable()
-			m.saveCache()
-		}
-		summary := fmt.Sprintf("Pruned %d merged worktrees", msg.pruned)
-		if msg.failed > 0 {
-			summary = fmt.Sprintf("%s (%d failed)", summary, msg.failed)
-		}
-		m.statusContent = summary
-		return m, nil
-
-	case absorbMergeResultMsg:
-		if msg.err != nil {
-			m.statusContent = msg.err.Error()
-			return m, nil
-		}
-		cmd := m.deleteWorktreeCmd(&models.WorktreeInfo{Path: msg.path, Branch: msg.branch})
-		if cmd != nil {
-			return m, cmd()
-		}
-		return m, nil
-
 	case commitLoadingMsg:
 		m.currentScreen = screenCommit
 		m.commitScreen = NewCommitScreen(msg.meta, "Loading…", "", m.git.UseDelta())
@@ -785,6 +457,413 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+// handleKeyMsg processes keyboard input when not in a modal screen.
+func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	// Handle filter input first - when filtering, only escape/enter should exit
+	if m.showingFilter {
+		switch msg.String() {
+		case keyEnter, keyEsc:
+			m.showingFilter = false
+			m.filterInput.Blur()
+			m.worktreeTable.Focus()
+			return m, nil
+		default:
+			m.filterInput, cmd = m.filterInput.Update(msg)
+			m.filterQuery = m.filterInput.Value()
+			m.updateTable()
+			return m, cmd
+		}
+	}
+
+	// Check for custom commands first - allows users to override built-in keys
+	if _, ok := m.config.CustomCommands[msg.String()]; ok {
+		return m, m.executeCustomCommand(msg.String())
+	}
+
+	return m.handleBuiltInKey(msg)
+}
+
+// handleBuiltInKey processes built-in keyboard shortcuts.
+func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", keyQ:
+		if m.selectedPath != "" {
+			return m, tea.Quit
+		}
+		m.quitting = true
+		return m, tea.Quit
+
+	case "1":
+		m.focusedPane = 0
+		m.worktreeTable.Focus()
+		return m, nil
+
+	case "2":
+		m.focusedPane = 1
+		return m, nil
+
+	case "3":
+		m.focusedPane = 2
+		m.logTable.Focus()
+		return m, nil
+
+	case "tab", "]":
+		m.focusedPane = (m.focusedPane + 1) % 3
+		switch m.focusedPane {
+		case 0:
+			m.worktreeTable.Focus()
+		case 2:
+			m.logTable.Focus()
+		}
+		return m, nil
+
+	case "[":
+		m.focusedPane = (m.focusedPane - 1 + 3) % 3
+		switch m.focusedPane {
+		case 0:
+			m.worktreeTable.Focus()
+		case 2:
+			m.logTable.Focus()
+		}
+		return m, nil
+
+	case "j", "down":
+		return m.handleNavigationDown(msg)
+
+	case "k", "up":
+		return m.handleNavigationUp(msg)
+
+	case "ctrl+d", " ":
+		return m.handlePageDown(msg)
+
+	case "ctrl+u":
+		return m.handlePageUp(msg)
+
+	case "pgdown":
+		return m.handlePageDown(msg)
+
+	case "pgup":
+		return m.handlePageUp(msg)
+
+	case "G":
+		if m.focusedPane == 1 {
+			m.statusViewport.GotoBottom()
+			return m, nil
+		}
+		return m, nil
+
+	case keyEnter:
+		return m.handleEnterKey()
+
+	case "r":
+		m.loading = true
+		return m, m.refreshWorktrees()
+
+	case "c":
+		return m, m.showCreateWorktree()
+
+	case "D":
+		return m, m.showDeleteWorktree()
+
+	case "d":
+		return m, m.showDiff()
+
+	case "p":
+		m.ciCache = make(map[string]*ciCacheEntry)
+		if !m.prDataLoaded {
+			m.loading = true
+			return m, m.fetchPRData()
+		}
+		return m, m.maybeFetchCIStatus()
+
+	case "R":
+		m.loading = true
+		m.statusContent = "Fetching remotes..."
+		return m, m.fetchRemotes()
+
+	case "f", "/":
+		m.showingFilter = true
+		m.filterInput.Focus()
+		return m, textinput.Blink
+
+	case "s":
+		m.sortByActive = !m.sortByActive
+		m.updateTable()
+		return m, nil
+
+	case "ctrl+p", "P":
+		return m, m.showCommandPalette()
+
+	case "?":
+		m.currentScreen = screenHelp
+		m.helpScreen = NewHelpScreen(m.windowWidth, m.windowHeight, m.config.CustomCommands)
+		return m, nil
+
+	case "g":
+		if m.focusedPane == 1 {
+			m.statusViewport.GotoTop()
+			return m, nil
+		}
+		return m, m.openLazyGit()
+
+	case "o":
+		return m, m.openPR()
+
+	case "m":
+		return m, m.showRenameWorktree()
+
+	case "A":
+		return m, m.showAbsorbWorktree()
+
+	case "X":
+		return m, m.showPruneMerged()
+
+	case keyEsc:
+		if m.currentScreen == screenPalette {
+			m.currentScreen = screenNone
+			m.paletteScreen = nil
+			return m, nil
+		}
+		return m, nil
+	}
+
+	// Handle table input
+	if m.focusedPane == 0 {
+		var cmd tea.Cmd
+		m.worktreeTable, cmd = m.worktreeTable.Update(msg)
+		return m, tea.Batch(cmd, m.debouncedUpdateDetailsView())
+	}
+
+	return m, nil
+}
+
+// handleNavigationDown processes down arrow and 'j' key navigation.
+func (m *Model) handleNavigationDown(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
+	switch m.focusedPane {
+	case 0:
+		m.worktreeTable, cmd = m.worktreeTable.Update(msg)
+		cmds = append(cmds, cmd)
+		cmds = append(cmds, m.debouncedUpdateDetailsView())
+	case 1:
+		m.statusViewport, cmd = m.statusViewport.Update(msg)
+		cmds = append(cmds, cmd)
+	default:
+		m.logTable, cmd = m.logTable.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+	return m, tea.Batch(cmds...)
+}
+
+// handleNavigationUp processes up arrow and 'k' key navigation.
+func (m *Model) handleNavigationUp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	cmds := []tea.Cmd{}
+
+	switch m.focusedPane {
+	case 0:
+		m.worktreeTable, cmd = m.worktreeTable.Update(msg)
+		cmds = append(cmds, cmd)
+		cmds = append(cmds, m.debouncedUpdateDetailsView())
+	case 1:
+		m.statusViewport, cmd = m.statusViewport.Update(msg)
+		cmds = append(cmds, cmd)
+	default:
+		m.logTable, cmd = m.logTable.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+	return m, tea.Batch(cmds...)
+}
+
+// handlePageDown processes page down navigation.
+func (m *Model) handlePageDown(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch m.focusedPane {
+	case 1:
+		m.statusViewport.HalfPageDown()
+		return m, nil
+	case 2:
+		m.logTable, cmd = m.logTable.Update(msg)
+		return m, cmd
+	}
+	return m, nil
+}
+
+// handlePageUp processes page up navigation.
+func (m *Model) handlePageUp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch m.focusedPane {
+	case 1:
+		m.statusViewport.HalfPageUp()
+		return m, nil
+	case 2:
+		m.logTable, cmd = m.logTable.Update(msg)
+		return m, cmd
+	}
+	return m, nil
+}
+
+// handleEnterKey processes the Enter key based on focused pane.
+func (m *Model) handleEnterKey() (tea.Model, tea.Cmd) {
+	switch m.focusedPane {
+	case 0:
+		// Jump to worktree
+		if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
+			selectedPath := m.filteredWts[m.selectedIndex].Path
+			m.persistLastSelected(selectedPath)
+			m.selectedPath = selectedPath
+			return m, tea.Quit
+		}
+	case 2:
+		// Open commit view
+		return m, m.openCommitView()
+	}
+	return m, nil
+}
+
+// handleWorktreeMessages processes worktree-related messages.
+func (m *Model) handleWorktreeMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case worktreesLoadedMsg:
+		return m.handleWorktreesLoaded(msg)
+	case cachedWorktreesMsg:
+		return m.handleCachedWorktrees(msg)
+	case pruneResultMsg:
+		return m.handlePruneResult(msg)
+	case absorbMergeResultMsg:
+		return m.handleAbsorbResult(msg)
+	default:
+		return m, nil
+	}
+}
+
+// handleWorktreesLoaded processes worktrees loaded message.
+func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cmd) {
+	m.worktreesLoaded = true
+	m.loading = false
+	if msg.err != nil {
+		m.statusContent = fmt.Sprintf("Error loading worktrees: %v", msg.err)
+		return m, nil
+	}
+	m.worktrees = msg.worktrees
+	m.detailsCache = make(map[string]*detailsCacheEntry)
+	m.ensureRepoConfig()
+	m.updateTable()
+	m.saveCache()
+	if len(m.worktrees) == 0 {
+		cwd, _ := os.Getwd()
+		m.welcomeScreen = NewWelcomeScreen(cwd, m.getWorktreeDir())
+		m.currentScreen = screenWelcome
+		return m, nil
+	}
+	if m.currentScreen == screenWelcome {
+		m.currentScreen = screenNone
+		m.welcomeScreen = nil
+	}
+	if m.config.AutoFetchPRs && !m.prDataLoaded {
+		m.loading = true
+		return m, m.fetchPRData()
+	}
+	return m, m.updateDetailsView()
+}
+
+// handleCachedWorktrees processes cached worktrees message.
+func (m *Model) handleCachedWorktrees(msg cachedWorktreesMsg) (tea.Model, tea.Cmd) {
+	if m.worktreesLoaded || len(msg.worktrees) == 0 {
+		return m, nil
+	}
+	m.worktrees = msg.worktrees
+	m.updateTable()
+	if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
+		m.infoContent = m.buildInfoContent(m.filteredWts[m.selectedIndex])
+	}
+	m.statusContent = "Refreshing worktrees..."
+	return m, nil
+}
+
+// handlePruneResult processes prune result message.
+func (m *Model) handlePruneResult(msg pruneResultMsg) (tea.Model, tea.Cmd) {
+	m.loading = false
+	if msg.err == nil && msg.worktrees != nil {
+		m.worktrees = msg.worktrees
+		m.updateTable()
+		m.saveCache()
+	}
+	summary := fmt.Sprintf("Pruned %d merged worktrees", msg.pruned)
+	if msg.failed > 0 {
+		summary = fmt.Sprintf("%s (%d failed)", summary, msg.failed)
+	}
+	m.statusContent = summary
+	return m, nil
+}
+
+// handleAbsorbResult processes absorb merge result message.
+func (m *Model) handleAbsorbResult(msg absorbMergeResultMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.statusContent = msg.err.Error()
+		return m, nil
+	}
+	cmd := m.deleteWorktreeCmd(&models.WorktreeInfo{Path: msg.path, Branch: msg.branch})
+	if cmd != nil {
+		return m, cmd()
+	}
+	return m, nil
+}
+
+// handlePRMessages processes PR and CI-related messages.
+func (m *Model) handlePRMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case prDataLoadedMsg:
+		return m.handlePRDataLoaded(msg)
+	case ciStatusLoadedMsg:
+		return m.handleCIStatusLoaded(msg)
+	default:
+		return m, nil
+	}
+}
+
+// handlePRDataLoaded processes PR data loaded message.
+func (m *Model) handlePRDataLoaded(msg prDataLoadedMsg) (tea.Model, tea.Cmd) {
+	m.loading = false
+	if msg.err == nil && msg.prMap != nil {
+		for _, wt := range m.worktrees {
+			if pr, ok := msg.prMap[wt.Branch]; ok {
+				wt.PR = pr
+			}
+		}
+		m.prDataLoaded = true
+		// Update columns before rows to include the PR column
+		m.updateTableColumns(m.worktreeTable.Width())
+		m.updateTable()
+		return m, m.updateDetailsView()
+	}
+	return m, nil
+}
+
+// handleCIStatusLoaded processes CI status loaded message.
+func (m *Model) handleCIStatusLoaded(msg ciStatusLoadedMsg) (tea.Model, tea.Cmd) {
+	if msg.err == nil && msg.checks != nil {
+		m.ciCache[msg.branch] = &ciCacheEntry{
+			checks:    msg.checks,
+			fetchedAt: time.Now(),
+		}
+		// Refresh info content to show CI status
+		if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
+			wt := m.filteredWts[m.selectedIndex]
+			if wt.Branch == msg.branch {
+				m.infoContent = m.buildInfoContent(wt)
+			}
+		}
+	}
+	return m, nil
 }
 
 func screenName(screen screenType) string {
@@ -1134,12 +1213,14 @@ func (m *Model) updateTable() {
 		case wt.Ahead == 0 && wt.Behind == 0:
 			abStr = "✓"
 		default:
+			var parts []string
 			if wt.Behind > 0 {
-				abStr += fmt.Sprintf("↓%d", wt.Behind)
+				parts = append(parts, fmt.Sprintf("↓%d", wt.Behind))
 			}
 			if wt.Ahead > 0 {
-				abStr += fmt.Sprintf("↑%d", wt.Ahead)
+				parts = append(parts, fmt.Sprintf("↑%d", wt.Ahead))
 			}
+			abStr = strings.Join(parts, "")
 		}
 
 		row := table.Row{
@@ -1248,7 +1329,7 @@ func (m *Model) debouncedUpdateDetailsView() tea.Cmd {
 	m.detailUpdateCancel = cancel
 
 	return func() tea.Msg {
-		timer := time.NewTimer(200 * time.Millisecond)
+		timer := time.NewTimer(debounceDelay)
 		defer timer.Stop()
 
 		select {
@@ -1303,9 +1384,9 @@ func (m *Model) maybeFetchCIStatus() tea.Cmd {
 		return nil
 	}
 
-	// Check cache - skip if fresh (within 30 seconds)
+	// Check cache - skip if fresh (within ciCacheTTL)
 	if cached, ok := m.ciCache[wt.Branch]; ok {
-		if time.Since(cached.fetchedAt) < 30*time.Second {
+		if time.Since(cached.fetchedAt) < ciCacheTTL {
 			return nil
 		}
 	}
@@ -1356,7 +1437,7 @@ func (m *Model) showCreateWorktree() tea.Cmd {
 			}
 
 			m.inputScreen.errorMsg = ""
-			if err := os.MkdirAll(m.getWorktreeDir(), 0o750); err != nil {
+			if err := os.MkdirAll(m.getWorktreeDir(), defaultDirPerms); err != nil {
 				return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }, true
 			}
 
@@ -1450,7 +1531,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 			}
 
 			m.inputScreen.errorMsg = ""
-			if err := os.MkdirAll(m.getWorktreeDir(), 0o750); err != nil {
+			if err := os.MkdirAll(m.getWorktreeDir(), defaultDirPerms); err != nil {
 				return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }, true
 			}
 
@@ -2148,7 +2229,7 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.helpScreen == nil {
 			m.helpScreen = NewHelpScreen(m.windowWidth, m.windowHeight, m.config.CustomCommands)
 		}
-		if msg.String() == "q" || msg.String() == keyEsc {
+		if msg.String() == keyQ || msg.String() == keyEsc {
 			// If currently searching, esc clears search; otherwise close help
 			if m.helpScreen.searching || m.helpScreen.searchQuery != "" {
 				m.helpScreen.searching = false
@@ -2258,7 +2339,7 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.currentScreen = screenNone
 			m.welcomeScreen = nil
 			return m, m.refreshWorktrees()
-		case "q", "Q", keyEsc:
+		case keyQ, "Q", keyEsc:
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -2300,7 +2381,7 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch msg.String() {
-		case "q", keyEsc:
+		case keyQ, keyEsc:
 			m.commitScreen = nil
 			m.currentScreen = screenNone
 			return m, nil
@@ -2316,7 +2397,7 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch msg.String() {
-		case "q", keyEsc:
+		case keyQ, keyEsc:
 			m.diffScreen = nil
 			m.currentScreen = screenNone
 			return m, nil
@@ -2445,7 +2526,7 @@ func (m *Model) loadCache() tea.Cmd {
 func (m *Model) saveCache() {
 	repoKey := m.getRepoKey()
 	cachePath := filepath.Join(m.getWorktreeDir(), repoKey, models.CacheFilename)
-	if err := os.MkdirAll(filepath.Dir(cachePath), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cachePath), defaultDirPerms); err != nil {
 		m.statusContent = fmt.Sprintf("Failed to create cache dir: %v", err)
 		return
 	}
@@ -2456,7 +2537,7 @@ func (m *Model) saveCache() {
 		Worktrees: m.worktrees,
 	}
 	data, _ := json.Marshal(cacheData)
-	if err := os.WriteFile(cachePath, data, 0o600); err != nil {
+	if err := os.WriteFile(cachePath, data, defaultFilePerms); err != nil {
 		m.statusContent = fmt.Sprintf("Failed to write cache: %v", err)
 	}
 }
@@ -2516,12 +2597,13 @@ func (m *Model) getWorktreeDir() string {
 	return filepath.Join(home, ".local", "share", "worktrees")
 }
 
-// GetSelectedPath returns the selected worktree path (for shell integration)
+// GetSelectedPath returns the selected worktree path for shell integration.
+// This is used when the application exits to allow the shell to cd into the selected worktree.
 func (m *Model) GetSelectedPath() string {
 	return m.selectedPath
 }
 
-func (m *Model) debugf(format string, args ...interface{}) {
+func (m *Model) debugf(format string, args ...any) {
 	if m.debugLogger == nil {
 		return
 	}
@@ -2546,13 +2628,14 @@ func (m *Model) persistLastSelected(path string) {
 	m.debugf("persist last-selected: %s", path)
 	repoKey := m.getRepoKey()
 	lastSelectedPath := filepath.Join(m.getWorktreeDir(), repoKey, models.LastSelectedFilename)
-	if err := os.MkdirAll(filepath.Dir(lastSelectedPath), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(lastSelectedPath), defaultDirPerms); err != nil {
 		return
 	}
-	_ = os.WriteFile(lastSelectedPath, []byte(path+"\n"), 0o600)
+	_ = os.WriteFile(lastSelectedPath, []byte(path+"\n"), defaultFilePerms)
 }
 
-// Close releases background resources (cancel contexts, timers)
+// Close releases background resources including canceling contexts and timers.
+// It also persists the current selection for the next session.
 func (m *Model) Close() {
 	m.persistCurrentSelection()
 	m.debugf("close")
@@ -3169,16 +3252,16 @@ func (m *Model) buildStatusContent(statusRaw string) string {
 
 		// Format: "XY filename" with proper alignment
 		// Render each status character separately to avoid ANSI codes wrapping spaces
-		var statusRendered string
+		var statusRendered strings.Builder
 		for _, char := range displayStatus {
 			if char == ' ' {
-				statusRendered += " "
+				statusRendered.WriteString(" ")
 			} else {
-				statusRendered += style.Render(string(char))
+				statusRendered.WriteString(style.Render(string(char)))
 			}
 		}
 
-		formatted := fmt.Sprintf("%s %s", statusRendered, filename)
+		formatted := fmt.Sprintf("%s %s", statusRendered.String(), filename)
 		lines = append(lines, formatted)
 	}
 	return strings.Join(lines, "\n")

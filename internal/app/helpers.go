@@ -21,7 +21,8 @@ func runBranchNameScript(ctx context.Context, script, diff string) (string, erro
 	}
 
 	// Create a context with timeout to prevent hanging
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	const scriptTimeout = 30 * time.Second
+	ctx, cancel := context.WithTimeout(ctx, scriptTimeout)
 	defer cancel()
 
 	// #nosec G204 -- script is user-configured and trusted

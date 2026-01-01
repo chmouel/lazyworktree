@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // TrustStatus represents the outcome of a trust check on a file.
@@ -32,6 +33,7 @@ func getTrustDBPath() string {
 
 // TrustManager stores trusted hashes and enforces TOFU (Trust On First Use).
 type TrustManager struct {
+	mu            sync.RWMutex
 	dbPath        string
 	trustedHashes map[string]string // Map absolute path -> sha256 hash
 }
@@ -56,24 +58,34 @@ func (tm *TrustManager) load() {
 		return
 	}
 
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
 	if err := json.Unmarshal(data, &tm.trustedHashes); err != nil {
 		// If corrupt, start fresh for safety
 		tm.trustedHashes = make(map[string]string)
 	}
 }
 
-func (tm *TrustManager) save() error {
-	dir := filepath.Dir(tm.dbPath)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return err
-	}
+const (
+	defaultDirPerms  = 0o750
+	defaultFilePerms = 0o600
+)
 
+func (tm *TrustManager) save() error {
+	tm.mu.RLock()
 	data, err := json.MarshalIndent(tm.trustedHashes, "", "  ")
+	tm.mu.RUnlock()
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(tm.dbPath, data, 0o600)
+	dir := filepath.Dir(tm.dbPath)
+	if err := os.MkdirAll(dir, defaultDirPerms); err != nil {
+		return err
+	}
+
+	return os.WriteFile(tm.dbPath, data, defaultFilePerms)
 }
 
 // calculateHash calculates SHA256 of the file content
@@ -110,7 +122,9 @@ func (tm *TrustManager) calculateHash(filePath string) string {
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-// CheckTrust validates the given path against the trust database.
+// CheckTrust validates the given file path against the trust database using TOFU (Trust On First Use).
+// Returns TrustStatusTrusted if the file hash matches a previously trusted hash,
+// TrustStatusUntrusted if the file is new or has changed, or TrustStatusNotFound if the file doesn't exist.
 func (tm *TrustManager) CheckTrust(filePath string) TrustStatus {
 	resolvedPath, err := filepath.Abs(filePath)
 	if err != nil {
@@ -126,7 +140,10 @@ func (tm *TrustManager) CheckTrust(filePath string) TrustStatus {
 		return TrustStatusUntrusted
 	}
 
+	tm.mu.RLock()
 	storedHash, exists := tm.trustedHashes[resolvedPath]
+	tm.mu.RUnlock()
+
 	if !exists {
 		return TrustStatusUntrusted
 	}
@@ -138,7 +155,8 @@ func (tm *TrustManager) CheckTrust(filePath string) TrustStatus {
 	return TrustStatusUntrusted
 }
 
-// TrustFile records the current hash of a file as trusted.
+// TrustFile records the current hash of a file as trusted and persists it to disk.
+// Once trusted, the file's commands will run automatically until the file content changes.
 func (tm *TrustManager) TrustFile(filePath string) error {
 	resolvedPath, err := filepath.Abs(filePath)
 	if err != nil {
@@ -154,6 +172,9 @@ func (tm *TrustManager) TrustFile(filePath string) error {
 		return fmt.Errorf("failed to calculate hash for: %s", resolvedPath)
 	}
 
+	tm.mu.Lock()
 	tm.trustedHashes[resolvedPath] = currentHash
+	tm.mu.Unlock()
+
 	return tm.save()
 }

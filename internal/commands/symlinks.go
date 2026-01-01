@@ -11,6 +11,12 @@ import (
 )
 
 // LinkTopSymlinks creates symlinks for untracked/ignored files and editor configs from main to target worktree.
+// This is a built-in automation command that:
+// - Symlinks all untracked and ignored files from the root of the main worktree (excluding subdirectories)
+// - Symlinks common editor configurations (.vscode, .idea, .cursor, .claude)
+// - Ensures a tmp/ directory exists in the new worktree
+// - Automatically runs direnv allow if a .envrc file is present
+// statusFunc is used to get git status for detecting untracked/ignored files.
 func LinkTopSymlinks(ctx context.Context, mainPath, worktreePath string, statusFunc func(context.Context, string) string) error {
 	if mainPath == "" || worktreePath == "" {
 		return fmt.Errorf("missing paths for link_topsymlinks")
@@ -29,18 +35,18 @@ func LinkTopSymlinks(ctx context.Context, mainPath, worktreePath string, statusF
 			continue
 		}
 		if err := symlinkPath(mainPath, worktreePath, rel); err != nil {
-			return err
+			return fmt.Errorf("failed to symlink %s: %w", rel, err)
 		}
 	}
 
 	for _, name := range []string{".vscode", ".idea", ".cursor", ".claude"} {
 		if err := symlinkPath(mainPath, worktreePath, name); err != nil {
-			return err
+			return fmt.Errorf("failed to symlink %s: %w", name, err)
 		}
 	}
 
 	if err := os.MkdirAll(filepath.Join(worktreePath, "tmp"), 0o750); err != nil {
-		return err
+		return fmt.Errorf("failed to create tmp directory: %w", err)
 	}
 
 	envrcPath := filepath.Join(worktreePath, ".envrc")
@@ -65,9 +71,12 @@ func symlinkPath(mainPath, worktreePath, rel string) error {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
-		return err
+		return fmt.Errorf("failed to create directory for %s: %w", dst, err)
 	}
 
 	_ = os.Remove(dst)
-	return os.Symlink(src, dst)
+	if err := os.Symlink(src, dst); err != nil {
+		return fmt.Errorf("failed to create symlink %s -> %s: %w", dst, src, err)
+	}
+	return nil
 }

@@ -1223,7 +1223,7 @@ func (s *WelcomeScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r", "R":
 			s.result <- true
 			return s, tea.Quit
-		case "q", "Q", keyEsc, keyCtrlC:
+		case keyQ, "Q", keyEsc, keyCtrlC:
 			s.result <- false
 			return s, tea.Quit
 		}

@@ -65,7 +65,10 @@ func NewService(notify NotifyFn, notifyOnce NotifyOnceFn) *Service {
 		limit = 32
 	}
 
-	semaphore := make(chan struct{}, limit) // Limit concurrent operations
+	// Initialize counting semaphore: channel starts full with 'limit' tokens.
+	// acquireSemaphore() takes a token (blocks if none available), releaseSemaphore() returns it.
+	// This limits concurrent git operations to 'limit' goroutines.
+	semaphore := make(chan struct{}, limit)
 	for i := 0; i < limit; i++ {
 		semaphore <- struct{}{}
 	}
@@ -97,7 +100,7 @@ func (s *Service) SetDeltaArgs(args []string) {
 	s.deltaArgs = append([]string{}, args...)
 }
 
-func (s *Service) debugf(format string, args ...interface{}) {
+func (s *Service) debugf(format string, args ...any) {
 	if s.debugLogger == nil {
 		return
 	}
@@ -262,7 +265,7 @@ func (s *Service) RunGit(ctx context.Context, args []string, cwd string, okRetur
 			}
 		} else {
 			if !silent {
-				command := args[0]
+				command := "<unknown>"
 				if len(args) > 0 {
 					command = args[0]
 				}
@@ -341,6 +344,8 @@ func (s *Service) GetMainBranch(ctx context.Context) string {
 }
 
 // GetWorktrees parses git worktree metadata and returns the list of worktrees.
+// This method concurrently fetches status information for each worktree to improve performance.
+// The first worktree in the list is marked as the main worktree.
 func (s *Service) GetWorktrees(ctx context.Context) ([]*models.WorktreeInfo, error) {
 	rawWts := s.RunGit(ctx, []string{"git", "worktree", "list", "--porcelain"}, "", []int{0}, true, false)
 	if rawWts == "" {
@@ -543,7 +548,7 @@ func (s *Service) fetchGitLabPRs(ctx context.Context) (map[string]*models.PRInfo
 		return nil, nil
 	}
 
-	var prs []map[string]interface{}
+	var prs []map[string]any
 	if err := json.Unmarshal([]byte(prRaw), &prs); err != nil {
 		key := "pr_json_decode_glab"
 		s.notifyOnce(key, fmt.Sprintf("Failed to parse GLAB PR data: %v", err), "error")
@@ -577,8 +582,9 @@ func (s *Service) fetchGitLabPRs(ctx context.Context) (map[string]*models.PRInfo
 	return prMap, nil
 }
 
-// FetchPRMap fetches PR/MR information from GitHub or GitLab
-// FetchPRMap gathers PR information via supported host APIs.
+// FetchPRMap gathers PR/MR information via supported host APIs (GitHub or GitLab).
+// Returns a map keyed by branch name to PRInfo. Detects the host automatically
+// based on the repository's remote URL.
 func (s *Service) FetchPRMap(ctx context.Context) (map[string]*models.PRInfo, error) {
 	host := s.detectHost(ctx)
 	if host == gitHostGitLab {
@@ -597,7 +603,7 @@ func (s *Service) FetchPRMap(ctx context.Context) (map[string]*models.PRInfo, er
 		return nil, nil
 	}
 
-	var prs []map[string]interface{}
+	var prs []map[string]any
 	if err := json.Unmarshal([]byte(prRaw), &prs); err != nil {
 		key := "pr_json_decode"
 		s.notifyOnce(key, fmt.Sprintf("Failed to parse PR data: %v", err), "error")
@@ -645,7 +651,7 @@ func (s *Service) FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
 		return []*models.PRInfo{}, nil
 	}
 
-	var prs []map[string]interface{}
+	var prs []map[string]any
 	if err := json.Unmarshal([]byte(prRaw), &prs); err != nil {
 		key := "pr_json_decode"
 		s.notifyOnce(key, fmt.Sprintf("Failed to parse PR data: %v", err), "error")
@@ -681,7 +687,7 @@ func (s *Service) fetchGitLabOpenPRs(ctx context.Context) ([]*models.PRInfo, err
 		return []*models.PRInfo{}, nil
 	}
 
-	var prs []map[string]interface{}
+	var prs []map[string]any
 	if err := json.Unmarshal([]byte(prRaw), &prs); err != nil {
 		key := "pr_json_decode_glab"
 		s.notifyOnce(key, fmt.Sprintf("Failed to parse GLAB PR data: %v", err), "error")
@@ -933,7 +939,7 @@ func (s *Service) ResolveRepoName(ctx context.Context) string {
 	// Try glab repo view
 	out = s.RunGit(ctx, []string{"glab", "repo", "view", "-F", "json"}, "", []int{0}, false, true)
 	if out != "" {
-		var data map[string]interface{}
+		var data map[string]any
 		if err := json.Unmarshal([]byte(out), &data); err == nil {
 			if path, ok := data["path_with_namespace"].(string); ok {
 				return path
@@ -960,8 +966,11 @@ func (s *Service) ResolveRepoName(ctx context.Context) string {
 	return "unknown"
 }
 
-// BuildThreePartDiff builds a comprehensive diff with staged, unstaged, and untracked changes
-// BuildThreePartDiff assembles a diff showing staged, modified, and untracked sections.
+// BuildThreePartDiff assembles a comprehensive diff showing staged, modified, and untracked sections.
+// The output is truncated according to cfg.MaxDiffChars and cfg.MaxUntrackedDiffs settings.
+// Part 1: Staged changes (git diff --cached)
+// Part 2: Unstaged changes (git diff)
+// Part 3: Untracked files (limited by MaxUntrackedDiffs)
 func (s *Service) BuildThreePartDiff(ctx context.Context, path string, cfg *config.AppConfig) string {
 	var parts []string
 	totalChars := 0

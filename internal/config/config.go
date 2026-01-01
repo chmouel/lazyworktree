@@ -57,7 +57,7 @@ func DefaultConfig() *AppConfig {
 }
 
 // normalizeCommandList converts various input types to a list of command strings
-func normalizeCommandList(value interface{}) []string {
+func normalizeCommandList(value any) []string {
 	if value == nil {
 		return []string{}
 	}
@@ -69,7 +69,7 @@ func normalizeCommandList(value interface{}) []string {
 			return []string{}
 		}
 		return []string{text}
-	case []interface{}:
+	case []any:
 		commands := []string{}
 		for _, item := range v {
 			if item == nil {
@@ -85,7 +85,7 @@ func normalizeCommandList(value interface{}) []string {
 	return []string{}
 }
 
-func normalizeArgsList(value interface{}) []string {
+func normalizeArgsList(value any) []string {
 	if value == nil {
 		return []string{}
 	}
@@ -97,7 +97,7 @@ func normalizeArgsList(value interface{}) []string {
 			return []string{}
 		}
 		return strings.Fields(text)
-	case []interface{}:
+	case []any:
 		args := []string{}
 		for _, item := range v {
 			if item == nil {
@@ -114,7 +114,7 @@ func normalizeArgsList(value interface{}) []string {
 	return []string{}
 }
 
-func coerceBool(value interface{}, defaultVal bool) bool {
+func coerceBool(value any, defaultVal bool) bool {
 	if value == nil {
 		return defaultVal
 	}
@@ -136,7 +136,7 @@ func coerceBool(value interface{}, defaultVal bool) bool {
 	return defaultVal
 }
 
-func coerceInt(value interface{}, defaultVal int) int {
+func coerceInt(value any, defaultVal int) int {
 	if value == nil {
 		return defaultVal
 	}
@@ -158,16 +158,16 @@ func coerceInt(value interface{}, defaultVal int) int {
 	return defaultVal
 }
 
-func parseCustomCommands(data map[string]interface{}) map[string]*CustomCommand {
+func parseCustomCommands(data map[string]any) map[string]*CustomCommand {
 	commands := make(map[string]*CustomCommand)
 
-	raw, ok := data["custom_commands"].(map[string]interface{})
+	raw, ok := data["custom_commands"].(map[string]any)
 	if !ok {
 		return commands
 	}
 
 	for key, val := range raw {
-		cmdMap, ok := val.(map[string]interface{})
+		cmdMap, ok := val.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -191,7 +191,7 @@ func parseCustomCommands(data map[string]interface{}) map[string]*CustomCommand 
 	return commands
 }
 
-func parseConfig(data map[string]interface{}) *AppConfig {
+func parseConfig(data map[string]any) *AppConfig {
 	cfg := DefaultConfig()
 
 	if worktreeDir, ok := data["worktree_dir"].(string); ok {
@@ -261,12 +261,12 @@ func LoadRepoConfig(repoPath string) (*RepoConfig, string, error) {
 
 	dataBytes, err := fs.ReadFile(os.DirFS(cleanRepoPath), ".wt")
 	if err != nil {
-		return nil, wtPath, err
+		return nil, wtPath, fmt.Errorf("failed to read .wt file: %w", err)
 	}
 
-	var yamlData map[string]interface{}
+	var yamlData map[string]any
 	if err := yaml.Unmarshal(dataBytes, &yamlData); err != nil {
-		return nil, wtPath, err
+		return nil, wtPath, fmt.Errorf("failed to parse .wt file: %w", err)
 	}
 
 	cfg := &RepoConfig{
@@ -323,7 +323,7 @@ func LoadConfig(configPath string) (*AppConfig, error) {
 			continue
 		}
 
-		var yamlData map[string]interface{}
+		var yamlData map[string]any
 		if err := yaml.Unmarshal(data, &yamlData); err != nil {
 			return DefaultConfig(), nil
 		}

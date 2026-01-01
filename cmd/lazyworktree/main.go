@@ -88,7 +88,8 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error expanding output-selection: %v\n", err)
 			os.Exit(1)
 		}
-		if err := os.MkdirAll(filepath.Dir(expanded), 0o750); err != nil {
+		const defaultDirPerms = 0o750
+		if err := os.MkdirAll(filepath.Dir(expanded), defaultDirPerms); err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating output-selection dir: %v\n", err)
 			os.Exit(1)
 		}
@@ -96,7 +97,8 @@ func main() {
 		if selectedPath != "" {
 			data = selectedPath + "\n"
 		}
-		if err := os.WriteFile(expanded, []byte(data), 0o600); err != nil {
+		const defaultFilePerms = 0o600
+		if err := os.WriteFile(expanded, []byte(data), defaultFilePerms); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing output-selection: %v\n", err)
 			os.Exit(1)
 		}
