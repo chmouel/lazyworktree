@@ -3,7 +3,7 @@ cask "lazyworktree" do
   name "lazyworktree"
   desc "lazyworktree - A TUI tool to manage git worktrees"
   homepage "https://github.com/chmouel/lazyworktree"
-  version "1.6.0"
+  version "1.7.0"
 
   livecheck do
     skip "Auto-generated on release."
@@ -13,17 +13,17 @@ cask "lazyworktree" do
 
   on_macos do
     url "https://github.com/chmouel/lazyworktree/releases/download/v#{version}/lazyworktree_Darwin_all.tar.gz"
-    sha256 "1b7348625382ee52609c21b0dcb010e6563fd4e57cdbb9bde7081c1198e7c409"
+    sha256 "4564b7bb569993de1f3ab4eac3709a530bcd29193a7cfe23567e6c01adfad383"
   end
 
   on_linux do
     on_intel do
       url "https://github.com/chmouel/lazyworktree/releases/download/v#{version}/lazyworktree_Linux_x86_64.tar.gz"
-      sha256 "bfec60c4d7fcaac41ffcf1d46741a267d706dfe08e09305a83c5ac853fd0ff3a"
+      sha256 "56542ae390ca7f235e4d376c25d91eb4f1b75bd737473059c8c7552ad01660e7"
     end
     on_arm do
       url "https://github.com/chmouel/lazyworktree/releases/download/v#{version}/lazyworktree_Linux_arm64.tar.gz"
-      sha256 "a2fd470509f39c521ae20652e83427d85178e1f6e1a8928b0321952f4a002987"
+      sha256 "59f08e7acefec91134ca963b5efc08b1a4f8725b02905b4ccb67cef09493da2f"
     end
   end
 
