@@ -428,10 +428,10 @@ Press p to fetch PR information from GitHub.
 	width := 80
 	height := 30
 	if maxWidth > 0 {
-		width = minInt(120, maxInt(60, maxWidth))
+		width = minInt(100, maxInt(60, int(float64(maxWidth)*0.75)))
 	}
 	if maxHeight > 0 {
-		height = minInt(60, maxInt(25, maxHeight))
+		height = minInt(40, maxInt(20, int(float64(maxHeight)*0.7)))
 	}
 
 	vp := viewport.New(width, maxInt(5, height-3))
@@ -1135,10 +1135,10 @@ func (s *HelpScreen) SetSize(maxWidth, maxHeight int) {
 	width := 80
 	height := 30
 	if maxWidth > 0 {
-		width = minInt(120, maxInt(60, maxWidth-4)) // -4 for margins
+		width = minInt(100, maxInt(60, int(float64(maxWidth)*0.75)))
 	}
 	if maxHeight > 0 {
-		height = minInt(60, maxInt(20, maxHeight-6)) // -6 for margins
+		height = minInt(40, maxInt(20, int(float64(maxHeight)*0.7)))
 	}
 	s.width = width
 	s.height = height
@@ -1150,24 +1150,55 @@ func (s *HelpScreen) SetSize(maxWidth, maxHeight int) {
 }
 
 func (s *HelpScreen) renderContent() string {
-	if strings.TrimSpace(s.searchQuery) == "" {
-		return strings.Join(s.fullText, "\n")
-	}
+	lines := s.fullText
 
-	query := strings.ToLower(strings.TrimSpace(s.searchQuery))
-	highlightStyle := lipgloss.NewStyle().Foreground(colorTextFg).Background(colorAccent).Bold(true)
-	lines := []string{}
-	for _, line := range s.fullText {
-		lower := strings.ToLower(line)
-		if strings.Contains(lower, query) {
-			lines = append(lines, highlightMatches(line, lower, query, highlightStyle))
+	// Apply styling to help content
+	styledLines := []string{}
+	titleStyle := lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	keyStyle := lipgloss.NewStyle().Foreground(colorSuccessFg)
+
+	for _, line := range lines {
+		// Style section headers (lines that start with **)
+		if strings.HasPrefix(line, "**") && strings.HasSuffix(line, "**") {
+			header := strings.TrimPrefix(strings.TrimSuffix(line, "**"), "**")
+			styledLines = append(styledLines, titleStyle.Render("▶ "+header))
+			continue
 		}
+
+		// Style key bindings (lines starting with "- " and containing ":")
+		if strings.HasPrefix(line, "- ") {
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) == 2 {
+				keys := strings.TrimPrefix(parts[0], "- ")
+				description := parts[1]
+				styledLine := "- " + keyStyle.Render(keys) + ":" + description
+				styledLines = append(styledLines, styledLine)
+				continue
+			}
+		}
+
+		styledLines = append(styledLines, line)
 	}
 
-	if len(lines) == 0 {
-		return fmt.Sprintf("No help entries match %q", s.searchQuery)
+	// Handle search filtering
+	if strings.TrimSpace(s.searchQuery) != "" {
+		query := strings.ToLower(strings.TrimSpace(s.searchQuery))
+		highlightStyle := lipgloss.NewStyle().Foreground(colorTextFg).Background(colorAccent).Bold(true)
+		filteredLines := []string{}
+		for _, line := range styledLines {
+			lower := strings.ToLower(line)
+			if strings.Contains(lower, query) {
+				filteredLines = append(filteredLines, highlightMatches(line, lower, query, highlightStyle))
+			}
+		}
+
+		if len(filteredLines) == 0 {
+			return fmt.Sprintf("No help entries match %q", s.searchQuery)
+		}
+		return strings.Join(filteredLines, "\n")
 	}
-	return strings.Join(lines, "\n")
+
+	return strings.Join(styledLines, "\n")
 }
 
 func highlightMatches(line, lowerLine, lowerQuery string, style lipgloss.Style) string {
@@ -1240,10 +1271,10 @@ func (s *HelpScreen) View() string {
 	// Footer
 	footerStyle := lipgloss.NewStyle().
 		Foreground(colorMutedFg).
-		Align(lipgloss.Right).
+		Align(lipgloss.Left).
 		Width(s.width - 2).
 		PaddingTop(1)
-	footer := footerStyle.Render("esc to close")
+	footer := footerStyle.Render("j/k: scroll • Ctrl+d/u: page • /: search • esc: close")
 
 	// Viewport styling
 	vpStyle := lipgloss.NewStyle().
