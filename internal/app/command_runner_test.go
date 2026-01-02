@@ -18,10 +18,7 @@ type commandCapture struct {
 	env  []string
 }
 
-const (
-	testWorktreePath = "/tmp/wt"
-	windowsOS        = "windows"
-)
+const testWorktreePath = "/tmp/wt"
 
 func (c *commandCapture) runner(name string, args ...string) *exec.Cmd {
 	c.name = name
@@ -150,15 +147,15 @@ func TestOpenPRUsesCommandRunner(t *testing.T) {
 
 	expected := "xdg-open"
 	switch runtime.GOOS {
-	case "darwin":
+	case osDarwin:
 		expected = "open"
-	case windowsOS:
+	case osWindows:
 		expected = "rundll32"
 	}
 	if capture.name != expected {
 		t.Fatalf("expected %q command, got %q", expected, capture.name)
 	}
-	if runtime.GOOS == windowsOS {
+	if runtime.GOOS == osWindows {
 		if len(capture.args) < 2 || capture.args[1] != "https://example.com/pr/1" {
 			t.Fatalf("expected windows URL args, got %v", capture.args)
 		}

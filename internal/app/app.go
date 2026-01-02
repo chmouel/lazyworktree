@@ -45,6 +45,9 @@ const (
 	ciCacheTTL       = 30 * time.Second
 	defaultDirPerms  = 0o750
 	defaultFilePerms = 0o600
+
+	osDarwin  = "darwin"
+	osWindows = "windows"
 )
 
 type (
@@ -2167,10 +2170,10 @@ func (m *Model) openPR() tea.Cmd {
 
 		var cmd *exec.Cmd
 		switch runtime.GOOS {
-		case "darwin":
+		case osDarwin:
 			// #nosec G204 -- the URL is sanitized and only executed directly as a single argument
 			cmd = m.commandRunner("open", prURL)
-		case "windows":
+		case osWindows:
 			// #nosec G204 -- the URL is sanitized and only executed directly as a single argument
 			cmd = m.commandRunner("rundll32", "url.dll,FileProtocolHandler", prURL)
 		default:
