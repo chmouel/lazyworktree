@@ -62,18 +62,18 @@ func Narna() *Theme {
 func CleanLight() *Theme {
 	return &Theme{
 		Background: lipgloss.Color("#FFFFFF"), // White
-		Accent:     lipgloss.Color("#0066CC"), // Dark blue
-		AccentDim:  lipgloss.Color("#E6E6E6"), // Light gray for selection
-		Border:     lipgloss.Color("#CCCCCC"), // Light gray
-		BorderDim:  lipgloss.Color("#D9D9D9"), // Slightly darker gray
-		MutedFg:    lipgloss.Color("#666666"), // Medium gray (muted text)
-		TextFg:     lipgloss.Color("#000000"), // Black (primary text)
-		SuccessFg:  lipgloss.Color("#009900"), // Dark green (success)
-		WarnFg:     lipgloss.Color("#FF8800"), // Dark orange (warning)
-		ErrorFg:    lipgloss.Color("#CC0000"), // Dark red (error)
-		Cyan:       lipgloss.Color("#0099CC"), // Dark cyan (info/secondary)
-		Pink:       lipgloss.Color("#CC0066"), // Dark pink
-		Yellow:     lipgloss.Color("#CC9900"), // Dark yellow
+		Accent:     lipgloss.Color("#3F7F9B"), // Toned-down cyan blue
+		AccentDim:  lipgloss.Color("#EEF4F7"), // Very light blue-gray
+		Border:     lipgloss.Color("#D3DEE6"), // Cool light gray with blue hint
+		BorderDim:  lipgloss.Color("#E7EFF4"), // Subtle blue-tinted divider
+		MutedFg:    lipgloss.Color("#556B78"), // Soft blue-gray text
+		TextFg:     lipgloss.Color("#000000"), // Black
+		SuccessFg:  lipgloss.Color("#1A7F37"), // Natural green
+		WarnFg:     lipgloss.Color("#C2410C"), // Muted orange
+		ErrorFg:    lipgloss.Color("#B91C1C"), // Muted red
+		Cyan:       lipgloss.Color("#2F8FA3"), // Clear but restrained cyan
+		Pink:       lipgloss.Color("#C0266D"), // Controlled pink
+		Yellow:     lipgloss.Color("#B45309"), // Warm amber
 	}
 }
 
