@@ -19,20 +19,21 @@ type CICheck struct {
 
 // WorktreeInfo summarizes the information for a git worktree.
 type WorktreeInfo struct {
-	Path         string
-	Branch       string
-	IsMain       bool
-	Dirty        bool
-	Ahead        int
-	Behind       int
-	HasUpstream  bool
-	LastActive   string
-	LastActiveTS int64
-	PR           *PRInfo
-	Untracked    int
-	Modified     int
-	Staged       int
-	Divergence   string
+	Path           string
+	Branch         string
+	IsMain         bool
+	Dirty          bool
+	Ahead          int
+	Behind         int
+	HasUpstream    bool
+	UpstreamBranch string // The upstream branch name (e.g., "origin/main" or "chmouel/feature-branch")
+	LastActive     string
+	LastActiveTS   int64
+	PR             *PRInfo
+	Untracked      int
+	Modified       int
+	Staged         int
+	Divergence     string
 }
 
 const (

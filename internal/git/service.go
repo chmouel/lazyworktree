@@ -458,6 +458,7 @@ func (s *Service) GetWorktrees(ctx context.Context) ([]*models.WorktreeInfo, err
 			ahead := 0
 			behind := 0
 			hasUpstream := false
+			upstreamBranch := ""
 			untracked := 0
 			modified := 0
 			staged := 0
@@ -466,6 +467,7 @@ func (s *Service) GetWorktrees(ctx context.Context) ([]*models.WorktreeInfo, err
 				switch {
 				case strings.HasPrefix(line, "# branch.upstream "):
 					hasUpstream = true
+					upstreamBranch = strings.TrimPrefix(line, "# branch.upstream ")
 				case strings.HasPrefix(line, "# branch.ab "):
 					// branch.ab only appears when upstream is set per Git porcelain v2 spec
 					hasUpstream = true
@@ -503,18 +505,19 @@ func (s *Service) GetWorktrees(ctx context.Context) ([]*models.WorktreeInfo, err
 			}
 
 			wt := &models.WorktreeInfo{
-				Path:         path,
-				Branch:       branch,
-				IsMain:       wtData.isMain,
-				Dirty:        (untracked + modified + staged) > 0,
-				Ahead:        ahead,
-				Behind:       behind,
-				HasUpstream:  hasUpstream,
-				LastActive:   lastActive,
-				LastActiveTS: lastActiveTS,
-				Untracked:    untracked,
-				Modified:     modified,
-				Staged:       staged,
+				Path:           path,
+				Branch:         branch,
+				IsMain:         wtData.isMain,
+				Dirty:          (untracked + modified + staged) > 0,
+				Ahead:          ahead,
+				Behind:         behind,
+				HasUpstream:    hasUpstream,
+				UpstreamBranch: upstreamBranch,
+				LastActive:     lastActive,
+				LastActiveTS:   lastActiveTS,
+				Untracked:      untracked,
+				Modified:       modified,
+				Staged:         staged,
 			}
 
 			results <- result{wt: wt, err: nil}
@@ -564,7 +567,7 @@ func (s *Service) detectHost(ctx context.Context) string {
 func (s *Service) fetchGitLabPRs(ctx context.Context) (map[string]*models.PRInfo, error) {
 	prRaw := s.RunGit(ctx, []string{"glab", "api", "merge_requests?state=all&per_page=100"}, "", []int{0}, false, false)
 	if prRaw == "" {
-		return nil, nil
+		return make(map[string]*models.PRInfo), nil
 	}
 
 	var prs []map[string]any
@@ -619,7 +622,7 @@ func (s *Service) FetchPRMap(ctx context.Context) (map[string]*models.PRInfo, er
 	}, "", []int{0}, false, host == gitHostUnknown)
 
 	if prRaw == "" {
-		return nil, nil
+		return make(map[string]*models.PRInfo), nil
 	}
 
 	var prs []map[string]any
@@ -649,6 +652,81 @@ func (s *Service) FetchPRMap(ctx context.Context) (map[string]*models.PRInfo, er
 	}
 
 	return prMap, nil
+}
+
+// FetchPRForWorktree fetches PR info for a specific worktree by running gh/glab in that directory.
+// This correctly detects PRs even when the local branch name differs from the remote branch.
+func (s *Service) FetchPRForWorktree(ctx context.Context, worktreePath string) *models.PRInfo {
+	host := s.detectHost(ctx)
+
+	switch host {
+	case gitHostGithub:
+		// Run gh pr view in the worktree directory to get PR for current branch
+		prRaw := s.RunGit(ctx, []string{
+			"gh", "pr", "view",
+			"--json", "number,state,title,url,headRefName",
+		}, worktreePath, []int{0}, false, true)
+
+		if prRaw == "" {
+			return nil
+		}
+
+		var pr map[string]any
+		if err := json.Unmarshal([]byte(prRaw), &pr); err != nil {
+			return nil
+		}
+
+		number, _ := pr["number"].(float64)
+		state, _ := pr["state"].(string)
+		title, _ := pr["title"].(string)
+		url, _ := pr["url"].(string)
+		headRefName, _ := pr["headRefName"].(string)
+
+		return &models.PRInfo{
+			Number: int(number),
+			State:  state,
+			Title:  title,
+			URL:    url,
+			Branch: headRefName,
+		}
+
+	case gitHostGitLab:
+		// Run glab mr view in the worktree directory
+		prRaw := s.RunGit(ctx, []string{
+			"glab", "mr", "view",
+			"--output", "json",
+		}, worktreePath, []int{0}, false, true)
+
+		if prRaw == "" {
+			return nil
+		}
+
+		var pr map[string]any
+		if err := json.Unmarshal([]byte(prRaw), &pr); err != nil {
+			return nil
+		}
+
+		iid, _ := pr["iid"].(float64)
+		state, _ := pr["state"].(string)
+		if state == "opened" {
+			state = "OPEN"
+		} else {
+			state = strings.ToUpper(state)
+		}
+		title, _ := pr["title"].(string)
+		webURL, _ := pr["web_url"].(string)
+		sourceBranch, _ := pr["source_branch"].(string)
+
+		return &models.PRInfo{
+			Number: int(iid),
+			State:  state,
+			Title:  title,
+			URL:    webURL,
+			Branch: sourceBranch,
+		}
+	}
+
+	return nil
 }
 
 // FetchAllOpenPRs fetches all open PRs/MRs and returns them as a slice.
@@ -898,49 +976,47 @@ func (s *Service) RenameWorktree(ctx context.Context, oldPath, newPath, oldBranc
 }
 
 // CreateWorktreeFromPR creates a worktree from a PR's remote branch.
-// It uses gh/glab CLI tools to checkout the PR with proper tracking, then creates a worktree.
+// It creates a detached worktree first, then uses gh/glab CLI to checkout the PR
+// inside that worktree, which properly sets up fork remotes and tracking.
 func (s *Service) CreateWorktreeFromPR(ctx context.Context, prNumber int, remoteBranch, localBranch, targetPath string) bool {
 	host := s.detectHost(ctx)
 
-	// Save current branch to restore it later
-	currentBranch := s.RunGit(ctx, []string{"git", "branch", "--show-current"}, "", []int{0}, true, true)
-	if currentBranch == "" {
-		// If we're in detached HEAD, get the commit
-		currentBranch = s.RunGit(ctx, []string{"git", "rev-parse", "HEAD"}, "", []int{0}, true, true)
-	}
-
-	// Use gh/glab to checkout the PR with proper configuration
-	switch host {
-	case gitHostGithub:
-		// Use gh pr checkout which sets up all the proper tracking
-		if !s.RunCommandChecked(ctx, []string{"gh", "pr", "checkout", fmt.Sprintf("%d", prNumber), "-b", localBranch}, "", fmt.Sprintf("Failed to checkout PR #%d", prNumber)) {
-			return false
-		}
-	case gitHostGitLab:
-		// Use glab mr checkout which sets up all the proper tracking
-		if !s.RunCommandChecked(ctx, []string{"glab", "mr", "checkout", fmt.Sprintf("%d", prNumber), "-b", localBranch}, "", fmt.Sprintf("Failed to checkout MR #%d", prNumber)) {
-			return false
-		}
-	default:
-		// Unknown host, fall back to manual fetch
+	// For unknown host, fall back to manual fetch
+	if host != gitHostGithub && host != gitHostGitLab {
 		if !s.RunCommandChecked(ctx, []string{"git", "fetch", "origin", remoteBranch}, "", fmt.Sprintf("Failed to fetch remote branch %s", remoteBranch)) {
 			return false
 		}
 		remoteRef := fmt.Sprintf("origin/%s", remoteBranch)
-		if !s.RunCommandChecked(ctx, []string{"git", "worktree", "add", "-b", localBranch, targetPath, remoteRef}, "", fmt.Sprintf("Failed to create worktree from PR branch %s", remoteBranch)) {
+		return s.RunCommandChecked(ctx, []string{"git", "worktree", "add", "-b", localBranch, targetPath, remoteRef}, "", fmt.Sprintf("Failed to create worktree from PR branch %s", remoteBranch))
+	}
+
+	// Get HEAD commit to create a detached worktree
+	headCommit := s.RunGit(ctx, []string{"git", "rev-parse", "HEAD"}, "", []int{0}, true, true)
+	if headCommit == "" {
+		s.notify("Failed to get HEAD commit", "error")
+		return false
+	}
+
+	// Create a detached worktree first
+	if !s.RunCommandChecked(ctx, []string{"git", "worktree", "add", "--detach", targetPath, headCommit}, "", fmt.Sprintf("Failed to create worktree at %s", targetPath)) {
+		return false
+	}
+
+	// Now run gh/glab pr checkout inside the new worktree directory
+	// This will properly set up fork remotes and branch tracking
+	switch host {
+	case gitHostGithub:
+		if !s.RunCommandChecked(ctx, []string{"gh", "pr", "checkout", fmt.Sprintf("%d", prNumber), "-b", localBranch, "--force"}, targetPath, fmt.Sprintf("Failed to checkout PR #%d", prNumber)) {
+			// Clean up the worktree on failure
+			s.RunGit(ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", []int{0, 128}, true, true)
 			return false
 		}
-		return true
-	}
-
-	// Restore the original branch in the main worktree
-	if currentBranch != "" {
-		s.RunGit(ctx, []string{"git", "checkout", currentBranch}, "", []int{0, 1}, true, true)
-	}
-
-	// Now create a new worktree from the branch that gh/glab just created
-	if !s.RunCommandChecked(ctx, []string{"git", "worktree", "add", targetPath, localBranch}, "", fmt.Sprintf("Failed to create worktree from branch %s", localBranch)) {
-		return false
+	case gitHostGitLab:
+		if !s.RunCommandChecked(ctx, []string{"glab", "mr", "checkout", fmt.Sprintf("%d", prNumber), "-b", localBranch, "--force"}, targetPath, fmt.Sprintf("Failed to checkout MR #%d", prNumber)) {
+			// Clean up the worktree on failure
+			s.RunGit(ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", []int{0, 128}, true, true)
+			return false
+		}
 	}
 
 	return true

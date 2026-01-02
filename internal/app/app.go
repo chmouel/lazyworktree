@@ -60,8 +60,9 @@ type (
 		err       error
 	}
 	prDataLoadedMsg struct {
-		prMap map[string]*models.PRInfo
-		err   error
+		prMap       map[string]*models.PRInfo
+		worktreePRs map[string]*models.PRInfo // keyed by worktree path
+		err         error
 	}
 	statusUpdatedMsg struct {
 		info   string
@@ -664,6 +665,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.ciCache = make(map[string]*ciCacheEntry)
 		if !m.prDataLoaded {
 			m.loading = true
+			m.statusContent = "Fetching PR data..."
 			return m, m.fetchPRData()
 		}
 		return m, m.maybeFetchCIStatus()
@@ -1030,10 +1032,21 @@ func (m *Model) handlePRMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
 // handlePRDataLoaded processes PR data loaded message.
 func (m *Model) handlePRDataLoaded(msg prDataLoadedMsg) (tea.Model, tea.Cmd) {
 	m.loading = false
-	if msg.err == nil && msg.prMap != nil {
+	if msg.err == nil {
 		for _, wt := range m.worktrees {
-			if pr, ok := msg.prMap[wt.Branch]; ok {
-				wt.PR = pr
+			// First try matching by local branch name from the prMap
+			if msg.prMap != nil {
+				if pr, ok := msg.prMap[wt.Branch]; ok {
+					wt.PR = pr
+					continue
+				}
+			}
+			// Then check if we have a direct worktree PR lookup
+			// This handles fork PRs where local branch differs from remote
+			if msg.worktreePRs != nil {
+				if pr, ok := msg.worktreePRs[wt.Path]; ok {
+					wt.PR = pr
+				}
 			}
 		}
 		m.prDataLoaded = true
@@ -1457,7 +1470,8 @@ func (m *Model) updateTable() {
 				default:
 					stateSymbol = "?"
 				}
-				prStr = fmt.Sprintf("#%d %s", wt.PR.Number, stateSymbol)
+				// Right-align PR numbers for consistent column width
+				prStr = fmt.Sprintf("#%-5d%s", wt.PR.Number, stateSymbol)
 			}
 			row = append(row, prStr)
 		}
@@ -1566,10 +1580,30 @@ func (m *Model) refreshWorktrees() tea.Cmd {
 
 func (m *Model) fetchPRData() tea.Cmd {
 	return func() tea.Msg {
+		// First try the traditional approach (matches by headRefName)
 		prMap, err := m.git.FetchPRMap(m.ctx)
+		if err != nil {
+			return prDataLoadedMsg{prMap: nil, err: err}
+		}
+
+		// Also fetch PRs per worktree for cases where local branch differs from remote
+		// This handles fork PRs where local branch name doesn't match headRefName
+		worktreePRs := make(map[string]*models.PRInfo)
+		for _, wt := range m.worktrees {
+			// Skip if already matched by headRefName
+			if _, ok := prMap[wt.Branch]; ok {
+				continue
+			}
+			// Try to fetch PR for this worktree directly
+			if pr := m.git.FetchPRForWorktree(m.ctx, wt.Path); pr != nil {
+				worktreePRs[wt.Path] = pr
+			}
+		}
+
 		return prDataLoadedMsg{
-			prMap: prMap,
-			err:   err,
+			prMap:       prMap,
+			worktreePRs: worktreePRs,
+			err:         nil,
 		}
 	}
 }

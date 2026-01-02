@@ -326,6 +326,46 @@ func TestHandlePRDataLoadedUpdatesTable(t *testing.T) {
 	}
 }
 
+func TestHandlePRDataLoadedWithWorktreePRs(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.worktreeTable.SetWidth(100)
+	m.worktreesLoaded = true
+	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
+	m.worktrees = []*models.WorktreeInfo{
+		{Path: wtPath, Branch: "local-branch-name"},
+	}
+	m.filteredWts = m.worktrees
+	m.worktreeTable.SetCursor(0)
+
+	// Simulate a case where the local branch name differs from the PR's headRefName
+	// So prMap won't match, but worktreePRs (from gh pr view) will
+	msg := prDataLoadedMsg{
+		prMap: map[string]*models.PRInfo{
+			"remote-branch-name": {Number: 99, State: "OPEN", Title: "Fork PR", URL: "https://example.com"},
+		},
+		worktreePRs: map[string]*models.PRInfo{
+			wtPath: {Number: 99, State: "OPEN", Title: "Fork PR", URL: "https://example.com"},
+		},
+	}
+
+	_, cmd := m.handlePRDataLoaded(msg)
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+	if !m.prDataLoaded {
+		t.Fatal("expected prDataLoaded to be true")
+	}
+	if m.worktrees[0].PR == nil {
+		t.Fatal("expected PR info to be applied to worktree via worktreePRs")
+	}
+	if m.worktrees[0].PR.Number != 99 {
+		t.Fatalf("expected PR number 99, got %d", m.worktrees[0].PR.Number)
+	}
+}
+
 func TestHandleCIStatusLoadedUpdatesCache(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),

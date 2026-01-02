@@ -398,6 +398,27 @@ func TestFetchPRMap(t *testing.T) {
 	})
 }
 
+func TestFetchPRForWorktree(t *testing.T) {
+	notify := func(_ string, _ string) {}
+	notifyOnce := func(_ string, _ string, _ string) {}
+
+	service := NewService(notify, notifyOnce)
+	ctx := context.Background()
+
+	t.Run("fetch PR for non-existent worktree returns nil", func(t *testing.T) {
+		// This test verifies the function doesn't panic on invalid path
+		pr := service.FetchPRForWorktree(ctx, "/non/existent/path")
+		assert.Nil(t, pr)
+	})
+
+	t.Run("fetch PR for worktree without PR returns nil", func(t *testing.T) {
+		// Create a temp directory that's not a git repo
+		tmpDir := t.TempDir()
+		pr := service.FetchPRForWorktree(ctx, tmpDir)
+		assert.Nil(t, pr)
+	})
+}
+
 func TestGithubBucketToConclusion(t *testing.T) {
 	notify := func(_ string, _ string) {}
 	notifyOnce := func(_ string, _ string, _ string) {}
