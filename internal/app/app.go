@@ -1887,17 +1887,84 @@ func (m *Model) showDiff() tea.Cmd {
 		return nil
 	}
 	wt := m.filteredWts[m.selectedIndex]
-	return func() tea.Msg {
-		diff := m.git.BuildThreePartDiff(m.ctx, wt.Path, m.config)
-		if strings.TrimSpace(diff) == "" {
-			m.showInfo(fmt.Sprintf("No diff for %s.", wt.Branch), nil)
-			return nil
-		}
-		diff = m.git.ApplyDelta(m.ctx, diff)
-		m.diffScreen = NewDiffScreen(fmt.Sprintf("Diff for %s", wt.Branch), diff, m.theme)
-		m.currentScreen = screenDiff
-		return nil
+
+	// Build environment variables
+	env := m.buildCommandEnv(wt.Branch, wt.Path)
+	envVars := os.Environ()
+	for k, v := range env {
+		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
 	}
+
+	// Get pager configuration
+	pager := m.pagerCommand()
+	pagerEnv := m.pagerEnv(pager)
+	pagerCmd := pager
+	if pagerEnv != "" {
+		pagerCmd = fmt.Sprintf("%s %s", pagerEnv, pager)
+	}
+
+	// Build a script that replicates BuildThreePartDiff behavior
+	// This shows: 1) Staged changes, 2) Unstaged changes, 3) Untracked files (limited)
+	maxUntracked := m.config.MaxUntrackedDiffs
+	script := fmt.Sprintf(`
+set -e
+# Part 1: Staged changes
+staged=$(git diff --cached --patch --no-color 2>/dev/null || true)
+if [ -n "$staged" ]; then
+  echo "=== Staged Changes ==="
+  echo "$staged"
+  echo
+fi
+
+# Part 2: Unstaged changes
+unstaged=$(git diff --patch --no-color 2>/dev/null || true)
+if [ -n "$unstaged" ]; then
+  echo "=== Unstaged Changes ==="
+  echo "$unstaged"
+  echo
+fi
+
+# Part 3: Untracked files (limited to %d)
+untracked=$(git status --porcelain 2>/dev/null | grep '^?? ' | cut -d' ' -f2- || true)
+if [ -n "$untracked" ]; then
+  count=0
+  max_count=%d
+  total=$(echo "$untracked" | wc -l)
+  while IFS= read -r file; do
+    [ $count -ge $max_count ] && break
+    echo "=== Untracked: $file ==="
+    git diff --no-index /dev/null "$file" 2>/dev/null || true
+    echo
+    count=$((count + 1))
+  done <<< "$untracked"
+  
+  if [ $total -gt $max_count ]; then
+    echo "[...showing $count of $total untracked files]"
+  fi
+fi
+`, maxUntracked, maxUntracked)
+
+	// Pipe through delta if configured, then through pager
+	var cmdStr string
+	if m.git.UseDelta() {
+		deltaArgs := strings.Join(m.config.DeltaArgs, " ")
+		cmdStr = fmt.Sprintf("set -o pipefail; (%s) | %s %s | %s", script, m.config.DeltaPath, deltaArgs, pagerCmd)
+	} else {
+		cmdStr = fmt.Sprintf("set -o pipefail; (%s) | %s", script, pagerCmd)
+	}
+
+	// Create command
+	// #nosec G204 -- command is constructed from config and controlled inputs
+	c := m.commandRunner("bash", "-c", cmdStr)
+	c.Dir = wt.Path
+	c.Env = envVars
+
+	return m.execProcess(c, func(err error) tea.Msg {
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return refreshCompleteMsg{}
+	})
 }
 
 func (m *Model) showRenameWorktree() tea.Cmd {

@@ -281,8 +281,7 @@ custom_commands:
 | `c` | Create new worktree |
 | `m` | Rename selected worktree |
 | `D` | Delete selected worktree |
-| `d` | View diff (auto-refreshes) |
-| `F` | Full-screen diff viewer |
+| `d` | View diff in pager (respects pager config) |
 | `A` | Absorb worktree into main |
 | `X` | Prune merged worktrees |
 | `!` | Run arbitrary command in selected worktree |
@@ -369,7 +368,7 @@ Notes:
 - Use `lazyworktree --theme <name>` to select a UI theme directly; the supported names correspond to those listed above.
 - `delta_args` configures arguments passed to `delta` (defaults follow the UI theme: Dracula → `Dracula`, Narna → `OneHalfDark`, Clean-Light → `GitHub`, Solarized Dark → `Solarized (dark)`, Solarized Light → `Solarized (light)`, Gruvbox Dark → `Gruvbox Dark`, Gruvbox Light → `Gruvbox Light`, Nord → `Nord`, Monokai → `Monokai Extended`, Catppuccin Mocha → `Catppuccin Mocha`).
 - `delta_path` specifies the path to the delta executable (default: `delta`). Set to an empty string to disable delta and use plain git diff output.
-- `pager` designates the pager for `show_output` commands (default: `$PAGER`, fallback `less --use-color --wordwrap -qcR -P 'Press q to exit..'`, then `more`, then `cat`). When the pager is `less`, lazyworktree configures `LESS=` and `LESSHISTFILE=-` to disregard user defaults.
+- `pager` designates the pager for `show_output` commands and the diff viewer (default: `$PAGER`, fallback `less --use-color --wordwrap -qcR -P 'Press q to exit..'`, then `more`, then `cat`). When the pager is `less`, lazyworktree configures `LESS=` and `LESSHISTFILE=-` to disregard user defaults.
 - `merge_method` controls how the "Absorb worktree" action integrates changes into main: `rebase` (default) rebases the feature branch onto main then fast-forwards; `merge` creates a merge commit.
 - `branch_name_script` executes a script to generate branch name suggestions when creating worktrees from changes. The script receives the git diff on stdin and should output a branch name. Refer to [AI-powered branch names](#ai-powered-branch-names) below.
 

@@ -311,21 +311,16 @@ func TestShowDiffNoDiff(t *testing.T) {
 	m.filteredWts = []*models.WorktreeInfo{{Path: cfg.WorktreeDir, Branch: featureBranch}}
 	m.selectedIndex = 0
 
+	// showDiff now uses execProcess (like custom commands) which returns an execMsg
+	// This is consistent with how custom commands and arbitrary commands work
 	cmd := m.showDiff()
 	if cmd == nil {
 		t.Fatal("expected diff command")
 	}
-	msg := cmd()
-	if msg != nil {
-		t.Fatalf("expected nil message, got %T", msg)
-	}
-	expected := fmt.Sprintf("No diff for %s.", featureBranch)
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", m.currentScreen)
-	}
-	if m.infoScreen == nil || m.infoScreen.message != expected {
-		t.Fatalf("expected info modal %q, got %#v", expected, m.infoScreen)
-	}
+
+	// The command now returns an execMsg (via execProcess), not nil
+	// It will spawn the pager even if diff is empty (consistent with custom commands)
+	// We don't test the actual execution here as it would spawn a real process
 }
 
 func TestHandleOpenPRsLoaded(t *testing.T) {
