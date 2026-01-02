@@ -3,7 +3,7 @@
 A [BubbleTea](https://github.com/charmbracelet/bubbletea)-based Terminal User Interface designed for efficient Git worktree management. Visualise the repository's status, oversee branches, and navigate between worktrees with ease.
 
 ![Go](https://img.shields.io/badge/go-1.25%2B-blue)
-![Coverage](https://img.shields.io/badge/Coverage-66.5%25-yellow)
+![Coverage](https://img.shields.io/badge/Coverage-66.6%25-yellow)
 
 ## Features
 
