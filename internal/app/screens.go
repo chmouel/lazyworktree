@@ -474,6 +474,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - r: Refresh list
 - s: Sort (toggle Name/Last Active)
 - f, /: Filter worktrees
+- Ctrl+J / Ctrl+K: Move selection and fill filter input
 - g: Open LazyGit (or go to top if in diff pane)
 - ?: Show this help
 

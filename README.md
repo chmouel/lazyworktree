@@ -294,6 +294,7 @@ custom_commands:
 | `r` | Refresh list |
 | `R` | Fetch all remotes |
 | `f`, `/` | Filter worktrees |
+| `ctrl+j`, `ctrl+k` | Move selection and fill filter input |
 | `s` | Toggle sort (Name/Last Active) |
 | `?` | Show help |
 

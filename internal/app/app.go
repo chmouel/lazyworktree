@@ -530,6 +530,9 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.worktreeTable.Focus()
 			return m, nil
 		}
+		if keyStr == "ctrl+j" || keyStr == "ctrl+k" {
+			return m.handleFilterNavigation(keyStr)
+		}
 		m.filterInput, cmd = m.filterInput.Update(msg)
 		m.filterQuery = m.filterInput.Value()
 		m.updateTable()
@@ -737,6 +740,105 @@ func (m *Model) handleNavigationUp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 	return m, tea.Batch(cmds...)
+}
+
+func (m *Model) handleFilterNavigation(keyStr string) (tea.Model, tea.Cmd) {
+	sorted := m.sortedWorktrees()
+	if len(sorted) == 0 {
+		return m, nil
+	}
+
+	currentPath := ""
+	if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
+		currentPath = m.filteredWts[m.selectedIndex].Path
+	}
+	if currentPath == "" {
+		cursor := m.worktreeTable.Cursor()
+		if cursor >= 0 && cursor < len(m.filteredWts) {
+			currentPath = m.filteredWts[cursor].Path
+		}
+	}
+
+	currentIndex := -1
+	if currentPath != "" {
+		for i, wt := range sorted {
+			if wt.Path == currentPath {
+				currentIndex = i
+				break
+			}
+		}
+	}
+
+	targetIndex := currentIndex
+	switch keyStr {
+	case "ctrl+j":
+		if currentIndex == -1 {
+			targetIndex = 0
+		} else if currentIndex < len(sorted)-1 {
+			targetIndex = currentIndex + 1
+		}
+	case "ctrl+k":
+		if currentIndex == -1 {
+			targetIndex = len(sorted) - 1
+		} else if currentIndex > 0 {
+			targetIndex = currentIndex - 1
+		}
+	default:
+		return m, nil
+	}
+	if targetIndex < 0 || targetIndex >= len(sorted) {
+		return m, nil
+	}
+
+	target := sorted[targetIndex]
+	m.setFilterToWorktree(target)
+	m.selectFilteredWorktree(target.Path)
+	return m, m.debouncedUpdateDetailsView()
+}
+
+func (m *Model) sortedWorktrees() []*models.WorktreeInfo {
+	if len(m.worktrees) == 0 {
+		return nil
+	}
+	sorted := make([]*models.WorktreeInfo, len(m.worktrees))
+	copy(sorted, m.worktrees)
+	if m.sortByActive {
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].LastActiveTS > sorted[j].LastActiveTS
+		})
+	} else {
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].Path < sorted[j].Path
+		})
+	}
+	return sorted
+}
+
+func (m *Model) setFilterToWorktree(wt *models.WorktreeInfo) {
+	if wt == nil {
+		return
+	}
+	name := filepath.Base(wt.Path)
+	if wt.IsMain {
+		name = mainWorktreeName
+	}
+	m.filterInput.SetValue(name)
+	m.filterInput.CursorEnd()
+	m.filterQuery = name
+	m.updateTable()
+}
+
+func (m *Model) selectFilteredWorktree(path string) {
+	if path == "" {
+		return
+	}
+	for i, wt := range m.filteredWts {
+		if wt.Path == path {
+			m.worktreeTable.SetCursor(i)
+			m.selectedIndex = i
+			return
+		}
+	}
 }
 
 // handlePageDown processes page down navigation.
