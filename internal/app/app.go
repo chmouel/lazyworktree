@@ -226,6 +226,11 @@ type Model struct {
 	selectedPath string
 	quitting     bool
 
+	// Command execution
+	commandRunner func(string, ...string) *exec.Cmd
+	execProcess   func(*exec.Cmd, tea.ExecCallback) tea.Cmd
+	startCommand  func(*exec.Cmd) error
+
 	// Debug logging
 	debugLogger  *log.Logger
 	debugLogFile *os.File
@@ -359,8 +364,13 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 		statusContent:   "Loading...",
 		spinner:         sp,
 		loading:         true,
-		debugLogger:     debugLogger,
-		debugLogFile:    debugLogFile,
+		commandRunner:   exec.Command,
+		execProcess:     tea.ExecProcess,
+		startCommand: func(cmd *exec.Cmd) error {
+			return cmd.Start()
+		},
+		debugLogger:  debugLogger,
+		debugLogFile: debugLogFile,
 	}
 
 	if initialFilter != "" {
@@ -2027,10 +2037,10 @@ func (m *Model) openLazyGit() tea.Cmd {
 	}
 	wt := m.filteredWts[m.selectedIndex]
 
-	c := exec.Command("lazygit")
+	c := m.commandRunner("lazygit")
 	c.Dir = wt.Path
 
-	return tea.ExecProcess(c, func(err error) tea.Msg {
+	return m.execProcess(c, func(err error) tea.Msg {
 		if err != nil {
 			return errMsg{err: err}
 		}
@@ -2071,12 +2081,12 @@ func (m *Model) executeCustomCommand(key string) tea.Cmd {
 	}
 	// Always run via shell to support pipes, redirects, and shell features
 	// #nosec G204 -- command comes from user's own config file
-	c = exec.Command("bash", "-c", cmdStr)
+	c = m.commandRunner("bash", "-c", cmdStr)
 
 	c.Dir = wt.Path
 	c.Env = envVars
 
-	return tea.ExecProcess(c, func(err error) tea.Msg {
+	return m.execProcess(c, func(err error) tea.Msg {
 		if err != nil {
 			return errMsg{err: err}
 		}
@@ -2121,11 +2131,11 @@ func (m *Model) openTmuxSession(tmuxCfg *config.TmuxCommand, wt *models.Worktree
 	env["LW_TMUX_SESSION_FILE"] = sessionPath
 	script := buildTmuxScript(sessionName, &scriptCfg, resolved, env)
 	// #nosec G204 -- command is built from user-configured tmux session settings.
-	c := exec.Command("bash", "-lc", script)
+	c := m.commandRunner("bash", "-lc", script)
 	c.Dir = wt.Path
 	c.Env = append(os.Environ(), envMapToList(env)...)
 
-	return tea.ExecProcess(c, func(err error) tea.Msg {
+	return m.execProcess(c, func(err error) tea.Msg {
 		defer func() {
 			_ = os.Remove(sessionPath)
 		}()
@@ -2159,15 +2169,15 @@ func (m *Model) openPR() tea.Cmd {
 		switch runtime.GOOS {
 		case "darwin":
 			// #nosec G204 -- the URL is sanitized and only executed directly as a single argument
-			cmd = exec.Command("open", prURL)
+			cmd = m.commandRunner("open", prURL)
 		case "windows":
 			// #nosec G204 -- the URL is sanitized and only executed directly as a single argument
-			cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", prURL)
+			cmd = m.commandRunner("rundll32", "url.dll,FileProtocolHandler", prURL)
 		default:
 			// #nosec G204 -- the URL is sanitized and only executed directly as a single argument
-			cmd = exec.Command("xdg-open", prURL)
+			cmd = m.commandRunner("xdg-open", prURL)
 		}
-		if err := cmd.Start(); err != nil {
+		if err := m.startCommand(cmd); err != nil {
 			return errMsg{err: err}
 		}
 		return nil
@@ -2911,8 +2921,8 @@ func (m *Model) attachTmuxSessionCmd(sessionName string, insideTmux bool) tea.Cm
 		args = []string{"switch-client", "-t", sessionName}
 	}
 	// #nosec G204 -- tmux session name comes from user configuration.
-	c := exec.Command("tmux", args...)
-	return tea.ExecProcess(c, func(err error) tea.Msg {
+	c := m.commandRunner("tmux", args...)
+	return m.execProcess(c, func(err error) tea.Msg {
 		if err != nil {
 			return errMsg{err: err}
 		}
