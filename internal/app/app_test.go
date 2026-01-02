@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -769,6 +770,231 @@ func TestShowAbsorbWorktreeDirtyMainWorktree(t *testing.T) {
 	}
 	if m.infoScreen == nil {
 		t.Error("Expected infoScreen to be set")
+	}
+}
+
+func TestShowCherryPickNotInLogPane(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 0 // Not in log pane
+
+	cmd := m.showCherryPick()
+	if cmd != nil {
+		t.Error("Expected nil command when not in log pane")
+	}
+}
+
+func TestShowCherryPickEmptyLogEntries(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 2 // Log pane
+	m.logEntries = []commitLogEntry{}
+
+	cmd := m.showCherryPick()
+	if cmd != nil {
+		t.Error("Expected nil command when log entries are empty")
+	}
+}
+
+func TestShowCherryPickNoOtherWorktrees(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 2 // Log pane
+	m.logEntries = []commitLogEntry{
+		{sha: "abc1234", message: "Test commit"},
+	}
+	m.worktrees = []*models.WorktreeInfo{
+		{Path: "/path/to/main", Branch: "main", IsMain: true},
+	}
+	m.filteredWts = m.worktrees
+	m.selectedIndex = 0
+
+	m.showCherryPick()
+	if m.currentScreen != screenInfo {
+		t.Error("Expected screenInfo to be shown")
+	}
+	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "No other worktrees available") {
+		t.Errorf("Expected info message about no worktrees, got: %v", m.infoScreen)
+	}
+}
+
+func TestShowCherryPickCreatesListSelection(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 2 // Log pane
+	m.logEntries = []commitLogEntry{
+		{sha: "abc1234", message: "Test commit"},
+	}
+	m.worktrees = []*models.WorktreeInfo{
+		{Path: "/path/to/main", Branch: "main", IsMain: true},
+		{Path: "/path/to/feature", Branch: "feature", IsMain: false},
+	}
+	m.filteredWts = m.worktrees
+	m.selectedIndex = 0
+
+	m.showCherryPick()
+	if m.currentScreen != screenListSelect {
+		t.Errorf("Expected screenListSelect, got %v", m.currentScreen)
+	}
+	if m.listScreen == nil {
+		t.Fatal("Expected listScreen to be set")
+	}
+	if !strings.Contains(m.listScreen.title, "Cherry-pick") {
+		t.Errorf("Expected cherry-pick in title, got: %s", m.listScreen.title)
+	}
+	// Should exclude source worktree
+	if len(m.listScreen.items) != 1 {
+		t.Errorf("Expected 1 target worktree (excluding source), got %d", len(m.listScreen.items))
+	}
+}
+
+func TestShowCherryPickExcludesSourceWorktree(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 2
+	m.logEntries = []commitLogEntry{
+		{sha: "abc1234", message: "Test commit"},
+	}
+	m.worktrees = []*models.WorktreeInfo{
+		{Path: "/path/to/main", Branch: "main", IsMain: true},
+		{Path: "/path/to/feature1", Branch: "feature1", IsMain: false},
+		{Path: "/path/to/feature2", Branch: "feature2", IsMain: false},
+	}
+	m.filteredWts = m.worktrees
+	m.selectedIndex = 1 // Select feature1
+
+	m.showCherryPick()
+
+	// Should have 2 items (main + feature2, excluding feature1)
+	if len(m.listScreen.items) != 2 {
+		t.Errorf("Expected 2 target worktrees, got %d", len(m.listScreen.items))
+	}
+
+	// Verify feature1 is not in the list
+	for _, item := range m.listScreen.items {
+		if item.id == "/path/to/feature1" {
+			t.Error("Source worktree should be excluded from selection list")
+		}
+	}
+}
+
+func TestShowCherryPickMarksDirtyWorktrees(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 2
+	m.logEntries = []commitLogEntry{
+		{sha: "abc1234", message: "Test commit"},
+	}
+	m.worktrees = []*models.WorktreeInfo{
+		{Path: "/path/to/main", Branch: "main", IsMain: true},
+		{Path: "/path/to/dirty", Branch: "dirty", IsMain: false, Dirty: true},
+	}
+	m.filteredWts = m.worktrees
+	m.selectedIndex = 0
+
+	m.showCherryPick()
+
+	// Find the dirty worktree item
+	var dirtyItem *selectionItem
+	for _, item := range m.listScreen.items {
+		if item.id == "/path/to/dirty" {
+			dirtyItem = &item
+			break
+		}
+	}
+
+	if dirtyItem == nil {
+		t.Fatal("Expected dirty worktree in selection list")
+	}
+
+	if !strings.Contains(dirtyItem.description, "(has changes)") {
+		t.Errorf("Expected '(has changes)' marker in description, got: %s", dirtyItem.description)
+	}
+}
+
+func TestHandleCherryPickResultSuccess(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+
+	msg := cherryPickResultMsg{
+		commitSHA: "abc1234",
+		targetWorktree: &models.WorktreeInfo{
+			Path:   "/path/to/feature",
+			Branch: "feature",
+		},
+		err: nil,
+	}
+
+	cmd := m.handleCherryPickResult(msg)
+	if cmd != nil {
+		t.Error("Expected nil command from handleCherryPickResult")
+	}
+
+	if m.currentScreen != screenInfo {
+		t.Error("Expected screenInfo to be shown")
+	}
+
+	if m.infoScreen == nil {
+		t.Fatal("Expected infoScreen to be set")
+	}
+
+	if !strings.Contains(m.infoScreen.message, "Cherry-pick successful") {
+		t.Errorf("Expected success message, got: %s", m.infoScreen.message)
+	}
+
+	if !strings.Contains(m.infoScreen.message, "abc1234") {
+		t.Errorf("Expected commit SHA in message, got: %s", m.infoScreen.message)
+	}
+}
+
+func TestHandleCherryPickResultError(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+
+	msg := cherryPickResultMsg{
+		commitSHA: "abc1234",
+		targetWorktree: &models.WorktreeInfo{
+			Path:   "/path/to/feature",
+			Branch: "feature",
+		},
+		err: fmt.Errorf("cherry-pick conflicts occurred"),
+	}
+
+	cmd := m.handleCherryPickResult(msg)
+	if cmd != nil {
+		t.Error("Expected nil command from handleCherryPickResult")
+	}
+
+	if m.currentScreen != screenInfo {
+		t.Error("Expected screenInfo to be shown")
+	}
+
+	if m.infoScreen == nil {
+		t.Fatal("Expected infoScreen to be set")
+	}
+
+	if !strings.Contains(m.infoScreen.message, "Cherry-pick failed") {
+		t.Errorf("Expected failure message, got: %s", m.infoScreen.message)
+	}
+
+	if !strings.Contains(m.infoScreen.message, "conflicts occurred") {
+		t.Errorf("Expected conflict error in message, got: %s", m.infoScreen.message)
 	}
 }
 

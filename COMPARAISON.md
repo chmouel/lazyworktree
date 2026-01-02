@@ -39,6 +39,7 @@ It is built on the **DWIM (Do What I Mean)** principle, enabling **intuitiveness
 |-------|--------------|-----|----|-----|
 | Create / delete worktrees | ✅ | ✅ | ✅ | ✅ |
 | Rename worktrees | ✅ | ❌ | ❌ | ❌ |
+| Cherry-pick commits between worktrees | ✅ | ❌ | ❌ | ❌ |
 | Absorb into main | ✅ | ❌ | ⚠️ manual | ❌ |
 | Prune merged worktrees | ✅ | ⚠️ manual | ⚠️ manual | ⚠️ limited |
 | Create from uncommitted changes | ✅ | ❌ | ❌ | ❌ |

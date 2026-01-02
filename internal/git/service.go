@@ -946,6 +946,39 @@ func (s *Service) CreateWorktreeFromPR(ctx context.Context, prNumber int, remote
 	return true
 }
 
+// CherryPickCommit applies a commit to a target worktree.
+// Returns true on success, false on failure (including conflicts).
+func (s *Service) CherryPickCommit(ctx context.Context, commitSHA, targetPath string) (bool, error) {
+	// Check if there are uncommitted changes in target worktree
+	statusRaw := s.RunGit(ctx, []string{"git", "status", "--porcelain"}, targetPath, []int{0}, true, false)
+	if strings.TrimSpace(statusRaw) != "" {
+		return false, fmt.Errorf("target worktree has uncommitted changes")
+	}
+
+	// Attempt cherry-pick
+	cmd, err := prepareAllowedCommand(ctx, []string{"git", "cherry-pick", commitSHA})
+	if err != nil {
+		return false, err
+	}
+	cmd.Dir = targetPath
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Cherry-pick failed - check if it's due to conflicts
+		detail := strings.TrimSpace(string(output))
+
+		// Abort the cherry-pick to leave worktree clean
+		s.RunCommandChecked(ctx, []string{"git", "cherry-pick", "--abort"}, targetPath, "Failed to abort cherry-pick")
+
+		if strings.Contains(detail, "conflict") || strings.Contains(detail, "CONFLICT") {
+			return false, fmt.Errorf("cherry-pick conflicts occurred: %s", detail)
+		}
+		return false, fmt.Errorf("cherry-pick failed: %s", detail)
+	}
+
+	return true, nil
+}
+
 // localRepoKey builds a stable, compact cache key when no remote name is available.
 func localRepoKey(path string) string {
 	path = strings.TrimSpace(path)

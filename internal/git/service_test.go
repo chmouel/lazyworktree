@@ -659,3 +659,110 @@ func writeStubCommand(t *testing.T, name, envVar string) {
 	pathEnv := os.Getenv("PATH")
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+pathEnv)
 }
+
+func TestCherryPickCommit(t *testing.T) {
+	notify := func(_ string, _ string) {}
+	notifyOnce := func(_ string, _ string, _ string) {}
+
+	service := NewService(notify, notifyOnce)
+	ctx := context.Background()
+
+	t.Run("cherry-pick to non-existent directory fails", func(t *testing.T) {
+		success, err := service.CherryPickCommit(ctx, "abc1234", "/nonexistent/path")
+		assert.False(t, success)
+		assert.Error(t, err)
+	})
+
+	t.Run("cherry-pick with empty commit SHA", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		success, err := service.CherryPickCommit(ctx, "", tmpDir)
+		assert.False(t, success)
+		assert.Error(t, err)
+	})
+
+	t.Run("cherry-pick detects dirty worktree", func(t *testing.T) {
+		// Create a temporary git repository
+		tmpDir := t.TempDir()
+		setupGitRepo(t, tmpDir)
+
+		// Create a file to make worktree dirty
+		dirtyFile := filepath.Join(tmpDir, "dirty.txt")
+		err := os.WriteFile(dirtyFile, []byte("uncommitted changes"), 0o600)
+		require.NoError(t, err)
+
+		success, err := service.CherryPickCommit(ctx, "abc1234", tmpDir)
+		assert.False(t, success)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "uncommitted changes")
+	})
+
+	t.Run("cherry-pick with invalid commit SHA", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		setupGitRepo(t, tmpDir)
+
+		success, err := service.CherryPickCommit(ctx, "invalid-sha", tmpDir)
+		assert.False(t, success)
+		assert.Error(t, err)
+	})
+}
+
+// setupGitRepo creates a minimal git repository for testing
+func setupGitRepo(t *testing.T, dir string) {
+	t.Helper()
+
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = dir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to init git repo: %v\noutput: %s", err, output)
+	}
+
+	// Configure git user (required for commits)
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = dir
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to configure git email: %v\noutput: %s", err, output)
+	}
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = dir
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to configure git name: %v\noutput: %s", err, output)
+	}
+
+	// Disable GPG signing for tests
+	cmd = exec.Command("git", "config", "commit.gpgsign", "false")
+	cmd.Dir = dir
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to disable GPG signing: %v\noutput: %s", err, output)
+	}
+
+	// Create initial commit
+	initialFile := filepath.Join(dir, "README.md")
+	if err := os.WriteFile(initialFile, []byte("# Test Repo"), 0o600); err != nil {
+		t.Fatalf("failed to write initial file: %v", err)
+	}
+
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = dir
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to git add: %v\noutput: %s", err, output)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd.Dir = dir
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to create initial commit: %v\noutput: %s", err, output)
+	}
+}

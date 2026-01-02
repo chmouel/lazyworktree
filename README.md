@@ -8,6 +8,7 @@ A [BubbleTea](https://github.com/charmbracelet/bubbletea)-based Terminal User In
 ## Features
 
 - **Worktree Management**: Create, rename, delete, absorb, and prune merged worktrees.
+- **Cherry-pick Commits**: Copy commits from one worktree to another via an interactive worktree picker.
 - **Base Selection**: Select a base branch or commit from a list, or enter a reference when creating a worktree.
 - **Forge Integration**: Fetch and display associated Pull Request (GitHub) or Merge Request (GitLab) status, including CI check results (via `gh` or `glab` CLI).
 - **Create from PR/MR**: Establish worktrees directly from open pull or merge requests via the command palette.
@@ -297,6 +298,14 @@ custom_commands:
 | `s` | Toggle sort (Name/Last Active) |
 | `?` | Show help |
 
+**Log Pane** (when focused on commit log):
+
+| Key | Action |
+| --- | --- |
+| `Enter` | View commit details and diff |
+| `C` | Cherry-pick commit to another worktree |
+| `j/k` | Navigate commits |
+
 **Filter Mode:**
 
 - `alt+n`, `alt+p`: Navigate and update filter input with selected item
@@ -435,7 +444,7 @@ branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short gi
 - The script receives the git diff on stdin
 - It should output only the branch name (first line is used)
 - Should the script fail or return empty output, the default name (`{current-branch}-changes`) is employed
-- The script operates under a 30-second timeout to prevent hanging
+- The script operates under a 30-second timeout to prevent hanging.
 
 ## How does it compare?
 

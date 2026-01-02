@@ -119,6 +119,11 @@ type (
 		currentBranch string
 		diff          string // git diff output for branch name generation
 	}
+	cherryPickResultMsg struct {
+		commitSHA      string
+		targetWorktree *models.WorktreeInfo
+		err            error
+	}
 )
 
 type commitLogEntry struct {
@@ -505,6 +510,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentScreen = screenCommit
 		return m, nil
 
+	case cherryPickResultMsg:
+		return m, m.handleCherryPickResult(msg)
+
 	}
 
 	return m, tea.Batch(cmds...)
@@ -704,6 +712,9 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "!":
 		return m, m.showRunCommand()
+
+	case "C":
+		return m, m.showCherryPick()
 
 	case keyEsc, keyEscRaw:
 		if m.currentScreen == screenPalette {
@@ -2566,6 +2577,121 @@ func (m *Model) openPR() tea.Cmd {
 	}
 }
 
+func (m *Model) showCherryPick() tea.Cmd {
+	// Validate: log pane must be focused
+	if m.focusedPane != 2 {
+		return nil
+	}
+
+	// Validate: commit must be selected
+	if len(m.logEntries) == 0 {
+		return nil
+	}
+
+	cursor := m.logTable.Cursor()
+	if cursor < 0 || cursor >= len(m.logEntries) {
+		return nil
+	}
+
+	// Get source worktree and commit
+	if m.selectedIndex < 0 || m.selectedIndex >= len(m.filteredWts) {
+		return nil
+	}
+	sourceWorktree := m.filteredWts[m.selectedIndex]
+	selectedCommit := m.logEntries[cursor]
+
+	// Build worktree selection items (exclude source worktree)
+	items := make([]selectionItem, 0, len(m.worktrees)-1)
+	for _, wt := range m.worktrees {
+		if wt.Path == sourceWorktree.Path {
+			continue // Skip source worktree
+		}
+
+		name := filepath.Base(wt.Path)
+		if wt.IsMain {
+			name = "main"
+		}
+
+		desc := wt.Branch
+		if wt.Dirty {
+			desc += " (has changes)"
+		}
+
+		items = append(items, selectionItem{
+			id:          wt.Path,
+			label:       name,
+			description: desc,
+		})
+	}
+
+	// Check if no other worktrees available
+	if len(items) == 0 {
+		m.showInfo("No other worktrees available for cherry-pick.", nil)
+		return nil
+	}
+
+	// Show worktree selection screen
+	title := fmt.Sprintf("Cherry-pick %s to worktree", selectedCommit.sha)
+	m.listScreen = NewListSelectionScreen(items, title, "Filter worktrees...", "No worktrees found.", m.windowWidth, m.windowHeight, "", m.theme)
+	m.listSubmit = func(item selectionItem) tea.Cmd {
+		// Find target worktree by path
+		var targetWorktree *models.WorktreeInfo
+		for _, wt := range m.worktrees {
+			if wt.Path == item.id {
+				targetWorktree = wt
+				break
+			}
+		}
+
+		if targetWorktree == nil {
+			return func() tea.Msg {
+				return errMsg{err: fmt.Errorf("target worktree not found")}
+			}
+		}
+
+		// Clear list selection
+		m.listScreen = nil
+		m.listSubmit = nil
+		m.currentScreen = screenNone
+
+		// Execute cherry-pick
+		return m.executeCherryPick(selectedCommit.sha, targetWorktree)
+	}
+
+	m.currentScreen = screenListSelect
+	return textinput.Blink
+}
+
+func (m *Model) executeCherryPick(commitSHA string, targetWorktree *models.WorktreeInfo) tea.Cmd {
+	return func() tea.Msg {
+		_, err := m.git.CherryPickCommit(m.ctx, commitSHA, targetWorktree.Path)
+		return cherryPickResultMsg{
+			commitSHA:      commitSHA,
+			targetWorktree: targetWorktree,
+			err:            err,
+		}
+	}
+}
+
+func (m *Model) handleCherryPickResult(msg cherryPickResultMsg) tea.Cmd {
+	if msg.err != nil {
+		errorMessage := fmt.Sprintf("Cherry-pick failed\n\nCommit: %s\nTarget: %s (%s)\n\nError: %v",
+			msg.commitSHA,
+			filepath.Base(msg.targetWorktree.Path),
+			msg.targetWorktree.Branch,
+			msg.err)
+		m.showInfo(errorMessage, nil)
+		return nil
+	}
+
+	successMessage := fmt.Sprintf("Cherry-pick successful\n\nCommit: %s\nApplied to: %s (%s)",
+		msg.commitSHA,
+		filepath.Base(msg.targetWorktree.Path),
+		msg.targetWorktree.Branch)
+	m.showInfo(successMessage, m.refreshWorktrees())
+	return nil
+}
+
 func (m *Model) openCommitView() tea.Cmd {
 	if m.selectedIndex < 0 || m.selectedIndex >= len(m.filteredWts) {
 		return nil
@@ -3728,28 +3854,63 @@ func (m *Model) renderFooter(layout layoutDims) string {
 		Foreground(m.theme.TextFg).
 		Background(m.theme.BorderDim).
 		Padding(0, 1)
-	hints := []string{
-		m.renderKeyHint("1-3", "Pane Focus"),
-		m.renderKeyHint("g", "LazyGit"),
-		m.renderKeyHint("r", "Refresh"),
-		m.renderKeyHint("d", "Diff"),
-		m.renderKeyHint("p", "PR Info"),
-	}
-	// Show "o" key hint only when current worktree has PR info
-	if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
-		wt := m.filteredWts[m.selectedIndex]
-		if wt.PR != nil {
-			hints = append(hints, m.renderKeyHint("o", "Open PR"))
+
+	// Context-aware hints based on focused pane
+	var hints []string
+
+	switch m.focusedPane {
+	case 2: // Log pane
+		if len(m.logEntries) > 0 {
+			hints = []string{
+				m.renderKeyHint("Enter", "View Commit"),
+				m.renderKeyHint("C", "Cherry-pick"),
+				m.renderKeyHint("j/k", "Navigate"),
+				m.renderKeyHint("r", "Refresh"),
+				m.renderKeyHint("Tab", "Switch Pane"),
+				m.renderKeyHint("q", "Quit"),
+				m.renderKeyHint("?", "Help"),
+			}
+		} else {
+			hints = []string{
+				m.renderKeyHint("Tab", "Switch Pane"),
+				m.renderKeyHint("q", "Quit"),
+				m.renderKeyHint("?", "Help"),
+			}
 		}
+
+	case 1: // Status/Info pane
+		hints = []string{
+			m.renderKeyHint("j/k", "Scroll"),
+			m.renderKeyHint("Tab", "Switch Pane"),
+			m.renderKeyHint("r", "Refresh"),
+			m.renderKeyHint("q", "Quit"),
+			m.renderKeyHint("?", "Help"),
+		}
+
+	default: // Worktree table (pane 0)
+		hints = []string{
+			m.renderKeyHint("1-3", "Pane Focus"),
+			m.renderKeyHint("g", "LazyGit"),
+			m.renderKeyHint("r", "Refresh"),
+			m.renderKeyHint("d", "Diff"),
+			m.renderKeyHint("p", "PR Info"),
+		}
+		// Show "o" key hint only when current worktree has PR info
+		if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
+			wt := m.filteredWts[m.selectedIndex]
+			if wt.PR != nil {
+				hints = append(hints, m.renderKeyHint("o", "Open PR"))
+			}
+		}
+		hints = append(hints, m.customFooterHints()...)
+		hints = append(hints,
+			m.renderKeyHint("D", "Delete"),
+			m.renderKeyHint("/", "Filter"),
+			m.renderKeyHint("q", "Quit"),
+			m.renderKeyHint("?", "Help"),
+			m.renderKeyHint("ctrl+p", "Palette"),
+		)
 	}
-	hints = append(hints, m.customFooterHints()...)
-	hints = append(hints,
-		m.renderKeyHint("D", "Delete"),
-		m.renderKeyHint("/", "Filter"),
-		m.renderKeyHint("q", "Quit"),
-		m.renderKeyHint("?", "Help"),
-		m.renderKeyHint("ctrl+p", "Palette"),
-	)
 	footerContent := strings.Join(hints, "  ")
 	if !m.loading {
 		return footerStyle.Width(layout.width).Render(footerContent)
