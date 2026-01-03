@@ -34,6 +34,8 @@ const (
 	keyCtrlD = "ctrl+d"
 	keyCtrlU = "ctrl+u"
 	keyCtrlC = "ctrl+c"
+	keyCtrlJ = "ctrl+j"
+	keyCtrlK = "ctrl+k"
 	keyDown  = "down"
 	keyQ     = "q"
 	keyUp    = "up"
@@ -582,7 +584,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - s: Sort (toggle Name/Last Active)
 - f, /: Filter worktrees
 - Alt+N / Alt+P: Move selection and fill filter input
-- ↑ / ↓: Move selection (filter active, no fill)
+- ↑ / ↓ / Ctrl+J / Ctrl+K: Move selection (filter active, no fill)
 - g: Open LazyGit (or go to top if in diff pane)
 - ?: Show this help
 
@@ -931,7 +933,7 @@ func (s *PRSelectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case keyEsc, keyCtrlC:
 			s.cursor = -1
 			return s, tea.Quit
-		case keyUp:
+		case keyUp, keyCtrlK:
 			if s.cursor > 0 {
 				s.cursor--
 				if s.cursor < s.scrollOffset {
@@ -939,7 +941,7 @@ func (s *PRSelectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return s, nil
-		case keyDown:
+		case keyDown, keyCtrlJ:
 			if s.cursor < len(s.filtered)-1 {
 				s.cursor++
 				if s.cursor >= s.scrollOffset+maxVisible {
@@ -968,7 +970,7 @@ func (s *ListSelectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case keyEsc, keyCtrlC:
 			s.cursor = -1
 			return s, tea.Quit
-		case keyUp:
+		case keyUp, keyCtrlK:
 			if s.cursor > 0 {
 				s.cursor--
 				if s.cursor < s.scrollOffset {
@@ -976,7 +978,7 @@ func (s *ListSelectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return s, nil
-		case keyDown:
+		case keyDown, keyCtrlJ:
 			if s.cursor < len(s.filtered)-1 {
 				s.cursor++
 				if s.cursor >= s.scrollOffset+maxVisible {

@@ -309,7 +309,7 @@ custom_commands:
 **Filter Mode:**
 
 - `alt+n`, `alt+p`: Navigate and update filter input with selected item
-- `↑`, `↓`: Navigate list without changing filter input
+- `↑`, `↓`, `ctrl+j`, `ctrl+k`: Navigate list without changing filter input
 - `Enter`: With empty filter, select highlighted item; with text, apply filter
 - `Esc`, `Ctrl+C`: Exit filter mode
 

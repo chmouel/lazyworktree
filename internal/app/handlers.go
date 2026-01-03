@@ -49,7 +49,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if keyStr == "alt+n" || keyStr == "alt+p" {
 			return m.handleFilterNavigation(keyStr, true)
 		}
-		if keyStr == keyUp || keyStr == keyDown {
+		if keyStr == keyUp || keyStr == keyDown || keyStr == "ctrl+k" || keyStr == "ctrl+j" {
 			return m.handleFilterNavigation(keyStr, false)
 		}
 		m.filterInput, cmd = m.filterInput.Update(msg)
@@ -327,13 +327,13 @@ func (m *Model) handleFilterNavigation(keyStr string, fillInput bool) (tea.Model
 
 	targetIndex := currentIndex
 	switch keyStr {
-	case "alt+n", keyDown:
+	case "alt+n", keyDown, "ctrl+j":
 		if currentIndex == -1 {
 			targetIndex = 0
 		} else if currentIndex < len(workList)-1 {
 			targetIndex = currentIndex + 1
 		}
-	case "alt+p", keyUp:
+	case "alt+p", keyUp, "ctrl+k":
 		if currentIndex == -1 {
 			targetIndex = len(workList) - 1
 		} else if currentIndex > 0 {
