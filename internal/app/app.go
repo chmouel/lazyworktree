@@ -3114,6 +3114,11 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		// Reset history browsing when user types
+		if msg.Type == tea.KeyRunes || msg.Type == tea.KeyBackspace || msg.Type == tea.KeyDelete {
+			m.inputScreen.historyIndex = -1
+		}
+
 		var cmd tea.Cmd
 		m.inputScreen.input, cmd = m.inputScreen.input.Update(msg)
 		return m, cmd
