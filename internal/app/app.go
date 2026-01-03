@@ -93,14 +93,6 @@ type (
 		pruned    int
 		failed    int
 	}
-	commitLoadingMsg struct {
-		meta commitMeta
-	}
-	commitLoadedMsg struct {
-		meta commitMeta
-		stat string
-		diff string
-	}
 	absorbMergeResultMsg struct {
 		path   string
 		branch string
@@ -504,16 +496,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.statusContent = "Remotes fetched"
 		return m, m.refreshWorktrees()
-
-	case commitLoadingMsg:
-		m.currentScreen = screenCommit
-		m.commitScreen = NewCommitScreen(msg.meta, "Loading…", "", m.git.UseDelta(), m.theme)
-		return m, nil
-
-	case commitLoadedMsg:
-		m.commitScreen = NewCommitScreen(msg.meta, msg.stat, msg.diff, m.git.UseDelta(), m.theme)
-		m.currentScreen = screenCommit
-		return m, nil
 
 	case cherryPickResultMsg:
 		return m, m.handleCherryPickResult(msg)
@@ -1931,29 +1913,52 @@ func (m *Model) openCommitView() tea.Cmd {
 	entry := m.logEntries[cursor]
 	wt := m.filteredWts[m.selectedIndex]
 
-	loadingMeta := commitMeta{
-		sha:     entry.sha,
-		subject: "Loading commit…",
+	return m.showCommitDiff(entry.sha, wt)
+}
+
+func (m *Model) showCommitDiff(commitSHA string, wt *models.WorktreeInfo) tea.Cmd {
+	// Build environment variables
+	env := m.buildCommandEnv(wt.Branch, wt.Path)
+	envVars := os.Environ()
+	for k, v := range env {
+		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	fetchCmd := func() tea.Msg {
-		metaRaw := m.git.RunGit(m.ctx, []string{"git", "show", "--quiet", "--pretty=format:%H%x1f%an%x1f%ae%x1f%ad%x1f%s%x1f%b", entry.sha}, wt.Path, []int{0}, false, false)
-		stat := m.git.RunGit(m.ctx, []string{"git", "show", "--stat", "--pretty=format:", entry.sha}, wt.Path, []int{0}, false, false)
-		diff := m.git.RunGit(m.ctx, []string{"git", "show", "--patch", "--pretty=format:", entry.sha}, wt.Path, []int{0}, false, false)
-		diff = m.git.ApplyDelta(m.ctx, diff)
+	// Get pager configuration
+	pager := m.pagerCommand()
+	pagerEnv := m.pagerEnv(pager)
+	pagerCmd := pager
+	if pagerEnv != "" {
+		pagerCmd = fmt.Sprintf("%s %s", pagerEnv, pager)
+	}
 
-		meta := parseCommitMeta(metaRaw)
-		return commitLoadedMsg{
-			meta: meta,
-			stat: stat,
-			diff: diff,
+	// Build git show command with colorization
+	// --color=always: ensure color codes are passed to delta/pager
+	gitCmd := fmt.Sprintf("git show --color=always %s", commitSHA)
+
+	// Pipe through delta if configured, then through pager
+	// Note: delta only processes the diff part, so our colorized commit message will pass through
+	// Don't use pipefail here as awk might not always match (e.g., if commit format is different)
+	var cmdStr string
+	if m.git.UseDelta() {
+		deltaArgs := strings.Join(m.config.DeltaArgs, " ")
+		cmdStr = fmt.Sprintf("%s | %s %s | %s", gitCmd, m.config.DeltaPath, deltaArgs, pagerCmd)
+	} else {
+		cmdStr = fmt.Sprintf("%s | %s", gitCmd, pagerCmd)
+	}
+
+	// Create command
+	// #nosec G204 -- command is constructed from config and controlled inputs
+	c := m.commandRunner("bash", "-c", cmdStr)
+	c.Dir = wt.Path
+	c.Env = envVars
+
+	return m.execProcess(c, func(err error) tea.Msg {
+		if err != nil {
+			return errMsg{err: err}
 		}
-	}
-
-	return tea.Batch(
-		func() tea.Msg { return commitLoadingMsg{meta: loadingMeta} },
-		fetchCmd,
-	)
+		return refreshCompleteMsg{}
+	})
 }
 
 func parseCommitMeta(raw string) commitMeta {
@@ -2546,7 +2551,7 @@ func (m *Model) pagerCommand() string {
 		return pager
 	}
 	if _, err := exec.LookPath("less"); err == nil {
-		return "less --use-color --wordwrap -qcR -P 'Press q to exit..'"
+		return "less --use-color -z-4 -q --wordwrap -qcR -P 'Press q to exit..'"
 	}
 	if _, err := exec.LookPath("more"); err == nil {
 		return "more"
