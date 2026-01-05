@@ -203,7 +203,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 
 		// Show input screen with generated name
 		m.inputScreen = NewInputScreen(
-			fmt.Sprintf("Create worktree from PR #%d", pr.Number),
+			fmt.Sprintf("Create worktree from PR #%d (branch: %s)", pr.Number, pr.Branch),
 			"Worktree name",
 			generatedName,
 			m.theme,
@@ -217,8 +217,8 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 
 			// Prevent duplicates
 			for _, wt := range m.worktrees {
-				if wt.Branch == newBranch {
-					m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
+				if wt.Branch == pr.Branch {
+					m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", pr.Branch)
 					return nil, false
 				}
 			}
@@ -241,14 +241,14 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 			}
 
 			// Create worktree from PR branch
-			ok := m.git.CreateWorktreeFromPR(m.ctx, pr.Number, pr.Branch, newBranch, targetPath)
+			ok := m.git.CreateWorktreeFromPR(m.ctx, pr.Number, pr.Branch, pr.Branch, targetPath)
 			if !ok {
 				return func() tea.Msg {
 					return errMsg{err: fmt.Errorf("failed to create worktree from PR #%d (branch: %s)", pr.Number, pr.Branch)}
 				}, true
 			}
 
-			env := m.buildCommandEnv(newBranch, targetPath)
+			env := m.buildCommandEnv(pr.Branch, targetPath)
 			initCmds := m.collectInitCommands()
 			after := func() tea.Msg {
 				worktrees, err := m.git.GetWorktrees(m.ctx)

@@ -65,9 +65,9 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	updated, _ = m.Update(openPRsLoadedMsg{prs: []*models.PRInfo{withBranch}})
 	m = updated.(*Model)
 
-	m.worktrees = []*models.WorktreeInfo{{Branch: "dupe"}}
+	m.worktrees = []*models.WorktreeInfo{{Branch: featureBranch}}
 	m.prSelectionSubmit(withBranch)
-	if _, ok := m.inputSubmit("dupe"); ok {
+	if _, ok := m.inputSubmit("any-directory-name"); ok {
 		t.Fatal("expected duplicate branch to be rejected")
 	}
 	if !strings.Contains(m.inputScreen.errorMsg, "already exists") {
