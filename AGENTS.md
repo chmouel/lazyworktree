@@ -21,3 +21,4 @@ Read the README if you really need to know what this project do.
 - Add tests for any new functionality.
 - Add README.md updates for any user-facing changes. Do not sound like
 it is written by a brain-dead overenthusiastic robot.
+- Update lazyworktree.1 man page for any user-facing changes (features, options, keybindings, etc).
