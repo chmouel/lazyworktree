@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	"strings"
 
@@ -41,6 +42,21 @@ func main() {
 	flag.Parse()
 
 	if showVersion {
+		if commit == "none" || builtBy == "unknown" {
+			if info, ok := debug.ReadBuildInfo(); ok {
+				if commit == "none" {
+					for _, setting := range info.Settings {
+						if setting.Key == "vcs.revision" {
+							commit = setting.Value
+						}
+					}
+				}
+				if builtBy == "unknown" {
+					builtBy = info.GoVersion
+				}
+			}
+		}
+
 		fmt.Printf("lazyworktree version %s\ncommit: %s\nbuilt at: %s\nbuilt by: %s\n", version, commit, date, builtBy)
 		return
 	}
