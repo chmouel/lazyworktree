@@ -1572,7 +1572,7 @@ func (s *HelpScreen) View() string {
 
 // View displays the palette items and current filter text.
 func (s *CommandPaletteScreen) View() string {
-	width := 80
+	width := 110
 	maxVisible := 12
 
 	// Enhanced palette modal with rounded border
@@ -1633,11 +1633,11 @@ func (s *CommandPaletteScreen) View() string {
 		desc := it.description
 
 		// Pad label to align descriptions somewhat
-		labelPad := 35
+		labelPad := 45
 		if len(label) > labelPad {
 			label = label[:labelPad-1] + "…"
 		}
-		paddedLabel := fmt.Sprintf("%-35s", label)
+		paddedLabel := fmt.Sprintf("%-45s", label)
 
 		var line string
 		if i == s.cursor {
