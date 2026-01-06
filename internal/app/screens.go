@@ -2029,6 +2029,8 @@ type CommitFilesScreen struct {
 	height        int
 	thm           *theme.Theme
 	showIcons     bool
+	// Commit metadata
+	commitMeta commitMeta
 	// Filter/search support
 	filterInput   textinput.Model
 	showingFilter bool
@@ -2038,7 +2040,7 @@ type CommitFilesScreen struct {
 }
 
 // NewCommitFilesScreen creates a commit files tree screen.
-func NewCommitFilesScreen(sha, wtPath string, files []models.CommitFile, maxWidth, maxHeight int, thm *theme.Theme, showIcons bool) *CommitFilesScreen {
+func NewCommitFilesScreen(sha, wtPath string, files []models.CommitFile, meta commitMeta, maxWidth, maxHeight int, thm *theme.Theme, showIcons bool) *CommitFilesScreen {
 	width := int(float64(maxWidth) * 0.8)
 	height := int(float64(maxHeight) * 0.8)
 	if width < 60 {
@@ -2066,6 +2068,7 @@ func NewCommitFilesScreen(sha, wtPath string, files []models.CommitFile, maxWidt
 		height:        height,
 		thm:           thm,
 		showIcons:     showIcons,
+		commitMeta:    meta,
 		filterInput:   ti,
 	}
 
@@ -2408,7 +2411,26 @@ func (s *CommitFilesScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the commit files screen.
 func (s *CommitFilesScreen) View() string {
-	maxVisible := s.height - 8 // Account for header, footer, borders
+	// Calculate header height: title (1) + metadata (variable) + stats (1) + filter/search (1 if active) + footer (1) + borders (2)
+	headerHeight := 5 // title + stats + footer + borders
+	if s.commitMeta.sha != "" || s.commitMeta.author != "" || s.commitMeta.date != "" || s.commitMeta.subject != "" {
+		// Estimate metadata height: commit line + author line + date line + blank + subject = ~5 lines
+		metaHeight := 1 // commit line
+		if s.commitMeta.author != "" {
+			metaHeight++
+		}
+		if s.commitMeta.date != "" {
+			metaHeight++
+		}
+		if s.commitMeta.subject != "" {
+			metaHeight += 2 // blank + subject
+		}
+		headerHeight += metaHeight
+	}
+	if s.showingFilter || s.showingSearch {
+		headerHeight++
+	}
+	maxVisible := s.height - headerHeight
 
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -2430,6 +2452,42 @@ func (s *CommitFilesScreen) View() string {
 		shortSHA = shortSHA[:8]
 	}
 	title := titleStyle.Render(fmt.Sprintf("Files in commit %s", shortSHA))
+
+	// Render commit metadata
+	metaStyle := lipgloss.NewStyle().
+		Foreground(s.thm.MutedFg).
+		Width(s.width-2).
+		Padding(0, 1).
+		Border(lipgloss.NormalBorder(), false, false, true, false).
+		BorderForeground(s.thm.BorderDim)
+	labelStyle := lipgloss.NewStyle().Foreground(s.thm.MutedFg).Bold(true)
+	valueStyle := lipgloss.NewStyle().Foreground(s.thm.TextFg)
+	subjectStyle := lipgloss.NewStyle().Bold(true).Foreground(s.thm.Accent)
+
+	var metaLines []string
+	if s.commitMeta.sha != "" {
+		metaLines = append(metaLines, fmt.Sprintf("%s %s", labelStyle.Render("Commit:"), valueStyle.Render(s.commitMeta.sha)))
+	}
+	if s.commitMeta.author != "" {
+		authorLine := fmt.Sprintf("%s %s", labelStyle.Render("Author:"), valueStyle.Render(s.commitMeta.author))
+		if s.commitMeta.email != "" {
+			authorLine += fmt.Sprintf(" <%s>", valueStyle.Render(s.commitMeta.email))
+		}
+		metaLines = append(metaLines, authorLine)
+	}
+	if s.commitMeta.date != "" {
+		metaLines = append(metaLines, fmt.Sprintf("%s %s", labelStyle.Render("Date:"), valueStyle.Render(s.commitMeta.date)))
+	}
+	if s.commitMeta.subject != "" {
+		if len(metaLines) > 0 {
+			metaLines = append(metaLines, "")
+		}
+		metaLines = append(metaLines, subjectStyle.Render(s.commitMeta.subject))
+	}
+	commitMetaSection := ""
+	if len(metaLines) > 0 {
+		commitMetaSection = metaStyle.Render(strings.Join(metaLines, "\n"))
+	}
 
 	// Render file tree
 	var itemViews []string
@@ -2570,6 +2628,9 @@ func (s *CommitFilesScreen) View() string {
 
 	// Build content sections
 	sections := []string{title}
+	if commitMetaSection != "" {
+		sections = append(sections, commitMetaSection)
+	}
 
 	// Add filter/search input if active
 	if s.showingFilter || s.showingSearch {

@@ -143,6 +143,7 @@ type (
 		sha          string
 		worktreePath string
 		files        []models.CommitFile
+		meta         commitMeta
 		err          error
 	}
 )
@@ -650,6 +651,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msg.sha,
 			msg.worktreePath,
 			msg.files,
+			msg.meta,
 			m.windowWidth,
 			m.windowHeight,
 			m.theme,
@@ -2418,10 +2420,29 @@ func (m *Model) showCommitFilesScreen(commitSHA, worktreePath string) tea.Cmd {
 		if err != nil {
 			return errMsg{err: err}
 		}
+		// Fetch commit metadata
+		metaRaw := m.git.RunGit(
+			m.ctx,
+			[]string{
+				"git", "log", "-1",
+				"--pretty=format:%H%x1f%an%x1f%ae%x1f%ad%x1f%s%x1f%b",
+				commitSHA,
+			},
+			worktreePath,
+			[]int{0},
+			true,
+			false,
+		)
+		meta := parseCommitMeta(metaRaw)
+		// Ensure SHA is set even if parsing fails
+		if meta.sha == "" {
+			meta.sha = commitSHA
+		}
 		return commitFilesLoadedMsg{
 			sha:          commitSHA,
 			worktreePath: worktreePath,
 			files:        files,
+			meta:         meta,
 		}
 	}
 }
