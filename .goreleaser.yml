@@ -115,6 +115,7 @@ changelog:
       - Update README.md
       - Update coverage badge
       - Brew cask update
+      - ".*README.*"
 
 universal_binaries:
   - ids:
