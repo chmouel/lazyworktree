@@ -123,6 +123,12 @@ type (
 		targetWorktree *models.WorktreeInfo
 		err            error
 	}
+	commitFilesLoadedMsg struct {
+		sha          string
+		worktreePath string
+		files        []models.CommitFile
+		err          error
+	}
 )
 
 type commitLogEntry struct {
@@ -292,6 +298,9 @@ type Model struct {
 	// Log cache for commit detail viewer
 	logEntries    []commitLogEntry
 	logEntriesAll []commitLogEntry
+
+	// Commit files screen for browsing files in a commit
+	commitFilesScreen *CommitFilesScreen
 
 	// Command history for ! command
 	commandHistory []string
@@ -580,6 +589,26 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case cherryPickResultMsg:
 		return m, m.handleCherryPickResult(msg)
 
+	case commitFilesLoadedMsg:
+		if msg.err != nil {
+			m.showInfo(fmt.Sprintf("Failed to load commit files: %v", msg.err), nil)
+			return m, nil
+		}
+		// If only one file, show its diff directly without file picker
+		if len(msg.files) == 1 {
+			return m, m.showCommitFileDiff(msg.sha, msg.files[0].Filename, msg.worktreePath)
+		}
+		m.commitFilesScreen = NewCommitFilesScreen(
+			msg.sha,
+			msg.worktreePath,
+			msg.files,
+			m.windowWidth,
+			m.windowHeight,
+			m.theme,
+		)
+		m.currentScreen = screenCommitFiles
+		return m, nil
+
 	}
 
 	return m, tea.Batch(cmds...)
@@ -611,6 +640,8 @@ func screenName(screen screenType) string {
 		return "pr-select"
 	case screenListSelect:
 		return "list-select"
+	case screenCommitFiles:
+		return "commit-files"
 	default:
 		return "unknown"
 	}
@@ -702,6 +733,10 @@ func (m *Model) View() string {
 	case screenLoading:
 		if m.loadingScreen != nil {
 			return m.overlayPopup(baseView, m.loadingScreen.View(), 5)
+		}
+	case screenCommitFiles:
+		if m.commitFilesScreen != nil {
+			return m.overlayPopup(baseView, m.commitFilesScreen.View(), 2)
 		}
 	}
 
@@ -2230,7 +2265,21 @@ func (m *Model) openCommitView() tea.Cmd {
 	entry := m.logEntries[cursor]
 	wt := m.filteredWts[m.selectedIndex]
 
-	return m.showCommitDiff(entry.sha, wt)
+	return m.showCommitFilesScreen(entry.sha, wt.Path)
+}
+
+func (m *Model) showCommitFilesScreen(commitSHA, worktreePath string) tea.Cmd {
+	return func() tea.Msg {
+		files, err := m.git.GetCommitFiles(m.ctx, commitSHA, worktreePath)
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return commitFilesLoadedMsg{
+			sha:          commitSHA,
+			worktreePath: worktreePath,
+			files:        files,
+		}
+	}
 }
 
 func (m *Model) showCommitDiff(commitSHA string, wt *models.WorktreeInfo) tea.Cmd {
@@ -2268,6 +2317,44 @@ func (m *Model) showCommitDiff(commitSHA string, wt *models.WorktreeInfo) tea.Cm
 	// #nosec G204 -- command is constructed from config and controlled inputs
 	c := m.commandRunner("bash", "-c", cmdStr)
 	c.Dir = wt.Path
+	c.Env = envVars
+
+	return m.execProcess(c, func(err error) tea.Msg {
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return refreshCompleteMsg{}
+	})
+}
+
+func (m *Model) showCommitFileDiff(commitSHA, filename, worktreePath string) tea.Cmd {
+	// Build environment variables for pager
+	envVars := os.Environ()
+
+	// Get pager configuration
+	pager := m.pagerCommand()
+	pagerEnv := m.pagerEnv(pager)
+	pagerCmd := pager
+	if pagerEnv != "" {
+		pagerCmd = fmt.Sprintf("%s %s", pagerEnv, pager)
+	}
+
+	// Build git show command for specific file with colorization
+	gitCmd := fmt.Sprintf("git show --color=always %s -- %q", commitSHA, filename)
+
+	// Pipe through delta if configured, then through pager
+	var cmdStr string
+	if m.git.UseDelta() {
+		deltaArgs := strings.Join(m.config.DeltaArgs, " ")
+		cmdStr = fmt.Sprintf("%s | %s %s | %s", gitCmd, m.config.DeltaPath, deltaArgs, pagerCmd)
+	} else {
+		cmdStr = fmt.Sprintf("%s | %s", gitCmd, pagerCmd)
+	}
+
+	// Create command
+	// #nosec G204 -- command is constructed from config and controlled inputs
+	c := m.commandRunner("bash", "-c", cmdStr)
+	c.Dir = worktreePath
 	c.Env = envVars
 
 	return m.execProcess(c, func(err error) tea.Msg {
@@ -2425,6 +2512,59 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		ls, cmd := m.listScreen.Update(msg)
 		if updated, ok := ls.(*ListSelectionScreen); ok {
 			m.listScreen = updated
+		}
+		return m, cmd
+	case screenCommitFiles:
+		if m.commitFilesScreen == nil {
+			m.currentScreen = screenNone
+			return m, nil
+		}
+		keyStr := msg.String()
+		switch keyStr {
+		case keyQ, keyCtrlC:
+			m.commitFilesScreen = nil
+			m.currentScreen = screenNone
+			return m, nil
+		case keyEsc, keyEscRaw:
+			m.commitFilesScreen = nil
+			m.currentScreen = screenNone
+			return m, nil
+		case "d":
+			// Show full commit diff via pager
+			sha := m.commitFilesScreen.commitSHA
+			wtPath := m.commitFilesScreen.worktreePath
+			m.commitFilesScreen = nil
+			m.currentScreen = screenNone
+			// Find the worktree to pass to showCommitDiff
+			var wt *models.WorktreeInfo
+			for _, w := range m.filteredWts {
+				if w.Path == wtPath {
+					wt = w
+					break
+				}
+			}
+			if wt != nil {
+				return m, m.showCommitDiff(sha, wt)
+			}
+			return m, nil
+		case keyEnter:
+			node := m.commitFilesScreen.GetSelectedNode()
+			if node == nil {
+				return m, nil
+			}
+			if node.IsDir() {
+				m.commitFilesScreen.ToggleCollapse(node.Path)
+				return m, nil
+			}
+			// Show diff for this specific file
+			sha := m.commitFilesScreen.commitSHA
+			wtPath := m.commitFilesScreen.worktreePath
+			return m, m.showCommitFileDiff(sha, node.File.Filename, wtPath)
+		}
+		// Delegate navigation to screen
+		cs, cmd := m.commitFilesScreen.Update(msg)
+		if updated, ok := cs.(*CommitFilesScreen); ok {
+			m.commitFilesScreen = updated
 		}
 		return m, cmd
 	case screenConfirm:

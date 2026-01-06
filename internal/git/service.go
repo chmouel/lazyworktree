@@ -1205,3 +1205,54 @@ func (s *Service) getUntrackedFiles(ctx context.Context, path string) []string {
 	}
 	return untracked
 }
+
+// GetCommitFiles returns the list of files changed in a specific commit.
+func (s *Service) GetCommitFiles(ctx context.Context, commitSHA, worktreePath string) ([]models.CommitFile, error) {
+	raw := s.RunGit(ctx, []string{
+		"git", "diff-tree", "--name-status", "-r", "--no-commit-id", commitSHA,
+	}, worktreePath, []int{0}, false, false)
+
+	if raw == "" {
+		return []models.CommitFile{}, nil
+	}
+
+	return parseCommitFiles(raw), nil
+}
+
+// parseCommitFiles parses the output of git diff-tree --name-status.
+// Format: "M\tpath" or "R100\told\tnew" for renames.
+func parseCommitFiles(raw string) []models.CommitFile {
+	lines := strings.Split(raw, "\n")
+	files := make([]models.CommitFile, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		parts := strings.Split(line, "\t")
+		if len(parts) < 2 {
+			continue
+		}
+
+		changeType := parts[0]
+		filename := parts[1]
+		oldPath := ""
+
+		// Handle renames (R100) and copies (C100)
+		if len(changeType) > 1 && (changeType[0] == 'R' || changeType[0] == 'C') {
+			changeType = string(changeType[0])
+			if len(parts) >= 3 {
+				oldPath = parts[1]
+				filename = parts[2]
+			}
+		}
+
+		files = append(files, models.CommitFile{
+			Filename:   filename,
+			ChangeType: changeType,
+			OldPath:    oldPath,
+		})
+	}
+	return files
+}

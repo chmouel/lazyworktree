@@ -30,6 +30,7 @@ const (
 	screenPRSelect
 	screenListSelect
 	screenLoading
+	screenCommitFiles
 
 	// Key constants (keyEnter and keyEsc are defined in app.go)
 	keyCtrlD = "ctrl+d"
@@ -1988,4 +1989,392 @@ func (s *CommitScreen) View() string {
 		Width(width)
 
 	return boxStyle.Render(s.viewport.View())
+}
+
+// CommitFileTreeNode represents a node in the commit file tree.
+type CommitFileTreeNode struct {
+	Path        string
+	File        *models.CommitFile // nil for directories
+	Children    []*CommitFileTreeNode
+	Compression int // Number of compressed path segments
+	depth       int // Cached depth for rendering
+}
+
+// IsDir returns true if this node is a directory.
+func (n *CommitFileTreeNode) IsDir() bool {
+	return n.File == nil
+}
+
+// CommitFilesScreen displays files changed in a commit as a collapsible tree.
+type CommitFilesScreen struct {
+	commitSHA     string
+	worktreePath  string
+	files         []models.CommitFile
+	tree          *CommitFileTreeNode
+	treeFlat      []*CommitFileTreeNode
+	collapsedDirs map[string]bool
+	cursor        int
+	scrollOffset  int
+	width         int
+	height        int
+	thm           *theme.Theme
+}
+
+// NewCommitFilesScreen creates a commit files tree screen.
+func NewCommitFilesScreen(sha, wtPath string, files []models.CommitFile, maxWidth, maxHeight int, thm *theme.Theme) *CommitFilesScreen {
+	width := int(float64(maxWidth) * 0.8)
+	height := int(float64(maxHeight) * 0.8)
+	if width < 60 {
+		width = 60
+	}
+	if height < 20 {
+		height = 20
+	}
+
+	screen := &CommitFilesScreen{
+		commitSHA:     sha,
+		worktreePath:  wtPath,
+		files:         files,
+		collapsedDirs: make(map[string]bool),
+		cursor:        0,
+		scrollOffset:  0,
+		width:         width,
+		height:        height,
+		thm:           thm,
+	}
+
+	screen.tree = buildCommitFileTree(files)
+	sortCommitFileTree(screen.tree)
+	compressCommitFileTree(screen.tree)
+	screen.rebuildFlat()
+
+	return screen
+}
+
+// buildCommitFileTree constructs a tree from a flat list of commit files.
+func buildCommitFileTree(files []models.CommitFile) *CommitFileTreeNode {
+	root := &CommitFileTreeNode{
+		Path:     "",
+		Children: []*CommitFileTreeNode{},
+	}
+
+	for i := range files {
+		file := &files[i]
+		parts := strings.Split(file.Filename, "/")
+
+		current := root
+		for j := range parts {
+			isLast := j == len(parts)-1
+			partPath := strings.Join(parts[:j+1], "/")
+
+			// Find or create child
+			var child *CommitFileTreeNode
+			for _, c := range current.Children {
+				if c.Path == partPath {
+					child = c
+					break
+				}
+			}
+
+			if child == nil {
+				if isLast {
+					child = &CommitFileTreeNode{
+						Path: partPath,
+						File: file,
+					}
+				} else {
+					child = &CommitFileTreeNode{
+						Path:     partPath,
+						Children: []*CommitFileTreeNode{},
+					}
+				}
+				current.Children = append(current.Children, child)
+			}
+			current = child
+		}
+	}
+
+	return root
+}
+
+// sortCommitFileTree sorts nodes: directories first, then files, alphabetically.
+func sortCommitFileTree(node *CommitFileTreeNode) {
+	if node == nil || len(node.Children) == 0 {
+		return
+	}
+
+	sort.Slice(node.Children, func(i, j int) bool {
+		iIsDir := node.Children[i].IsDir()
+		jIsDir := node.Children[j].IsDir()
+		if iIsDir != jIsDir {
+			return iIsDir
+		}
+		return node.Children[i].Path < node.Children[j].Path
+	})
+
+	for _, child := range node.Children {
+		sortCommitFileTree(child)
+	}
+}
+
+// compressCommitFileTree compresses single-child directory chains.
+func compressCommitFileTree(node *CommitFileTreeNode) {
+	if node == nil {
+		return
+	}
+
+	for _, child := range node.Children {
+		compressCommitFileTree(child)
+	}
+
+	if node.IsDir() && len(node.Children) == 1 {
+		child := node.Children[0]
+		if child.IsDir() {
+			node.Compression++
+			node.Compression += child.Compression
+			node.Children = child.Children
+		}
+	}
+}
+
+// rebuildFlat rebuilds the flat list from the tree respecting collapsed state.
+func (s *CommitFilesScreen) rebuildFlat() {
+	s.treeFlat = []*CommitFileTreeNode{}
+	s.flattenTree(s.tree, 0)
+}
+
+func (s *CommitFilesScreen) flattenTree(node *CommitFileTreeNode, depth int) {
+	if node == nil {
+		return
+	}
+
+	for _, child := range node.Children {
+		child.depth = depth
+		s.treeFlat = append(s.treeFlat, child)
+
+		if child.IsDir() && !s.collapsedDirs[child.Path] {
+			s.flattenTree(child, depth+1)
+		}
+	}
+}
+
+// GetSelectedNode returns the currently selected node.
+func (s *CommitFilesScreen) GetSelectedNode() *CommitFileTreeNode {
+	if s.cursor < 0 || s.cursor >= len(s.treeFlat) {
+		return nil
+	}
+	return s.treeFlat[s.cursor]
+}
+
+// ToggleCollapse toggles the collapse state of a directory.
+func (s *CommitFilesScreen) ToggleCollapse(path string) {
+	s.collapsedDirs[path] = !s.collapsedDirs[path]
+	s.rebuildFlat()
+	if s.cursor >= len(s.treeFlat) {
+		s.cursor = maxInt(0, len(s.treeFlat)-1)
+	}
+}
+
+// Init implements tea.Model.
+func (s *CommitFilesScreen) Init() tea.Cmd {
+	return nil
+}
+
+// Update handles key events for the commit files screen.
+func (s *CommitFilesScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	keyMsg, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return s, nil
+	}
+
+	maxVisible := s.height - 8 // Account for header, footer, borders
+
+	switch keyMsg.String() {
+	case "j", keyDown:
+		if s.cursor < len(s.treeFlat)-1 {
+			s.cursor++
+			if s.cursor >= s.scrollOffset+maxVisible {
+				s.scrollOffset = s.cursor - maxVisible + 1
+			}
+		}
+	case "k", keyUp:
+		if s.cursor > 0 {
+			s.cursor--
+			if s.cursor < s.scrollOffset {
+				s.scrollOffset = s.cursor
+			}
+		}
+	case keyCtrlD, " ":
+		s.cursor = minInt(s.cursor+maxVisible/2, len(s.treeFlat)-1)
+		if s.cursor >= s.scrollOffset+maxVisible {
+			s.scrollOffset = s.cursor - maxVisible + 1
+		}
+	case keyCtrlU:
+		s.cursor = maxInt(s.cursor-maxVisible/2, 0)
+		if s.cursor < s.scrollOffset {
+			s.scrollOffset = s.cursor
+		}
+	case "g":
+		s.cursor = 0
+		s.scrollOffset = 0
+	case "G":
+		s.cursor = maxInt(0, len(s.treeFlat)-1)
+		if s.cursor >= maxVisible {
+			s.scrollOffset = s.cursor - maxVisible + 1
+		}
+	}
+
+	return s, nil
+}
+
+// View renders the commit files screen.
+func (s *CommitFilesScreen) View() string {
+	maxVisible := s.height - 8 // Account for header, footer, borders
+
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(s.thm.Accent).
+		Width(s.width).
+		Height(s.height).
+		Padding(0)
+
+	titleStyle := lipgloss.NewStyle().
+		Foreground(s.thm.Accent).
+		Bold(true).
+		Border(lipgloss.NormalBorder(), false, false, true, false).
+		BorderForeground(s.thm.BorderDim).
+		Width(s.width-2).
+		Padding(0, 1)
+
+	shortSHA := s.commitSHA
+	if len(shortSHA) > 8 {
+		shortSHA = shortSHA[:8]
+	}
+	title := titleStyle.Render(fmt.Sprintf("Files in commit %s", shortSHA))
+
+	// Render file tree
+	var itemViews []string
+
+	end := s.scrollOffset + maxVisible
+	if end > len(s.treeFlat) {
+		end = len(s.treeFlat)
+	}
+	start := s.scrollOffset
+	if start > end {
+		start = end
+	}
+
+	itemStyle := lipgloss.NewStyle().
+		Padding(0, 1).
+		Width(s.width - 2)
+
+	// Inline highlight style - no width, no padding
+	highlightStyle := lipgloss.NewStyle().
+		Background(s.thm.Accent).
+		Foreground(s.thm.TextFg).
+		Bold(true)
+
+	dirStyle := lipgloss.NewStyle().
+		Foreground(s.thm.Accent)
+
+	fileStyle := lipgloss.NewStyle().
+		Foreground(s.thm.TextFg)
+
+	changeTypeStyle := lipgloss.NewStyle().
+		Foreground(s.thm.MutedFg)
+
+	noFilesStyle := lipgloss.NewStyle().
+		Padding(0, 1).
+		Width(s.width - 2).
+		Foreground(s.thm.MutedFg).
+		Italic(true)
+
+	for i := start; i < end; i++ {
+		node := s.treeFlat[i]
+		indent := strings.Repeat("  ", node.depth)
+		isSelected := i == s.cursor
+
+		var label string
+		if node.IsDir() {
+			icon := "▼"
+			if s.collapsedDirs[node.Path] {
+				icon = "▶"
+			}
+			// Show just the last part of the path for display
+			displayPath := node.Path
+			if parts := strings.Split(node.Path, "/"); len(parts) > 0 {
+				displayPath = parts[len(parts)-1]
+				if node.Compression > 0 && len(parts) > node.Compression {
+					displayPath = strings.Join(parts[len(parts)-node.Compression-1:], "/")
+				}
+			}
+			// Apply highlight only to directory name
+			if isSelected {
+				label = fmt.Sprintf("%s%s %s/", indent, icon, highlightStyle.Render(displayPath))
+			} else {
+				label = fmt.Sprintf("%s%s %s/", indent, icon, dirStyle.Render(displayPath))
+			}
+		} else {
+			// Show just the filename
+			displayName := node.Path
+			if parts := strings.Split(node.Path, "/"); len(parts) > 0 {
+				displayName = parts[len(parts)-1]
+			}
+			changeIndicator := ""
+			if node.File != nil {
+				switch node.File.ChangeType {
+				case "A":
+					changeIndicator = changeTypeStyle.Render(" [+]")
+				case "D":
+					changeIndicator = changeTypeStyle.Render(" [-]")
+				case "M":
+					changeIndicator = changeTypeStyle.Render(" [~]")
+				case "R":
+					changeIndicator = changeTypeStyle.Render(" [R]")
+				case "C":
+					changeIndicator = changeTypeStyle.Render(" [C]")
+				}
+			}
+			// Apply highlight only to filename
+			if isSelected {
+				label = fmt.Sprintf("%s  %s%s", indent, highlightStyle.Render(displayName), changeIndicator)
+			} else {
+				label = fmt.Sprintf("%s  %s%s", indent, fileStyle.Render(displayName), changeIndicator)
+			}
+		}
+
+		itemViews = append(itemViews, itemStyle.Render(label))
+	}
+
+	if len(s.treeFlat) == 0 {
+		itemViews = append(itemViews, noFilesStyle.Render("No files in this commit."))
+	}
+
+	// Footer
+	footerStyle := lipgloss.NewStyle().
+		Foreground(s.thm.MutedFg).
+		Width(s.width-2).
+		Padding(0, 1).
+		Border(lipgloss.NormalBorder(), true, false, false, false).
+		BorderForeground(s.thm.BorderDim)
+
+	footer := footerStyle.Render("j/k: navigate • Enter: toggle/view diff • d: full diff • q: close")
+
+	// Stats line
+	statsStyle := lipgloss.NewStyle().
+		Foreground(s.thm.MutedFg).
+		Width(s.width-2).
+		Padding(0, 1).
+		Align(lipgloss.Right)
+
+	stats := statsStyle.Render(fmt.Sprintf("%d files", len(s.files)))
+
+	content := lipgloss.JoinVertical(lipgloss.Left,
+		title,
+		stats,
+		strings.Join(itemViews, "\n"),
+		footer,
+	)
+
+	return boxStyle.Render(content)
 }

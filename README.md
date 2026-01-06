@@ -321,11 +321,21 @@ custom_commands:
 
 | Key | Action |
 | --- | --- |
-| `Enter` | View commit details and diff |
+| `Enter` | Open commit file tree (browse files changed in commit) |
+| `d` | Show full commit diff in pager |
 | `C` | Cherry-pick commit to another worktree |
 | `j/k` | Navigate commits |
-| `ctrl+j` | Next commit and open details |
+| `ctrl+j` | Next commit and open file tree |
 | `/` | Search commit titles (incremental) |
+
+**Commit File Tree** (when viewing files in a commit):
+
+| Key | Action |
+| --- | --- |
+| `j/k` | Navigate files and directories |
+| `Enter` | Toggle directory collapse/expand, or show file diff |
+| `d` | Show full commit diff in pager |
+| `q`, `Esc` | Return to commit log |
 
 **Status Pane** (when focused on status):
 

@@ -1,6 +1,13 @@
 // Package models defines the data objects shared across lazyworktree packages.
 package models
 
+// CommitFile represents a file changed in a commit.
+type CommitFile struct {
+	Filename   string
+	ChangeType string // A=Added, M=Modified, D=Deleted, R=Renamed, C=Copied
+	OldPath    string // For renames: the original path
+}
+
 // PRInfo captures the relevant metadata for a pull request.
 type PRInfo struct {
 	Number int

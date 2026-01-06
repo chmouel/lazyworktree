@@ -686,14 +686,6 @@ func TestLogPaneCtrlJMovesNextCommit(t *testing.T) {
 	})
 	m.logTable.SetCursor(0)
 
-	execCalled := false
-	m.execProcess = func(_ *exec.Cmd, cb tea.ExecCallback) tea.Cmd {
-		return func() tea.Msg {
-			execCalled = true
-			return cb(nil)
-		}
-	}
-
 	updated, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyCtrlJ})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
@@ -707,9 +699,11 @@ func TestLogPaneCtrlJMovesNextCommit(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	_ = cmd()
-	if !execCalled {
-		t.Fatal("expected commit view to be opened")
+	// The command now returns a commitFilesLoadedMsg instead of calling execProcess
+	// since openCommitView shows the files screen first
+	msg := cmd()
+	if _, ok := msg.(commitFilesLoadedMsg); !ok {
+		t.Fatalf("expected commitFilesLoadedMsg, got %T", msg)
 	}
 }
 

@@ -48,7 +48,7 @@ Write the selected worktree path to FILE on exit (for shell integration)
 .SH KEY BINDINGS
 .TP
 .B Enter
-Jump to worktree (exit and cd), open commit details in log pane
+Jump to worktree (exit and cd), open commit file tree in log pane
 .TP
 .B c
 Create new worktree (from branch, commit, or PR/MR)
@@ -116,7 +116,21 @@ Cycle sort mode (Path / Last Active / Last Switched)
 Show help
 .TP
 .B ctrl+j
-Move to next commit and open details in log pane
+Move to next commit and open commit file tree in log pane
+.SH COMMIT FILE TREE
+When pressing Enter on a commit in the log pane, a file tree view opens showing all files changed in that commit. The tree is collapsible by directory.
+.TP
+.B j, k
+Navigate between files and directories in the tree
+.TP
+.B Enter
+Toggle directory expand/collapse, or show diff for selected file
+.TP
+.B d
+Show full commit diff in pager
+.TP
+.B q, Esc
+Return to commit log
 .SH SHELL INTEGRATION
 To enable the "jump" functionality, source the helper functions from the installation:
 
