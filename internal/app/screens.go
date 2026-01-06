@@ -628,75 +628,94 @@ func (s *InputScreen) View() string {
 
 // NewHelpScreen initializes help content with the available screen size.
 func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.CustomCommand, thm *theme.Theme) *HelpScreen {
-	helpText := `# LazyWorktree Help
+	helpText := `🌲 LazyWorktree Help Guide
 
-**Navigation**
-- j / Down: Move cursor down
-- k / Up: Move cursor up
+**🧭 Navigation**
+- j / ↓: Move cursor down
+- k / ↑: Move cursor up
 - 1 / 2 / 3: Focus Worktree / Status / Log pane
 - [ / ]: Previous / Next pane
-- Tab: Next pane (cycle)
+- Tab: Cycle to next pane
 - Enter: Jump to selected worktree (exit and cd)
 
-**Status Pane (when focused)**
-- j/k: Select file (navigate changed files)
+**📝 Status Pane (when focused)**
+- j / k: Navigate files and directories
 - Enter: Show diff for selected file in pager
 - e: Open selected file in editor
 - d: Show full diff (all files) in pager
+- Ctrl+← / →: Jump to previous / next folder
 - /: Search file names
 - Ctrl+D / Space: Half page down
 - Ctrl+U: Half page up
-- PageDown / PageUp: Full page up/down
-- g: Go to top
-- G: Go to bottom
+- PageUp / PageDown: Full page up/down
+- g / G: Jump to top / bottom
 
-**Log Pane**
+**📜 Log Pane**
 - j / k: Move between commits
-- Ctrl+J: Next commit and open details
-- Enter: Open commit details and diff
+- Ctrl+J: Next commit and open file tree
+- Enter: Open commit file tree (browse changed files)
 - C: Cherry-pick commit to another worktree
 - /: Search commit titles
 
-**Actions**
+**📁 Commit File Tree (viewing files in a commit)**
+- j / k: Navigate files and directories
+- Enter: Toggle directory or show file diff
+- d: Show full commit diff in pager
+- f: Filter files by name
+- /: Search files (incremental)
+- n / N: Next / previous search match
+- q / Esc: Return to commit log
+
+**⚡ Worktree Actions**
 - c: Create new worktree (from branch, commit, or PR/MR)
-- d: Full-screen diff viewer
+- m: Rename selected worktree
 - D: Delete selected worktree
 - A: Absorb worktree into main (merge + delete)
 - X: Prune merged PR worktrees
 - !: Run arbitrary command in selected worktree
-- Ctrl+p, P: Command Palette
+
+**🔍 Viewing & Tools**
+- d: Full-screen diff viewer
+- o: Open PR/MR in browser
+- g: Open LazyGit (or go to top in diff pane)
+- =: Toggle zoom for focused pane
+- : / Ctrl+P: Command Palette
+- ?: Show this help
+
+**🔄 Repository Operations**
+- r: Refresh worktree list
 - R: Fetch all remotes
-- p: Fetch PR status from GitHub
-- r: Refresh list
-- s: Sort (cycle: Path / Last Active / Last Switched)
+- p: Fetch PR/MR status from GitHub/GitLab
+- s: Cycle sort (Path / Last Active / Last Switched)
+
+**🔎 Filtering & Search**
 - f: Filter focused pane
 - /: Search focused pane (incremental)
 - Alt+N / Alt+P: Move selection and fill filter input
-- ↑ / ↓ / Ctrl+J / Ctrl+K: Move selection (filter active, no fill)
-- g: Open LazyGit (or go to top if in diff pane)
-- ?: Show this help
+- ↑ / ↓: Move selection (filter active, no fill)
+- Ctrl+J / Ctrl+K: Same as above
+- Home / End: Jump to first / last item
 
-**Status Indicators**
-- ✔ Clean: No local changes
-- ✎ Dirty: Uncommitted changes
+Search Mode:
+- Type: Jump to first matching item
+- n / N: Next / previous match
+- Enter: Close search
+- Esc: Clear search
+
+**📊 Status Indicators**
+- ✔: No local changes (clean)
+- ✎: Uncommitted changes (dirty)
 - ↑N: Ahead of remote by N commits
 - ↓N: Behind remote by N commits
 
-**Performance Note**
-PR data is not fetched by default for speed.
-Press p to fetch PR information from GitHub.
-
-**Search Mode**
-- Type to jump to the first matching item
-- n / N: Next / previous match
-- Enter: Close search
-- Esc / Ctrl+C: Clear search
-
-**Help Navigation**
-- / to search, Enter to apply, Esc to clear
-- q / Esc to close help
+**❓ Help Navigation**
+- /: Search help (Enter to apply, Esc to clear)
+- q / Esc: Close help
 - j / k: Scroll up / down
-- Ctrl+d / Ctrl+u: Scroll half page down / up`
+- Ctrl+D / Ctrl+U: Scroll half page down / up
+
+💡 Tip: PR data is not fetched by default for speed.
+       Press 'p' to fetch PR information on demand.`
 
 	// Append custom commands section if any exist with show_help=true
 	if len(customCommands) > 0 {
@@ -709,7 +728,7 @@ Press p to fetch PR information from GitHub.
 
 		if len(customKeys) > 0 {
 			sort.Strings(customKeys)
-			helpText += "\n\n**Custom Commands**\n" + strings.Join(customKeys, "\n")
+			helpText += "\n\n**⚙️ Custom Commands**\n" + strings.Join(customKeys, "\n")
 		}
 	}
 
@@ -1453,23 +1472,24 @@ func (s *HelpScreen) renderContent() string {
 	// Apply styling to help content
 	styledLines := []string{}
 	titleStyle := lipgloss.NewStyle().Foreground(s.thm.Accent).Bold(true)
-	keyStyle := lipgloss.NewStyle().Foreground(s.thm.SuccessFg)
+	keyStyle := lipgloss.NewStyle().Foreground(s.thm.SuccessFg).Bold(true)
 
 	for _, line := range lines {
-		// Style section headers (lines that start with **)
+		// Style section headers (lines that start with ** and end with **)
 		if strings.HasPrefix(line, "**") && strings.HasSuffix(line, "**") {
 			header := strings.TrimPrefix(strings.TrimSuffix(line, "**"), "**")
 			styledLines = append(styledLines, titleStyle.Render("▶ "+header))
 			continue
 		}
 
-		// Style key bindings (lines starting with "- " and containing ":")
+		// Style key bindings (lines starting with "- " and containing ": ")
 		if strings.HasPrefix(line, "- ") {
-			parts := strings.SplitN(line, ":", 2)
+			// Split on ": " (colon + space) to handle keys that contain ":"
+			parts := strings.SplitN(line, ": ", 2)
 			if len(parts) == 2 {
 				keys := strings.TrimPrefix(parts[0], "- ")
 				description := parts[1]
-				styledLine := "- " + keyStyle.Render(keys) + ":" + description
+				styledLine := "  " + keyStyle.Render(keys) + ": " + description
 				styledLines = append(styledLines, styledLine)
 				continue
 			}

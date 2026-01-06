@@ -3946,7 +3946,7 @@ func (m *Model) renderHeader(layout layoutDims) string {
 		Padding(0, 2) // Increased padding for breathing room
 
 	// Add decorative icon to title
-	title := "⚡ Lazy Worktree Manager"
+	title := "🌲 Lazy Worktree Manager"
 	repoKey := strings.TrimSpace(m.repoKey)
 	content := title
 	if repoKey != "" && repoKey != "unknown" && !strings.HasPrefix(repoKey, "local-") {
