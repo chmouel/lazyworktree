@@ -342,7 +342,9 @@ custom_commands:
 
 **Status Pane** (when focused on status):
 
-The status pane displays changed files in a collapsible tree view, grouped by directory (similar to lazygit). Directories can be expanded/collapsed, and files are sorted alphabetically within each directory level.
+The status pane displays changed files in a collapsible tree view, grouped by
+directory (similar to lazygit). Directories can be expanded/collapsed, files
+are sorted alphabetically within each directory level.
 
 | Key | Action |
 | --- | --- |
@@ -401,6 +403,7 @@ lazyworktree reads `~/.config/lazyworktree/config.yaml` (or `.yml`) for default 
 worktree_dir: ~/.local/share/worktrees
 sort_mode: switched  # Options: "path", "active" (commit date), "switched" (last accessed)
 auto_fetch_prs: false
+show_icons: true
 search_auto_select: false
 fuzzy_finder_input: false
 max_untracked_diffs: 10
@@ -435,6 +438,7 @@ Notes:
 - `init_commands` and `terminate_commands` execute prior to any repository-specific `.wt` commands (if present).
 - `sort_mode` controls the default sort order: `"switched"` (last accessed, default), `"active"` (last commit date), or `"path"` (alphabetical). The old `sort_by_active` option is still supported for backwards compatibility.
 - Set `auto_fetch_prs` to `true` to fetch PR data upon startup.
+- Set `show_icons: false` to disable icons.
 - Set `search_auto_select` to `true` to commence with the filter focused (alternatively, pass `--search-auto-select`).
 - Set `fuzzy_finder_input` to `true` to enable fuzzy finder suggestions in input dialogs. When enabled, typing in text input fields displays fuzzy-filtered suggestions from available options. Use arrow keys to navigate suggestions and Enter to select.
 - Use `max_untracked_diffs: 0` to conceal untracked diffs; `max_diff_chars: 0` disables truncation.
@@ -472,7 +476,7 @@ theme: dracula  # or any listed above
 
 ## CI Status Display
 
-When viewing a worktree with an associated PR/MR, lazyworktree automatically retrieves and displays CI check statuses in the information pane:
+When viewing a worktree with an associated PR/MR, lazyworktree automatically retrieves and displays CI check statuses in the information pane.
 
 - `✓` **Green** - Passed
 - `✗` **Red** - Failed
@@ -517,6 +521,7 @@ branch_name_script: "gemini --model gemini-2.5-flash-lite -p "Generate a short g
 - The script operates under a 30-second timeout to prevent hanging.
 
 ## Screenshots
+
 ### Command Palette
 
 <img width="1754" height="1077" alt="image" src="https://github.com/user-attachments/assets/c765db31-0419-40f6-99c4-328a686447b1" />
@@ -524,7 +529,6 @@ branch_name_script: "gemini --model gemini-2.5-flash-lite -p "Generate a short g
 ### Branch creation
 
 <img width="1760" height="1072" alt="image" src="https://github.com/user-attachments/assets/f705c330-d1d7-4d09-9f56-85de7d37543a" />
-
 
 ## How does it compare?
 

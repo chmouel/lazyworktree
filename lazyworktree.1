@@ -16,7 +16,7 @@ Commit Log Details: Log pane shows author initials alongside commit subjects
 .IP \(bu 2
 Base Selection: Select a base branch or commit from a list, or enter a reference when creating a worktree
 .IP \(bu 2
-Forge Integration: Fetch and display associated Pull Request (GitHub) or Merge Request (GitLab) status
+Forge Integration: Fetch and display associated Pull Request (GitHub) or Merge Request (GitLab) status and CI checks with Nerd Font v3 icons when enabled
 .IP \(bu 2
 Create from PR/MR: Establish worktrees directly from open pull or merge requests via the create worktree menu (c)
 .IP \(bu 2
@@ -65,7 +65,7 @@ View diff in pager
 .B e
 Open selected file in Status pane using editor
 .SH STATUS PANE
-The Status pane displays changed files in a collapsible tree view, grouped by directory. Directories are shown with expand/collapse indicators (▼/▶) and can be toggled with Enter. Files are sorted alphabetically within each directory level.
+The Status pane displays changed files in a collapsible tree view, grouped by directory. Directories are shown with expand/collapse indicators (▼/▶) and can be toggled with Enter. Files are sorted alphabetically within each directory level and include Nerd Font v3 icons when enabled (set show_icons: false to disable).
 .TP
 .B j, k
 Navigate between files and directories in the tree
@@ -118,7 +118,7 @@ Show help
 .B ctrl+j
 Move to next commit and open commit file tree in log pane
 .SH COMMIT FILE TREE
-When pressing Enter on a commit in the log pane, a file tree view opens showing all files changed in that commit. The tree is collapsible by directory.
+When pressing Enter on a commit in the log pane, a file tree view opens showing all files changed in that commit. The tree is collapsible by directory and includes Nerd Font v3 icons when enabled (set show_icons: false to disable).
 .TP
 .B j, k
 Navigate between files and directories in the tree
@@ -168,6 +168,8 @@ worktree_dir
 sort_mode (path, active, switched)
 .IP \(bu 2
 auto_fetch_prs
+.IP \(bu 2
+show_icons (true, false)
 .IP \(bu 2
 theme
 .IP \(bu 2

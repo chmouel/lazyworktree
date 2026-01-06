@@ -357,9 +357,8 @@ func TestHandleCachedWorktreesUpdatesState(t *testing.T) {
 }
 
 func TestHandlePRDataLoadedUpdatesTable(t *testing.T) {
-	cfg := &config.AppConfig{
-		WorktreeDir: t.TempDir(),
-	}
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
 	m.worktreeTable.SetWidth(100)
 	m.worktreesLoaded = true
@@ -387,6 +386,49 @@ func TestHandlePRDataLoadedUpdatesTable(t *testing.T) {
 	}
 	if len(m.worktreeTable.Columns()) != 5 {
 		t.Fatalf("expected 5 columns after PR data, got %d", len(m.worktreeTable.Columns()))
+	}
+	rows := m.worktreeTable.Rows()
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row after PR data, got %d", len(rows))
+	}
+	if len(rows[0]) != 5 {
+		t.Fatalf("expected 5 columns in row, got %d", len(rows[0]))
+	}
+	if !strings.Contains(rows[0][4], iconPR) {
+		t.Fatalf("expected PR column to include icon %q, got %q", iconPR, rows[0][4])
+	}
+}
+
+func TestHandlePRDataLoadedOmitsIconWhenDisabled(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
+	cfg.ShowIcons = false
+	m := NewModel(cfg, "")
+	m.worktreeTable.SetWidth(100)
+	m.worktreesLoaded = true
+	m.worktrees = []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature"},
+	}
+	m.filteredWts = m.worktrees
+	m.worktreeTable.SetCursor(0)
+
+	msg := prDataLoadedMsg{
+		prMap: map[string]*models.PRInfo{
+			"feature": {Number: 12, State: "OPEN", Title: "Test PR", URL: "https://example.com"},
+		},
+	}
+
+	_, cmd := m.handlePRDataLoaded(msg)
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+
+	rows := m.worktreeTable.Rows()
+	if len(rows) != 1 || len(rows[0]) != 5 {
+		t.Fatalf("unexpected row shape: %+v", rows)
+	}
+	if strings.Contains(rows[0][4], iconPR) {
+		t.Fatalf("expected PR icon to be omitted, got %q", rows[0][4])
 	}
 }
 
@@ -431,9 +473,8 @@ func TestHandlePRDataLoadedWithWorktreePRs(t *testing.T) {
 }
 
 func TestHandleCIStatusLoadedUpdatesCache(t *testing.T) {
-	cfg := &config.AppConfig{
-		WorktreeDir: t.TempDir(),
-	}
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
 	m.filteredWts = []*models.WorktreeInfo{
 		{
@@ -465,6 +506,47 @@ func TestHandleCIStatusLoadedUpdatesCache(t *testing.T) {
 	}
 	if !strings.Contains(m.infoContent, "CI Checks:") {
 		t.Fatalf("expected info content to include CI checks, got %q", m.infoContent)
+	}
+	if !strings.Contains(m.infoContent, iconCISuccess) {
+		t.Fatalf("expected info content to include CI icon %q, got %q", iconCISuccess, m.infoContent)
+	}
+}
+
+func TestHandleCIStatusLoadedOmitsIconWhenDisabled(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
+	cfg.ShowIcons = false
+	m := NewModel(cfg, "")
+	m.filteredWts = []*models.WorktreeInfo{
+		{
+			Path:   filepath.Join(cfg.WorktreeDir, "wt1"),
+			Branch: "feature",
+			PR: &models.PRInfo{
+				Number: 1,
+				State:  "OPEN",
+				Title:  "Test",
+				URL:    testPRURL,
+			},
+		},
+	}
+	m.selectedIndex = 0
+
+	msg := ciStatusLoadedMsg{
+		branch: "feature",
+		checks: []*models.CICheck{
+			{Name: "build", Status: "completed", Conclusion: "success"},
+		},
+	}
+
+	_, cmd := m.handleCIStatusLoaded(msg)
+	if cmd != nil {
+		t.Fatal("expected no command")
+	}
+	if !strings.Contains(m.infoContent, "CI Checks:") {
+		t.Fatalf("expected info content to include CI checks, got %q", m.infoContent)
+	}
+	if strings.Contains(m.infoContent, iconCISuccess) {
+		t.Fatalf("expected CI icon to be omitted, got %q", m.infoContent)
 	}
 }
 
@@ -1005,9 +1087,8 @@ func TestSearchStatusSelectsMatch(t *testing.T) {
 
 // TestRenderStatusFilesHighlighting tests that selected file is highlighted.
 func TestRenderStatusFilesHighlighting(t *testing.T) {
-	cfg := &config.AppConfig{
-		WorktreeDir: t.TempDir(),
-	}
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
 	m.focusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
@@ -1026,11 +1107,37 @@ func TestRenderStatusFilesHighlighting(t *testing.T) {
 	if !strings.Contains(result, "file2.go") {
 		t.Fatalf("expected result to contain 'file2.go', got %q", result)
 	}
+	icon := deviconForName("file1.go", false)
+	if icon == "" {
+		t.Fatalf("expected devicon for file1.go, got empty string")
+	}
+	if !strings.Contains(result, icon) {
+		t.Fatalf("expected result to contain devicon %q, got %q", icon, result)
+	}
 
 	// Result should have multiple lines
 	lines := strings.Split(result, "\n")
 	if len(lines) != 2 {
 		t.Fatalf("expected 2 lines, got %d", len(lines))
+	}
+}
+
+func TestRenderStatusFilesIconsDisabled(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
+	cfg.ShowIcons = false
+	m := NewModel(cfg, "")
+	m.focusedPane = 1
+	m.statusViewport = viewport.New(40, 10)
+	m.setStatusFiles([]StatusFile{
+		{Filename: "file1.go", Status: ".M", IsUntracked: false},
+	})
+	m.statusTreeIndex = 0
+
+	result := m.renderStatusFiles()
+	icon := deviconForName("file1.go", false)
+	if icon != "" && strings.Contains(result, icon) {
+		t.Fatalf("expected icons disabled, got %q in %q", icon, result)
 	}
 }
 

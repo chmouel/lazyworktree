@@ -196,7 +196,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 	}
 
 	// Show PR selection screen
-	m.prSelectionScreen = NewPRSelectionScreen(msg.prs, m.windowWidth, m.windowHeight, m.theme)
+	m.prSelectionScreen = NewPRSelectionScreen(msg.prs, m.windowWidth, m.windowHeight, m.theme, m.config.ShowIcons)
 	m.prSelectionSubmit = func(pr *models.PRInfo) tea.Cmd {
 		// Generate worktree name
 		generatedName := generatePRWorktreeName(pr)

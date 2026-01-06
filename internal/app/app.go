@@ -605,6 +605,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.windowWidth,
 			m.windowHeight,
 			m.theme,
+			m.config.ShowIcons,
 		)
 		m.currentScreen = screenCommitFiles
 		return m, nil
@@ -1001,6 +1002,10 @@ func (m *Model) updateTable() {
 		if m.prDataLoaded {
 			prStr := "-"
 			if wt.PR != nil {
+				prIcon := ""
+				if m.config.ShowIcons {
+					prIcon = iconWithSpace(iconPR)
+				}
 				// Use Unicode symbols to indicate PR state
 				var stateSymbol string
 				switch wt.PR.State {
@@ -1014,7 +1019,7 @@ func (m *Model) updateTable() {
 					stateSymbol = "?"
 				}
 				// Right-align PR numbers for consistent column width
-				prStr = fmt.Sprintf("#%-5d%s", wt.PR.Number, stateSymbol)
+				prStr = fmt.Sprintf("%s#%-5d%s", prIcon, wt.PR.Number, stateSymbol)
 			}
 			row = append(row, prStr)
 		}
@@ -3909,8 +3914,13 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 	if wt.PR != nil {
 		// Match Python: white number, colored state (green=OPEN, magenta=MERGED, red=else)
 		prLabelStyle := lipgloss.NewStyle().Foreground(m.theme.Pink).Bold(true) // Pink for PR prominence
-		whiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("15"))      // white
-		stateColor := lipgloss.Color("2")                                       // green for OPEN
+		prPrefix := "PR:"
+		if m.config.ShowIcons {
+			prPrefix = iconWithSpace(iconPR) + prPrefix
+		}
+		prLabel := prLabelStyle.Render(prPrefix)
+		whiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("15")) // white
+		stateColor := lipgloss.Color("2")                                  // green for OPEN
 		switch wt.PR.State {
 		case "MERGED":
 			stateColor = lipgloss.Color("5") // magenta
@@ -3920,7 +3930,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		stateStyle := lipgloss.NewStyle().Foreground(stateColor)
 		// Format: PR: #123 Title [STATE] (matches Python grid layout)
 		infoLines = append(infoLines, fmt.Sprintf("%s %s %s [%s]",
-			prLabelStyle.Render("PR:"),
+			prLabel,
 			whiteStyle.Render(fmt.Sprintf("#%d", wt.PR.Number)),
 			wt.PR.Title,
 			stateStyle.Render(wt.PR.State)))
@@ -3939,28 +3949,34 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 			grayStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
 
 			for _, check := range cached.checks {
-				var symbol, styledSymbol string
+				var symbol string
+				var style lipgloss.Style
 				switch check.Conclusion {
 				case "success":
 					symbol = "✓"
-					styledSymbol = greenStyle.Render(symbol)
+					style = greenStyle
 				case "failure":
 					symbol = "✗"
-					styledSymbol = redStyle.Render(symbol)
+					style = redStyle
 				case "skipped":
 					symbol = "○"
-					styledSymbol = grayStyle.Render(symbol)
+					style = grayStyle
 				case "cancelled":
 					symbol = "⊘"
-					styledSymbol = grayStyle.Render(symbol)
+					style = grayStyle
 				case "pending", "":
 					symbol = symbolFilledCircle
-					styledSymbol = yellowStyle.Render(symbol)
+					style = yellowStyle
 				default:
 					symbol = "?"
-					styledSymbol = grayStyle.Render(symbol)
+					style = grayStyle
 				}
-				infoLines = append(infoLines, fmt.Sprintf("  %s %s", styledSymbol, check.Name))
+				if m.config.ShowIcons {
+					if icon := ciIconForConclusion(check.Conclusion); icon != "" {
+						symbol = icon
+					}
+				}
+				infoLines = append(infoLines, fmt.Sprintf("  %s %s", style.Render(symbol), check.Name))
 			}
 		}
 	}
@@ -4466,18 +4482,26 @@ func (m *Model) renderStatusFiles() string {
 		indent := strings.Repeat("  ", node.depth)
 
 		var lineContent string
+		var fileIcon string
 		if node.IsDir() {
 			// Directory line: "  ▼ dirname" or "  ▶ dirname"
 			expandIcon := "▼"
 			if m.statusCollapsedDirs[node.Path] {
 				expandIcon = "▶"
 			}
-			lineContent = fmt.Sprintf("%s%s %s", indent, expandIcon, node.Path)
+			dirIcon := ""
+			if m.config.ShowIcons {
+				dirIcon = iconWithSpace(deviconForName(node.Name(), true))
+			}
+			lineContent = fmt.Sprintf("%s%s %s%s", indent, expandIcon, dirIcon, node.Path)
 		} else {
 			// File line: "    M  filename"
 			status := node.File.Status
 			displayStatus := strings.ReplaceAll(status, ".", " ")
-			lineContent = fmt.Sprintf("%s  %s %s", indent, displayStatus, node.Name())
+			if m.config.ShowIcons {
+				fileIcon = iconWithSpace(deviconForName(node.Name(), false))
+			}
+			lineContent = fmt.Sprintf("%s  %s %s%s", indent, displayStatus, fileIcon, node.Name())
 		}
 
 		// Apply styling based on selection and node type
@@ -4520,7 +4544,7 @@ func (m *Model) renderStatusFiles() string {
 					statusRendered.WriteString(style.Render(string(char)))
 				}
 			}
-			formatted := fmt.Sprintf("%s  %s %s", indent, statusRendered.String(), node.Name())
+			formatted := fmt.Sprintf("%s  %s %s%s", indent, statusRendered.String(), fileIcon, node.Name())
 			lines = append(lines, formatted)
 		}
 	}

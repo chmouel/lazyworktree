@@ -22,6 +22,7 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, "delta", cfg.DeltaPath)
 	assert.Equal(t, "tofu", cfg.TrustMode)
 	assert.Equal(t, "rebase", cfg.MergeMethod)
+	assert.True(t, cfg.ShowIcons)
 	assert.Empty(t, cfg.WorktreeDir)
 	assert.Empty(t, cfg.InitCommands)
 	assert.Empty(t, cfg.TerminateCommands)
@@ -489,6 +490,15 @@ func TestParseConfig(t *testing.T) {
 			},
 			validate: func(t *testing.T, cfg *AppConfig) {
 				assert.True(t, cfg.SearchAutoSelect)
+			},
+		},
+		{
+			name: "show_icons false",
+			data: map[string]interface{}{
+				"show_icons": false,
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.False(t, cfg.ShowIcons)
 			},
 		},
 		{

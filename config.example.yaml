@@ -2,6 +2,8 @@ worktree_dir: ~/.local/share/worktrees
 # Sort mode: "path" (alphabetical), "active" (last commit date), "switched" (last accessed)
 sort_mode: switched
 auto_fetch_prs: false
+# Toggle Nerd Font v3 icons in file trees, PR views, and CI checks
+show_icons: true
 # Start with the filter focused and select the first match on Enter.
 search_auto_select: false
 max_untracked_diffs: 10

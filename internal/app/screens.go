@@ -152,6 +152,7 @@ type PRSelectionScreen struct {
 	width        int
 	height       int
 	thm          *theme.Theme
+	showIcons    bool
 }
 
 // ListSelectionScreen lets the user pick from a list of options.
@@ -970,7 +971,7 @@ func NewListSelectionScreen(items []selectionItem, title, placeholder, noResults
 }
 
 // NewPRSelectionScreen builds a PR selection screen with 80% of screen size.
-func NewPRSelectionScreen(prs []*models.PRInfo, maxWidth, maxHeight int, thm *theme.Theme) *PRSelectionScreen {
+func NewPRSelectionScreen(prs []*models.PRInfo, maxWidth, maxHeight int, thm *theme.Theme, showIcons bool) *PRSelectionScreen {
 	// Use 80% of screen size
 	width := int(float64(maxWidth) * 0.8)
 	height := int(float64(maxHeight) * 0.8)
@@ -999,6 +1000,7 @@ func NewPRSelectionScreen(prs []*models.PRInfo, maxWidth, maxHeight int, thm *th
 		width:        width,
 		height:       height,
 		thm:          thm,
+		showIcons:    showIcons,
 	}
 	return screen
 }
@@ -1213,7 +1215,11 @@ func (s *PRSelectionScreen) View() string {
 
 	for i := start; i < end; i++ {
 		pr := s.filtered[i]
-		prLabel := fmt.Sprintf("#%d: %s", pr.Number, pr.Title)
+		iconPrefix := ""
+		if s.showIcons {
+			iconPrefix = iconWithSpace(iconPR)
+		}
+		prLabel := fmt.Sprintf("%s#%d: %s", iconPrefix, pr.Number, pr.Title)
 
 		// Truncate if too long
 		maxLabelLen := s.width - 10
@@ -2022,6 +2028,7 @@ type CommitFilesScreen struct {
 	width         int
 	height        int
 	thm           *theme.Theme
+	showIcons     bool
 	// Filter/search support
 	filterInput   textinput.Model
 	showingFilter bool
@@ -2031,7 +2038,7 @@ type CommitFilesScreen struct {
 }
 
 // NewCommitFilesScreen creates a commit files tree screen.
-func NewCommitFilesScreen(sha, wtPath string, files []models.CommitFile, maxWidth, maxHeight int, thm *theme.Theme) *CommitFilesScreen {
+func NewCommitFilesScreen(sha, wtPath string, files []models.CommitFile, maxWidth, maxHeight int, thm *theme.Theme, showIcons bool) *CommitFilesScreen {
 	width := int(float64(maxWidth) * 0.8)
 	height := int(float64(maxHeight) * 0.8)
 	if width < 60 {
@@ -2058,6 +2065,7 @@ func NewCommitFilesScreen(sha, wtPath string, files []models.CommitFile, maxWidt
 		width:         width,
 		height:        height,
 		thm:           thm,
+		showIcons:     showIcons,
 		filterInput:   ti,
 	}
 
@@ -2464,6 +2472,14 @@ func (s *CommitFilesScreen) View() string {
 		node := s.treeFlat[i]
 		indent := strings.Repeat("  ", node.depth)
 		isSelected := i == s.cursor
+		iconName := node.Path
+		if parts := strings.Split(node.Path, "/"); len(parts) > 0 {
+			iconName = parts[len(parts)-1]
+		}
+		devicon := ""
+		if s.showIcons {
+			devicon = iconWithSpace(deviconForName(iconName, node.IsDir()))
+		}
 
 		var label string
 		if node.IsDir() {
@@ -2479,11 +2495,12 @@ func (s *CommitFilesScreen) View() string {
 					displayPath = strings.Join(parts[len(parts)-node.Compression-1:], "/")
 				}
 			}
+			displayLabel := devicon + displayPath
 			// Apply highlight only to directory name
 			if isSelected {
-				label = fmt.Sprintf("%s%s %s/", indent, icon, highlightStyle.Render(displayPath))
+				label = fmt.Sprintf("%s%s %s/", indent, icon, highlightStyle.Render(displayLabel))
 			} else {
-				label = fmt.Sprintf("%s%s %s/", indent, icon, dirStyle.Render(displayPath))
+				label = fmt.Sprintf("%s%s %s/", indent, icon, dirStyle.Render(displayLabel))
 			}
 		} else {
 			// Show just the filename
@@ -2491,6 +2508,7 @@ func (s *CommitFilesScreen) View() string {
 			if parts := strings.Split(node.Path, "/"); len(parts) > 0 {
 				displayName = parts[len(parts)-1]
 			}
+			displayLabel := devicon + displayName
 			changeIndicator := ""
 			if node.File != nil {
 				switch node.File.ChangeType {
@@ -2508,9 +2526,9 @@ func (s *CommitFilesScreen) View() string {
 			}
 			// Apply highlight only to filename
 			if isSelected {
-				label = fmt.Sprintf("%s  %s%s", indent, highlightStyle.Render(displayName), changeIndicator)
+				label = fmt.Sprintf("%s  %s%s", indent, highlightStyle.Render(displayLabel), changeIndicator)
 			} else {
-				label = fmt.Sprintf("%s  %s%s", indent, fileStyle.Render(displayName), changeIndicator)
+				label = fmt.Sprintf("%s  %s%s", indent, fileStyle.Render(displayLabel), changeIndicator)
 			}
 		}
 

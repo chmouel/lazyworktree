@@ -191,9 +191,8 @@ func TestIntegrationPaletteSelectsCustomCommand(t *testing.T) {
 }
 
 func TestIntegrationPRAndCIFlowUpdatesView(t *testing.T) {
-	cfg := &config.AppConfig{
-		WorktreeDir: t.TempDir(),
-	}
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
 	m.repoConfigPath = "skip"
 	m.setWindowSize(120, 40)
@@ -249,6 +248,9 @@ func TestIntegrationPRAndCIFlowUpdatesView(t *testing.T) {
 	view := m.View()
 	if !strings.Contains(view, "PR:") {
 		t.Fatalf("expected PR info to be rendered, got %q", view)
+	}
+	if !strings.Contains(view, iconPR) {
+		t.Fatalf("expected PR icon to be rendered, got %q", view)
 	}
 	if !strings.Contains(view, "CI Checks:") {
 		t.Fatalf("expected CI info to be rendered, got %q", view)

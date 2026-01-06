@@ -59,6 +59,7 @@ type AppConfig struct {
 	Theme             string // Theme name: see AvailableThemes in internal/theme
 	MergeMethod       string // Merge method for absorb: "rebase" or "merge" (default: "rebase")
 	FuzzyFinderInput  bool   // Enable fuzzy finder for input suggestions (default: false)
+	ShowIcons         bool   // Render Nerd Font icons in file trees and PR views (default: true)
 }
 
 // RepoConfig represents repository-scoped commands from .wt
@@ -82,6 +83,7 @@ func DefaultConfig() *AppConfig {
 		Theme:             "dracula",
 		MergeMethod:       "rebase",
 		FuzzyFinderInput:  false,
+		ShowIcons:         true,
 		CustomCommands: map[string]*CustomCommand{
 			"t": {
 				Description: "Tmux",
@@ -346,6 +348,7 @@ func parseConfig(data map[string]any) *AppConfig {
 	cfg.AutoFetchPRs = coerceBool(data["auto_fetch_prs"], false)
 	cfg.SearchAutoSelect = coerceBool(data["search_auto_select"], false)
 	cfg.FuzzyFinderInput = coerceBool(data["fuzzy_finder_input"], false)
+	cfg.ShowIcons = coerceBool(data["show_icons"], cfg.ShowIcons)
 	cfg.MaxUntrackedDiffs = coerceInt(data["max_untracked_diffs"], 10)
 	cfg.MaxDiffChars = coerceInt(data["max_diff_chars"], 200000)
 	if _, ok := data["delta_args"]; ok {

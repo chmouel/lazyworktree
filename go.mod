@@ -7,6 +7,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/exp/teatest v0.0.0-20251215102626-e0db08df7383
+	github.com/epilande/go-devicons v0.0.0-20250505162540-0661cab71a28
 	github.com/muesli/reflow v0.3.0
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1

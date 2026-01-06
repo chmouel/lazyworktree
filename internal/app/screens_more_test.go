@@ -35,7 +35,7 @@ func TestPRSelectionScreenUpdate(t *testing.T) {
 		{Number: 1, Title: "First"},
 		{Number: 2, Title: "Second"},
 	}
-	screen := NewPRSelectionScreen(prs, 80, 30, theme.Dracula())
+	screen := NewPRSelectionScreen(prs, 80, 30, theme.Dracula(), true)
 
 	_, _ = screen.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if screen.cursor != 1 {
@@ -45,6 +45,18 @@ func TestPRSelectionScreenUpdate(t *testing.T) {
 	_, _ = screen.Update(tea.KeyMsg{Type: tea.KeyUp})
 	if screen.cursor != 0 {
 		t.Fatalf("expected cursor to move up, got %d", screen.cursor)
+	}
+}
+
+func TestPRSelectionScreenViewIncludesIcon(t *testing.T) {
+	prs := []*models.PRInfo{
+		{Number: 1, Title: "First"},
+	}
+	screen := NewPRSelectionScreen(prs, 80, 30, theme.Dracula(), true)
+
+	view := screen.View()
+	if !strings.Contains(view, iconPR) {
+		t.Fatalf("expected PR selection view to include icon %q, got %q", iconPR, view)
 	}
 }
 
