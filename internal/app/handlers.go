@@ -363,6 +363,9 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.showCreateWorktree()
 
 	case "D":
+		if m.focusedPane == 1 {
+			return m, m.showDeleteFile()
+		}
 		return m, m.showDeleteWorktree()
 
 	case "d":
@@ -418,12 +421,13 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.startSearch(target)
 
 	case "s":
-		// In status pane: stage/unstage selected file
+		// In status pane: stage/unstage selected file or directory
 		if m.focusedPane == 1 && len(m.statusTreeFlat) > 0 && m.statusTreeIndex >= 0 && m.statusTreeIndex < len(m.statusTreeFlat) {
 			node := m.statusTreeFlat[m.statusTreeIndex]
-			if !node.IsDir() {
-				return m, m.stageCurrentFile(*node.File)
+			if node.IsDir() {
+				return m, m.stageDirectory(node)
 			}
+			return m, m.stageCurrentFile(*node.File)
 		}
 		// Otherwise: cycle through sort modes: path -> active -> switched -> path
 		m.sortMode = (m.sortMode + 1) % 3

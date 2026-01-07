@@ -1158,19 +1158,18 @@ func TestStageUnstagedFile(t *testing.T) {
 	m.statusTreeIndex = 0
 
 	var gotCmd *exec.Cmd
-	m.execProcess = func(cmd *exec.Cmd, cb tea.ExecCallback) tea.Cmd {
-		gotCmd = cmd
-		return func() tea.Msg { return cb(nil) }
+	m.commandRunner = func(name string, args ...string) *exec.Cmd {
+		gotCmd = exec.Command(name, args...)
+		return gotCmd
 	}
 
 	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	_ = cmd()
 
 	if gotCmd == nil {
-		t.Fatal("expected execProcess to be called")
+		t.Fatal("expected commandRunner to be called")
 	}
 	if gotCmd.Dir != wtPath {
 		t.Fatalf("expected worktree dir %q, got %q", wtPath, gotCmd.Dir)
@@ -1206,19 +1205,18 @@ func TestUnstageStagedFile(t *testing.T) {
 	m.statusTreeIndex = 0
 
 	var gotCmd *exec.Cmd
-	m.execProcess = func(cmd *exec.Cmd, cb tea.ExecCallback) tea.Cmd {
-		gotCmd = cmd
-		return func() tea.Msg { return cb(nil) }
+	m.commandRunner = func(name string, args ...string) *exec.Cmd {
+		gotCmd = exec.Command(name, args...)
+		return gotCmd
 	}
 
 	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	_ = cmd()
 
 	if gotCmd == nil {
-		t.Fatal("expected execProcess to be called")
+		t.Fatal("expected commandRunner to be called")
 	}
 	if !strings.Contains(gotCmd.Args[2], "git restore --staged") {
 		t.Fatalf("expected git restore --staged command, got %q", gotCmd.Args[2])
@@ -1248,19 +1246,18 @@ func TestStageMixedStatusFile(t *testing.T) {
 	m.statusTreeIndex = 0
 
 	var gotCmd *exec.Cmd
-	m.execProcess = func(cmd *exec.Cmd, cb tea.ExecCallback) tea.Cmd {
-		gotCmd = cmd
-		return func() tea.Msg { return cb(nil) }
+	m.commandRunner = func(name string, args ...string) *exec.Cmd {
+		gotCmd = exec.Command(name, args...)
+		return gotCmd
 	}
 
 	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	_ = cmd()
 
 	if gotCmd == nil {
-		t.Fatal("expected execProcess to be called")
+		t.Fatal("expected commandRunner to be called")
 	}
 	if !strings.Contains(gotCmd.Args[2], "git add") {
 		t.Fatalf("expected git add command for mixed status, got %q", gotCmd.Args[2])
@@ -1284,7 +1281,7 @@ func TestStageFileNotInStatusPane(t *testing.T) {
 	}
 }
 
-func TestStageDirectoryDoesNothing(t *testing.T) {
+func TestStageDirectoryAllUnstaged(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 	}
@@ -1296,21 +1293,163 @@ func TestStageDirectoryDoesNothing(t *testing.T) {
 	}
 	m.selectedIndex = 0
 
-	// Build a tree with a directory by creating a file inside a directory
+	// Build a tree with a directory containing unstaged files
 	m.setStatusFiles([]StatusFile{
-		{Filename: "src/file.go", Status: " M", IsUntracked: false},
+		{Filename: "src/file1.go", Status: " M", IsUntracked: false},
+		{Filename: "src/file2.go", Status: " M", IsUntracked: false},
 	})
-	// Index 0 should be the directory node, index 1 should be the file
 	m.statusTreeIndex = 0 // Select the directory
 
-	// Verify we have a directory at index 0
 	if len(m.statusTreeFlat) < 2 || !m.statusTreeFlat[0].IsDir() {
 		t.Fatal("expected directory node at index 0")
 	}
 
+	var gotCmd *exec.Cmd
+	m.commandRunner = func(name string, args ...string) *exec.Cmd {
+		gotCmd = exec.Command(name, args...)
+		return gotCmd
+	}
+
 	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
-	if cmd != nil {
-		t.Fatal("expected no command when staging a directory")
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+
+	if gotCmd == nil {
+		t.Fatal("expected commandRunner to be called")
+	}
+	if !strings.Contains(gotCmd.Args[2], "git add") {
+		t.Fatalf("expected git add command for unstaged directory, got %q", gotCmd.Args[2])
+	}
+	// Verify both files are included
+	if !strings.Contains(gotCmd.Args[2], "file1.go") || !strings.Contains(gotCmd.Args[2], "file2.go") {
+		t.Fatalf("expected both files in git add command, got %q", gotCmd.Args[2])
+	}
+}
+
+func TestStageDirectoryAllStaged(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 1
+	m.statusViewport = viewport.New(40, 10)
+	m.filteredWts = []*models.WorktreeInfo{
+		{Path: cfg.WorktreeDir, Branch: "feature"},
+	}
+	m.selectedIndex = 0
+
+	// Build a tree with a directory containing fully staged files
+	m.setStatusFiles([]StatusFile{
+		{Filename: "src/file1.go", Status: "M ", IsUntracked: false},
+		{Filename: "src/file2.go", Status: "A ", IsUntracked: false},
+	})
+	m.statusTreeIndex = 0 // Select the directory
+
+	if len(m.statusTreeFlat) < 2 || !m.statusTreeFlat[0].IsDir() {
+		t.Fatal("expected directory node at index 0")
+	}
+
+	var gotCmd *exec.Cmd
+	m.commandRunner = func(name string, args ...string) *exec.Cmd {
+		gotCmd = exec.Command(name, args...)
+		return gotCmd
+	}
+
+	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+
+	if gotCmd == nil {
+		t.Fatal("expected commandRunner to be called")
+	}
+	if !strings.Contains(gotCmd.Args[2], "git restore --staged") {
+		t.Fatalf("expected git restore --staged command for fully staged directory, got %q", gotCmd.Args[2])
+	}
+}
+
+func TestStageDirectoryMixed(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 1
+	m.statusViewport = viewport.New(40, 10)
+	m.filteredWts = []*models.WorktreeInfo{
+		{Path: cfg.WorktreeDir, Branch: "feature"},
+	}
+	m.selectedIndex = 0
+
+	// Build a tree with a directory containing mixed status files
+	m.setStatusFiles([]StatusFile{
+		{Filename: "src/file1.go", Status: "M ", IsUntracked: false}, // Staged
+		{Filename: "src/file2.go", Status: " M", IsUntracked: false}, // Unstaged
+	})
+	m.statusTreeIndex = 0 // Select the directory
+
+	if len(m.statusTreeFlat) < 2 || !m.statusTreeFlat[0].IsDir() {
+		t.Fatal("expected directory node at index 0")
+	}
+
+	var gotCmd *exec.Cmd
+	m.commandRunner = func(name string, args ...string) *exec.Cmd {
+		gotCmd = exec.Command(name, args...)
+		return gotCmd
+	}
+
+	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+
+	if gotCmd == nil {
+		t.Fatal("expected commandRunner to be called")
+	}
+	// Mixed status should stage all files
+	if !strings.Contains(gotCmd.Args[2], "git add") {
+		t.Fatalf("expected git add command for mixed status directory, got %q", gotCmd.Args[2])
+	}
+}
+
+func TestCollectFiles(t *testing.T) {
+	// Test CollectFiles on a directory node
+	dirNode := &StatusTreeNode{
+		Path: "src",
+		File: nil, // Directory
+		Children: []*StatusTreeNode{
+			{
+				Path: "src/file1.go",
+				File: &StatusFile{Filename: "src/file1.go", Status: " M"},
+			},
+			{
+				Path: "src/sub",
+				File: nil, // Subdirectory
+				Children: []*StatusTreeNode{
+					{
+						Path: "src/sub/file2.go",
+						File: &StatusFile{Filename: "src/sub/file2.go", Status: "M "},
+					},
+				},
+			},
+		},
+	}
+
+	files := dirNode.CollectFiles()
+	if len(files) != 2 {
+		t.Fatalf("expected 2 files, got %d", len(files))
+	}
+
+	// Verify file names
+	names := make(map[string]bool)
+	for _, f := range files {
+		names[f.Filename] = true
+	}
+	if !names["src/file1.go"] {
+		t.Fatal("expected src/file1.go in collected files")
+	}
+	if !names["src/sub/file2.go"] {
+		t.Fatal("expected src/sub/file2.go in collected files")
 	}
 }
 

@@ -1424,6 +1424,65 @@ func (m *Model) showDeleteWorktree() tea.Cmd {
 	return nil
 }
 
+func (m *Model) showDeleteFile() tea.Cmd {
+	if m.selectedIndex < 0 || m.selectedIndex >= len(m.filteredWts) {
+		return nil
+	}
+	if len(m.statusTreeFlat) == 0 || m.statusTreeIndex < 0 || m.statusTreeIndex >= len(m.statusTreeFlat) {
+		return nil
+	}
+	node := m.statusTreeFlat[m.statusTreeIndex]
+	wt := m.filteredWts[m.selectedIndex]
+
+	if node.IsDir() {
+		files := node.CollectFiles()
+		if len(files) == 0 {
+			return nil
+		}
+		m.confirmScreen = NewConfirmScreen(fmt.Sprintf("Delete %d file(s) in directory?\n\nDirectory: %s", len(files), node.Path), m.theme)
+		m.confirmAction = m.deleteFilesCmd(wt, files)
+	} else {
+		m.confirmScreen = NewConfirmScreen(fmt.Sprintf("Delete file?\n\nFile: %s", node.File.Filename), m.theme)
+		m.confirmAction = m.deleteFilesCmd(wt, []*StatusFile{node.File})
+	}
+	m.currentScreen = screenConfirm
+	return nil
+}
+
+func (m *Model) deleteFilesCmd(wt *models.WorktreeInfo, files []*StatusFile) func() tea.Cmd {
+	return func() tea.Cmd {
+		env := m.buildCommandEnv(wt.Branch, wt.Path)
+		envVars := os.Environ()
+		for k, v := range env {
+			envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
+		}
+
+		for _, sf := range files {
+			filePath := filepath.Join(wt.Path, sf.Filename)
+
+			if sf.IsUntracked {
+				if err := os.Remove(filePath); err != nil {
+					return func() tea.Msg { return errMsg{err: err} }
+				}
+			} else {
+				// Restore the file from git (discard all changes)
+				cmdStr := fmt.Sprintf("git checkout HEAD -- %s", shellQuote(sf.Filename))
+				// #nosec G204 -- command is constructed with quoted filename
+				c := m.commandRunner("bash", "-c", cmdStr)
+				c.Dir = wt.Path
+				c.Env = envVars
+				if err := c.Run(); err != nil {
+					return func() tea.Msg { return errMsg{err: err} }
+				}
+			}
+		}
+
+		// Clear cache so status pane refreshes
+		delete(m.detailsCache, wt.Path)
+		return func() tea.Msg { return refreshCompleteMsg{} }
+	}
+}
+
 func (m *Model) showDiff() tea.Cmd {
 	if m.selectedIndex < 0 || m.selectedIndex >= len(m.filteredWts) {
 		return nil
@@ -1740,17 +1799,81 @@ func (m *Model) stageCurrentFile(sf StatusFile) tea.Cmd {
 	// Clear cache so status pane refreshes with latest git status
 	delete(m.detailsCache, wt.Path)
 
+	// Run git command in background without suspending the TUI to avoid flicker
 	// #nosec G204 -- command is constructed with quoted filename
 	c := m.commandRunner("bash", "-c", cmdStr)
 	c.Dir = wt.Path
 	c.Env = envVars
 
-	return m.execProcess(c, func(err error) tea.Msg {
-		if err != nil {
+	return func() tea.Msg {
+		if err := c.Run(); err != nil {
 			return errMsg{err: err}
 		}
 		return refreshCompleteMsg{}
-	})
+	}
+}
+
+func (m *Model) stageDirectory(node *StatusTreeNode) tea.Cmd {
+	if m.selectedIndex < 0 || m.selectedIndex >= len(m.filteredWts) {
+		return nil
+	}
+	wt := m.filteredWts[m.selectedIndex]
+
+	files := node.CollectFiles()
+	if len(files) == 0 {
+		return nil
+	}
+
+	// Check if all files are fully staged (no unstaged changes)
+	allStaged := true
+	for _, f := range files {
+		if len(f.Status) < 2 {
+			continue
+		}
+		y := f.Status[1] // Unstaged status
+		if y != '.' && y != ' ' {
+			allStaged = false
+			break
+		}
+	}
+
+	// Build file list for git command
+	fileArgs := make([]string, 0, len(files))
+	for _, f := range files {
+		fileArgs = append(fileArgs, shellQuote(f.Filename))
+	}
+	fileList := strings.Join(fileArgs, " ")
+
+	var cmdStr string
+	if allStaged {
+		// All files are staged, unstage them all
+		cmdStr = fmt.Sprintf("git restore --staged %s", fileList)
+	} else {
+		// Mixed or all unstaged, stage them all
+		cmdStr = fmt.Sprintf("git add %s", fileList)
+	}
+
+	env := m.buildCommandEnv(wt.Branch, wt.Path)
+	envVars := os.Environ()
+	for k, v := range env {
+		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	// Clear cache so status pane refreshes with latest git status
+	delete(m.detailsCache, wt.Path)
+
+	// Run git command in background without suspending the TUI to avoid flicker
+	// #nosec G204 -- command is constructed with quoted filenames
+	c := m.commandRunner("bash", "-c", cmdStr)
+	c.Dir = wt.Path
+	c.Env = envVars
+
+	return func() tea.Msg {
+		if err := c.Run(); err != nil {
+			return errMsg{err: err}
+		}
+		return refreshCompleteMsg{}
+	}
 }
 
 func (m *Model) showRenameWorktree() tea.Cmd {
@@ -4694,6 +4817,18 @@ func (n *StatusTreeNode) IsDir() bool {
 // Name returns the display name for this node.
 func (n *StatusTreeNode) Name() string {
 	return filepath.Base(n.Path)
+}
+
+// CollectFiles recursively collects all StatusFile pointers from this node and its children.
+func (n *StatusTreeNode) CollectFiles() []*StatusFile {
+	var files []*StatusFile
+	if n.File != nil {
+		files = append(files, n.File)
+	}
+	for _, child := range n.Children {
+		files = append(files, child.CollectFiles()...)
+	}
+	return files
 }
 
 func (m *Model) buildStatusContent(statusRaw string) string {

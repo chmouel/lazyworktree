@@ -394,7 +394,8 @@ are sorted alphabetically within each directory level.
 | `Enter` | Toggle directory expand/collapse, or show diff for files |
 | `e` | Open selected file in editor |
 | `d` | Show full diff of all files in pager |
-| `s` | Stage/unstage selected file |
+| `s` | Stage/unstage selected file or directory |
+| `D` | Delete selected file or directory (with confirmation) |
 | `c` | Commit staged changes |
 | `C` | Stage all changes and commit |
 | `g` | Open LazyGit |
