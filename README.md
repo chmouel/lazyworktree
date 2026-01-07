@@ -486,7 +486,7 @@ custom_commands:
 Notes:
 
 - `--worktree-dir` overrides the `worktree_dir` setting.
-- `theme` selects the colour theme. Available themes: `dracula`, `narna`, `clean-light`, `solarized-dark`, `solarized-light`, `gruvbox-dark`, `gruvbox-light`, `nord`, `monokai`, `catppuccin-mocha`. Default: auto-detected (or `dracula` if detection fails).
+- `theme` selects the colour theme. Available themes: `dracula`, `narna`, `clean-light`, `catppuccin-latte`, `rose-pine-dawn`, `one-light`, `everforest-light`, `solarized-dark`, `solarized-light`, `gruvbox-dark`, `gruvbox-light`, `nord`, `monokai`, `catppuccin-mocha`. Default: auto-detected (or `dracula` if detection fails).
 - `init_commands` and `terminate_commands` execute prior to any repository-specific `.wt` commands (if present).
 - `sort_mode` controls the default sort order: `"switched"` (last accessed, default), `"active"` (last commit date), or `"path"` (alphabetical). The old `sort_by_active` option is still supported for backwards compatibility.
 - Set `auto_fetch_prs` to `true` to fetch PR data upon startup.
@@ -496,7 +496,7 @@ Notes:
 - Use `max_untracked_diffs: 0` to conceal untracked diffs; `max_diff_chars: 0` disables truncation.
 - Execute `lazyworktree --show-syntax-themes` to display the default delta `--syntax-theme` values for each UI theme.
 - Use `lazyworktree --theme <name>` to select a UI theme directly; the supported names correspond to those listed above.
-- `delta_args` configures arguments passed to `delta` (defaults follow the UI theme: Dracula → `Dracula`, Narna → `OneHalfDark`, Clean-Light → `GitHub`, Solarized Dark → `Solarized (dark)`, Solarized Light → `Solarized (light)`, Gruvbox Dark → `Gruvbox Dark`, Gruvbox Light → `Gruvbox Light`, Nord → `Nord`, Monokai → `Monokai Extended`, Catppuccin Mocha → `Catppuccin Mocha`).
+- `delta_args` configures arguments passed to `delta` (defaults follow the UI theme: Dracula → `Dracula`, Narna → `OneHalfDark`, Clean-Light → `GitHub`, Catppuccin Latte → `Catppuccin Latte`, Rosé Pine Dawn → `GitHub`, One Light → `OneHalfLight`, Everforest Light → `Gruvbox Light`, Solarized Dark → `Solarized (dark)`, Solarized Light → `Solarized (light)`, Gruvbox Dark → `Gruvbox Dark`, Gruvbox Light → `Gruvbox Light`, Nord → `Nord`, Monokai → `Monokai Extended`, Catppuccin Mocha → `Catppuccin Mocha`).
 - `delta_path` specifies the path to the delta executable (default: `delta`). Set to an empty string to disable delta and use plain git diff output.
 - `pager` designates the pager for `show_output` commands and the diff viewer (default: `$PAGER`, fallback `less --use-color --wordwrap -qcR -P 'Press q to exit..'`, then `more`, then `cat`). When the pager is `less`, lazyworktree configures `LESS=` and `LESSHISTFILE=-` to disregard user defaults.
 - `editor` sets the editor command for the Status pane `e` key (default: config value, then `$EDITOR`, then `nvim`, then `vi`).
@@ -512,6 +512,10 @@ lazyworktree includes built-in themes:
 | **dracula** | Dark (#282A36) | Dark terminals, vibrant colours, default fallback |
 | **narna** | Charcoal (#0D1117) | Dark terminals, blue highlights |
 | **clean-light** | White (#FFFFFF) | Light terminals, soft colours |
+| **catppuccin-latte** | Soft white (#EFF1F5) | Catppuccin Latte light palette |
+| **rose-pine-dawn** | Warm white (#FAF4ED) | Rosé Pine Dawn warm palette |
+| **one-light** | Light grey (#FAFAFA) | Atom One Light |
+| **everforest-light** | Beige (#F3EFDA) | Everforest nature light |
 | **solarized-dark** | Deep teal (#002B36) | Classic Solarized dark palette |
 | **solarized-light** | Cream (#FDF6E3) | Classic Solarized light palette |
 | **gruvbox-dark** | Dark grey (#282828) | Gruvbox dark, warm accents |

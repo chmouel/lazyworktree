@@ -37,7 +37,7 @@ LazyGit Integration: Launch lazygit directly for the currently selected worktree
 Override the default worktree root directory (default: ~/.local/share/worktrees)
 .TP
 .B \-\-theme \fINAME\fR
-Select a UI theme (dracula, narna, clean-light, solarized-dark, solarized-light, gruvbox-dark, gruvbox-light, nord, monokai, catppuccin-mocha). If unspecified, lazyworktree attempts to auto-detect the theme based on the terminal's background color (defaulting to dracula for dark or clean-light for light).
+Select a UI theme (dracula, narna, clean-light, catppuccin-latte, rose-pine-dawn, one-light, everforest-light, solarized-dark, solarized-light, gruvbox-dark, gruvbox-light, nord, monokai, catppuccin-mocha). If unspecified, lazyworktree attempts to auto-detect the theme based on the terminal's background color (defaulting to dracula for dark or clean-light for light).
 .TP
 .B \-\-show\-syntax\-themes
 Display the default delta syntax-theme values for each UI theme
@@ -217,7 +217,7 @@ Maximum number of untracked file diffs to show (default: 10). Set to 0 to hide u
 Maximum characters to display in diffs before truncation (default: 200000). Set to 0 to disable truncation.
 .TP
 .B theme
-UI color theme. Options: \fBdracula\fR (default), \fBnarna\fR, \fBclean-light\fR, \fBsolarized-dark\fR, \fBsolarized-light\fR, \fBgruvbox-dark\fR, \fBgruvbox-light\fR, \fBnord\fR, \fBmonokai\fR, \fBcatppuccin-mocha\fR. If left empty or unspecified, the theme is auto-detected from the terminal background. Can also be set with \fB--theme\fR.
+UI color theme. Options: \fBdracula\fR (default), \fBnarna\fR, \fBclean-light\fR, \fBcatppuccin-latte\fR, \fBrose-pine-dawn\fR, \fBone-light\fR, \fBeverforest-light\fR, \fBsolarized-dark\fR, \fBsolarized-light\fR, \fBgruvbox-dark\fR, \fBgruvbox-light\fR, \fBnord\fR, \fBmonokai\fR, \fBcatppuccin-mocha\fR. If left empty or unspecified, the theme is auto-detected from the terminal background. Can also be set with \fB--theme\fR.
 .TP
 .B delta_path
 Path to delta executable (default: \fBdelta\fR). Set to empty string to disable delta and use plain git diff output.
@@ -229,7 +229,7 @@ Pager command for show_output custom commands and diff viewer (default: $PAGER, 
 Editor command for Status pane file edits (default: config value, then $EDITOR, then nvim, then vi).
 .TP
 .B delta_args
-List of extra arguments passed to delta for diff rendering. If omitted, lazyworktree picks a syntax theme matching your UI theme. Default mappings: dracula → Dracula, narna → OneHalfDark, clean-light → GitHub, solarized-dark → Solarized (dark), solarized-light → Solarized (light), gruvbox-dark → Gruvbox Dark, gruvbox-light → Gruvbox Light, nord → Nord, monokai → Monokai Extended, catppuccin-mocha → Catppuccin Mocha. Use \fB--show-syntax-themes\fR to display default values.
+List of extra arguments passed to delta for diff rendering. If omitted, lazyworktree picks a syntax theme matching your UI theme. Default mappings: dracula → Dracula, narna → OneHalfDark, clean-light → GitHub, catppuccin-latte → Catppuccin Latte, rose-pine-dawn → GitHub, one-light → OneHalfLight, everforest-light → Gruvbox Light, solarized-dark → Solarized (dark), solarized-light → Solarized (light), gruvbox-dark → Gruvbox Dark, gruvbox-light → Gruvbox Light, nord → Nord, monokai → Monokai Extended, catppuccin-mocha → Catppuccin Mocha. Use \fB--show-syntax-themes\fR to display default values.
 .TP
 .B trust_mode
 Security setting for executing commands from .wt files. Options: \fBtofu\fR (default - prompts on first use/change), \fBnever\fR (never run commands), \fBalways\fR (always run without prompting, risky).

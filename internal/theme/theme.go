@@ -32,6 +32,10 @@ const (
 	NordName            = "nord"
 	MonokaiName         = "monokai"
 	CatppuccinMochaName = "catppuccin-mocha"
+	CatppuccinLatteName = "catppuccin-latte"
+	RosePineDawnName    = "rose-pine-dawn"
+	OneLightName        = "one-light"
+	EverforestLightName = "everforest-light"
 )
 
 // Dracula returns the Dracula theme (dark background, vibrant colors).
@@ -75,19 +79,95 @@ func Narna() *Theme {
 // CleanLight returns a theme optimized for light terminal backgrounds.
 func CleanLight() *Theme {
 	return &Theme{
-		Background: lipgloss.Color("#FFFFFF"), // White
-		Accent:     lipgloss.Color("#3F7F9B"), // Toned-down cyan blue
-		AccentDim:  lipgloss.Color("#EEF4F7"), // Very light blue-gray
-		Border:     lipgloss.Color("#D3DEE6"), // Cool light gray with blue hint
-		BorderDim:  lipgloss.Color("#E7EFF4"), // Subtle blue-tinted divider
-		MutedFg:    lipgloss.Color("#556B78"), // Soft blue-gray text
-		TextFg:     lipgloss.Color("#000000"), // Black
-		SuccessFg:  lipgloss.Color("#1A7F37"), // Natural green
-		WarnFg:     lipgloss.Color("#C2410C"), // Muted orange
-		ErrorFg:    lipgloss.Color("#B91C1C"), // Muted red
-		Cyan:       lipgloss.Color("#2F8FA3"), // Clear but restrained cyan
-		Pink:       lipgloss.Color("#C0266D"), // Controlled pink
-		Yellow:     lipgloss.Color("#B45309"), // Warm amber
+		Background: lipgloss.Color("#FFFFFF"), // Pure White
+		Accent:     lipgloss.Color("#0969DA"), // Professional Blue
+		AccentDim:  lipgloss.Color("#DDF4FF"), // Very light blue wash
+		Border:     lipgloss.Color("#D0D7DE"), // Subtle cool gray
+		BorderDim:  lipgloss.Color("#E1E4E8"), // Very subtle divider
+		MutedFg:    lipgloss.Color("#6E7781"), // Muted gray text
+		TextFg:     lipgloss.Color("#24292F"), // Deep charcoal (softer than black)
+		SuccessFg:  lipgloss.Color("#1A7F37"), // Success green
+		WarnFg:     lipgloss.Color("#9A6700"), // Warning brown/orange
+		ErrorFg:    lipgloss.Color("#CF222E"), // Error red
+		Cyan:       lipgloss.Color("#0598BC"), // Cyan
+		Pink:       lipgloss.Color("#BF3989"), // Pink
+		Yellow:     lipgloss.Color("#D4A72C"), // Yellow
+	}
+}
+
+// CatppuccinLatte returns the Catppuccin Latte theme (Light).
+func CatppuccinLatte() *Theme {
+	return &Theme{
+		Background: lipgloss.Color("#EFF1F5"),
+		Accent:     lipgloss.Color("#1E66F5"), // Blue
+		AccentDim:  lipgloss.Color("#CCD0DA"), // Surface0
+		Border:     lipgloss.Color("#9CA0B0"), // Overlay0
+		BorderDim:  lipgloss.Color("#BCC0CC"), // Surface1
+		MutedFg:    lipgloss.Color("#6C6F85"), // Subtext0
+		TextFg:     lipgloss.Color("#4C4F69"), // Text
+		SuccessFg:  lipgloss.Color("#40A02B"), // Green
+		WarnFg:     lipgloss.Color("#DF8E1D"), // Yellow
+		ErrorFg:    lipgloss.Color("#D20F39"), // Red
+		Cyan:       lipgloss.Color("#04A5E5"), // Sky
+		Pink:       lipgloss.Color("#EA76CB"), // Pink
+		Yellow:     lipgloss.Color("#DF8E1D"), // Yellow
+	}
+}
+
+// RosePineDawn returns the Rosé Pine Dawn theme (Light).
+func RosePineDawn() *Theme {
+	return &Theme{
+		Background: lipgloss.Color("#FAF4ED"),
+		Accent:     lipgloss.Color("#286983"), // Pine
+		AccentDim:  lipgloss.Color("#DFDAD9"), // Highlight
+		Border:     lipgloss.Color("#CECACD"), // Muted (approx)
+		BorderDim:  lipgloss.Color("#F2E9E1"), // Surface
+		MutedFg:    lipgloss.Color("#9893A5"), // Muted
+		TextFg:     lipgloss.Color("#575279"), // Text
+		SuccessFg:  lipgloss.Color("#56949F"), // Foam (used as success/info often)
+		WarnFg:     lipgloss.Color("#EA9D34"), // Gold
+		ErrorFg:    lipgloss.Color("#B4637A"), // Love
+		Cyan:       lipgloss.Color("#907AA9"), // Iris
+		Pink:       lipgloss.Color("#B4637A"), // Love
+		Yellow:     lipgloss.Color("#EA9D34"), // Gold
+	}
+}
+
+// OneLight returns the Atom One Light theme.
+func OneLight() *Theme {
+	return &Theme{
+		Background: lipgloss.Color("#FAFAFA"),
+		Accent:     lipgloss.Color("#528BFF"), // Blue
+		AccentDim:  lipgloss.Color("#E5E5E6"), // Light Gray
+		Border:     lipgloss.Color("#A0A1A7"), // Muted Gray
+		BorderDim:  lipgloss.Color("#DBDBDC"), // Light Border
+		MutedFg:    lipgloss.Color("#A0A1A7"), // Comments
+		TextFg:     lipgloss.Color("#383A42"), // Foreground
+		SuccessFg:  lipgloss.Color("#50A14F"), // Green
+		WarnFg:     lipgloss.Color("#C18401"), // Orange/Gold
+		ErrorFg:    lipgloss.Color("#E45649"), // Red
+		Cyan:       lipgloss.Color("#0184BC"), // Cyan
+		Pink:       lipgloss.Color("#A626A4"), // Purple
+		Yellow:     lipgloss.Color("#986801"), // Yellow
+	}
+}
+
+// EverforestLight returns the Everforest Light theme (Medium).
+func EverforestLight() *Theme {
+	return &Theme{
+		Background: lipgloss.Color("#F3EFDA"),
+		Accent:     lipgloss.Color("#3A94C5"), // Blue
+		AccentDim:  lipgloss.Color("#EAE4CA"), // Lighter background
+		Border:     lipgloss.Color("#C5C1A5"), // Border
+		BorderDim:  lipgloss.Color("#E0DCC7"), // Light Border
+		MutedFg:    lipgloss.Color("#939F91"), // Grey
+		TextFg:     lipgloss.Color("#5C6A72"), // Foreground
+		SuccessFg:  lipgloss.Color("#8DA101"), // Green
+		WarnFg:     lipgloss.Color("#DFA000"), // Yellow
+		ErrorFg:    lipgloss.Color("#F85552"), // Red
+		Cyan:       lipgloss.Color("#3A94C5"), // Blue
+		Pink:       lipgloss.Color("#D3869B"), // Purple
+		Yellow:     lipgloss.Color("#DFA000"), // Yellow
 	}
 }
 
@@ -231,6 +311,14 @@ func GetTheme(name string) *Theme {
 		return Narna()
 	case CleanLightName:
 		return CleanLight()
+	case CatppuccinLatteName:
+		return CatppuccinLatte()
+	case RosePineDawnName:
+		return RosePineDawn()
+	case OneLightName:
+		return OneLight()
+	case EverforestLightName:
+		return EverforestLight()
 	case SolarizedDarkName:
 		return SolarizedDark()
 	case SolarizedLightName:
@@ -253,7 +341,7 @@ func GetTheme(name string) *Theme {
 // IsLight returns true if the theme is a light theme.
 func IsLight(name string) bool {
 	switch name {
-	case CleanLightName, SolarizedLightName, GruvboxLightName:
+	case CleanLightName, SolarizedLightName, GruvboxLightName, CatppuccinLatteName, RosePineDawnName, OneLightName, EverforestLightName:
 		return true
 	default:
 		return false
@@ -276,6 +364,10 @@ func AvailableThemes() []string {
 		DraculaName,
 		NarnaName,
 		CleanLightName,
+		CatppuccinLatteName,
+		RosePineDawnName,
+		OneLightName,
+		EverforestLightName,
 		SolarizedDarkName,
 		SolarizedLightName,
 		GruvboxDarkName,
