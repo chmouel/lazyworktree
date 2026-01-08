@@ -615,6 +615,10 @@ branch_name_script: "gemini --model gemini-2.5-flash-lite -p "Generate a short g
 
 ## Screenshots
 
+### Light Theme (dracula-light theme)
+
+<img width="1754" height="1134" alt="image" src="https://github.com/user-attachments/assets/d3559158-18f3-4a46-b4d9-2a762b6adae1" />
+
 ### Command Palette (dracula theme)
 
 <img width="1754" height="1077" alt="image" src="https://github.com/user-attachments/assets/c765db31-0419-40f6-99c4-328a686447b1" />
