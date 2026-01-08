@@ -4613,7 +4613,7 @@ func (m *Model) renderPaneTitle(index int, title string, focused bool, width int
 	if !m.showingFilter && !m.showingSearch && m.hasActiveFilterForPane(paneIdx) {
 		filteredStyle := lipgloss.NewStyle().Foreground(m.theme.WarnFg).Italic(true)
 		keyStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#000000")).
+			Foreground(m.theme.AccentFg).
 			Background(m.theme.Accent).
 			Bold(true).
 			Padding(0, 1)
@@ -4623,7 +4623,22 @@ func (m *Model) renderPaneTitle(index int, title string, focused bool, width int
 			lipgloss.NewStyle().Foreground(m.theme.MutedFg).Render("Clear"))
 	}
 
-	return lipgloss.NewStyle().Width(width).Render(fmt.Sprintf("%s %s %s%s", focusIndicator, num, name, filterIndicator))
+	zoomIndicator := ""
+	if m.zoomedPane == paneIdx {
+		zoomedStyle := lipgloss.NewStyle().Foreground(m.theme.Accent).Italic(true)
+		keyStyle := lipgloss.NewStyle().
+			Foreground(m.theme.AccentFg).
+			Background(m.theme.Accent).
+			Bold(true).
+			Padding(0, 1)
+		zoomIndicator = fmt.Sprintf(" %s %s  %s %s",
+			"🔎",
+			zoomedStyle.Render("Zoomed"),
+			keyStyle.Render("="),
+			lipgloss.NewStyle().Foreground(m.theme.MutedFg).Render("Unzoom"))
+	}
+
+	return lipgloss.NewStyle().Width(width).Render(fmt.Sprintf("%s %s %s%s%s", focusIndicator, num, name, filterIndicator, zoomIndicator))
 }
 
 func (m *Model) renderInnerBox(title, content string, width, height int) string {

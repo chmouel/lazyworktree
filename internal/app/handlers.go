@@ -231,28 +231,62 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case "1":
-		m.zoomedPane = -1 // exit zoom mode
-		wasPane1 := m.focusedPane == 1
-		m.focusedPane = 0
-		m.worktreeTable.Focus()
-		if wasPane1 {
-			m.rebuildStatusContentWithHighlight()
+		targetPane := 0
+		if m.focusedPane == targetPane {
+			// Already on this pane - toggle zoom
+			if m.zoomedPane >= 0 {
+				m.zoomedPane = -1 // unzoom
+			} else {
+				m.zoomedPane = targetPane // zoom
+			}
+		} else {
+			// Switching to different pane - exit zoom and switch
+			m.zoomedPane = -1
+			wasPane1 := m.focusedPane == 1
+			m.focusedPane = targetPane
+			m.worktreeTable.Focus()
+			if wasPane1 {
+				m.rebuildStatusContentWithHighlight()
+			}
 		}
 		return m, nil
 
 	case "2":
-		m.zoomedPane = -1 // exit zoom mode
-		m.focusedPane = 1
+		targetPane := 1
+		if m.focusedPane == targetPane {
+			// Already on this pane - toggle zoom
+			if m.zoomedPane >= 0 {
+				m.zoomedPane = -1 // unzoom
+			} else {
+				m.zoomedPane = targetPane // zoom
+			}
+		} else {
+			// Switching to different pane - exit zoom and switch
+			m.zoomedPane = -1
+			m.focusedPane = targetPane
+		}
+		// Always rebuild status for pane 1 (important for highlighting)
 		m.rebuildStatusContentWithHighlight()
 		return m, nil
 
 	case "3":
-		m.zoomedPane = -1 // exit zoom mode
-		wasPane1 := m.focusedPane == 1
-		m.focusedPane = 2
-		m.logTable.Focus()
-		if wasPane1 {
-			m.rebuildStatusContentWithHighlight()
+		targetPane := 2
+		if m.focusedPane == targetPane {
+			// Already on this pane - toggle zoom
+			if m.zoomedPane >= 0 {
+				m.zoomedPane = -1 // unzoom
+			} else {
+				m.zoomedPane = targetPane // zoom
+			}
+		} else {
+			// Switching to different pane - exit zoom and switch
+			m.zoomedPane = -1
+			wasPane1 := m.focusedPane == 1
+			m.focusedPane = targetPane
+			m.logTable.Focus()
+			if wasPane1 {
+				m.rebuildStatusContentWithHighlight()
+			}
 		}
 		return m, nil
 

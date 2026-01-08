@@ -2286,3 +2286,174 @@ func TestZoomPaneExitsOnBracketKey(t *testing.T) {
 		t.Fatalf("expected focusedPane to be 0 after [, got %d", m.focusedPane)
 	}
 }
+
+func TestPaneKey1ToggleZoom(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 0
+	m.zoomedPane = -1
+
+	// Press 1 while on pane 0, not zoomed - should zoom
+	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	updatedModel, ok := updated.(*Model)
+	if !ok {
+		t.Fatalf("expected updated model, got %T", updated)
+	}
+	m = updatedModel
+
+	if m.focusedPane != 0 {
+		t.Fatalf("expected focusedPane to remain 0, got %d", m.focusedPane)
+	}
+	if m.zoomedPane != 0 {
+		t.Fatalf("expected zoomedPane to be 0 after toggle, got %d", m.zoomedPane)
+	}
+
+	// Press 1 again while on pane 0, already zoomed - should unzoom
+	updated, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	updatedModel, ok = updated.(*Model)
+	if !ok {
+		t.Fatalf("expected updated model, got %T", updated)
+	}
+	m = updatedModel
+
+	if m.focusedPane != 0 {
+		t.Fatalf("expected focusedPane to remain 0, got %d", m.focusedPane)
+	}
+	if m.zoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after unzoom, got %d", m.zoomedPane)
+	}
+}
+
+func TestPaneKey2ToggleZoom(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 1
+	m.zoomedPane = -1
+
+	// Press 2 while on pane 1, not zoomed - should zoom
+	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	updatedModel, ok := updated.(*Model)
+	if !ok {
+		t.Fatalf("expected updated model, got %T", updated)
+	}
+	m = updatedModel
+
+	if m.focusedPane != 1 {
+		t.Fatalf("expected focusedPane to remain 1, got %d", m.focusedPane)
+	}
+	if m.zoomedPane != 1 {
+		t.Fatalf("expected zoomedPane to be 1 after toggle, got %d", m.zoomedPane)
+	}
+
+	// Press 2 again while on pane 1, already zoomed - should unzoom
+	updated, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	updatedModel, ok = updated.(*Model)
+	if !ok {
+		t.Fatalf("expected updated model, got %T", updated)
+	}
+	m = updatedModel
+
+	if m.focusedPane != 1 {
+		t.Fatalf("expected focusedPane to remain 1, got %d", m.focusedPane)
+	}
+	if m.zoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after unzoom, got %d", m.zoomedPane)
+	}
+}
+
+func TestPaneKey3ToggleZoom(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 2
+	m.zoomedPane = -1
+
+	// Press 3 while on pane 2, not zoomed - should zoom
+	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	updatedModel, ok := updated.(*Model)
+	if !ok {
+		t.Fatalf("expected updated model, got %T", updated)
+	}
+	m = updatedModel
+
+	if m.focusedPane != 2 {
+		t.Fatalf("expected focusedPane to remain 2, got %d", m.focusedPane)
+	}
+	if m.zoomedPane != 2 {
+		t.Fatalf("expected zoomedPane to be 2 after toggle, got %d", m.zoomedPane)
+	}
+
+	// Press 3 again while on pane 2, already zoomed - should unzoom
+	updated, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	updatedModel, ok = updated.(*Model)
+	if !ok {
+		t.Fatalf("expected updated model, got %T", updated)
+	}
+	m = updatedModel
+
+	if m.focusedPane != 2 {
+		t.Fatalf("expected focusedPane to remain 2, got %d", m.focusedPane)
+	}
+	if m.zoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after unzoom, got %d", m.zoomedPane)
+	}
+}
+
+func TestPaneKeyCrossPaneSwitching(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.focusedPane = 0
+	m.zoomedPane = 0
+
+	// Press 2 while on pane 0 (zoomed) - should switch to pane 1 and exit zoom
+	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	updatedModel, ok := updated.(*Model)
+	if !ok {
+		t.Fatalf("expected updated model, got %T", updated)
+	}
+	m = updatedModel
+
+	if m.focusedPane != 1 {
+		t.Fatalf("expected focusedPane to be 1, got %d", m.focusedPane)
+	}
+	if m.zoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after switching panes, got %d", m.zoomedPane)
+	}
+
+	// Now press 3 while on pane 1 (not zoomed) - should switch to pane 2 and remain unzoomed
+	updated, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	updatedModel, ok = updated.(*Model)
+	if !ok {
+		t.Fatalf("expected updated model, got %T", updated)
+	}
+	m = updatedModel
+
+	if m.focusedPane != 2 {
+		t.Fatalf("expected focusedPane to be 2, got %d", m.focusedPane)
+	}
+	if m.zoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to remain -1, got %d", m.zoomedPane)
+	}
+
+	// Press 1 while on pane 2 (not zoomed) - should switch to pane 0
+	updated, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	updatedModel, ok = updated.(*Model)
+	if !ok {
+		t.Fatalf("expected updated model, got %T", updated)
+	}
+	m = updatedModel
+
+	if m.focusedPane != 0 {
+		t.Fatalf("expected focusedPane to be 0, got %d", m.focusedPane)
+	}
+	if m.zoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to remain -1, got %d", m.zoomedPane)
+	}
+}

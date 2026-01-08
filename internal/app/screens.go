@@ -647,7 +647,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 **🧭 Navigation**
 - j / ↓: Move cursor down
 - k / ↑: Move cursor up
-- 1 / 2 / 3: Focus Worktree / Status / Log pane
+- 1 / 2 / 3: Switch to pane (or toggle zoom if already focused)
 - [ / ]: Previous / Next pane
 - Tab: Cycle to next pane
 - Enter: Jump to selected worktree (exit and cd)

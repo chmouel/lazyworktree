@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
 const randomSHA = "abc123"
@@ -1461,5 +1462,140 @@ func TestBuildTmuxScript(t *testing.T) {
 			script := buildTmuxScript(tt.sessionName, tt.tmuxCfg, tt.windows, tt.env)
 			tt.checkScript(t, script)
 		})
+	}
+}
+
+func TestRenderPaneTitleBasic(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.theme = theme.Dracula()
+
+	// Test basic title rendering (no filter, no zoom)
+	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+
+	if !strings.Contains(title, "[1]") {
+		t.Error("Expected title to contain pane number [1]")
+	}
+	if !strings.Contains(title, "Worktrees") {
+		t.Error("Expected title to contain pane name")
+	}
+	if strings.Contains(title, "Filtered") {
+		t.Error("Expected no filter indicator")
+	}
+	if strings.Contains(title, "Zoomed") {
+		t.Error("Expected no zoom indicator")
+	}
+}
+
+func TestRenderPaneTitleWithFilter(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.theme = theme.Dracula()
+	m.filterQuery = testFilterQuery // Activate filter for pane 0
+	m.showingFilter = false
+	m.showingSearch = false
+
+	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+
+	if !strings.Contains(title, "Filtered") {
+		t.Error("Expected filter indicator to show 'Filtered'")
+	}
+	if !strings.Contains(title, "Esc") {
+		t.Error("Expected filter indicator to show 'Esc' key")
+	}
+	if !strings.Contains(title, "Clear") {
+		t.Error("Expected filter indicator to show 'Clear' action")
+	}
+}
+
+func TestRenderPaneTitleWithZoom(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.theme = theme.Dracula()
+	m.zoomedPane = 0 // Zoom pane 0
+
+	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+
+	if !strings.Contains(title, "Zoomed") {
+		t.Error("Expected zoom indicator to show 'Zoomed'")
+	}
+	if !strings.Contains(title, "=") {
+		t.Error("Expected zoom indicator to show '=' key")
+	}
+	if !strings.Contains(title, "Unzoom") {
+		t.Error("Expected zoom indicator to show 'Unzoom' action")
+	}
+}
+
+func TestRenderPaneTitleWithFilterAndZoom(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.theme = theme.Dracula()
+	m.filterQuery = testFilterQuery // Activate filter for pane 0
+	m.showingFilter = false
+	m.showingSearch = false
+	m.zoomedPane = 0 // Zoom pane 0
+
+	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+
+	// Should show both indicators
+	if !strings.Contains(title, "Filtered") {
+		t.Error("Expected filter indicator when both filter and zoom are active")
+	}
+	if !strings.Contains(title, "Zoomed") {
+		t.Error("Expected zoom indicator when both filter and zoom are active")
+	}
+}
+
+func TestRenderPaneTitleNoZoomWhenDifferentPane(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.theme = theme.Dracula()
+	m.zoomedPane = 1 // Zoom pane 1 (status)
+
+	// Render title for pane 0 (worktrees)
+	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+
+	if strings.Contains(title, "Zoomed") {
+		t.Error("Expected no zoom indicator for unzoomed pane")
+	}
+}
+
+func TestRenderPaneTitleUsesAccentFg(t *testing.T) {
+	// Test with a light theme to ensure AccentFg (white) is used instead of black
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.theme = theme.CleanLight()
+	m.zoomedPane = 0
+
+	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+
+	// The title should contain styling - we can't directly test the color
+	// but we can verify the indicator is present and properly formatted
+	if !strings.Contains(title, "Zoomed") || !strings.Contains(title, "=") {
+		t.Error("Expected properly formatted zoom indicator with theme colors")
+	}
+
+	// Test with filter too
+	m.filterQuery = "test"
+	m.showingFilter = false
+	m.showingSearch = false
+
+	title = m.renderPaneTitle(1, "Worktrees", true, 100)
+
+	if !strings.Contains(title, "Filtered") || !strings.Contains(title, "Esc") {
+		t.Error("Expected properly formatted filter indicator with theme colors")
 	}
 }

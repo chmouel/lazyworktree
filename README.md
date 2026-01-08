@@ -358,6 +358,11 @@ custom_commands:
 | `Home` | Go to first item in focused pane |
 | `End` | Go to last item in focused pane |
 | `?` | Show help |
+| `1` | Switch to Worktree pane (or toggle zoom if already focused) |
+| `2` | Switch to Status pane (or toggle zoom if already focused) |
+| `3` | Switch to Log pane (or toggle zoom if already focused) |
+| `Tab`, `]` | Cycle to next pane |
+| `[` | Cycle to previous pane |
 | `=` | Toggle zoom for focused pane (full screen) |
 
 **Log Pane** (when focused on commit log):
