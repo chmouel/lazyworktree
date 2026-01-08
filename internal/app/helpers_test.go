@@ -19,7 +19,7 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 				Number: 123,
 				Title:  "Add feature",
 			},
-			expected: "pr123-add-feature",
+			expected: "pr-123-add-feature",
 		},
 		{
 			name: "title with special characters",
@@ -27,7 +27,7 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 				Number: 2367,
 				Title:  "Feat: Add one-per-pipeline comment strategy!",
 			},
-			expected: "pr2367-feat-add-one-per-pipeline-comment-strategy",
+			expected: "pr-2367-feat-add-one-per-pipeline-comment-strategy",
 		},
 		{
 			name: "long title gets truncated",
@@ -36,7 +36,7 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 				Title:  "This is a very long title that should be truncated because it exceeds the maximum length limit of one hundred characters total including the pr prefix",
 			},
 			// Result should be exactly 100 chars or less, and not end with hyphen
-			expected: "pr999-this-is-a-very-long-title-that-should-be-truncated-because-it-exceeds-the-maximum-length-limit",
+			expected: "pr-999-this-is-a-very-long-title-that-should-be-truncated-because-it-exceeds-the-maximum-length-limit",
 		},
 		{
 			name: "title with multiple spaces",
@@ -44,7 +44,7 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 				Number: 456,
 				Title:  "Fix   multiple    spaces",
 			},
-			expected: "pr456-fix-multiple-spaces",
+			expected: "pr-456-fix-multiple-spaces",
 		},
 		{
 			name: "title with numbers and symbols",
@@ -52,7 +52,7 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 				Number: 789,
 				Title:  "Update v2.0 API (breaking changes)",
 			},
-			expected: "pr789-update-v2-0-api-breaking-changes",
+			expected: "pr-789-update-v2-0-api-breaking-changes",
 		},
 		{
 			name: "empty title",
@@ -60,7 +60,7 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 				Number: 100,
 				Title:  "",
 			},
-			expected: "pr100",
+			expected: "pr-100",
 		},
 		{
 			name: "title with only special characters",
@@ -68,13 +68,14 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 				Number: 200,
 				Title:  "!!!@@@###$$$",
 			},
-			expected: "pr200",
+			expected: "pr-200",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := generatePRWorktreeName(tt.pr)
+			// Use default prefix and template (new default format)
+			result := generatePRWorktreeName(tt.pr, "pr", "{prefix}-{number}-{title}")
 			// For the long title test, just verify it's <= 100 chars and doesn't end with hyphen
 			if tt.name == "long title gets truncated" {
 				if len(result) > 100 {
@@ -92,6 +93,43 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 			}
 		})
 	}
+
+	// Test custom templates
+	t.Run("old template format without hyphen (backward compatibility)", func(t *testing.T) {
+		pr := &models.PRInfo{
+			Number: 123,
+			Title:  "Add feature",
+		}
+		result := generatePRWorktreeName(pr, "pr", "{prefix}{number}-{title}")
+		expected := "pr123-add-feature"
+		if result != expected {
+			t.Errorf("generatePRWorktreeName() with old template = %q, want %q", result, expected)
+		}
+	})
+
+	t.Run("custom template without prefix", func(t *testing.T) {
+		pr := &models.PRInfo{
+			Number: 456,
+			Title:  "Fix bug",
+		}
+		result := generatePRWorktreeName(pr, "pr", "{number}-{title}")
+		expected := "456-fix-bug"
+		if result != expected {
+			t.Errorf("generatePRWorktreeName() with custom template = %q, want %q", result, expected)
+		}
+	})
+
+	t.Run("custom prefix", func(t *testing.T) {
+		pr := &models.PRInfo{
+			Number: 789,
+			Title:  "Update docs",
+		}
+		result := generatePRWorktreeName(pr, "pull", "{prefix}{number}-{title}")
+		expected := "pull789-update-docs"
+		if result != expected {
+			t.Errorf("generatePRWorktreeName() with custom prefix = %q, want %q", result, expected)
+		}
+	})
 }
 
 func TestFuzzyScoreLower(t *testing.T) {

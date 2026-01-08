@@ -472,6 +472,13 @@ delta_args:
   - Dracula
 trust_mode: "tofu" # Options: "tofu" (default), "never", "always"
 merge_method: "rebase" # Options: "rebase" (default), "merge"
+# Branch name generation for issues and PRs
+issue_prefix: "issue" # Prefix for issue branch names (default: "issue")
+issue_branch_name_template: "{prefix}-{number}-{title}" # Template with {prefix}, {number}, {title} placeholders
+pr_prefix: "pr" # Prefix for PR branch names (default: "pr")
+pr_branch_name_template: "{prefix}-{number}-{title}" # Template with {prefix}, {number}, {title} placeholders
+# AI-powered branch name generation (works for changes, issues, and PRs)
+branch_name_script: "" # Script to generate branch names from diff/issue/PR content
 init_commands:
   - link_topsymlinks
 terminate_commands:
@@ -502,7 +509,11 @@ Notes:
 - `pager` designates the pager for `show_output` commands and the diff viewer (default: `$PAGER`, fallback `less --use-color --wordwrap -qcR -P 'Press q to exit..'`, then `more`, then `cat`). When the pager is `less`, lazyworktree configures `LESS=` and `LESSHISTFILE=-` to disregard user defaults.
 - `editor` sets the editor command for the Status pane `e` key (default: config value, then `$EDITOR`, then `nvim`, then `vi`).
 - `merge_method` controls how the "Absorb worktree" action integrates changes into main: `rebase` (default) rebases the feature branch onto main then fast-forwards; `merge` creates a merge commit.
-- `branch_name_script` executes a script to generate branch name suggestions when creating worktrees from changes. The script receives the git diff on stdin and should output a branch name. Refer to [AI-powered branch names](#ai-powered-branch-names) below.
+- `branch_name_script` executes a script to generate branch name suggestions when creating worktrees from changes, issues, or PRs. The script receives the git diff (for changes), issue title+body (for issues), or PR title+body (for PRs) on stdin and should output a branch name. Refer to [AI-powered branch names](#ai-powered-branch-names) below.
+- `issue_prefix` sets the prefix for issue branch names (default: `"issue"`).
+- `issue_branch_name_template` defines the template for issue branch names with placeholders: `{prefix}`, `{number}`, `{title}` (default: `"{prefix}-{number}-{title}"`). Examples: `issue-123-fix-bug-in-login`, `123-fix-bug-in-login`, `fix/123-fix-bug-in-login`.
+- `pr_prefix` sets the prefix for PR branch names (default: `"pr"`).
+- `pr_branch_name_template` defines the template for PR branch names with placeholders: `{prefix}`, `{number}`, `{title}` (default: `"{prefix}-{number}-{title}"`). Examples: `pr-123-fix-bug`, `pr123-fix-bug`, `123-fix-bug`.
 
 ## Themes
 
@@ -546,7 +557,7 @@ CI status is retrieved lazily (only for the selected worktree) and cached for 30
 
 ## AI-Powered Branch Names
 
-When creating a worktree from changes (via the command palette), you may configure an external script to suggest branch names. The script receives the git diff on stdin and should output a single branch name.
+When creating a worktree from changes (via the command palette), issues, or PRs, you may configure an external script to suggest branch names. The script receives the git diff (for changes), issue title+body (for issues), or PR title+body (for PRs) on stdin and should output a single branch name.
 
 This proves useful for integrating AI tools such as [aichat](https://github.com/sigoden/aichat/), [claude code](https://claude.com/product/claude-code), or any other command-line tool capable of generating meaningful branch names from code changes.
 
@@ -566,18 +577,23 @@ branch_name_script: "gemini --model gemini-2.5-flash-lite -p "Generate a short g
 
 ### How It Works
 
-1. Upon selecting "Create from changes" in the command palette, or when creating from an issue
+1. Upon selecting "Create from changes" in the command palette, or when creating from an issue or PR
 2. Should `branch_name_script` be configured:
    - For changes: the current diff is piped to the script
    - For issues: the issue title and body are piped to the script
+   - For PRs: the PR title and body are piped to the script
 3. The script's output (first line only) serves as the suggested branch name
-4. You may edit the suggestion prior to confirmation
+4. For issues and PRs, if the script generates a name, it is automatically prepended with `{prefix}-{number}-` (e.g., `issue-123-{script-output}` or `pr-456-{script-output}`)
+5. You may edit the suggestion prior to confirmation
 
 ### Script Requirements
 
-- The script receives the git diff on stdin
+- The script receives the git diff (for changes), issue title+body (for issues), or PR title+body (for PRs) on stdin
 - It should output only the branch name (first line is used)
-- Should the script fail or return empty output, the default name (`{current-branch}-changes`) is employed
+- Should the script fail or return empty output:
+  - For changes: the default name (`{current-branch}-changes`) is employed
+  - For issues: the template-based name (using `issue_branch_name_template`) is employed
+  - For PRs: the template-based name (using `pr_branch_name_template`) is employed
 - The script operates under a 30-second timeout to prevent hanging.
 
 ## Screenshots

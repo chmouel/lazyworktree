@@ -57,7 +57,7 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	if _, ok := m.inputSubmit("pr1-add-feature"); ok {
 		t.Fatal("expected missing branch validation to fail")
 	}
-	if m.inputScreen.errorMsg != "PR branch information is missing." {
+	if m.inputScreen.errorMsg != errPRBranchMissing {
 		t.Fatalf("unexpected error: %q", m.inputScreen.errorMsg)
 	}
 
@@ -65,9 +65,11 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	updated, _ = m.Update(openPRsLoadedMsg{prs: []*models.PRInfo{withBranch}})
 	m = updated.(*Model)
 
-	m.worktrees = []*models.WorktreeInfo{{Branch: featureBranch}}
+	// Test that duplicate branch names are rejected (user enters a branch name that already exists)
+	duplicateBranch := "my-feature"
+	m.worktrees = []*models.WorktreeInfo{{Branch: duplicateBranch}}
 	m.prSelectionSubmit(withBranch)
-	if _, ok := m.inputSubmit("any-directory-name"); ok {
+	if _, ok := m.inputSubmit(duplicateBranch); ok {
 		t.Fatal("expected duplicate branch to be rejected")
 	}
 	if !strings.Contains(m.inputScreen.errorMsg, "already exists") {

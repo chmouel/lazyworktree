@@ -164,12 +164,10 @@ func minInt(a, b int) int {
 	return b
 }
 
-// generatePRWorktreeName creates a worktree name from a PR in the format pr{number}-{sanitized-title}
+// generatePRWorktreeName creates a worktree name from a PR using a template.
+// The template supports placeholders: {prefix}, {number}, {title}
 // The name is sanitized to be a valid git branch name and truncated to 100 characters.
-func generatePRWorktreeName(pr *models.PRInfo) string {
-	// Start with pr{number}-
-	name := fmt.Sprintf("pr%d", pr.Number)
-
+func generatePRWorktreeName(pr *models.PRInfo, prefix, template string) string {
 	// Sanitize the title
 	title := strings.ToLower(pr.Title)
 
@@ -182,15 +180,20 @@ func generatePRWorktreeName(pr *models.PRInfo) string {
 	re2 := regexp.MustCompile(`-+`)
 	title = re2.ReplaceAllString(title, "-")
 
-	// Combine: pr{number}-{title}
-	if title != "" {
-		name = name + "-" + title
-	}
+	// Replace placeholders in template
+	name := template
+	name = strings.ReplaceAll(name, "{prefix}", prefix)
+	name = strings.ReplaceAll(name, "{number}", fmt.Sprintf("%d", pr.Number))
+	name = strings.ReplaceAll(name, "{title}", title)
+
+	// Remove trailing hyphens that might result from empty title
+	// This handles cases like "{prefix}{number}-{title}" when title is empty
+	name = strings.TrimRight(name, "-")
 
 	// Truncate to 100 characters
 	if len(name) > 100 {
 		name = name[:100]
-		// Make sure we don't end with a hyphen
+		// Make sure we don't end with a hyphen after truncation
 		name = strings.TrimRight(name, "-")
 	}
 
@@ -218,6 +221,10 @@ func generateIssueWorktreeName(issue *models.IssueInfo, prefix, template string)
 	name = strings.ReplaceAll(name, "{prefix}", prefix)
 	name = strings.ReplaceAll(name, "{number}", fmt.Sprintf("%d", issue.Number))
 	name = strings.ReplaceAll(name, "{title}", title)
+
+	// Remove trailing hyphens that might result from empty title
+	// This handles cases like "{prefix}{number}-{title}" when title is empty
+	name = strings.TrimRight(name, "-")
 
 	// Truncate to 100 characters
 	if len(name) > 100 {

@@ -37,6 +37,7 @@ const (
 
 	errBranchEmpty           = "Branch name cannot be empty."
 	errNoWorktreeSelected    = "No worktree selected."
+	errPRBranchMissing       = "PR branch information is missing."
 	customCommandPlaceholder = "Custom command"
 	tmuxSessionLabel         = "tmux session"
 	zellijSessionLabel       = "zellij session"

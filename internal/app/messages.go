@@ -208,14 +208,119 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 	// Show PR selection screen
 	m.prSelectionScreen = NewPRSelectionScreen(msg.prs, m.windowWidth, m.windowHeight, m.theme, m.config.ShowIcons)
 	m.prSelectionSubmit = func(pr *models.PRInfo) tea.Cmd {
-		// Generate worktree name
-		generatedName := generatePRWorktreeName(pr)
+		// Generate branch name
+		defaultName := ""
+		scriptErr := ""
+
+		// If branch_name_script is configured, run it with PR title and body
+		if m.config.BranchNameScript != "" {
+			prContent := fmt.Sprintf("%s\n\n%s", pr.Title, pr.Body)
+			if generatedName, err := runBranchNameScript(m.ctx, m.config.BranchNameScript, prContent); err != nil {
+				scriptErr = fmt.Sprintf("Branch name script error: %v", err)
+			} else if generatedName != "" {
+				// Prepend PR prefix and number to script-generated name
+				prefix := m.config.PRPrefix
+				if prefix == "" {
+					prefix = "pr"
+				}
+				defaultName = fmt.Sprintf("%s-%d-%s", prefix, pr.Number, generatedName)
+			}
+		}
+
+		// If no script or script returned empty, use default generation
+		if defaultName == "" {
+			prefix := m.config.PRPrefix
+			if prefix == "" {
+				prefix = "pr"
+			}
+			template := m.config.PRBranchNameTemplate
+			if template == "" {
+				template = "{prefix}-{number}-{title}"
+			}
+			defaultName = generatePRWorktreeName(pr, prefix, template)
+		}
+
+		// Suggest branch name (check for duplicates)
+		suggested := strings.TrimSpace(defaultName)
+		if suggested != "" {
+			suggested = m.suggestBranchName(suggested)
+		}
+
+		if scriptErr != "" {
+			m.showInfo(scriptErr, func() tea.Msg {
+				m.inputScreen = NewInputScreen(
+					fmt.Sprintf("Create worktree from PR #%d (branch: %s)", pr.Number, pr.Branch),
+					"Worktree name",
+					suggested,
+					m.theme,
+				)
+				m.inputSubmit = func(value string) (tea.Cmd, bool) {
+					newBranch := strings.TrimSpace(value)
+					if newBranch == "" {
+						m.inputScreen.errorMsg = errBranchEmpty
+						return nil, false
+					}
+
+					// Prevent duplicates
+					for _, wt := range m.worktrees {
+						if wt.Branch == newBranch {
+							m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
+							return nil, false
+						}
+					}
+
+					targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
+					if _, err := os.Stat(targetPath); err == nil {
+						m.inputScreen.errorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
+						return nil, false
+					}
+
+					// Validate that PR has a branch
+					if pr.Branch == "" {
+						m.inputScreen.errorMsg = errPRBranchMissing
+						return nil, false
+					}
+
+					m.inputScreen.errorMsg = ""
+					if err := os.MkdirAll(m.getRepoWorktreeDir(), defaultDirPerms); err != nil {
+						return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }, true
+					}
+
+					// Create worktree from PR branch (can take time, so do it async with a loading pulse)
+					m.loading = true
+					m.statusContent = fmt.Sprintf("Creating worktree from PR/MR #%d...", pr.Number)
+					m.loadingScreen = NewLoadingScreen(m.statusContent, m.theme)
+					m.currentScreen = screenLoading
+					m.pendingSelectWorktreePath = targetPath
+					return func() tea.Msg {
+						ok := m.git.CreateWorktreeFromPR(m.ctx, pr.Number, pr.Branch, newBranch, targetPath)
+						if !ok {
+							return createFromPRResultMsg{
+								prNumber:   pr.Number,
+								branch:     newBranch,
+								targetPath: targetPath,
+								err:        fmt.Errorf("create worktree from PR/MR branch %q", pr.Branch),
+							}
+						}
+						return createFromPRResultMsg{
+							prNumber:   pr.Number,
+							branch:     newBranch,
+							targetPath: targetPath,
+							err:        nil,
+						}
+					}, true
+				}
+				m.currentScreen = screenInput
+				return nil
+			})
+			return nil
+		}
 
 		// Show input screen with generated name
 		m.inputScreen = NewInputScreen(
 			fmt.Sprintf("Create worktree from PR #%d (branch: %s)", pr.Number, pr.Branch),
 			"Worktree name",
-			generatedName,
+			suggested,
 			m.theme,
 		)
 		m.inputSubmit = func(value string) (tea.Cmd, bool) {
@@ -227,8 +332,8 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 
 			// Prevent duplicates
 			for _, wt := range m.worktrees {
-				if wt.Branch == pr.Branch {
-					m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", pr.Branch)
+				if wt.Branch == newBranch {
+					m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
 					return nil, false
 				}
 			}
@@ -241,7 +346,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 
 			// Validate that PR has a branch
 			if pr.Branch == "" {
-				m.inputScreen.errorMsg = "PR branch information is missing."
+				m.inputScreen.errorMsg = errPRBranchMissing
 				return nil, false
 			}
 

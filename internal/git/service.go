@@ -589,6 +589,7 @@ func (s *Service) fetchGitLabPRs(ctx context.Context) (map[string]*models.PRInfo
 
 		iid, _ := p["iid"].(float64)
 		title, _ := p["title"].(string)
+		description, _ := p["description"].(string)
 		webURL, _ := p["web_url"].(string)
 		sourceBranch, _ := p["source_branch"].(string)
 
@@ -612,6 +613,7 @@ func (s *Service) fetchGitLabPRs(ctx context.Context) (map[string]*models.PRInfo
 				Number:      int(iid),
 				State:       state,
 				Title:       title,
+				Body:        description,
 				URL:         webURL,
 				Branch:      sourceBranch,
 				Author:      author,
@@ -637,7 +639,7 @@ func (s *Service) FetchPRMap(ctx context.Context) (map[string]*models.PRInfo, er
 	prRaw := s.RunGit(ctx, []string{
 		"gh", "pr", "list",
 		"--state", "all",
-		"--json", "headRefName,state,number,title,url,author",
+		"--json", "headRefName,state,number,title,body,url,author",
 		"--limit", "100",
 	}, "", []int{0}, false, host == gitHostUnknown)
 
@@ -658,6 +660,7 @@ func (s *Service) FetchPRMap(ctx context.Context) (map[string]*models.PRInfo, er
 		state, _ := p["state"].(string)
 		number, _ := p["number"].(float64)
 		title, _ := p["title"].(string)
+		body, _ := p["body"].(string)
 		url, _ := p["url"].(string)
 
 		author := ""
@@ -680,6 +683,7 @@ func (s *Service) FetchPRMap(ctx context.Context) (map[string]*models.PRInfo, er
 				Number:      int(number),
 				State:       state,
 				Title:       title,
+				Body:        body,
 				URL:         url,
 				Branch:      headRefName,
 				Author:      author,
@@ -702,7 +706,7 @@ func (s *Service) FetchPRForWorktree(ctx context.Context, worktreePath string) *
 		// Run gh pr view in the worktree directory to get PR for current branch
 		prRaw := s.RunGit(ctx, []string{
 			"gh", "pr", "view",
-			"--json", "number,state,title,url,headRefName,author",
+			"--json", "number,state,title,body,url,headRefName,author",
 		}, worktreePath, []int{0}, false, true)
 
 		if prRaw == "" {
@@ -717,6 +721,7 @@ func (s *Service) FetchPRForWorktree(ctx context.Context, worktreePath string) *
 		number, _ := pr["number"].(float64)
 		state, _ := pr["state"].(string)
 		title, _ := pr["title"].(string)
+		body, _ := pr["body"].(string)
 		url, _ := pr["url"].(string)
 		headRefName, _ := pr["headRefName"].(string)
 
@@ -739,6 +744,7 @@ func (s *Service) FetchPRForWorktree(ctx context.Context, worktreePath string) *
 			Number:      int(number),
 			State:       state,
 			Title:       title,
+			Body:        body,
 			URL:         url,
 			Branch:      headRefName,
 			Author:      author,
@@ -770,6 +776,7 @@ func (s *Service) FetchPRForWorktree(ctx context.Context, worktreePath string) *
 			state = strings.ToUpper(state)
 		}
 		title, _ := pr["title"].(string)
+		description, _ := pr["description"].(string)
 		webURL, _ := pr["web_url"].(string)
 		sourceBranch, _ := pr["source_branch"].(string)
 
@@ -792,6 +799,7 @@ func (s *Service) FetchPRForWorktree(ctx context.Context, worktreePath string) *
 			Number:      int(iid),
 			State:       state,
 			Title:       title,
+			Body:        description,
 			URL:         webURL,
 			Branch:      sourceBranch,
 			Author:      author,
@@ -814,7 +822,7 @@ func (s *Service) FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
 	prRaw := s.RunGit(ctx, []string{
 		"gh", "pr", "list",
 		"--state", "open",
-		"--json", "headRefName,state,number,title,url,author",
+		"--json", "headRefName,state,number,title,body,url,author",
 		"--limit", "100",
 	}, "", []int{0}, false, host == gitHostUnknown)
 
@@ -837,6 +845,7 @@ func (s *Service) FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
 		}
 		number, _ := p["number"].(float64)
 		title, _ := p["title"].(string)
+		body, _ := p["body"].(string)
 		url, _ := p["url"].(string)
 		headRefName, _ := p["headRefName"].(string)
 
@@ -859,6 +868,7 @@ func (s *Service) FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
 			Number:      int(number),
 			State:       prStateOpen,
 			Title:       title,
+			Body:        body,
 			URL:         url,
 			Branch:      headRefName,
 			Author:      author,
@@ -896,6 +906,7 @@ func (s *Service) fetchGitLabOpenPRs(ctx context.Context) ([]*models.PRInfo, err
 
 		iid, _ := p["iid"].(float64)
 		title, _ := p["title"].(string)
+		description, _ := p["description"].(string)
 		webURL, _ := p["web_url"].(string)
 		sourceBranch, _ := p["source_branch"].(string)
 
@@ -918,6 +929,7 @@ func (s *Service) fetchGitLabOpenPRs(ctx context.Context) ([]*models.PRInfo, err
 			Number:      int(iid),
 			State:       state,
 			Title:       title,
+			Body:        description,
 			URL:         webURL,
 			Branch:      sourceBranch,
 			Author:      author,

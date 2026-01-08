@@ -65,6 +65,8 @@ type AppConfig struct {
 	ShowIcons               bool   // Render Nerd Font icons in file trees and PR views (default: true)
 	IssuePrefix             string // Prefix for issue branch names (default: "issue")
 	IssueBranchNameTemplate string // Template for issue branch names with placeholders: {prefix}, {number}, {title} (default: "{prefix}-{number}-{title}")
+	PRPrefix                string // Prefix for PR branch names (default: "pr")
+	PRBranchNameTemplate    string // Template for PR branch names with placeholders: {prefix}, {number}, {title} (default: "{prefix}-{number}-{title}")
 }
 
 // RepoConfig represents repository-scoped commands from .wt
@@ -91,6 +93,8 @@ func DefaultConfig() *AppConfig {
 		ShowIcons:               true,
 		IssuePrefix:             "issue",
 		IssueBranchNameTemplate: "{prefix}-{number}-{title}",
+		PRPrefix:                "pr",
+		PRBranchNameTemplate:    "{prefix}-{number}-{title}",
 		CustomCommands: map[string]*CustomCommand{
 			"t": {
 				Description: "Tmux",
@@ -416,6 +420,20 @@ func parseConfig(data map[string]any) *AppConfig {
 		issueBranchNameTemplate = strings.TrimSpace(issueBranchNameTemplate)
 		if issueBranchNameTemplate != "" {
 			cfg.IssueBranchNameTemplate = issueBranchNameTemplate
+		}
+	}
+
+	if prPrefix, ok := data["pr_prefix"].(string); ok {
+		prPrefix = strings.TrimSpace(prPrefix)
+		if prPrefix != "" {
+			cfg.PRPrefix = prPrefix
+		}
+	}
+
+	if prBranchNameTemplate, ok := data["pr_branch_name_template"].(string); ok {
+		prBranchNameTemplate = strings.TrimSpace(prBranchNameTemplate)
+		if prBranchNameTemplate != "" {
+			cfg.PRBranchNameTemplate = prBranchNameTemplate
 		}
 	}
 

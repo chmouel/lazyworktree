@@ -13,6 +13,7 @@ type PRInfo struct {
 	Number      int
 	State       string
 	Title       string
+	Body        string // For branch_name_script input
 	URL         string
 	Branch      string // Branch name (headRefName for GitHub, source_branch for GitLab)
 	Author      string // PR/MR author username

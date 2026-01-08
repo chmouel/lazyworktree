@@ -67,6 +67,20 @@ merge_method: "rebase"
 #   issue_branch_name_template: "fix/{number}-{title}"        # fix/123-fix-bug-in-login
 # issue_branch_name_template: "{prefix}-{number}-{title}"
 
+# Prefix for PR branch names (default: "pr")
+# pr_prefix: "pr"
+
+# Template for PR branch names (default: "{prefix}-{number}-{title}")
+# When creating a worktree from a PR, branch names use this template with placeholders:
+#   {prefix} - The PR prefix (from pr_prefix config)
+#   {number} - The PR number
+#   {title}  - The sanitized PR title
+# Examples:
+#   pr_branch_name_template: "{prefix}-{number}-{title}"      # pr-123-fix-bug (default, matches issue format)
+#   pr_branch_name_template: "{prefix}{number}-{title}"       # pr123-fix-bug
+#   pr_branch_name_template: "{number}-{title}"               # 123-fix-bug
+# pr_branch_name_template: "{prefix}-{number}-{title}"
+
 init_commands:
   - link_topsymlinks
 terminate_commands:
