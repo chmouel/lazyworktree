@@ -17,7 +17,6 @@ linters:
     - misspell
     - unconvert
     - goconst
-    - prealloc
     - testifylint
     - usestdlibvars
 
