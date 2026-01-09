@@ -1,7 +1,7 @@
 ## Project
 
-Go TUI for managing GIT worktrees.
-Read the README if you really need to know what this project do.
+A TUI for managing GIT worktrees.
+Read the README.md if you really need to know what this project is all about.
 
 ## Building
 
@@ -15,12 +15,20 @@ Read the README if you really need to know what this project do.
   - Past tense.
   - State **what** and **why** only (no “how”).
 
+## Documentation
+
+- For any user-facing changes (features, options, keybindings, etc.), ensure you update:
+  - `README.md`
+  - `lazyworktree.1` man page
+  - Internal help (`NewHelpScreen.helpText`)
+- Documentation and help string style guidelines:
+  - Consistent British spelling.
+  - Professional butler style: clear, helpful, dignified but not pompous
+  - Remove any overly casual Americanisms
+  - Keep technical precision whilst maintaining readability
+
 ## Before Finishing
 
 - Always Run `make sanity` which will run `golangci-lint`, `gofumpt`, and `go test`.
 - Add tests for any new functionality.
-- For any user-facing changes (Features, options, keybindings, etc), make sure you update:
-  - The README.md. Do not sound like it is written by a brain-dead
-  overenthusiastic robot. Keep it british english and human tone.
-  - Update lazyworktree.1 man page.
-  - Update lazyworktree internal help (NewHelpScreen.helpText)
+- Make sure coverage is top notch
