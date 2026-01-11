@@ -457,6 +457,7 @@ When running arbitrary commands with `!`, command history is persisted per repos
 
 **Command Palette Actions:**
 
+- **Select theme**: Change the application theme with live preview. Available themes: `dracula`, `dracula-light`, `narna`, `clean-light`, `catppuccin-latte`, `rose-pine-dawn`, `one-light`, `everforest-light`, `everforest-dark`, `solarized-dark`, `solarized-light`, `gruvbox-dark`, `gruvbox-light`, `nord`, `monokai`, `catppuccin-mocha`, `modern`, `tokyo-night`, `one-dark`, `rose-pine`, `ayu-mirage`.
 - **Create from changes**: Create a new worktree from current uncommitted changes in the selected worktree. This stashes all changes (including untracked files), creates a new worktree, and applies the stashed changes to it. Requires a worktree to be selected with uncommitted changes present.
 
 ### Mouse Controls
@@ -538,7 +539,7 @@ Notes:
 - Use `max_untracked_diffs: 0` to conceal untracked diffs; `max_diff_chars: 0` disables truncation.
 - Execute `lazyworktree --show-syntax-themes` to display the default delta `--syntax-theme` values for each UI theme.
 - Use `lazyworktree --theme <name>` to select a UI theme directly; the supported names correspond to those listed above.
-- `delta_args` configures arguments passed to `delta` (defaults follow the UI theme: Dracula → `Dracula`, Dracula-Light → `Monokai Extended Light`, Narna → `OneHalfDark`, Clean-Light → `GitHub`, Catppuccin Latte → `Catppuccin Latte`, Rosé Pine Dawn → `GitHub`, One Light → `OneHalfLight`, Everforest Light → `Gruvbox Light`, Solarized Dark → `Solarized (dark)`, Solarized Light → `Solarized (light)`, Gruvbox Dark → `Gruvbox Dark`, Gruvbox Light → `Gruvbox Light`, Nord → `Nord`, Monokai → `Monokai Extended`, Catppuccin Mocha → `Catppuccin Mocha`).
+- `delta_args` configures arguments passed to `delta` (defaults follow the UI theme: Dracula → `Dracula`, Dracula-Light → `Monokai Extended Light`, Narna → `OneHalfDark`, Clean-Light → `GitHub`, Catppuccin Latte → `Catppuccin Latte`, Rosé Pine Dawn → `GitHub`, One Light → `OneHalfLight`, Everforest Light → `Gruvbox Light`, Solarized Dark → `Solarized (dark)`, Solarized Light → `Solarized (light)`, Gruvbox Dark → `Gruvbox Dark`, Gruvbox Light → `Gruvbox Light`, Nord → `Nord`, Monokai → `Monokai Extended`, Catppuccin Mocha → `Catppuccin Mocha`, Modern → `Dracula`, Tokyo Night → `Dracula`, Rose Pine → `Dracula`, Ayu Mirage → `Dracula`, Everforest Dark → `Dracula`).
 - `delta_path` specifies the path to the delta executable (default: `delta`). Set to an empty string to disable delta and use plain git diff output.
 - `pager` designates the pager for `show_output` commands and the diff viewer (default: `$PAGER`, fallback `less --use-color --wordwrap -qcR -P 'Press q to exit..'`, then `more`, then `cat`). When the pager is `less`, lazyworktree configures `LESS=` and `LESSHISTFILE=-` to disregard user defaults.
 - `editor` sets the editor command for the Status pane `e` key (default: config value, then `$EDITOR`, then `nvim`, then `vi`).

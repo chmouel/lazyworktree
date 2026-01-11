@@ -3,9 +3,9 @@ package config
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -77,6 +77,7 @@ type AppConfig struct {
 	IssueBranchNameTemplate string // Template for issue branch names with placeholders: {number}, {title} (default: "issue-{number}-{title}")
 	PRBranchNameTemplate    string // Template for PR branch names with placeholders: {number}, {title} (default: "pr-{number}-{title}")
 	CustomCreateMenus       []*CustomCreateMenu
+	ConfigPath              string `yaml:"-"` // Path to the configuration file
 }
 
 // RepoConfig represents repository-scoped commands from .wt
@@ -99,10 +100,9 @@ func DefaultConfig() *AppConfig {
 		TrustMode:               "tofu",
 		Theme:                   "",
 		MergeMethod:             "rebase",
-		FuzzyFinderInput:        false,
-		ShowIcons:               true,
 		IssueBranchNameTemplate: "issue-{number}-{title}",
 		PRBranchNameTemplate:    "pr-{number}-{title}",
+		ShowIcons:               true,
 		CustomCommands: map[string]*CustomCommand{
 			"t": {
 				Description: "Tmux",
@@ -118,7 +118,6 @@ func DefaultConfig() *AppConfig {
 			},
 			"Z": {
 				Description: "Zellij",
-				ShowHelp:    false,
 				Zellij: &TmuxCommand{
 					SessionName: "${REPO_NAME}_wt_$WORKTREE_NAME",
 					Attach:      true,
@@ -132,221 +131,23 @@ func DefaultConfig() *AppConfig {
 	}
 }
 
-// normalizeCommandList converts various input types to a list of command strings
-func normalizeCommandList(value any) []string {
-	if value == nil {
-		return []string{}
-	}
-
-	switch v := value.(type) {
-	case string:
-		text := strings.TrimSpace(v)
-		if text == "" {
-			return []string{}
-		}
-		return []string{text}
-	case []any:
-		commands := []string{}
-		for _, item := range v {
-			if item == nil {
-				continue
-			}
-			text := strings.TrimSpace(fmt.Sprintf("%v", item))
-			if text != "" {
-				commands = append(commands, text)
-			}
-		}
-		return commands
-	}
-	return []string{}
-}
-
-func normalizeArgsList(value any) []string {
-	if value == nil {
-		return []string{}
-	}
-
-	switch v := value.(type) {
-	case string:
-		text := strings.TrimSpace(v)
-		if text == "" {
-			return []string{}
-		}
-		return strings.Fields(text)
-	case []any:
-		args := []string{}
-		for _, item := range v {
-			if item == nil {
-				continue
-			}
-			text := strings.TrimSpace(fmt.Sprintf("%v", item))
-			if text != "" {
-				args = append(args, text)
-			}
-		}
-		return args
-	}
-
-	return []string{}
-}
-
-func coerceBool(value any, defaultVal bool) bool {
-	if value == nil {
-		return defaultVal
-	}
-
-	switch v := value.(type) {
-	case bool:
-		return v
-	case int:
-		return v != 0
-	case string:
-		text := strings.ToLower(strings.TrimSpace(v))
-		switch text {
-		case "1", "true", "yes", "y", "on":
-			return true
-		case "0", "false", "no", "n", "off":
-			return false
-		}
-	}
-	return defaultVal
-}
-
-func coerceInt(value any, defaultVal int) int {
-	if value == nil {
-		return defaultVal
-	}
-
-	switch v := value.(type) {
-	case bool:
-		return defaultVal
-	case int:
-		return v
-	case string:
-		text := strings.TrimSpace(v)
-		if text == "" {
-			return defaultVal
-		}
-		if i, err := strconv.Atoi(text); err == nil {
-			return i
-		}
-	}
-	return defaultVal
-}
-
-func parseTmuxCommand(data map[string]any) *TmuxCommand {
-	tmux := &TmuxCommand{
-		SessionName: "${REPO_NAME}_wt_$WORKTREE_NAME",
-		Attach:      true,
-		OnExists:    "switch",
-	}
-
-	if sessionName, ok := data["session_name"].(string); ok {
-		sessionName = strings.TrimSpace(sessionName)
-		if sessionName != "" {
-			tmux.SessionName = sessionName
-		}
-	}
-
-	if onExists, ok := data["on_exists"].(string); ok {
-		onExists = strings.ToLower(strings.TrimSpace(onExists))
-		switch onExists {
-		case "switch", "attach", "kill", "new":
-			tmux.OnExists = onExists
-		}
-	}
-
-	tmux.Attach = coerceBool(data["attach"], true)
-
-	var windows []TmuxWindow
-	if rawWindows, ok := data["windows"].([]any); ok {
-		windows = make([]TmuxWindow, 0, len(rawWindows))
-		for _, item := range rawWindows {
-			windowMap, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			window := TmuxWindow{}
-			if name, ok := windowMap["name"].(string); ok {
-				window.Name = strings.TrimSpace(name)
-			}
-			if cmd, ok := windowMap["command"].(string); ok {
-				window.Command = strings.TrimSpace(cmd)
-			}
-			if cwd, ok := windowMap["cwd"].(string); ok {
-				window.Cwd = strings.TrimSpace(cwd)
-			}
-			if window.Name == "" && window.Command == "" && window.Cwd == "" {
-				continue
-			}
-			windows = append(windows, window)
-		}
-	}
-
-	if len(windows) == 0 {
-		windows = []TmuxWindow{{Name: "shell"}}
-	}
-
-	tmux.Windows = windows
-	return tmux
-}
-
-func parseCustomCommands(data map[string]any) map[string]*CustomCommand {
-	commands := make(map[string]*CustomCommand)
-
-	raw, ok := data["custom_commands"].(map[string]any)
-	if !ok {
-		return commands
-	}
-
-	for key, val := range raw {
-		cmdMap, ok := val.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		cmd := &CustomCommand{}
-		if cmdStr, ok := cmdMap["command"].(string); ok {
-			cmd.Command = strings.TrimSpace(cmdStr)
-		}
-		if descStr, ok := cmdMap["description"].(string); ok {
-			cmd.Description = strings.TrimSpace(descStr)
-		}
-		cmd.ShowHelp = coerceBool(cmdMap["show_help"], false)
-		cmd.Wait = coerceBool(cmdMap["wait"], false)
-		cmd.ShowOutput = coerceBool(cmdMap["show_output"], false)
-		if tmuxRaw, ok := cmdMap["tmux"].(map[string]any); ok {
-			cmd.Tmux = parseTmuxCommand(tmuxRaw)
-		}
-		if zellijRaw, ok := cmdMap["zellij"].(map[string]any); ok {
-			cmd.Zellij = parseTmuxCommand(zellijRaw)
-		}
-
-		// Only add if command is not empty or tmux config is present
-		if cmd.Command != "" || cmd.Tmux != nil || cmd.Zellij != nil {
-			commands[key] = cmd
-		}
-	}
-
-	return commands
-}
-
 func parseConfig(data map[string]any) *AppConfig {
 	cfg := DefaultConfig()
 
 	if worktreeDir, ok := data["worktree_dir"].(string); ok {
-		worktreeDir = strings.TrimSpace(worktreeDir)
-		if worktreeDir != "" {
-			cfg.WorktreeDir = worktreeDir
+		expanded, err := expandPath(worktreeDir)
+		if err == nil {
+			cfg.WorktreeDir = expanded
 		}
 	}
 
 	if debugLog, ok := data["debug_log"].(string); ok {
-		debugLog = strings.TrimSpace(debugLog)
-		if debugLog != "" {
-			cfg.DebugLog = debugLog
+		expanded, err := expandPath(debugLog)
+		if err == nil {
+			cfg.DebugLog = expanded
 		}
 	}
+
 	if pager, ok := data["pager"].(string); ok {
 		pager = strings.TrimSpace(pager)
 		if pager != "" {
@@ -452,96 +253,157 @@ func parseConfig(data map[string]any) *AppConfig {
 		}
 	}
 
-	cfg.CustomCreateMenus = parseCustomCreateMenus(data["custom_create_menus"])
+	if _, ok := data["custom_create_menus"]; ok {
+		cfg.CustomCreateMenus = parseCustomCreateMenus(data)
+	}
 
 	return cfg
 }
 
-// parseCustomCreateMenus parses the custom_create_menus list from config data.
-func parseCustomCreateMenus(data any) []*CustomCreateMenu {
-	if data == nil {
-		return nil
-	}
-
-	list, ok := data.([]any)
+func parseCustomCommands(data map[string]any) map[string]*CustomCommand {
+	raw, ok := data["custom_commands"].(map[string]any)
 	if !ok {
-		return nil
+		return make(map[string]*CustomCommand)
 	}
 
-	var menus []*CustomCreateMenu
-	for _, item := range list {
-		itemMap, ok := item.(map[string]any)
+	cmds := make(map[string]*CustomCommand)
+	for key, val := range raw {
+		cmdData, ok := val.(map[string]any)
 		if !ok {
 			continue
 		}
 
-		menu := &CustomCreateMenu{}
-		if label, ok := itemMap["label"].(string); ok {
-			menu.Label = strings.TrimSpace(label)
+		cmd := &CustomCommand{
+			Command:     getString(cmdData, "command"),
+			Description: getString(cmdData, "description"),
+			ShowHelp:    coerceBool(cmdData["show_help"], false),
+			Wait:        coerceBool(cmdData["wait"], false),
+			ShowOutput:  coerceBool(cmdData["show_output"], false),
 		}
-		if desc, ok := itemMap["description"].(string); ok {
-			menu.Description = strings.TrimSpace(desc)
-		}
-		if cmd, ok := itemMap["command"].(string); ok {
-			menu.Command = strings.TrimSpace(cmd)
-		}
-		menu.Interactive = coerceBool(itemMap["interactive"], false)
-		if postCmd, ok := itemMap["post_command"].(string); ok {
-			menu.PostCommand = strings.TrimSpace(postCmd)
-		}
-		menu.PostInteractive = coerceBool(itemMap["post_interactive"], false)
 
-		// Only add if label and command are non-empty
+		if tmux, ok := cmdData["tmux"].(map[string]any); ok {
+			cmd.Tmux = parseTmuxCommand(tmux)
+		}
+		if zellij, ok := cmdData["zellij"].(map[string]any); ok {
+			cmd.Zellij = parseTmuxCommand(zellij)
+		}
+
+		if cmd.Command != "" || cmd.Tmux != nil || cmd.Zellij != nil {
+			cmds[key] = cmd
+		}
+	}
+	return cmds
+}
+
+func parseTmuxCommand(data map[string]any) *TmuxCommand {
+	cmd := &TmuxCommand{
+		SessionName: getString(data, "session_name"),
+		Attach:      coerceBool(data["attach"], true),
+		OnExists:    strings.ToLower(getString(data, "on_exists")),
+	}
+	if cmd.OnExists == "" {
+		cmd.OnExists = "switch"
+	}
+
+	if windows, ok := data["windows"].([]any); ok {
+		for _, w := range windows {
+			if wData, ok := w.(map[string]any); ok {
+				cmd.Windows = append(cmd.Windows, TmuxWindow{
+					Name:    getString(wData, "name"),
+					Command: getString(wData, "command"),
+					Cwd:     getString(wData, "cwd"),
+				})
+			}
+		}
+	}
+	if len(cmd.Windows) == 0 {
+		cmd.Windows = []TmuxWindow{
+			{
+				Name:    "shell",
+				Command: "",
+				Cwd:     "",
+			},
+		}
+	}
+	return cmd
+}
+
+func parseCustomCreateMenus(data map[string]any) []*CustomCreateMenu {
+	raw, ok := data["custom_create_menus"].([]any)
+	if !ok {
+		return nil
+	}
+
+	menus := make([]*CustomCreateMenu, 0, len(raw))
+	for _, val := range raw {
+		mData, ok := val.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		menu := &CustomCreateMenu{
+			Label:           getString(mData, "label"),
+			Description:     getString(mData, "description"),
+			Command:         getString(mData, "command"),
+			Interactive:     coerceBool(mData["interactive"], false),
+			PostCommand:     getString(mData, "post_command"),
+			PostInteractive: coerceBool(mData["post_interactive"], false),
+		}
 		if menu.Label != "" && menu.Command != "" {
 			menus = append(menus, menu)
 		}
 	}
-
 	return menus
 }
 
-// LoadRepoConfig loads repository-specific commands from .wt in repoPath
-func LoadRepoConfig(repoPath string) (*RepoConfig, string, error) {
-	if repoPath == "" {
-		return nil, "", fmt.Errorf("empty repo path")
+func normalizeCommandList(val any) []string {
+	if val == nil {
+		return []string{}
 	}
-	cleanRepoPath := filepath.Clean(repoPath)
-	wtPath := filepath.Join(cleanRepoPath, ".wt")
-	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
-		return nil, wtPath, nil
+	if s, ok := val.(string); ok {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return []string{}
+		}
+		return []string{s}
 	}
-
-	if !isPathWithin(cleanRepoPath, wtPath) {
-		return nil, "", fmt.Errorf("invalid repo path %q", repoPath)
+	res := []string{}
+	if l, ok := val.([]any); ok {
+		for _, v := range l {
+			if s, ok := v.(string); ok {
+				s = strings.TrimSpace(s)
+				if s != "" {
+					res = append(res, s)
+				}
+			}
+		}
 	}
-
-	dataBytes, err := fs.ReadFile(os.DirFS(cleanRepoPath), ".wt")
-	if err != nil {
-		return nil, wtPath, fmt.Errorf("failed to read .wt file: %w", err)
-	}
-
-	var yamlData map[string]any
-	if err := yaml.Unmarshal(dataBytes, &yamlData); err != nil {
-		return nil, wtPath, fmt.Errorf("failed to parse .wt file: %w", err)
-	}
-
-	cfg := &RepoConfig{
-		Path:              wtPath,
-		InitCommands:      normalizeCommandList(yamlData["init_commands"]),
-		TerminateCommands: normalizeCommandList(yamlData["terminate_commands"]),
-	}
-	return cfg, wtPath, nil
+	return res
 }
 
-func getConfigDir() string {
-	if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); xdgConfigHome != "" {
-		return xdgConfigHome
+func normalizeArgsList(val any) []string {
+	if s, ok := val.(string); ok {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return []string{}
+		}
+		return strings.Fields(s)
 	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config")
+	res := []string{}
+	if l, ok := val.([]any); ok {
+		for _, v := range l {
+			if s, ok := v.(string); ok {
+				s = strings.TrimSpace(s)
+				if s != "" {
+					res = append(res, s)
+				}
+			}
+		}
+	}
+	return res
 }
 
-// LoadConfig reads the application configuration from a YAML file.
+// LoadConfig loads the application configuration from a file.
 func LoadConfig(configPath string) (*AppConfig, error) {
 	configBase := filepath.Join(getConfigDir(), "lazyworktree")
 	configBase = filepath.Clean(configBase)
@@ -587,6 +449,7 @@ func LoadConfig(configPath string) (*AppConfig, error) {
 		}
 
 		cfg = parseConfig(yamlData)
+		cfg.ConfigPath = path
 		break
 	}
 
@@ -608,6 +471,101 @@ func LoadConfig(configPath string) (*AppConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+// SaveConfig writes the configuration back to the file.
+// It tries to preserve existing fields by reading the file first.
+func SaveConfig(cfg *AppConfig) error {
+	path := cfg.ConfigPath
+	if path == "" {
+		configBase := filepath.Join(getConfigDir(), "lazyworktree")
+		path = filepath.Join(configBase, "config.yaml")
+
+		if err := os.MkdirAll(configBase, 0o700); err != nil { // #nosec G301
+			return err
+		}
+	} else {
+		// Ensure parent directory of the specific ConfigPath exists if we are saving to a known path
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil { // #nosec G301
+			return err
+		}
+	}
+
+	// #nosec G304
+	data, err := os.ReadFile(path)
+	var content string
+	if err == nil {
+		content = string(data)
+	}
+
+	// Use regex to replace or add theme: line
+	re := regexp.MustCompile(`(?m)^theme:\s*.*$`)
+	newThemeLine := fmt.Sprintf("theme: %s", cfg.Theme)
+
+	var newData []byte
+	if re.MatchString(content) {
+		// Replace existing theme line
+		newData = []byte(re.ReplaceAllString(content, newThemeLine))
+	} else {
+		// Add theme line
+		if content != "" && !strings.HasSuffix(content, "\n") {
+			content += "\n"
+		}
+		newData = []byte(content + newThemeLine + "\n")
+	}
+
+	if err := os.WriteFile(path, newData, 0o600); err != nil { // #nosec G306
+		return err
+	}
+
+	// Update ConfigPath if it was empty so subsequent saves use the same correctly
+	if cfg.ConfigPath == "" {
+		cfg.ConfigPath = path
+	}
+
+	return nil
+}
+
+// LoadRepoConfig loads the repository configuration from a .wt file.
+func LoadRepoConfig(repoPath string) (*RepoConfig, string, error) {
+	if repoPath == "" {
+		return nil, "", fmt.Errorf("repo path cannot be empty")
+	}
+
+	path := filepath.Join(repoPath, ".wt")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, path, nil
+	}
+
+	// #nosec G304 -- path is constructed from safe repo path
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, path, err
+	}
+
+	var raw map[string]any
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, path, err
+	}
+
+	cfg := &RepoConfig{
+		Path:              path,
+		InitCommands:      normalizeCommandList(raw["init_commands"]),
+		TerminateCommands: normalizeCommandList(raw["terminate_commands"]),
+	}
+
+	return cfg, path, nil
+}
+
+// SyntaxThemeForUITheme returns the syntax theme name for a given TUI theme.
+func SyntaxThemeForUITheme(themeName string) string {
+	args := DefaultDeltaArgsForTheme(themeName)
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == "--syntax-theme" {
+			return args[i+1]
+		}
+	}
+	return "Dracula"
 }
 
 func expandPath(path string) (string, error) {
@@ -647,6 +605,14 @@ func DefaultDeltaArgsForTheme(themeName string) []string {
 		return []string{"--syntax-theme", "\"OneHalfDark\""}
 	case theme.CleanLightName:
 		return []string{"--syntax-theme", "GitHub"}
+	case theme.CatppuccinLatteName:
+		return []string{"--syntax-theme", "\"Catppuccin Latte\""}
+	case theme.RosePineDawnName:
+		return []string{"--syntax-theme", "GitHub"}
+	case theme.OneLightName:
+		return []string{"--syntax-theme", "\"OneHalfLight\""}
+	case theme.EverforestLightName:
+		return []string{"--syntax-theme", "\"Gruvbox Light\""}
 	case theme.SolarizedDarkName:
 		return []string{"--syntax-theme", "\"Solarized (dark)\""}
 	case theme.SolarizedLightName:
@@ -661,69 +627,83 @@ func DefaultDeltaArgsForTheme(themeName string) []string {
 		return []string{"--syntax-theme", "\"Monokai Extended\""}
 	case theme.CatppuccinMochaName:
 		return []string{"--syntax-theme", "\"Catppuccin Mocha\""}
-	case theme.CatppuccinLatteName:
-		return []string{"--syntax-theme", "\"Catppuccin Latte\""}
-	case theme.RosePineDawnName:
-		return []string{"--syntax-theme", "GitHub"}
-	case theme.OneLightName:
-		return []string{"--syntax-theme", "\"OneHalfLight\""}
-	case theme.EverforestLightName:
-		return []string{"--syntax-theme", "\"Gruvbox Light\""}
-	case theme.EverforestDarkName:
-		return []string{"--syntax-theme", "\"Everforest Dark\""}
-	case theme.TokyoNightName:
-		return []string{"--syntax-theme", "\"Tokyo Night\""}
-	case theme.OneDarkName:
-		return []string{"--syntax-theme", "\"Atom One Dark\""}
-	case theme.RosePineName:
-		return []string{"--syntax-theme", "\"Rose Pine\""}
-	case theme.AyuMirageName:
-		return []string{"--syntax-theme", "\"Ayu Mirage\""}
 	case theme.ModernName:
+		return []string{"--syntax-theme", "Dracula"}
+	case theme.TokyoNightName:
+		return []string{"--syntax-theme", "Dracula"}
+	case theme.OneDarkName:
+		return []string{"--syntax-theme", "\"OneHalfDark\""}
+	case theme.RosePineName:
+		return []string{"--syntax-theme", "Dracula"}
+	case theme.AyuMirageName:
+		return []string{"--syntax-theme", "Dracula"}
+	case theme.EverforestDarkName:
 		return []string{"--syntax-theme", "Dracula"}
 	default:
 		return []string{"--syntax-theme", "Dracula"}
 	}
 }
 
-// SyntaxThemeForUITheme returns the default delta syntax theme for a UI theme.
-func SyntaxThemeForUITheme(themeName string) string {
-	args := DefaultDeltaArgsForTheme(themeName)
-	for i := 0; i < len(args)-1; i++ {
-		if args[i] == "--syntax-theme" {
-			return args[i+1]
-		}
+// NormalizeThemeName returns the normalized theme name if valid, otherwise empty string.
+func NormalizeThemeName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	switch name {
+	case "dracula", "dracula-light", "narna", "clean-light", "catppuccin-latte", "rose-pine-dawn", "one-light", "everforest-light", "solarized-dark", "solarized-light", "gruvbox-dark", "gruvbox-light", "nord", "monokai", "catppuccin-mocha", "modern", "tokyo-night", "one-dark", "rose-pine", "ayu-mirage", "everforest-dark":
+		return name
 	}
 	return ""
 }
 
-// NormalizeThemeName returns the canonical theme name if it is supported.
-func NormalizeThemeName(name string) string {
-	name = strings.ToLower(strings.TrimSpace(name))
-	switch name {
-	case theme.DraculaName,
-		theme.DraculaLightName,
-		theme.NarnaName,
-		theme.CleanLightName,
-		theme.CatppuccinLatteName,
-		theme.RosePineDawnName,
-		theme.OneLightName,
-		theme.EverforestLightName,
-		theme.EverforestDarkName,
-		theme.SolarizedDarkName,
-		theme.SolarizedLightName,
-		theme.GruvboxDarkName,
-		theme.GruvboxLightName,
-		theme.NordName,
-		theme.MonokaiName,
-		theme.CatppuccinMochaName,
-		theme.ModernName,
-		theme.TokyoNightName,
-		theme.OneDarkName,
-		theme.RosePineName,
-		theme.AyuMirageName:
-		return name
-	default:
-		return ""
+func getConfigDir() string {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return xdg
 	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config")
+}
+
+func coerceBool(v any, def bool) bool {
+	if v == nil {
+		return def
+	}
+	if b, ok := v.(bool); ok {
+		return b
+	}
+	if s, ok := v.(string); ok {
+		s = strings.ToLower(strings.TrimSpace(s))
+		if s == "true" || s == "1" || s == "yes" || s == "y" || s == "on" {
+			return true
+		}
+		if s == "false" || s == "0" || s == "no" || s == "n" || s == "off" {
+			return false
+		}
+	}
+	if i, ok := v.(int); ok {
+		return i != 0
+	}
+	return def
+}
+
+func coerceInt(v any, def int) int {
+	if v == nil {
+		return def
+	}
+	if i, ok := v.(int); ok {
+		return i
+	}
+	if s, ok := v.(string); ok {
+		s = strings.TrimSpace(s)
+		i, err := strconv.Atoi(s)
+		if err == nil {
+			return i
+		}
+	}
+	return def
+}
+
+func getString(data map[string]any, key string) string {
+	if v, ok := data[key]; ok && v != nil {
+		return strings.TrimSpace(fmt.Sprint(v))
+	}
+	return ""
 }

@@ -37,7 +37,7 @@ func main() {
 	flag.StringVar(&worktreeDir, "worktree-dir", "", "Override the default worktree root directory")
 	flag.StringVar(&debugLog, "debug-log", "", "Path to debug log file")
 	flag.StringVar(&outputSelection, "output-selection", "", "Write selected worktree path to a file")
-	flag.StringVar(&themeName, "theme", "", "Override the UI theme (supported: dracula, dracula-light, narna, clean-light, solarized-dark, solarized-light, gruvbox-dark, gruvbox-light, nord, monokai, catppuccin-mocha, modern)")
+	flag.StringVar(&themeName, "theme", "", "Override the UI theme (supported: dracula, dracula-light, narna, clean-light, catppuccin-latte, rose-pine-dawn, one-light, everforest-light, everforest-dark, solarized-dark, solarized-light, gruvbox-dark, gruvbox-light, nord, monokai, catppuccin-mocha, modern, tokyo-night, one-dark, rose-pine, ayu-mirage)")
 	flag.BoolVar(&searchAutoSelect, "search-auto-select", false, "Start with filter focused")
 	flag.BoolVar(&showVersion, "version", false, "Print version information")
 	flag.BoolVar(&showSyntaxThemes, "show-syntax-themes", false, "List available delta syntax themes")

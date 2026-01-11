@@ -182,6 +182,9 @@ type ListSelectionScreen struct {
 	placeholder  string
 	noResults    string
 	thm          *theme.Theme
+
+	// Callback for selection change (used for live preview)
+	onCursorChange func(selectionItem)
 }
 
 // LoadingScreen displays a modal with a pulsing border and braille spinner.
@@ -315,7 +318,7 @@ func (s *ConfirmScreen) View() string {
 		Width((width-6)/2).
 		Align(lipgloss.Center).
 		Padding(0, 2). // More padding for pill effect
-		Foreground(lipgloss.Color("#FFFFFF")).
+		Foreground(s.thm.AccentFg).
 		Background(s.thm.ErrorFg).
 		Bold(true)
 
@@ -324,7 +327,7 @@ func (s *ConfirmScreen) View() string {
 		Width((width-6)/2).
 		Align(lipgloss.Center).
 		Padding(0, 2).
-		Foreground(lipgloss.Color("#FFFFFF")).
+		Foreground(s.thm.AccentFg).
 		Background(s.thm.Accent).
 		Bold(true)
 
@@ -379,7 +382,7 @@ func (s *InfoScreen) View() string {
 		Width(width-6).
 		Align(lipgloss.Center).
 		Padding(0, 2).
-		Foreground(lipgloss.Color("#FFFFFF")).
+		Foreground(s.thm.AccentFg).
 		Background(s.thm.Accent).
 		Bold(true)
 
@@ -443,7 +446,7 @@ func NewInputScreen(prompt, placeholder, value string, thm *theme.Theme) *InputS
 	ti.Focus()
 	ti.CharLimit = 200
 	ti.Prompt = ""
-	ti.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	ti.TextStyle = lipgloss.NewStyle().Foreground(thm.TextFg)
 
 	// Fixed width to match modal style (60 - padding/border = 52 for input)
 	ti.Width = 52
@@ -588,7 +591,7 @@ func (s *InputScreen) View() string {
 			MarginTop(1)
 
 		selectedStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFFFFF")).
+			Foreground(s.thm.AccentFg).
 			Background(s.thm.Accent).
 			Padding(0, 1)
 
@@ -1087,6 +1090,11 @@ func (s *ListSelectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if s.cursor < s.scrollOffset {
 					s.scrollOffset = s.cursor
 				}
+				if s.onCursorChange != nil {
+					if item, ok := s.Selected(); ok {
+						s.onCursorChange(item)
+					}
+				}
 			}
 			return s, nil
 		case keyDown, keyCtrlJ:
@@ -1094,6 +1102,11 @@ func (s *ListSelectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				s.cursor++
 				if s.cursor >= s.scrollOffset+maxVisible {
 					s.scrollOffset = s.cursor - maxVisible + 1
+				}
+				if s.onCursorChange != nil {
+					if item, ok := s.Selected(); ok {
+						s.onCursorChange(item)
+					}
 				}
 			}
 			return s, nil

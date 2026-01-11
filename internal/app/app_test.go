@@ -2267,3 +2267,54 @@ func TestOpenZellijSession(t *testing.T) {
 		t.Fatal("expected attach to be true")
 	}
 }
+
+func TestUpdateTheme(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		Theme:       "dracula",
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	// Verify initial theme (Dracula accent is #BD93F9)
+	if string(m.theme.Accent) != "#BD93F9" {
+		t.Fatalf("expected initial dracula accent, got %v", m.theme.Accent)
+	}
+
+	// Update to clean-light (Clean-Light accent is #c6dbe5)
+	m.UpdateTheme("clean-light")
+	if string(m.theme.Accent) != "#c6dbe5" {
+		t.Fatalf("expected clean-light accent, got %v", m.theme.Accent)
+	}
+}
+
+func TestShowThemeSelection(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	cmd := m.showThemeSelection()
+	if cmd == nil {
+		t.Fatal("showThemeSelection returned nil command")
+	}
+
+	if m.currentScreen != screenListSelect {
+		t.Fatalf("expected screenListSelect, got %v", m.currentScreen)
+	}
+
+	if m.listScreen == nil {
+		t.Fatal("listScreen should be initialized")
+	}
+
+	if m.listScreen.title != "🎨 Select Theme" {
+		t.Fatalf("expected title '🎨 Select Theme', got %q", m.listScreen.title)
+	}
+
+	// Verify all themes are present
+	available := theme.AvailableThemes()
+	if len(m.listScreen.items) != len(available) {
+		t.Fatalf("expected %d themes in list, got %d", len(available), len(m.listScreen.items))
+	}
+}

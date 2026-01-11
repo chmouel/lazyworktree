@@ -311,7 +311,7 @@ func Modern() *Theme {
 	return &Theme{
 		Background: lipgloss.Color("#18181B"), // Zinc 900
 		Accent:     lipgloss.Color("#8B5CF6"), // Violet 500
-		AccentFg:   lipgloss.Color("#FFFFFF"),
+		AccentFg:   lipgloss.Color("#18181B"), // Zinc 900 (dark text on accent)
 		AccentDim:  lipgloss.Color("#27272A"), // Zinc 800
 		Border:     lipgloss.Color("#3F3F46"), // Zinc 700
 		BorderDim:  lipgloss.Color("#27272A"), // Zinc 800

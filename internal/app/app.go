@@ -360,6 +360,9 @@ type Model struct {
 	// Command history for ! command
 	commandHistory []string
 
+	// Original theme before theme selection (for preview rollback)
+	originalTheme string
+
 	// Exit
 	selectedPath string
 	quitting     bool
@@ -915,7 +918,6 @@ func (m *Model) View() string {
 		}
 	}
 
-	// Handle Full Screen Views (fallback)
 	if m.currentScreen != screenNone {
 		return m.renderScreen()
 	}
@@ -937,20 +939,11 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 
 	baseWidth := lipgloss.Width(baseLines[0])
 	popupWidth := lipgloss.Width(popupLines[0])
-	popupHeight := len(popupLines)
 
-	// Calculate left padding to center
 	leftPad := max((baseWidth-popupWidth)/2, 0)
 	leftSpace := strings.Repeat(" ", leftPad)
 	rightPad := max(baseWidth-popupWidth-leftPad, 0)
 	rightSpace := strings.Repeat(" ", rightPad)
-
-	// Shadow styling
-	shadowColor := lipgloss.Color("#18181B") // Dark shadow
-	if m.theme.Background == lipgloss.Color("#FFFFFF") {
-		shadowColor = lipgloss.Color("#D1D5DB") // Light shadow for light themes
-	}
-	shadowStyle := lipgloss.NewStyle().Foreground(shadowColor)
 
 	for i, line := range popupLines {
 		row := marginTop + i
@@ -960,15 +953,6 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 
 		// Main popup line
 		baseLines[row] = leftSpace + line + rightSpace
-	}
-
-	// Add bottom shadow if there's room
-	shadowRow := marginTop + popupHeight
-	if shadowRow < len(baseLines) {
-		shadowLine := leftSpace + " " + shadowStyle.Render(strings.Repeat("▀", popupWidth)) + rightSpace
-		if len(shadowLine) <= baseWidth {
-			// baseLines[shadowRow] = shadowLine // Disabled for now as it might break layout
-		}
 	}
 
 	return strings.Join(baseLines, "\n")
@@ -2274,6 +2258,7 @@ func (m *Model) showCommandPalette() tea.Cmd {
 		paletteItem{id: "refresh", label: "Refresh (r)", description: "Reload worktrees"},
 		paletteItem{id: "fetch", label: "Fetch remotes (R)", description: "git fetch --all"},
 		paletteItem{id: "pr", label: "Open PR (o)", description: "Open PR in browser"},
+		paletteItem{id: "theme", label: "Select theme", description: "Change the application theme with live preview"},
 		paletteItem{id: "help", label: "Help (?)", description: "Show help"},
 	)
 	items = append(items, customItems...)
@@ -2305,6 +2290,8 @@ func (m *Model) showCommandPalette() tea.Cmd {
 			return m.fetchRemotes()
 		case "pr":
 			return m.openPR()
+		case "theme":
+			return m.showThemeSelection()
 		case "help":
 			m.currentScreen = screenHelp
 			return nil
@@ -2312,6 +2299,39 @@ func (m *Model) showCommandPalette() tea.Cmd {
 		return nil
 	}
 	m.currentScreen = screenPalette
+	return textinput.Blink
+}
+
+func (m *Model) showThemeSelection() tea.Cmd {
+	m.originalTheme = m.config.Theme
+	themes := theme.AvailableThemes()
+	sort.Strings(themes)
+	items := make([]selectionItem, 0, len(themes))
+	for _, t := range themes {
+		items = append(items, selectionItem{id: t, label: t})
+	}
+	m.listScreen = NewListSelectionScreen(items, "🎨 Select Theme", "Filter themes...", "", m.windowWidth, m.windowHeight, m.originalTheme, m.theme)
+	m.listScreen.onCursorChange = func(item selectionItem) {
+		m.UpdateTheme(item.id)
+	}
+	m.listSubmit = func(item selectionItem) tea.Cmd {
+		m.listScreen = nil
+		m.listSubmit = nil
+
+		// Ask for confirmation before saving to config
+		m.confirmScreen = NewConfirmScreen(fmt.Sprintf("Save theme '%s' to config file?", item.id), m.theme)
+		m.confirmAction = func() tea.Cmd {
+			m.config.Theme = item.id
+			if err := config.SaveConfig(m.config); err != nil {
+				m.debugf("failed to save config: %v", err)
+			}
+			m.originalTheme = ""
+			return nil
+		}
+		m.currentScreen = screenConfirm
+		return nil
+	}
+	m.currentScreen = screenListSelect
 	return textinput.Blink
 }
 
@@ -3016,7 +3036,9 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.paletteSubmit != nil {
 				if action, ok := m.paletteScreen.Selected(); ok {
 					cmd := m.paletteSubmit(action)
-					m.currentScreen = screenNone
+					if m.currentScreen == screenPalette {
+						m.currentScreen = screenNone
+					}
 					m.paletteScreen = nil
 					m.paletteSubmit = nil
 					return m, cmd
@@ -3091,6 +3113,10 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		keyStr := msg.String()
 		if isEscKey(keyStr) {
+			if m.originalTheme != "" {
+				m.UpdateTheme(m.originalTheme)
+				m.originalTheme = ""
+			}
 			m.listScreen = nil
 			m.listSubmit = nil
 			m.currentScreen = screenNone
@@ -4404,9 +4430,8 @@ func (m *Model) renderHeader(layout layoutDims) string {
 }
 
 func (m *Model) renderFilter(layout layoutDims) string {
-	// Enhanced filter bar with visual flair
 	labelStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FFFFFF")).
+		Foreground(m.theme.AccentFg).
 		Background(m.theme.Accent).
 		Bold(true).
 		Padding(0, 1) // Pill effect
@@ -4634,6 +4659,75 @@ func (m *Model) renderFooter(layout layoutDims) string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, footer, gap, spinnerView)
 }
 
+// UpdateTheme updates the application theme and refreshes component styles.
+func (m *Model) UpdateTheme(themeName string) {
+	thm := theme.GetTheme(themeName)
+	m.theme = thm
+
+	// Update table styles
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(thm.BorderDim).
+		BorderBottom(true).
+		Bold(true).
+		Foreground(thm.Cyan).
+		Background(thm.AccentDim)
+	s.Selected = s.Selected.
+		Foreground(thm.AccentFg).
+		Background(thm.Accent).
+		Bold(true)
+	s.Cell = s.Cell.
+		Foreground(thm.TextFg)
+
+	m.worktreeTable.SetStyles(s)
+	m.logTable.SetStyles(s)
+
+	// Update spinner style
+	m.spinner.Style = lipgloss.NewStyle().Foreground(thm.Accent)
+
+	// Update filter input styles
+	m.filterInput.PromptStyle = lipgloss.NewStyle().Foreground(thm.Accent)
+	m.filterInput.TextStyle = lipgloss.NewStyle().Foreground(thm.TextFg)
+
+	// Update other screens if they exist
+	if m.helpScreen != nil {
+		m.helpScreen.thm = thm
+	}
+	if m.confirmScreen != nil {
+		m.confirmScreen.thm = thm
+	}
+	if m.infoScreen != nil {
+		m.infoScreen.thm = thm
+	}
+	if m.loadingScreen != nil {
+		m.loadingScreen.thm = thm
+	}
+	if m.inputScreen != nil {
+		m.inputScreen.thm = thm
+	}
+	if m.paletteScreen != nil {
+		m.paletteScreen.thm = thm
+	}
+	if m.prSelectionScreen != nil {
+		m.prSelectionScreen.thm = thm
+	}
+	if m.issueSelectionScreen != nil {
+		m.issueSelectionScreen.thm = thm
+	}
+	if m.listScreen != nil {
+		m.listScreen.thm = thm
+	}
+	if m.commitFilesScreen != nil {
+		m.commitFilesScreen.thm = thm
+	}
+
+	// Re-render info content with new theme
+	if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
+		m.infoContent = m.buildInfoContent(m.filteredWts[m.selectedIndex])
+	}
+}
+
 func (m *Model) customFooterHints() []string {
 	keys := m.customCommandKeys()
 	if len(keys) == 0 {
@@ -4661,7 +4755,7 @@ func (m *Model) customFooterHints() []string {
 func (m *Model) renderKeyHint(key, label string) string {
 	// Enhanced key hints with pill/badge styling
 	keyStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#000000")).
+		Foreground(m.theme.AccentFg).
 		Background(m.theme.Accent).
 		Bold(true).
 		Padding(0, 1) // Add padding for pill effect
@@ -4765,19 +4859,19 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 			prPrefix = iconWithSpace(iconPR) + prPrefix
 		}
 		prLabel := prLabelStyle.Render(prPrefix)
-		whiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("15")) // white
-		stateColor := lipgloss.Color("2")                                  // green for OPEN
+		numStyle := lipgloss.NewStyle().Foreground(m.theme.TextFg)
+		stateColor := m.theme.SuccessFg // default to success for OPEN
 		switch wt.PR.State {
 		case "MERGED":
-			stateColor = lipgloss.Color("5") // magenta
+			stateColor = m.theme.Pink
 		case "CLOSED":
-			stateColor = lipgloss.Color("1") // red
+			stateColor = m.theme.ErrorFg
 		}
 		stateStyle := lipgloss.NewStyle().Foreground(stateColor)
 		// Format: PR: #123 Title [STATE] (matches Python grid layout)
 		infoLines = append(infoLines, fmt.Sprintf("%s %s %s [%s]",
 			prLabel,
-			whiteStyle.Render(fmt.Sprintf("#%d", wt.PR.Number)),
+			numStyle.Render(fmt.Sprintf("#%d", wt.PR.Number)),
 			wt.PR.Title,
 			stateStyle.Render(wt.PR.State)))
 		// Author line with bot indicator if applicable

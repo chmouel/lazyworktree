@@ -1601,6 +1601,77 @@ func TestParseConfigPager(t *testing.T) {
 	assert.Equal(t, "less -R", cfg.Pager)
 }
 
+func TestSaveConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "lazyworktree", "config.yaml")
+
+	// Create a file with comments and other fields
+	initialContent := `# LazyWorktree Config
+theme: dracula
+# This is a comment we want to keep
+other_field: preserved # Inline comment
+`
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(configPath, []byte(initialContent), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := DefaultConfig()
+	cfg.ConfigPath = configPath
+	cfg.Theme = "narna"
+
+	// Test 1: Update theme while preserving comments
+	err := SaveConfig(cfg)
+	require.NoError(t, err)
+
+	// #nosec G304
+	data, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	content := string(data)
+
+	assert.Contains(t, content, "# LazyWorktree Config")
+	assert.Contains(t, content, "theme: narna")
+	assert.Contains(t, content, "# This is a comment we want to keep")
+	assert.Contains(t, content, "other_field: preserved # Inline comment")
+	assert.NotContains(t, content, "theme: dracula")
+
+	// Test 2: Add theme if missing
+	noThemeContent := "other_field: active\n"
+	configPath2 := filepath.Join(tmpDir, "config2.yaml")
+	if err := os.WriteFile(configPath2, []byte(noThemeContent), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg2 := DefaultConfig()
+	cfg2.ConfigPath = configPath2
+	cfg2.Theme = "modern"
+	err = SaveConfig(cfg2)
+	require.NoError(t, err)
+
+	// #nosec G304
+	data, err = os.ReadFile(configPath2)
+	require.NoError(t, err)
+	content = string(data)
+	assert.Contains(t, content, "other_field: active")
+	assert.Contains(t, content, "theme: modern")
+
+	// Test 3: New file
+	configPath3 := filepath.Join(tmpDir, "new", "config3.yaml")
+	cfg3 := DefaultConfig()
+	cfg3.ConfigPath = configPath3
+	cfg3.Theme = "nord"
+	err = SaveConfig(cfg3)
+	require.NoError(t, err)
+	assert.FileExists(t, configPath3)
+
+	// #nosec G304
+	data, err = os.ReadFile(configPath3)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "theme: nord")
+}
+
 func TestLoadConfigRejectsOutsideConfigDir(t *testing.T) {
 	configHome := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", configHome)
