@@ -378,6 +378,7 @@ custom_commands:
 | `Home` | Go to first item in focused pane |
 | `End` | Go to last item in focused pane |
 | `?` | Show help |
+| `a` | AI session: launch or switch to existing |
 | `1` | Switch to Worktree pane (or toggle zoom if already focused) |
 | `2` | Switch to Status pane (or toggle zoom if already focused) |
 | `3` | Switch to Log pane (or toggle zoom if already focused) |
@@ -587,6 +588,83 @@ When viewing a worktree with an associated PR/MR, lazyworktree automatically ret
 - `⊘` **Grey** - Cancelled
 
 CI status is retrieved lazily (only for the selected worktree) and cached for 30 seconds to maintain UI responsiveness. Press `p` to force a refresh of CI status.
+
+## AI Session Management
+
+lazyworktree can manage AI coding tool sessions (Claude Code, Aider, Codex, etc.) in tmux or zellij, allowing you to:
+
+- Launch AI sessions per worktree with a single keypress (`a`)
+- View AI session status in the worktree table (idle/working indicator)
+- Switch directly to running AI sessions from the worktree list
+
+### Configuration
+
+Add the `ai_session` section to your `~/.config/lazyworktree/config.yaml`:
+
+```yaml
+ai_session:
+  enabled: true
+  multiplexer: tmux  # or "zellij"
+  session_prefix: "${REPO_NAME}_ai_"
+  command: claude  # or "aider", "codex", etc.
+  poll_interval: 5  # seconds
+  window_name: ai
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `false` | Enable AI session management |
+| `multiplexer` | string | `"tmux"` | Terminal multiplexer: `"tmux"` or `"zellij"` |
+| `session_prefix` | string | `"${REPO_NAME}_ai_"` | Session name prefix (supports env vars) |
+| `command` | string | `"claude"` | AI tool command to execute |
+| `poll_interval` | int | `5` | Status file poll interval in seconds |
+| `window_name` | string | `"ai"` | Window/tab name for the AI session |
+
+### Status Indicators
+
+The AI column in the worktree table displays session status:
+
+- `●` Active/idle (session exists, ready for input)
+- `◐◓◑◒` Working (animated spinner when AI tool is processing)
+- `✗` Error
+- `-` No session
+
+### Hook-Based Status Detection
+
+AI tools can report their status by writing to `.ai-status.json` in the worktree root. This is typically configured via the tool's hook system.
+
+**Status file format (`$WORKTREE_PATH/.ai-status.json`):**
+
+```json
+{
+  "status": "idle",
+  "updated_at": "2024-01-11T12:34:56Z",
+  "message": "Optional status message"
+}
+```
+
+**Supported status values:** `idle`, `working`, `error`
+
+**Example: Claude Code hooks (`~/.claude/settings.json`):**
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "command": "echo '{\"status\":\"working\",\"updated_at\":\"'$(date -Iseconds)'\"}' > .ai-status.json"
+    }],
+    "Stop": [{
+      "command": "echo '{\"status\":\"idle\",\"updated_at\":\"'$(date -Iseconds)'\"}' > .ai-status.json"
+    }]
+  }
+}
+```
+
+### Usage
+
+1. Select a worktree in the table
+2. Press `a` to launch an AI session (if none exists) or switch to the existing session
+3. The AI column updates automatically based on the status file
 
 ## AI-Powered Branch Names
 

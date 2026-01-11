@@ -1,9 +1,12 @@
 package models
 
 import (
+	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPRInfo(t *testing.T) {
@@ -162,12 +165,186 @@ func TestConstants(t *testing.T) {
 			constant: CacheFilename,
 			expected: ".worktree-cache.json",
 		},
+		{
+			name:     "command history filename",
+			constant: CommandHistoryFilename,
+			expected: ".command-history.json",
+		},
+		{
+			name:     "access history filename",
+			constant: AccessHistoryFilename,
+			expected: ".worktree-access.json",
+		},
+		{
+			name:     "AI session status filename",
+			constant: AISessionStatusFilename,
+			expected: ".ai-status.json",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, tt.constant)
 			assert.NotEmpty(t, tt.constant)
+		})
+	}
+}
+
+func TestAISessionStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		status   *AISessionStatus
+		expected string
+	}{
+		{
+			name: "idle status",
+			status: &AISessionStatus{
+				Status:    "idle",
+				UpdatedAt: time.Date(2024, 1, 11, 12, 0, 0, 0, time.UTC),
+				Message:   "",
+			},
+			expected: "idle",
+		},
+		{
+			name: "working status",
+			status: &AISessionStatus{
+				Status:    "working",
+				UpdatedAt: time.Date(2024, 1, 11, 12, 30, 0, 0, time.UTC),
+				Message:   "Processing user request",
+			},
+			expected: "working",
+		},
+		{
+			name: "error status",
+			status: &AISessionStatus{
+				Status:    "error",
+				UpdatedAt: time.Date(2024, 1, 11, 13, 0, 0, 0, time.UTC),
+				Message:   "Connection failed",
+			},
+			expected: "error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NotNil(t, tt.status)
+			assert.Equal(t, tt.expected, tt.status.Status)
+			assert.False(t, tt.status.UpdatedAt.IsZero())
+		})
+	}
+}
+
+func TestAISessionStatusJSONParsing(t *testing.T) {
+	tests := []struct {
+		name           string
+		jsonInput      string
+		expectedStatus string
+		expectedMsg    string
+		expectError    bool
+	}{
+		{
+			name:           "valid idle status",
+			jsonInput:      `{"status":"idle","updated_at":"2024-01-11T12:00:00Z","message":""}`,
+			expectedStatus: "idle",
+			expectedMsg:    "",
+			expectError:    false,
+		},
+		{
+			name:           "valid working status with message",
+			jsonInput:      `{"status":"working","updated_at":"2024-01-11T12:30:00Z","message":"Processing request"}`,
+			expectedStatus: "working",
+			expectedMsg:    "Processing request",
+			expectError:    false,
+		},
+		{
+			name:           "minimal valid JSON",
+			jsonInput:      `{"status":"idle","updated_at":"2024-01-11T12:00:00Z"}`,
+			expectedStatus: "idle",
+			expectedMsg:    "",
+			expectError:    false,
+		},
+		{
+			name:        "invalid JSON",
+			jsonInput:   `{invalid json}`,
+			expectError: true,
+		},
+		{
+			name:        "empty JSON",
+			jsonInput:   `{}`,
+			expectError: false, // Empty is valid, just has zero values
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var status AISessionStatus
+			err := json.Unmarshal([]byte(tt.jsonInput), &status)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedStatus, status.Status)
+				assert.Equal(t, tt.expectedMsg, status.Message)
+			}
+		})
+	}
+}
+
+func TestWorktreeInfoWithAISession(t *testing.T) {
+	tests := []struct {
+		name     string
+		wt       *WorktreeInfo
+		hasAI    bool
+		aiStatus string
+	}{
+		{
+			name: "worktree without AI session",
+			wt: &WorktreeInfo{
+				Path:      "/repo/main",
+				Branch:    "main",
+				AISession: nil,
+			},
+			hasAI:    false,
+			aiStatus: "",
+		},
+		{
+			name: "worktree with idle AI session",
+			wt: &WorktreeInfo{
+				Path:   "/repo/feature",
+				Branch: "feature/ai-work",
+				AISession: &AISessionStatus{
+					Status:    "idle",
+					UpdatedAt: time.Now(),
+				},
+			},
+			hasAI:    true,
+			aiStatus: "idle",
+		},
+		{
+			name: "worktree with working AI session",
+			wt: &WorktreeInfo{
+				Path:   "/repo/other",
+				Branch: "other-branch",
+				AISession: &AISessionStatus{
+					Status:    "working",
+					UpdatedAt: time.Now(),
+					Message:   "Generating code",
+				},
+			},
+			hasAI:    true,
+			aiStatus: "working",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.hasAI {
+				assert.NotNil(t, tt.wt.AISession)
+				assert.Equal(t, tt.aiStatus, tt.wt.AISession.Status)
+			} else {
+				assert.Nil(t, tt.wt.AISession)
+			}
 		})
 	}
 }

@@ -260,11 +260,11 @@ func TestAttachZellijSessionCmdUsesCommandRunner(t *testing.T) {
 		t.Fatal("expected command to be returned")
 	}
 
-	if capture.name != "zellij" {
+	if capture.name != multiplexerZellij {
 		t.Fatalf("expected zellij command, got %q", capture.name)
 	}
 	if len(capture.args) != 2 || capture.args[0] != onExistsAttach || capture.args[1] != testSessionName {
-		t.Fatalf("unexpected zellij args: %v", capture.args)
+		t.Fatalf("unexpected %s args: %v", multiplexerZellij, capture.args)
 	}
 }
 

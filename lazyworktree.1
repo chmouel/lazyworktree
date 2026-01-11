@@ -266,6 +266,11 @@ Open command palette showing all available commands.
 .B g
 Open LazyGit for the currently selected worktree.
 .
+.SS AI Session Management
+.TP
+.B a
+Launch AI session for the selected worktree (if none exists) or switch to an existing AI session. Requires \fBai_session.enabled: true\fR in configuration.
+.
 .SH MOUSE SUPPORT
 lazyworktree provides comprehensive mouse support for improved navigation and interaction:
 .
@@ -551,6 +556,79 @@ custom_create_menus:
     interactive: true
     post_command: "git commit --allow-empty -m 'Initial commit for ${WORKTREE_BRANCH}'"
     post_interactive: false
+.fi
+.RE
+.
+.SS AI Session Management
+.TP
+.B ai_session
+Configuration for managing AI coding tool sessions (Claude Code, Aider, Codex, etc.) in tmux or zellij.
+.PP
+AI session fields:
+.RS
+.IP \(bu 2
+\fBenabled\fR: Enable AI session management (default: false)
+.IP \(bu 2
+\fBmultiplexer\fR: Terminal multiplexer to use: "tmux" or "zellij" (default: tmux)
+.IP \(bu 2
+\fBsession_prefix\fR: Session name prefix, supports env vars like ${REPO_NAME} (default: ${REPO_NAME}_ai_)
+.IP \(bu 2
+\fBcommand\fR: AI tool command to execute (default: claude)
+.IP \(bu 2
+\fBpoll_interval\fR: Status file poll interval in seconds (default: 5)
+.IP \(bu 2
+\fBwindow_name\fR: Window/tab name for the AI session (default: ai)
+.RE
+.PP
+AI tools can report their status by writing to \fB.ai-status.json\fR in the worktree root. The status file format is:
+.RS
+.nf
+{
+  "status": "idle",
+  "updated_at": "2024-01-11T12:34:56Z",
+  "message": "Optional status message"
+}
+.fi
+.RE
+.PP
+Status values: \fBidle\fR (ready for input), \fBworking\fR (processing), \fBerror\fR.
+.PP
+Status indicators in the worktree table:
+.IP \(bu 2
+● Active/idle (session exists, ready for input)
+.IP \(bu 2
+◐◓◑◒ Working (animated spinner when AI tool is processing)
+.IP \(bu 2
+✗ Error
+.IP \(bu 2
+- No session
+.PP
+Example configuration:
+.RS
+.nf
+ai_session:
+  enabled: true
+  multiplexer: tmux
+  session_prefix: "${REPO_NAME}_ai_"
+  command: claude
+  poll_interval: 5
+  window_name: ai
+.fi
+.RE
+.PP
+To enable status reporting with Claude Code, configure hooks in \fB~/.claude/settings.json\fR:
+.RS
+.nf
+{
+  "hooks": {
+    "PreToolUse": [{
+      "command": "echo '{\\"status\\":\\"working\\"}' > .ai-status.json"
+    }],
+    "Stop": [{
+      "command": "echo '{\\"status\\":\\"idle\\"}' > .ai-status.json"
+    }]
+  }
+}
 .fi
 .RE
 .

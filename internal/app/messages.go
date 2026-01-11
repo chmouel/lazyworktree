@@ -71,13 +71,19 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 		m.currentScreen = screenNone
 		m.welcomeScreen = nil
 	}
+	var cmds []tea.Cmd
 	if m.config.AutoFetchPRs && !m.prDataLoaded {
 		m.loading = true
 		m.loadingScreen = NewLoadingScreen("Fetching PR data...", m.theme)
 		m.currentScreen = screenLoading
-		return m, m.fetchPRData()
+		cmds = append(cmds, m.fetchPRData())
 	}
-	return m, m.updateDetailsView()
+	// Trigger AI session status poll after worktrees are loaded
+	if m.config.AISession != nil && !m.aiSessionsLoaded {
+		cmds = append(cmds, m.pollAISessionStatus())
+	}
+	cmds = append(cmds, m.updateDetailsView())
+	return m, tea.Batch(cmds...)
 }
 
 // handleCachedWorktrees processes cached worktrees message.

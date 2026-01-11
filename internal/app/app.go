@@ -41,6 +41,8 @@ const (
 	customCommandPlaceholder = "Custom command"
 	tmuxSessionLabel         = "tmux session"
 	zellijSessionLabel       = "zellij session"
+	multiplexerTmux          = "tmux"
+	multiplexerZellij        = "zellij"
 	onExistsAttach           = "attach"
 	onExistsKill             = "kill"
 	onExistsNew              = "new"
@@ -57,6 +59,9 @@ const (
 
 	// Visual symbols for enhanced UI
 	symbolFilledCircle = "●"
+
+	// AI working indicator animation frames (rotating circle)
+	aiWorkingFrames = "◐◓◑◒"
 
 	searchFiles = "Search files..."
 
@@ -173,6 +178,11 @@ type (
 	customPostCommandResultMsg struct {
 		err error
 	}
+	// AI session messages
+	aiSessionStatusLoadedMsg struct {
+		statuses map[string]*models.AISessionStatus // worktree path -> status
+		err      error
+	}
 )
 
 type commitLogEntry struct {
@@ -268,6 +278,8 @@ type Model struct {
 	logSearchQuery       string
 	sortMode             int // sortModePath, sortModeLastActive, or sortModeLastSwitched
 	prDataLoaded         bool
+	aiSessionsLoaded     bool             // Whether AI session status has been loaded
+	aiAnimFrame          int              // Animation frame for AI working indicator
 	accessHistory        map[string]int64 // worktree path -> last access timestamp
 	repoKey              string
 	repoKeyOnce          sync.Once
@@ -558,6 +570,7 @@ func (m *Model) Init() tea.Cmd {
 	if m.showingFilter {
 		cmds = append(cmds, textinput.Blink)
 	}
+	// Note: AI session polling is started after worktrees load in handleWorktreesLoaded
 	return tea.Batch(cmds...)
 }
 
@@ -579,6 +592,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spinner, cmd = m.spinner.Update(msg)
 		if m.loadingScreen != nil && m.currentScreen == screenLoading {
 			m.loadingScreen.Tick()
+		}
+		// Advance AI working animation frame if any worktree has working status
+		if m.config.AISession != nil && m.hasAnyWorkingAISession() {
+			m.aiAnimFrame = (m.aiAnimFrame + 1) % len([]rune(aiWorkingFrames))
+			m.updateTable()
 		}
 		return m, cmd
 
@@ -743,6 +761,35 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		message := buildZellijInfoMessage(msg.sessionName)
 		m.infoScreen = NewInfoScreen(message, m.theme)
 		m.currentScreen = screenInfo
+		return m, nil
+
+	case aiSessionStatusLoadedMsg:
+		if msg.err == nil && msg.statuses != nil {
+			// Update worktree AI status
+			for _, wt := range m.worktrees {
+				if status, ok := msg.statuses[wt.Path]; ok {
+					wt.AISession = status
+				} else {
+					wt.AISession = nil
+				}
+			}
+			// First time loading: update columns and table
+			if !m.aiSessionsLoaded {
+				m.aiSessionsLoaded = true
+				m.updateTableColumns(m.worktreeTable.Width())
+			}
+			m.updateTable()
+		}
+		// Schedule next poll if AI sessions are enabled
+		if m.config.AISession != nil {
+			pollInterval := m.config.AISession.PollInterval
+			if pollInterval < 1 {
+				pollInterval = 5
+			}
+			return m, tea.Tick(time.Duration(pollInterval)*time.Second, func(t time.Time) tea.Msg {
+				return m.pollAISessionStatus()()
+			})
+		}
 		return m, nil
 
 	case refreshCompleteMsg:
@@ -1211,6 +1258,26 @@ func (m *Model) updateTable() {
 				prStr = fmt.Sprintf("%s#%-5d%s", prIcon, wt.PR.Number, stateSymbol)
 			}
 			row = append(row, prStr)
+		}
+
+		// Only include AI column if AI sessions are enabled and loaded
+		if m.config.AISession != nil && m.aiSessionsLoaded {
+			aiStr := "-"
+			if wt.AISession != nil {
+				switch wt.AISession.Status {
+				case "idle":
+					aiStr = "● " // Ready/idle
+				case "working":
+					// Animated spinner for working state
+					frames := []rune(aiWorkingFrames)
+					aiStr = string(frames[m.aiAnimFrame%len(frames)]) + " "
+				case "error":
+					aiStr = "✗ " // Error state
+				default:
+					aiStr = "● " // Default to ready if status unknown but exists
+				}
+			}
+			row = append(row, aiStr)
 		}
 
 		rows = append(rows, row)
@@ -2660,6 +2727,90 @@ func (m *Model) openZellijSession(zellijCfg *config.TmuxCommand, wt *models.Work
 	})
 }
 
+// getAISessionName generates a consistent session name for AI sessions.
+func (m *Model) getAISessionName(wt *models.WorktreeInfo) string {
+	if m.config.AISession == nil {
+		return ""
+	}
+	env := m.buildCommandEnv(wt.Branch, wt.Path)
+	prefix := m.config.AISession.SessionPrefix
+	if prefix == "" {
+		prefix = "${REPO_NAME}_ai_"
+	}
+	sessionName := expandWithEnv(prefix+filepath.Base(wt.Path), env)
+	if m.config.AISession.Multiplexer == multiplexerZellij {
+		sessionName = sanitizeZellijSessionName(sessionName)
+	}
+	return sessionName
+}
+
+// pollAISessionStatus reads AI status files from all worktrees.
+func (m *Model) pollAISessionStatus() tea.Cmd {
+	// Capture worktrees slice at call time to avoid closure issues
+	worktrees := m.worktrees
+	return func() tea.Msg {
+		statuses := make(map[string]*models.AISessionStatus)
+		for _, wt := range worktrees {
+			statusPath := filepath.Join(wt.Path, models.AISessionStatusFilename)
+			// #nosec G304 -- path is constructed from known worktree paths
+			data, err := os.ReadFile(statusPath)
+			if err != nil {
+				continue // No status file, skip
+			}
+			var status models.AISessionStatus
+			if err := json.Unmarshal(data, &status); err != nil {
+				continue // Invalid JSON, skip
+			}
+			statuses[wt.Path] = &status
+		}
+		return aiSessionStatusLoadedMsg{statuses: statuses}
+	}
+}
+
+// launchAISession creates a new tmux/zellij session with the AI command.
+func (m *Model) launchAISession(wt *models.WorktreeInfo) tea.Cmd {
+	if m.config.AISession == nil {
+		return nil
+	}
+
+	sessionName := m.getAISessionName(wt)
+	windowName := m.config.AISession.WindowName
+	if windowName == "" {
+		windowName = "ai"
+	}
+
+	// Build tmux/zellij command configuration
+	aiCommand := &config.TmuxCommand{
+		SessionName: sessionName,
+		Attach:      true,
+		OnExists:    onExistsSwitch,
+		Windows: []config.TmuxWindow{
+			{
+				Name:    windowName,
+				Command: m.config.AISession.Command,
+				Cwd:     wt.Path,
+			},
+		},
+	}
+
+	switch m.config.AISession.Multiplexer {
+	case multiplexerZellij:
+		return m.openZellijSession(aiCommand, wt)
+	default:
+		return m.openTmuxSession(aiCommand, wt)
+	}
+}
+
+// hasAnyWorkingAISession checks if any worktree has an AI session in "working" state.
+func (m *Model) hasAnyWorkingAISession() bool {
+	for _, wt := range m.filteredWts {
+		if wt.AISession != nil && wt.AISession.Status == "working" {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Model) openPR() tea.Cmd {
 	if m.selectedIndex < 0 || m.selectedIndex >= len(m.filteredWts) {
 		return nil
@@ -4075,7 +4226,7 @@ func (m *Model) attachTmuxSessionCmd(sessionName string, insideTmux bool) tea.Cm
 
 func (m *Model) attachZellijSessionCmd(sessionName string) tea.Cmd {
 	// #nosec G204 -- zellij session name comes from user configuration.
-	c := m.commandRunner("zellij", onExistsAttach, sessionName)
+	c := m.commandRunner(multiplexerZellij, onExistsAttach, sessionName)
 	return m.execProcess(c, func(err error) tea.Msg {
 		if err != nil {
 			return errMsg{err: err}
@@ -5546,16 +5697,25 @@ func (m *Model) updateTableColumns(totalWidth int) {
 		pr = 12
 	}
 
+	// Only include AI column width if AI sessions are enabled and loaded
+	ai := 0
+	if m.config.AISession != nil && m.aiSessionsLoaded {
+		ai = 4
+	}
+
 	// The table library handles separators internally (3 spaces per separator)
 	// So we need to account for them: (numColumns - 1) * 3
 	numColumns := 4
 	if m.prDataLoaded {
-		numColumns = 5
+		numColumns++
+	}
+	if m.config.AISession != nil && m.aiSessionsLoaded {
+		numColumns++
 	}
 	separatorSpace := (numColumns - 1) * 3
 
-	worktree := maxInt(12, totalWidth-status-ab-last-pr-separatorSpace)
-	excess := worktree + status + ab + pr + last + separatorSpace - totalWidth
+	worktree := maxInt(12, totalWidth-status-ab-last-pr-ai-separatorSpace)
+	excess := worktree + status + ab + pr + ai + last + separatorSpace - totalWidth
 	for excess > 0 && last > 10 {
 		last--
 		excess--
@@ -5583,7 +5743,7 @@ func (m *Model) updateTableColumns(totalWidth int) {
 	}
 
 	// Final adjustment: ensure column widths + separators sum exactly to totalWidth
-	actualTotal := worktree + status + ab + last + pr + separatorSpace
+	actualTotal := worktree + status + ab + last + pr + ai + separatorSpace
 	if actualTotal < totalWidth {
 		// Distribute remaining space to the worktree column
 		worktree += (totalWidth - actualTotal)
@@ -5601,6 +5761,10 @@ func (m *Model) updateTableColumns(totalWidth int) {
 
 	if m.prDataLoaded {
 		columns = append(columns, table.Column{Title: "PR", Width: pr})
+	}
+
+	if m.config.AISession != nil && m.aiSessionsLoaded {
+		columns = append(columns, table.Column{Title: "AI", Width: ai})
 	}
 
 	m.worktreeTable.SetColumns(columns)

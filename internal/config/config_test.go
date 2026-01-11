@@ -1621,3 +1621,168 @@ func TestIsPathWithin(t *testing.T) {
 	assert.True(t, isPathWithin(base, inside))
 	assert.False(t, isPathWithin(base, outside))
 }
+
+func TestParseAISessionConfig(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    any
+		validate func(t *testing.T, cfg *AISessionConfig)
+	}{
+		{
+			name:  "nil returns nil",
+			input: nil,
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				assert.Nil(t, cfg)
+			},
+		},
+		{
+			name:  "non-map returns nil",
+			input: "string",
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				assert.Nil(t, cfg)
+			},
+		},
+		{
+			name:  "disabled returns nil",
+			input: map[string]any{"enabled": false},
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				assert.Nil(t, cfg)
+			},
+		},
+		{
+			name:  "enabled with defaults",
+			input: map[string]any{"enabled": true},
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				require.NotNil(t, cfg)
+				assert.True(t, cfg.Enabled)
+				assert.Equal(t, "tmux", cfg.Multiplexer)
+				assert.Equal(t, "${REPO_NAME}_ai_", cfg.SessionPrefix)
+				assert.Empty(t, cfg.Command)
+				assert.Equal(t, 5, cfg.PollInterval)
+				assert.Equal(t, "ai", cfg.WindowName)
+			},
+		},
+		{
+			name: "zellij multiplexer",
+			input: map[string]any{
+				"enabled":     true,
+				"multiplexer": "zellij",
+			},
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				require.NotNil(t, cfg)
+				assert.Equal(t, "zellij", cfg.Multiplexer)
+			},
+		},
+		{
+			name: "invalid multiplexer falls back to tmux",
+			input: map[string]any{
+				"enabled":     true,
+				"multiplexer": "invalid",
+			},
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				require.NotNil(t, cfg)
+				assert.Equal(t, "tmux", cfg.Multiplexer)
+			},
+		},
+		{
+			name: "custom command",
+			input: map[string]any{
+				"enabled": true,
+				"command": "claude",
+			},
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				require.NotNil(t, cfg)
+				assert.Equal(t, "claude", cfg.Command)
+			},
+		},
+		{
+			name: "custom poll interval",
+			input: map[string]any{
+				"enabled":       true,
+				"poll_interval": 10,
+			},
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				require.NotNil(t, cfg)
+				assert.Equal(t, 10, cfg.PollInterval)
+			},
+		},
+		{
+			name: "poll interval less than 1 is clamped to 1",
+			input: map[string]any{
+				"enabled":       true,
+				"poll_interval": 0,
+			},
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				require.NotNil(t, cfg)
+				assert.Equal(t, 1, cfg.PollInterval)
+			},
+		},
+		{
+			name: "custom session prefix",
+			input: map[string]any{
+				"enabled":        true,
+				"session_prefix": "my_ai_",
+			},
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				require.NotNil(t, cfg)
+				assert.Equal(t, "my_ai_", cfg.SessionPrefix)
+			},
+		},
+		{
+			name: "custom window name",
+			input: map[string]any{
+				"enabled":     true,
+				"window_name": "claude",
+			},
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				require.NotNil(t, cfg)
+				assert.Equal(t, "claude", cfg.WindowName)
+			},
+		},
+		{
+			name: "full config",
+			input: map[string]any{
+				"enabled":        true,
+				"multiplexer":    "zellij",
+				"session_prefix": "${REPO_NAME}_coding_",
+				"command":        "aider",
+				"poll_interval":  3,
+				"window_name":    "code",
+			},
+			validate: func(t *testing.T, cfg *AISessionConfig) {
+				require.NotNil(t, cfg)
+				assert.True(t, cfg.Enabled)
+				assert.Equal(t, "zellij", cfg.Multiplexer)
+				assert.Equal(t, "${REPO_NAME}_coding_", cfg.SessionPrefix)
+				assert.Equal(t, "aider", cfg.Command)
+				assert.Equal(t, 3, cfg.PollInterval)
+				assert.Equal(t, "code", cfg.WindowName)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := parseAISessionConfig(tt.input)
+			tt.validate(t, cfg)
+		})
+	}
+}
+
+func TestParseConfigAISession(t *testing.T) {
+	input := map[string]any{
+		"ai_session": map[string]any{
+			"enabled":     true,
+			"multiplexer": "tmux",
+			"command":     "claude",
+		},
+	}
+	cfg := parseConfig(input)
+	require.NotNil(t, cfg.AISession)
+	assert.True(t, cfg.AISession.Enabled)
+	assert.Equal(t, "tmux", cfg.AISession.Multiplexer)
+	assert.Equal(t, "claude", cfg.AISession.Command)
+}

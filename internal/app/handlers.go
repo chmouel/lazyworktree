@@ -479,6 +479,17 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "g":
 		return m, m.openLazyGit()
 
+	case "a":
+		// AI session: launch or switch to session
+		// Always use launchAISession which handles both create and switch (via on_exists: switch)
+		if m.config.AISession != nil {
+			if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
+				wt := m.filteredWts[m.selectedIndex]
+				return m, m.launchAISession(wt)
+			}
+		}
+		return m, nil
+
 	case "o":
 		return m, m.openPR()
 

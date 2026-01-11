@@ -51,6 +51,16 @@ type CustomCreateMenu struct {
 	PostInteractive bool   // Run post-command interactively (default: false)
 }
 
+// AISessionConfig defines the AI session manager settings.
+type AISessionConfig struct {
+	Enabled       bool   // Enable AI session management
+	Multiplexer   string // "tmux" or "zellij"
+	SessionPrefix string // Prefix for session names (supports env vars like ${REPO_NAME})
+	Command       string // AI tool command (e.g., "claude", "aider", "codex")
+	PollInterval  int    // Status poll interval in seconds (default: 5)
+	WindowName    string // Window/tab name for the AI session (default: "ai")
+}
+
 // AppConfig defines the global lazyworktree configuration options.
 type AppConfig struct {
 	WorktreeDir             string
@@ -77,6 +87,7 @@ type AppConfig struct {
 	IssueBranchNameTemplate string // Template for issue branch names with placeholders: {number}, {title} (default: "issue-{number}-{title}")
 	PRBranchNameTemplate    string // Template for PR branch names with placeholders: {number}, {title} (default: "pr-{number}-{title}")
 	CustomCreateMenus       []*CustomCreateMenu
+	AISession               *AISessionConfig // AI session manager configuration
 }
 
 // RepoConfig represents repository-scoped commands from .wt
@@ -453,6 +464,7 @@ func parseConfig(data map[string]any) *AppConfig {
 	}
 
 	cfg.CustomCreateMenus = parseCustomCreateMenus(data["custom_create_menus"])
+	cfg.AISession = parseAISessionConfig(data["ai_session"])
 
 	return cfg
 }
@@ -498,6 +510,62 @@ func parseCustomCreateMenus(data any) []*CustomCreateMenu {
 	}
 
 	return menus
+}
+
+// parseAISessionConfig parses the ai_session configuration from config data.
+func parseAISessionConfig(data any) *AISessionConfig {
+	if data == nil {
+		return nil
+	}
+
+	configMap, ok := data.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	cfg := &AISessionConfig{
+		Enabled:       coerceBool(configMap["enabled"], false),
+		Multiplexer:   "tmux",
+		SessionPrefix: "${REPO_NAME}_ai_",
+		Command:       "",
+		PollInterval:  5,
+		WindowName:    "ai",
+	}
+
+	if multiplexer, ok := configMap["multiplexer"].(string); ok {
+		multiplexer = strings.ToLower(strings.TrimSpace(multiplexer))
+		if multiplexer == "tmux" || multiplexer == "zellij" {
+			cfg.Multiplexer = multiplexer
+		}
+	}
+
+	if prefix, ok := configMap["session_prefix"].(string); ok {
+		if trimmed := strings.TrimSpace(prefix); trimmed != "" {
+			cfg.SessionPrefix = trimmed
+		}
+	}
+
+	if command, ok := configMap["command"].(string); ok {
+		cfg.Command = strings.TrimSpace(command)
+	}
+
+	cfg.PollInterval = coerceInt(configMap["poll_interval"], 5)
+	if cfg.PollInterval < 1 {
+		cfg.PollInterval = 1
+	}
+
+	if windowName, ok := configMap["window_name"].(string); ok {
+		if trimmed := strings.TrimSpace(windowName); trimmed != "" {
+			cfg.WindowName = trimmed
+		}
+	}
+
+	// Only return config if enabled and command is set
+	if !cfg.Enabled {
+		return nil
+	}
+
+	return cfg
 }
 
 // LoadRepoConfig loads repository-specific commands from .wt in repoPath

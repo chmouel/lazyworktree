@@ -696,6 +696,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - d: Full-screen diff viewer
 - o: Open PR/MR in browser
 - g: Open LazyGit (or go to top in diff pane)
+- a: AI session (launch or switch to existing)
 - =: Toggle zoom for focused pane
 - : / Ctrl+P: Command Palette
 - ?: Show this help
@@ -725,6 +726,12 @@ Search Mode:
 - ✎: Uncommitted changes (dirty)
 - ↑N: Ahead of remote by N commits
 - ↓N: Behind remote by N commits
+
+**🤖 AI Session Indicators** (when enabled)
+- ●: AI session ready/idle
+- ◐◓◑◒: AI session working (animated)
+- ✗: AI session error
+- -: No AI session
 
 **❓ Help Navigation**
 - /: Search help (Enter to apply, Esc to clear)

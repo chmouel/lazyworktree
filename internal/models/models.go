@@ -1,6 +1,8 @@
 // Package models defines the data objects shared across lazyworktree packages.
 package models
 
+import "time"
+
 // CommitFile represents a file changed in a commit.
 type CommitFile struct {
 	Filename   string
@@ -40,6 +42,14 @@ type CICheck struct {
 	Conclusion string // Conclusion: "success", "failure", "skipped", "cancelled", etc.
 }
 
+// AISessionStatus represents the current state of an AI session for a worktree.
+// Status is written by the AI tool via hooks to a file in the worktree root.
+type AISessionStatus struct {
+	Status    string    `json:"status"`     // Status: "idle", "working", "error"
+	UpdatedAt time.Time `json:"updated_at"` // When the status was last updated
+	Message   string    `json:"message"`    // Optional status message
+}
+
 // WorktreeInfo summarizes the information for a git worktree.
 type WorktreeInfo struct {
 	Path           string
@@ -54,6 +64,7 @@ type WorktreeInfo struct {
 	LastActiveTS   int64
 	LastSwitchedTS int64 // Unix timestamp of last UI access/switch
 	PR             *PRInfo
+	AISession      *AISessionStatus // AI session status (nil if no session)
 	Untracked      int
 	Modified       int
 	Staged         int
@@ -69,4 +80,6 @@ const (
 	CommandHistoryFilename = ".command-history.json"
 	// AccessHistoryFilename stores worktree access timestamps for sorting.
 	AccessHistoryFilename = ".worktree-access.json"
+	// AISessionStatusFilename stores the AI session status in the worktree root.
+	AISessionStatusFilename = ".ai-status.json"
 )
