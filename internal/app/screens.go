@@ -603,9 +603,15 @@ func (s *InputScreen) View() string {
 
 	inputWrapperStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
-		BorderForeground(s.thm.BorderDim).
 		Padding(0, 1).
 		Width(width - 6)
+
+	// Use brighter border when input has focus, dimmer when checkbox is focused
+	if s.checkboxEnabled && s.checkboxFocused {
+		inputWrapperStyle = inputWrapperStyle.BorderForeground(s.thm.BorderDim)
+	} else {
+		inputWrapperStyle = inputWrapperStyle.BorderForeground(s.thm.Border)
+	}
 
 	footerStyle := lipgloss.NewStyle().
 		Foreground(s.thm.MutedFg).
@@ -624,23 +630,23 @@ func (s *InputScreen) View() string {
 			checkbox = "[x] "
 		}
 
-		// Add visual indicator when checkbox is focused
-		focusIndicator := ""
-		if s.checkboxFocused {
-			focusIndicator = "> "
-		}
-
 		checkboxStyle := lipgloss.NewStyle().
-			Foreground(s.thm.Accent).
 			Width(width - 6).
 			MarginTop(1)
 
-		// Apply bold when focused
 		if s.checkboxFocused {
-			checkboxStyle = checkboxStyle.Bold(true)
+			// Highlight background when focused (like fuzzy finder selections)
+			checkboxStyle = checkboxStyle.
+				Background(s.thm.Accent).
+				Foreground(s.thm.AccentFg).
+				Padding(0, 1).
+				Bold(true)
+		} else {
+			// Normal styling when unfocused
+			checkboxStyle = checkboxStyle.Foreground(s.thm.Accent)
 		}
 
-		contentLines = append(contentLines, checkboxStyle.Render(focusIndicator+checkbox+s.checkboxLabel))
+		contentLines = append(contentLines, checkboxStyle.Render(checkbox+s.checkboxLabel))
 	}
 
 	contentLines = append(contentLines, inputWrapperStyle.Render(s.input.View()))

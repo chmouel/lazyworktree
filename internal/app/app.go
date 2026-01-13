@@ -3909,7 +3909,7 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		var cmd tea.Cmd
-		m.inputScreen.input, cmd = m.inputScreen.input.Update(msg)
+		_, cmd = m.inputScreen.Update(msg)
 		return m, cmd
 	}
 	return m, nil
