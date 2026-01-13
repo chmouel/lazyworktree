@@ -360,6 +360,29 @@ func (s *Service) GetMainBranch(ctx context.Context) string {
 	return s.mainBranch
 }
 
+// GetMergedBranches returns local branches that have been merged into the specified base branch.
+func (s *Service) GetMergedBranches(ctx context.Context, baseBranch string) []string {
+	output := s.RunGit(ctx, []string{"git", "branch", "--merged", baseBranch}, "", []int{0}, true, false)
+	if output == "" {
+		return nil
+	}
+
+	var merged []string
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		// Skip current branch marker (starts with "* ")
+		line = strings.TrimPrefix(line, "* ")
+		// Skip worktree branch marker (starts with "+ ")
+		line = strings.TrimPrefix(line, "+ ")
+		line = strings.TrimSpace(line)
+		if line == "" || line == baseBranch {
+			continue
+		}
+		merged = append(merged, line)
+	}
+	return merged
+}
+
 // GetWorktrees parses git worktree metadata and returns the list of worktrees.
 // This method concurrently fetches status information for each worktree to improve performance.
 // The first worktree in the list is marked as the main worktree.

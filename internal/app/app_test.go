@@ -1898,7 +1898,7 @@ func TestShowPruneMerged(t *testing.T) {
 	if m.currentScreen != screenInfo {
 		t.Fatalf("expected info screen, got %v", m.currentScreen)
 	}
-	if m.infoScreen == nil || m.infoScreen.message != "No merged PR worktrees to prune." {
+	if m.infoScreen == nil || m.infoScreen.message != "No merged worktrees to prune." {
 		t.Fatalf("unexpected info modal: %#v", m.infoScreen)
 	}
 
@@ -1906,11 +1906,11 @@ func TestShowPruneMerged(t *testing.T) {
 		{Path: "/tmp/main", Branch: mainWorktreeName, IsMain: true},
 		{Path: "/tmp/merged", Branch: "merged", PR: &models.PRInfo{State: "MERGED"}},
 	}
-	if cmd := m.showPruneMerged(); cmd != nil {
-		t.Fatal("expected nil command for confirm screen")
+	if m.showPruneMerged() == nil {
+		t.Fatal("expected blink command for checklist screen")
 	}
-	if m.confirmScreen == nil || m.confirmAction == nil || m.currentScreen != screenConfirm {
-		t.Fatal("expected confirm screen for prune")
+	if m.checklistScreen == nil || m.checklistSubmit == nil || m.currentScreen != screenChecklist {
+		t.Fatal("expected checklist screen for prune")
 	}
 }
 

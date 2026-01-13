@@ -886,3 +886,80 @@ func TestParseCommitFiles(t *testing.T) {
 		})
 	}
 }
+
+func TestGetMergedBranches(t *testing.T) {
+	notify := func(_ string, _ string) {}
+	notifyOnce := func(_ string, _ string, _ string) {}
+
+	service := NewService(notify, notifyOnce)
+	ctx := context.Background()
+
+	// Create a temp directory for a test git repo
+	tmpDir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() {
+		_ = os.Chdir(origDir)
+	}()
+
+	require.NoError(t, os.Chdir(tmpDir))
+
+	// Initialize a git repo with main as default branch
+	cmd := exec.Command("git", "init", "-b", "main")
+	require.NoError(t, cmd.Run())
+
+	// Configure git user and disable gpg signing
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	require.NoError(t, cmd.Run())
+	cmd = exec.Command("git", "config", "user.name", "Test")
+	require.NoError(t, cmd.Run())
+	cmd = exec.Command("git", "config", "commit.gpgsign", "false")
+	require.NoError(t, cmd.Run())
+
+	// Create initial commit on main
+	require.NoError(t, os.WriteFile("file.txt", []byte("initial"), 0o600))
+	cmd = exec.Command("git", "add", "file.txt")
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git add failed: %s", string(output))
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	output, err = cmd.CombinedOutput()
+	require.NoError(t, err, "git commit failed: %s", string(output))
+
+	// Create a branch and make a commit
+	cmd = exec.Command("git", "checkout", "-b", "feature-branch")
+	require.NoError(t, cmd.Run())
+	require.NoError(t, os.WriteFile("feature.txt", []byte("feature"), 0o600))
+	cmd = exec.Command("git", "add", "feature.txt")
+	require.NoError(t, cmd.Run())
+	cmd = exec.Command("git", "commit", "-m", "feature")
+	require.NoError(t, cmd.Run())
+
+	// Go back to main and merge the feature branch
+	cmd = exec.Command("git", "checkout", "main")
+	require.NoError(t, cmd.Run())
+	cmd = exec.Command("git", "merge", "feature-branch")
+	require.NoError(t, cmd.Run())
+
+	// Now feature-branch should be detected as merged
+	merged := service.GetMergedBranches(ctx, "main")
+	assert.Contains(t, merged, "feature-branch")
+
+	// Create another branch that is NOT merged
+	cmd = exec.Command("git", "checkout", "-b", "unmerged-branch")
+	require.NoError(t, cmd.Run())
+	require.NoError(t, os.WriteFile("unmerged.txt", []byte("unmerged"), 0o600))
+	cmd = exec.Command("git", "add", "unmerged.txt")
+	require.NoError(t, cmd.Run())
+	cmd = exec.Command("git", "commit", "-m", "unmerged")
+	require.NoError(t, cmd.Run())
+
+	// Go back to main
+	cmd = exec.Command("git", "checkout", "main")
+	require.NoError(t, cmd.Run())
+
+	// Get merged branches again
+	merged = service.GetMergedBranches(ctx, "main")
+	assert.Contains(t, merged, "feature-branch")
+	assert.NotContains(t, merged, "unmerged-branch")
+}

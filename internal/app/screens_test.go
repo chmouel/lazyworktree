@@ -419,3 +419,116 @@ func TestNewConfirmScreenWithDefault(t *testing.T) {
 		}
 	})
 }
+
+func TestChecklistScreenUpdate(t *testing.T) {
+	items := []ChecklistItem{
+		{ID: "a", Label: "Alpha", Checked: true},
+		{ID: "b", Label: "Beta", Checked: false},
+	}
+	screen := NewChecklistScreen(items, "Select", "", "", 100, 40, theme.Dracula())
+
+	// Test cursor movement down
+	_, _ = screen.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if screen.cursor != 1 {
+		t.Fatalf("expected cursor to move down, got %d", screen.cursor)
+	}
+
+	// Test cursor movement up
+	_, _ = screen.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if screen.cursor != 0 {
+		t.Fatalf("expected cursor to move up, got %d", screen.cursor)
+	}
+
+	// Test toggle with space
+	screen.cursor = 1 // on Beta which is unchecked
+	_, _ = screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	if !screen.items[1].Checked {
+		t.Fatal("expected item to be checked after toggle")
+	}
+
+	// Toggle again
+	_, _ = screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	if screen.items[1].Checked {
+		t.Fatal("expected item to be unchecked after second toggle")
+	}
+}
+
+func TestChecklistScreenSelectAll(t *testing.T) {
+	items := []ChecklistItem{
+		{ID: "a", Label: "Alpha", Checked: false},
+		{ID: "b", Label: "Beta", Checked: false},
+	}
+	screen := NewChecklistScreen(items, "Select", "", "", 100, 40, theme.Dracula())
+
+	// Test select all with 'a'
+	_, _ = screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
+	for _, item := range screen.items {
+		if !item.Checked {
+			t.Fatalf("expected all items to be checked after 'a', got %s unchecked", item.Label)
+		}
+	}
+
+	// Test deselect all with 'n'
+	_, _ = screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	for _, item := range screen.items {
+		if item.Checked {
+			t.Fatalf("expected all items to be unchecked after 'n', got %s checked", item.Label)
+		}
+	}
+}
+
+func TestChecklistScreenSelectedItems(t *testing.T) {
+	items := []ChecklistItem{
+		{ID: "a", Label: "Alpha", Checked: true},
+		{ID: "b", Label: "Beta", Checked: false},
+		{ID: "c", Label: "Gamma", Checked: true},
+	}
+	screen := NewChecklistScreen(items, "Select", "", "", 100, 40, theme.Dracula())
+
+	selected := screen.SelectedItems()
+	if len(selected) != 2 {
+		t.Fatalf("expected 2 selected items, got %d", len(selected))
+	}
+	if selected[0].ID != "a" || selected[1].ID != "c" {
+		t.Fatalf("expected IDs 'a' and 'c', got %s and %s", selected[0].ID, selected[1].ID)
+	}
+}
+
+func TestChecklistScreenView(t *testing.T) {
+	items := []ChecklistItem{
+		{ID: "a", Label: "Alpha", Description: "First item", Checked: true},
+		{ID: "b", Label: "Beta", Description: "Second item", Checked: false},
+	}
+	screen := NewChecklistScreen(items, "Test Title", "", "", 100, 40, theme.Dracula())
+
+	view := screen.View()
+	if !strings.Contains(view, "Test Title") {
+		t.Error("view missing title")
+	}
+	if !strings.Contains(view, "[x]") {
+		t.Error("view missing checked checkbox")
+	}
+	if !strings.Contains(view, "[ ]") {
+		t.Error("view missing unchecked checkbox")
+	}
+	if !strings.Contains(view, "1 selected") {
+		t.Error("view missing selected count")
+	}
+}
+
+func TestChecklistScreenFilter(t *testing.T) {
+	items := []ChecklistItem{
+		{ID: "a", Label: "Alpha", Checked: true},
+		{ID: "b", Label: "Beta", Checked: true},
+	}
+	screen := NewChecklistScreen(items, "Select", "", "", 100, 40, theme.Dracula())
+
+	// Type in filter
+	_, _ = screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("alp")})
+	if len(screen.filtered) != 1 {
+		t.Fatalf("expected 1 filtered item, got %d", len(screen.filtered))
+	}
+	if screen.filtered[0].Label != "Alpha" {
+		t.Fatalf("expected filtered item to be Alpha, got %s", screen.filtered[0].Label)
+	}
+}

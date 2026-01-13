@@ -32,6 +32,7 @@ const (
 	screenListSelect
 	screenLoading
 	screenCommitFiles
+	screenChecklist
 
 	// Key constants (keyEnter and keyEsc are defined in app.go)
 	keyCtrlD    = "ctrl+d"
@@ -149,6 +150,29 @@ type selectionItem struct {
 	description string
 }
 
+// ChecklistItem represents a single item with a checkbox state.
+type ChecklistItem struct {
+	ID          string
+	Label       string
+	Description string
+	Checked     bool
+}
+
+// ChecklistScreen lets the user select multiple items from a list via checkboxes.
+type ChecklistScreen struct {
+	items        []ChecklistItem
+	filtered     []ChecklistItem
+	filterInput  textinput.Model
+	cursor       int
+	scrollOffset int
+	width        int
+	height       int
+	title        string
+	placeholder  string
+	noResults    string
+	thm          *theme.Theme
+}
+
 // PRSelectionScreen lets the user pick a PR from a filtered list.
 type PRSelectionScreen struct {
 	prs          []*models.PRInfo
@@ -251,6 +275,311 @@ func NewLoadingScreen(message string, thm *theme.Theme) *LoadingScreen {
 		spinnerFrameIdx: 0,
 		thm:             thm,
 	}
+}
+
+// NewChecklistScreen creates a multi-select checklist screen.
+func NewChecklistScreen(items []ChecklistItem, title, placeholder, noResults string, maxWidth, maxHeight int, thm *theme.Theme) *ChecklistScreen {
+	// Use 80% of screen size
+	width := int(float64(maxWidth) * 0.8)
+	height := int(float64(maxHeight) * 0.8)
+
+	// Ensure minimum sizes
+	if width < 60 {
+		width = 60
+	}
+	if height < 20 {
+		height = 20
+	}
+
+	if placeholder == "" {
+		placeholder = "Filter..."
+	}
+	if noResults == "" {
+		noResults = "No items found."
+	}
+
+	ti := textinput.New()
+	ti.Placeholder = placeholder
+	ti.CharLimit = 100
+	ti.Prompt = "> "
+	ti.Focus()
+	ti.Width = width - 4 // padding
+
+	cursor := 0
+	if len(items) == 0 {
+		cursor = -1
+	}
+
+	screen := &ChecklistScreen{
+		items:        items,
+		filtered:     items,
+		filterInput:  ti,
+		cursor:       cursor,
+		scrollOffset: 0,
+		width:        width,
+		height:       height,
+		title:        title,
+		placeholder:  placeholder,
+		noResults:    noResults,
+		thm:          thm,
+	}
+	return screen
+}
+
+// Init configures the checklist input before Bubble Tea updates begin.
+func (s *ChecklistScreen) Init() tea.Cmd {
+	return textinput.Blink
+}
+
+// Update handles keyboard events for the checklist screen.
+func (s *ChecklistScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	maxVisible := (s.height - 6) / 2 // Account for header, input, footer; divide by 2 since each item takes 2 lines
+
+	keyMsg, ok := msg.(tea.KeyMsg)
+	if ok {
+		switch keyMsg.String() {
+		case keyEnter:
+			return s, tea.Quit
+		case keyEsc, keyCtrlC:
+			// Clear all selections on cancel
+			for i := range s.items {
+				s.items[i].Checked = false
+			}
+			s.applyFilter()
+			return s, tea.Quit
+		case keyUp, "k", keyCtrlK:
+			if s.cursor > 0 {
+				s.cursor--
+				if s.cursor < s.scrollOffset {
+					s.scrollOffset = s.cursor
+				}
+			}
+			return s, nil
+		case keyDown, "j", keyCtrlJ:
+			if s.cursor < len(s.filtered)-1 {
+				s.cursor++
+				if s.cursor >= s.scrollOffset+maxVisible {
+					s.scrollOffset = s.cursor - maxVisible + 1
+				}
+			}
+			return s, nil
+		case " ":
+			// Toggle current item
+			if s.cursor >= 0 && s.cursor < len(s.filtered) {
+				// Find the item in the original list and toggle it
+				id := s.filtered[s.cursor].ID
+				for i := range s.items {
+					if s.items[i].ID == id {
+						s.items[i].Checked = !s.items[i].Checked
+						break
+					}
+				}
+				s.applyFilter()
+			}
+			return s, nil
+		case "a":
+			// Select all filtered items
+			for _, f := range s.filtered {
+				for i := range s.items {
+					if s.items[i].ID == f.ID {
+						s.items[i].Checked = true
+						break
+					}
+				}
+			}
+			s.applyFilter()
+			return s, nil
+		case "n":
+			// Deselect all filtered items
+			for _, f := range s.filtered {
+				for i := range s.items {
+					if s.items[i].ID == f.ID {
+						s.items[i].Checked = false
+						break
+					}
+				}
+			}
+			s.applyFilter()
+			return s, nil
+		}
+	}
+
+	s.filterInput, cmd = s.filterInput.Update(msg)
+	s.applyFilter()
+	return s, cmd
+}
+
+func (s *ChecklistScreen) applyFilter() {
+	query := strings.ToLower(strings.TrimSpace(s.filterInput.Value()))
+	if query == "" {
+		// Rebuild filtered from items to reflect checkbox changes
+		s.filtered = make([]ChecklistItem, len(s.items))
+		copy(s.filtered, s.items)
+	} else {
+		s.filtered = []ChecklistItem{}
+		for _, item := range s.items {
+			labelLower := strings.ToLower(item.Label)
+			descLower := strings.ToLower(item.Description)
+			idLower := strings.ToLower(item.ID)
+			if strings.Contains(labelLower, query) || strings.Contains(descLower, query) || strings.Contains(idLower, query) {
+				s.filtered = append(s.filtered, item)
+			}
+		}
+	}
+
+	// Reset cursor if needed
+	if len(s.filtered) == 0 {
+		s.cursor = -1
+	} else if s.cursor >= len(s.filtered) || s.cursor < 0 {
+		s.cursor = 0
+	}
+	s.scrollOffset = 0
+}
+
+// SelectedItems returns all checked items.
+func (s *ChecklistScreen) SelectedItems() []ChecklistItem {
+	var selected []ChecklistItem
+	for _, item := range s.items {
+		if item.Checked {
+			selected = append(selected, item)
+		}
+	}
+	return selected
+}
+
+// View renders the checklist screen.
+func (s *ChecklistScreen) View() string {
+	maxVisible := (s.height - 6) / 2 // Account for header, input, footer; divide by 2 since each item takes 2 lines
+
+	// Enhanced checklist modal with rounded border
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(s.thm.Accent).
+		Width(s.width).
+		Padding(0)
+
+	titleStyle := lipgloss.NewStyle().
+		Foreground(s.thm.Accent).
+		Bold(true).
+		Border(lipgloss.NormalBorder(), false, false, true, false).
+		BorderForeground(s.thm.BorderDim).
+		Width(s.width-2).
+		Padding(0, 1).
+		Render(s.title)
+
+	inputStyle := lipgloss.NewStyle().
+		Padding(0, 1).
+		Width(s.width - 2).
+		Foreground(s.thm.TextFg)
+
+	itemStyle := lipgloss.NewStyle().
+		Padding(0, 1).
+		Width(s.width - 2)
+
+	selectedStyle := lipgloss.NewStyle().
+		Padding(0, 1).
+		Width(s.width - 2).
+		Background(s.thm.Accent).
+		Foreground(s.thm.AccentFg).
+		Bold(true)
+
+	descStyle := lipgloss.NewStyle().
+		Foreground(s.thm.MutedFg)
+
+	selectedDescStyle := lipgloss.NewStyle().
+		Foreground(s.thm.TextFg)
+
+	noResultsStyle := lipgloss.NewStyle().
+		Padding(0, 1).
+		Width(s.width - 2).
+		Foreground(s.thm.MutedFg).
+		Italic(true)
+
+	// Render Input
+	inputView := inputStyle.Render(s.filterInput.View())
+
+	// Render items
+	var itemViews []string
+
+	end := s.scrollOffset + maxVisible
+	if end > len(s.filtered) {
+		end = len(s.filtered)
+	}
+	start := s.scrollOffset
+	if start > end {
+		start = end
+	}
+
+	for i := start; i < end; i++ {
+		item := s.filtered[i]
+
+		// Checkbox prefix
+		checkbox := "[ ] "
+		if item.Checked {
+			checkbox = "[x] "
+		}
+
+		// First line: checkbox + label
+		label := checkbox + item.Label
+		var line string
+		if i == s.cursor {
+			line = selectedStyle.Render(label)
+		} else {
+			line = itemStyle.Render(label)
+		}
+		itemViews = append(itemViews, line)
+
+		// Second line: description (indented)
+		if item.Description != "" {
+			indent := "    " // 4 spaces to align with label after checkbox
+			desc := indent + item.Description
+			var descLine string
+			if i == s.cursor {
+				descLine = selectedStyle.Render(selectedDescStyle.Render(desc))
+			} else {
+				descLine = itemStyle.Render(descStyle.Render(desc))
+			}
+			itemViews = append(itemViews, descLine)
+		}
+	}
+
+	if len(s.filtered) == 0 {
+		itemViews = append(itemViews, noResultsStyle.Render(s.noResults))
+	}
+
+	// Separator
+	separator := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder(), false, false, true, false).
+		BorderForeground(s.thm.BorderDim).
+		Width(s.width - 2).
+		Render("")
+
+	// Count selected
+	selectedCount := 0
+	for _, item := range s.items {
+		if item.Checked {
+			selectedCount++
+		}
+	}
+
+	// Footer
+	footerStyle := lipgloss.NewStyle().
+		Foreground(s.thm.MutedFg).
+		Align(lipgloss.Right).
+		Width(s.width - 2).
+		PaddingTop(1)
+	footer := footerStyle.Render(fmt.Sprintf("%d selected • Space toggle • a/n all/none • Enter confirm • Esc cancel", selectedCount))
+
+	content := lipgloss.JoinVertical(lipgloss.Left,
+		titleStyle,
+		inputView,
+		separator,
+		strings.Join(itemViews, "\n"),
+		footer,
+	)
+
+	return boxStyle.Render(content)
 }
 
 // Init implements the tea.Model Init stage for ConfirmScreen.
@@ -757,7 +1086,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - m: Rename selected worktree
 - D: Delete selected worktree
 - A: Absorb worktree into main (merge + delete)
-- X: Prune merged PR worktrees
+- X: Prune merged worktrees (PR merged or branch merged to main)
 - !: Run arbitrary command in selected worktree
 
 **🔍 Viewing & Tools**

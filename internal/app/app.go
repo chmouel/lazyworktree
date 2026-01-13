@@ -299,6 +299,8 @@ type Model struct {
 	prSelectionSubmit    func(*models.PRInfo) tea.Cmd
 	listScreen           *ListSelectionScreen
 	listSubmit           func(selectionItem) tea.Cmd
+	checklistScreen      *ChecklistScreen
+	checklistSubmit      func([]ChecklistItem) tea.Cmd
 	spinner              spinner.Model
 	loading              bool
 	showingFilter        bool
@@ -847,6 +849,8 @@ func screenName(screen screenType) string {
 		return "list-select"
 	case screenCommitFiles:
 		return "commit-files"
+	case screenChecklist:
+		return "checklist"
 	default:
 		return "unknown"
 	}
@@ -903,6 +907,10 @@ func (m *Model) View() string {
 	case screenListSelect:
 		if m.listScreen != nil {
 			return m.overlayPopup(baseView, m.listScreen.View(), 2)
+		}
+	case screenChecklist:
+		if m.checklistScreen != nil {
+			return m.overlayPopup(baseView, m.checklistScreen.View(), 2)
 		}
 	case screenHelp:
 		if m.helpScreen != nil {
@@ -2444,33 +2452,112 @@ func (m *Model) showRunCommand() tea.Cmd {
 }
 
 func (m *Model) showPruneMerged() tea.Cmd {
-	merged := []*models.WorktreeInfo{}
+	// Get main branch for git-based merged detection
+	mainBranch := m.git.GetMainBranch(m.ctx)
+
+	// Collect worktree branches for lookup
+	wtBranches := make(map[string]*models.WorktreeInfo)
+	for _, wt := range m.worktrees {
+		if !wt.IsMain {
+			wtBranches[wt.Branch] = wt
+		}
+	}
+
+	// Track source for each candidate: "pr", "git", or "both"
+	type candidate struct {
+		wt     *models.WorktreeInfo
+		source string
+	}
+	candidateMap := make(map[string]candidate)
+
+	// 1. PR-based detection (existing logic)
 	for _, wt := range m.worktrees {
 		if wt.IsMain {
 			continue
 		}
 		if wt.PR != nil && strings.EqualFold(wt.PR.State, "MERGED") {
-			merged = append(merged, wt)
+			candidateMap[wt.Branch] = candidate{wt: wt, source: "pr"}
 		}
 	}
 
-	if len(merged) == 0 {
-		m.showInfo("No merged PR worktrees to prune.", nil)
+	// 2. Git-based detection
+	mergedBranches := m.git.GetMergedBranches(m.ctx, mainBranch)
+	for _, branch := range mergedBranches {
+		if wt, exists := wtBranches[branch]; exists {
+			if existing, found := candidateMap[branch]; found {
+				existing.source = "both"
+				candidateMap[branch] = existing
+			} else {
+				candidateMap[branch] = candidate{wt: wt, source: "git"}
+			}
+		}
+	}
+
+	if len(candidateMap) == 0 {
+		m.showInfo("No merged worktrees to prune.", nil)
 		return nil
 	}
 
-	// Build confirmation message (truncate if long)
-	lines := []string{}
-	limit := min(len(merged), 10)
-	for i := range limit {
-		lines = append(lines, fmt.Sprintf("- %s (%s)", merged[i].Path, merged[i].Branch))
-	}
-	if len(merged) > limit {
-		lines = append(lines, fmt.Sprintf("...and %d more", len(merged)-limit))
+	// Build checklist items (pre-check clean worktrees, uncheck dirty ones)
+	items := make([]ChecklistItem, 0, len(candidateMap))
+	for branch, info := range candidateMap {
+		// Get worktree name from path
+		wtName := filepath.Base(info.wt.Path)
+
+		var sourceLabel string
+		switch info.source {
+		case "pr":
+			sourceLabel = "PR merged"
+		case "git":
+			sourceLabel = "branch merged"
+		default:
+			sourceLabel = "PR + branch merged"
+		}
+
+		desc := fmt.Sprintf("Branch: %s (%s)", branch, sourceLabel)
+
+		// Check for uncommitted changes
+		hasDirtyChanges := info.wt.Dirty || info.wt.Untracked > 0 || info.wt.Modified > 0 || info.wt.Staged > 0
+		if hasDirtyChanges {
+			desc += " - HAS UNCOMMITTED CHANGES!"
+		}
+
+		items = append(items, ChecklistItem{
+			ID:          branch,
+			Label:       wtName,
+			Description: desc,
+			Checked:     !hasDirtyChanges, // Uncheck dirty worktrees by default
+		})
 	}
 
-	m.confirmScreen = NewConfirmScreen("Prune merged PR worktrees?\n\n"+strings.Join(lines, "\n"), m.theme)
-	m.confirmAction = func() tea.Cmd {
+	// Sort items for consistent ordering
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Label < items[j].Label
+	})
+
+	m.checklistScreen = NewChecklistScreen(
+		items,
+		"Prune Merged Worktrees",
+		"Filter...",
+		"No merged worktrees found.",
+		m.windowWidth,
+		m.windowHeight,
+		m.theme,
+	)
+
+	m.checklistSubmit = func(selected []ChecklistItem) tea.Cmd {
+		if len(selected) == 0 {
+			return nil
+		}
+
+		// Collect worktrees to prune based on selection
+		toPrune := make([]*models.WorktreeInfo, 0, len(selected))
+		for _, item := range selected {
+			if wt, exists := wtBranches[item.ID]; exists {
+				toPrune = append(toPrune, wt)
+			}
+		}
+
 		// Collect terminate commands once (same for all worktrees in this repo)
 		terminateCmds := m.collectTerminateCommands()
 
@@ -2478,7 +2565,7 @@ func (m *Model) showPruneMerged() tea.Cmd {
 		pruneRoutine := func() tea.Msg {
 			pruned := 0
 			failed := 0
-			for _, wt := range merged {
+			for _, wt := range toPrune {
 				// Run terminate commands for each worktree with its environment
 				if len(terminateCmds) > 0 {
 					env := m.buildCommandEnv(wt.Branch, wt.Path)
@@ -2505,8 +2592,8 @@ func (m *Model) showPruneMerged() tea.Cmd {
 		// Check trust for repo commands before running
 		return m.runCommandsWithTrust(terminateCmds, "", nil, pruneRoutine)
 	}
-	m.currentScreen = screenConfirm
-	return nil
+	m.currentScreen = screenChecklist
+	return textinput.Blink
 }
 
 // showAbsorbWorktree merges selected branch into main and removes the worktree
@@ -3647,6 +3734,33 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		ls, cmd := m.listScreen.Update(msg)
 		if updated, ok := ls.(*ListSelectionScreen); ok {
 			m.listScreen = updated
+		}
+		return m, cmd
+	case screenChecklist:
+		if m.checklistScreen == nil {
+			m.currentScreen = screenNone
+			return m, nil
+		}
+		keyStr := msg.String()
+		if isEscKey(keyStr) {
+			m.checklistScreen = nil
+			m.checklistSubmit = nil
+			m.currentScreen = screenNone
+			return m, nil
+		}
+		if keyStr == keyEnter {
+			if m.checklistSubmit != nil {
+				selected := m.checklistScreen.SelectedItems()
+				cmd := m.checklistSubmit(selected)
+				m.checklistScreen = nil
+				m.checklistSubmit = nil
+				m.currentScreen = screenNone
+				return m, cmd
+			}
+		}
+		cs, cmd := m.checklistScreen.Update(msg)
+		if updated, ok := cs.(*ChecklistScreen); ok {
+			m.checklistScreen = updated
 		}
 		return m, cmd
 	case screenCommitFiles:

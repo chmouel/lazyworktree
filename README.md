@@ -363,7 +363,7 @@ custom_commands:
 | `D` | Delete selected worktree |
 | `d` | View diff in pager (respects pager config) |
 | `A` | Absorb worktree into main |
-| `X` | Prune merged worktrees |
+| `X` | Prune merged worktrees (PR merged or branch merged to main) |
 | `!` | Run arbitrary command in selected worktree (with command history) |
 | `p` | Fetch PR/MR status (also refreshes CI checks) |
 | `o` | Open PR/MR in browser |
