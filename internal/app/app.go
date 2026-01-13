@@ -150,6 +150,13 @@ type (
 		currentBranch string
 		diff          string // git diff output for branch name generation
 	}
+	createFromCurrentReadyMsg struct {
+		currentWorktree   *models.WorktreeInfo
+		currentBranch     string
+		diff              string
+		hasChanges        bool
+		defaultBranchName string
+	}
 	cherryPickResultMsg struct {
 		commitSHA      string
 		targetWorktree *models.WorktreeInfo
@@ -276,7 +283,7 @@ type Model struct {
 	helpScreen           *HelpScreen
 	trustScreen          *TrustScreen
 	inputScreen          *InputScreen
-	inputSubmit          func(string) (tea.Cmd, bool)
+	inputSubmit          func(string, bool) (tea.Cmd, bool)
 	commitScreen         *CommitScreen
 	welcomeScreen        *WelcomeScreen
 	paletteScreen        *CommandPaletteScreen
@@ -696,6 +703,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case createFromChangesReadyMsg:
 		return m, m.handleCreateFromChangesReady(msg)
+
+	case createFromCurrentReadyMsg:
+		return m, m.handleCreateFromCurrentReady(msg)
 
 	case prDataLoadedMsg, ciStatusLoadedMsg:
 		return m.handlePRMessages(msg)
@@ -1382,6 +1392,62 @@ func (m *Model) showCreateWorktree() tea.Cmd {
 	return m.showBaseSelection(defaultBase)
 }
 
+func (m *Model) showCreateFromCurrent() tea.Cmd {
+	return func() tea.Msg {
+		// Find current worktree (check cwd, fallback to main worktree)
+		var currentWt *models.WorktreeInfo
+		cwd, _ := os.Getwd()
+		for _, wt := range m.worktrees {
+			if strings.HasPrefix(cwd, wt.Path) {
+				currentWt = wt
+				break
+			}
+		}
+		if currentWt == nil {
+			for _, wt := range m.worktrees {
+				if wt.IsMain {
+					currentWt = wt
+					break
+				}
+			}
+		}
+		if currentWt == nil {
+			return errMsg{err: fmt.Errorf("could not determine current worktree")}
+		}
+
+		// Check for changes
+		statusRaw := m.git.RunGit(m.ctx, []string{"git", "status", "--porcelain"}, currentWt.Path, []int{0}, true, false)
+		hasChanges := strings.TrimSpace(statusRaw) != ""
+
+		// Get current branch
+		currentBranch := m.git.RunGit(m.ctx, []string{"git", "rev-parse", "--abbrev-ref", "HEAD"}, currentWt.Path, []int{0}, true, false)
+		if currentBranch == "" {
+			return errMsg{err: fmt.Errorf("failed to get current branch")}
+		}
+		currentBranch = strings.TrimSpace(currentBranch)
+
+		// Generate default name
+		defaultName := fmt.Sprintf("%s-copy", currentBranch)
+		var diff string
+
+		// Run AI script if changes exist and configured
+		if hasChanges && m.config.BranchNameScript != "" {
+			diff = m.git.RunGit(m.ctx, []string{"git", "diff", "HEAD"}, currentWt.Path, []int{0}, false, true)
+			if generatedName, err := runBranchNameScript(m.ctx, m.config.BranchNameScript, diff); err == nil && generatedName != "" {
+				defaultName = generatedName
+			}
+		}
+
+		return createFromCurrentReadyMsg{
+			currentWorktree:   currentWt,
+			currentBranch:     currentBranch,
+			diff:              diff,
+			hasChanges:        hasChanges,
+			defaultBranchName: m.suggestBranchName(defaultName),
+		}
+	}
+}
+
 func (m *Model) showCreateFromPR() tea.Cmd {
 	// Fetch all open PRs
 	return func() tea.Msg {
@@ -1443,7 +1509,7 @@ func (m *Model) showCreateWorktreeFromChanges() tea.Cmd {
 func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranch, defaultName string) tea.Cmd {
 	// Show input screen for worktree name
 	m.inputScreen = NewInputScreen("Create worktree from changes: branch name", "feature/my-branch", defaultName, m.theme)
-	m.inputSubmit = func(value string) (tea.Cmd, bool) {
+	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		newBranch := strings.TrimSpace(value)
 		if newBranch == "" {
 			m.inputScreen.errorMsg = errBranchEmpty
@@ -1539,6 +1605,159 @@ func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranc
 	}
 	m.currentScreen = screenInput
 	return textinput.Blink
+}
+
+func (m *Model) handleCreateFromCurrentReady(msg createFromCurrentReadyMsg) tea.Cmd {
+	if msg.currentWorktree == nil {
+		m.showInfo("Could not determine current worktree", nil)
+		return nil
+	}
+
+	// Show input screen with checkbox
+	m.inputScreen = NewInputScreen("Create from current: branch name", "feature/my-branch", msg.defaultBranchName, m.theme)
+	m.inputScreen.SetCheckbox("Include current file changes", msg.hasChanges)
+
+	// Capture context for closure
+	wt := msg.currentWorktree
+	currentBranch := msg.currentBranch
+	hasChanges := msg.hasChanges
+
+	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
+		newBranch := strings.TrimSpace(value)
+		if newBranch == "" {
+			m.inputScreen.errorMsg = errBranchEmpty
+			return nil, false
+		}
+
+		// Validate branch doesn't exist
+		for _, existingWt := range m.worktrees {
+			if existingWt.Branch == newBranch {
+				m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
+				return nil, false
+			}
+		}
+
+		// Check if branch exists in git
+		branchRef := m.git.RunGit(m.ctx, []string{"git", "show-ref", fmt.Sprintf("refs/heads/%s", newBranch)}, "", []int{0, 1}, true, true)
+		if branchRef != "" {
+			m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
+			return nil, false
+		}
+
+		targetPath := filepath.Join(m.getWorktreeDir(), newBranch)
+		if _, err := os.Stat(targetPath); err == nil {
+			m.inputScreen.errorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
+			return nil, false
+		}
+
+		includeChanges := m.inputScreen.checkboxChecked
+		// Only attempt to move changes if checkbox is checked AND there are actual changes
+		// This prevents accidentally applying an unrelated existing stash when workspace is clean
+		if includeChanges && hasChanges {
+			return m.executeCreateWithChanges(wt, currentBranch, newBranch, targetPath), true
+		}
+		return m.executeCreateWithoutChanges(currentBranch, newBranch, targetPath), true
+	}
+
+	m.currentScreen = screenInput
+	return textinput.Blink
+}
+
+func (m *Model) executeCreateWithChanges(wt *models.WorktreeInfo, currentBranch, newBranch, targetPath string) tea.Cmd {
+	return func() tea.Msg {
+		if err := os.MkdirAll(m.getWorktreeDir(), 0o750); err != nil {
+			return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)}
+		}
+
+		// Stash changes with descriptive message
+		prevStashHash := m.git.RunGit(m.ctx, []string{"git", "stash", "list", "-1", "--format=%H"}, wt.Path, []int{0}, true, false)
+		stashMessage := fmt.Sprintf("git-wt-create move-current: %s", newBranch)
+		if !m.git.RunCommandChecked(
+			m.ctx,
+			[]string{"git", "stash", "push", "-u", "-m", stashMessage},
+			wt.Path,
+			"Failed to create stash for moving changes",
+		) {
+			return errMsg{err: fmt.Errorf("failed to create stash for moving changes")}
+		}
+
+		newStashHash := m.git.RunGit(m.ctx, []string{"git", "stash", "list", "-1", "--format=%H"}, wt.Path, []int{0}, true, false)
+		if newStashHash == "" || newStashHash == prevStashHash {
+			return errMsg{err: fmt.Errorf("failed to create stash for moving changes: no new entry created")}
+		}
+
+		// Get the stash ref
+		stashRef := m.git.RunGit(m.ctx, []string{"git", "stash", "list", "-1", "--format=%gd"}, wt.Path, []int{0}, true, false)
+		if stashRef == "" || !strings.HasPrefix(stashRef, "stash@{") {
+			// Try to restore stash if we can't get the ref
+			m.git.RunCommandChecked(m.ctx, []string{"git", "stash", "pop"}, wt.Path, "Failed to restore stash")
+			return errMsg{err: fmt.Errorf("failed to get stash reference")}
+		}
+
+		// Create the new worktree from current branch
+		if !m.git.RunCommandChecked(
+			m.ctx,
+			[]string{"git", "worktree", "add", "-b", newBranch, targetPath, currentBranch},
+			"",
+			fmt.Sprintf("Failed to create worktree %s", newBranch),
+		) {
+			// If worktree creation fails, try to restore the stash
+			m.git.RunCommandChecked(m.ctx, []string{"git", "stash", "pop"}, wt.Path, "Failed to restore stash")
+			return errMsg{err: fmt.Errorf("failed to create worktree %s", newBranch)}
+		}
+
+		// Apply stash to the new worktree
+		if !m.git.RunCommandChecked(
+			m.ctx,
+			[]string{"git", "stash", "apply", "--index", stashRef},
+			targetPath,
+			"Failed to apply stash to new worktree",
+		) {
+			// If stash apply fails, clean up the worktree and try to restore stash to original location
+			m.git.RunCommandChecked(m.ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", "Failed to remove worktree")
+			m.git.RunCommandChecked(m.ctx, []string{"git", "stash", "pop"}, wt.Path, "Failed to restore stash")
+			return errMsg{err: fmt.Errorf("failed to apply stash to new worktree")}
+		}
+
+		// Drop the stash from the original location
+		m.git.RunCommandChecked(m.ctx, []string{"git", "stash", "drop", stashRef}, wt.Path, "Failed to drop stash")
+
+		// Run init commands and refresh
+		env := m.buildCommandEnv(newBranch, targetPath)
+		initCmds := m.collectInitCommands()
+		after := func() tea.Msg {
+			worktrees, err := m.git.GetWorktrees(m.ctx)
+			return worktreesLoadedMsg{
+				worktrees: worktrees,
+				err:       err,
+			}
+		}
+		return m.runCommandsWithTrust(initCmds, targetPath, env, after)()
+	}
+}
+
+func (m *Model) executeCreateWithoutChanges(currentBranch, newBranch, targetPath string) tea.Cmd {
+	return func() tea.Msg {
+		if err := os.MkdirAll(m.getWorktreeDir(), 0o750); err != nil {
+			return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)}
+		}
+
+		args := []string{"git", "worktree", "add", "-b", newBranch, targetPath, currentBranch}
+		if !m.git.RunCommandChecked(m.ctx, args, "", fmt.Sprintf("Failed to create worktree %s", newBranch)) {
+			return errMsg{err: fmt.Errorf("failed to create worktree %s", newBranch)}
+		}
+
+		env := m.buildCommandEnv(newBranch, targetPath)
+		initCmds := m.collectInitCommands()
+		after := func() tea.Msg {
+			worktrees, err := m.git.GetWorktrees(m.ctx)
+			return worktreesLoadedMsg{
+				worktrees: worktrees,
+				err:       err,
+			}
+		}
+		return m.runCommandsWithTrust(initCmds, targetPath, env, after)()
+	}
 }
 
 func (m *Model) showDeleteWorktree() tea.Cmd {
@@ -2100,7 +2319,7 @@ func (m *Model) showRenameWorktree() tea.Cmd {
 
 	prompt := fmt.Sprintf("Enter new name for '%s'", wt.Branch)
 	m.inputScreen = NewInputScreen(prompt, "New branch name", wt.Branch, m.theme)
-	m.inputSubmit = func(value string) (tea.Cmd, bool) {
+	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		newBranch := strings.TrimSpace(value)
 		if newBranch == "" {
 			m.inputScreen.errorMsg = "Name cannot be empty."
@@ -2153,7 +2372,7 @@ func (m *Model) showRunCommand() tea.Cmd {
 	// Enable bash-style history navigation with up/down arrows
 	// Always set history, even if empty - it will populate as commands are added
 	m.inputScreen.SetHistory(m.commandHistory)
-	m.inputSubmit = func(value string) (tea.Cmd, bool) {
+	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		cmdStr := strings.TrimSpace(value)
 		if cmdStr == "" {
 			return nil, true // Close without running
@@ -2330,7 +2549,6 @@ func (m *Model) showCommandPalette() tea.Cmd {
 	items := make([]paletteItem, 0, 10+len(customItems))
 	items = append(items,
 		paletteItem{id: "create", label: "Create worktree (c)", description: "Add a new worktree from base branch or PR/MR"},
-		paletteItem{id: "create-from-changes", label: "Create from changes", description: "Create a new worktree from current uncommitted changes"},
 		paletteItem{id: "delete", label: "Delete worktree (D)", description: "Remove worktree and branch"},
 		paletteItem{id: "rename", label: "Rename worktree (m)", description: "Rename worktree and branch"},
 		paletteItem{id: "absorb", label: "Absorb worktree (A)", description: "Merge branch into main and remove worktree"},
@@ -2352,8 +2570,6 @@ func (m *Model) showCommandPalette() tea.Cmd {
 		switch action {
 		case "create":
 			return m.showCreateWorktree()
-		case "create-from-changes":
-			return m.showCreateWorktreeFromChanges()
 		case "delete":
 			return m.showDeleteWorktree()
 		case "rename":
@@ -3533,7 +3749,7 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.inputScreen.errorMsg = ""
 			}
 			if m.inputSubmit != nil {
-				cmd, closeCmd := m.inputSubmit(m.inputScreen.input.Value())
+				cmd, closeCmd := m.inputSubmit(m.inputScreen.input.Value(), m.inputScreen.checkboxChecked)
 				if closeCmd {
 					m.inputScreen = nil
 					m.inputSubmit = nil

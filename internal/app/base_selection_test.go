@@ -457,21 +457,21 @@ func TestShowFreeformBaseInputValidation(t *testing.T) {
 	m := NewModel(cfg, "")
 
 	m.showFreeformBaseInput(repo.branch)
-	if _, ok := m.inputSubmit(" "); ok {
+	if _, ok := m.inputSubmit(" ", false); ok {
 		t.Fatal("expected empty base ref to be rejected")
 	}
 	if m.inputScreen.errorMsg != "Base ref cannot be empty." {
 		t.Fatalf("unexpected error: %q", m.inputScreen.errorMsg)
 	}
 
-	if _, ok := m.inputSubmit("missing-ref"); ok {
+	if _, ok := m.inputSubmit("missing-ref", false); ok {
 		t.Fatal("expected invalid base ref to be rejected")
 	}
 	if m.inputScreen.errorMsg != "Base ref not found." {
 		t.Fatalf("unexpected error: %q", m.inputScreen.errorMsg)
 	}
 
-	if _, ok := m.inputSubmit(repo.branch); ok {
+	if _, ok := m.inputSubmit(repo.branch, false); ok {
 		t.Fatal("expected base ref flow to keep screen open")
 	}
 	if m.inputScreen == nil || m.inputScreen.prompt != "Create worktree: branch name" {
@@ -611,7 +611,7 @@ func TestShowBranchNameInputValidation(t *testing.T) {
 		t.Fatalf("expected suggested branch name, got %q", got)
 	}
 
-	if _, ok := m.inputSubmit("demo"); ok {
+	if _, ok := m.inputSubmit("demo", false); ok {
 		t.Fatal("expected duplicate branch to be rejected")
 	}
 	if !strings.Contains(m.inputScreen.errorMsg, "already exists") {
@@ -622,7 +622,7 @@ func TestShowBranchNameInputValidation(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(m.getRepoWorktreeDir(), pathBranch), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if _, ok := m.inputSubmit(pathBranch); ok {
+	if _, ok := m.inputSubmit(pathBranch, false); ok {
 		t.Fatal("expected existing path to be rejected")
 	}
 	if !strings.Contains(m.inputScreen.errorMsg, "Path already exists") {

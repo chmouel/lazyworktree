@@ -34,14 +34,16 @@ const (
 	screenCommitFiles
 
 	// Key constants (keyEnter and keyEsc are defined in app.go)
-	keyCtrlD = "ctrl+d"
-	keyCtrlU = "ctrl+u"
-	keyCtrlC = "ctrl+c"
-	keyCtrlJ = "ctrl+j"
-	keyCtrlK = "ctrl+k"
-	keyDown  = "down"
-	keyQ     = "q"
-	keyUp    = "up"
+	keyCtrlD    = "ctrl+d"
+	keyCtrlU    = "ctrl+u"
+	keyCtrlC    = "ctrl+c"
+	keyCtrlJ    = "ctrl+j"
+	keyCtrlK    = "ctrl+k"
+	keyDown     = "down"
+	keyQ        = "q"
+	keyUp       = "up"
+	keyTab      = "tab"
+	keyShiftTab = "shift+tab"
 
 	// Placeholder text constants
 	placeholderFilterFiles = "Filter files..."
@@ -80,6 +82,10 @@ type InputScreen struct {
 	history             []string // Command history for up/down cycling
 	historyIndex        int      // Current position in history (-1 = not browsing)
 	originalInput       string   // Store original input when browsing history
+	checkboxEnabled     bool     // Whether checkbox is displayed
+	checkboxLabel       string   // Label text for checkbox
+	checkboxChecked     bool     // Current checkbox state
+	checkboxFocused     bool     // Track whether checkbox has focus (vs input field)
 }
 
 // HelpScreen renders searchable documentation for the app controls.
@@ -255,9 +261,9 @@ func (s *ConfirmScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	key := keyMsg.String()
 	switch key {
-	case "tab", "right", "l":
+	case keyTab, "right", "l":
 		s.selectedButton = (s.selectedButton + 1) % 2
-	case "shift+tab", "left", "h":
+	case keyShiftTab, "left", "h":
 		s.selectedButton = (s.selectedButton - 1 + 2) % 2
 	case "y", "Y":
 		s.result <- true
@@ -504,6 +510,25 @@ func (s *InputScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	keyMsg, ok := msg.(tea.KeyMsg)
 	if ok {
 		switch keyMsg.String() {
+		case keyTab:
+			// Switch focus between input and checkbox
+			if s.checkboxEnabled {
+				s.checkboxFocused = !s.checkboxFocused
+				return s, nil
+			}
+		case keyShiftTab:
+			// Switch focus in reverse
+			if s.checkboxEnabled {
+				s.checkboxFocused = !s.checkboxFocused
+				return s, nil
+			}
+		case " ":
+			// Only toggle checkbox if it's enabled AND focused
+			if s.checkboxEnabled && s.checkboxFocused {
+				s.checkboxChecked = !s.checkboxChecked
+				return s, nil
+			}
+			// Otherwise, let the textinput handle the space (fall through to textinput.Update)
 		case keyEnter:
 			value := s.input.Value()
 			// If fuzzy finder is enabled and a suggestion is selected, use it
@@ -580,8 +605,35 @@ func (s *InputScreen) View() string {
 
 	contentLines := []string{
 		promptStyle.Render(s.prompt),
-		inputWrapperStyle.Render(s.input.View()),
 	}
+
+	// Show checkbox if enabled
+	if s.checkboxEnabled {
+		checkbox := "[ ] "
+		if s.checkboxChecked {
+			checkbox = "[x] "
+		}
+
+		// Add visual indicator when checkbox is focused
+		focusIndicator := ""
+		if s.checkboxFocused {
+			focusIndicator = "> "
+		}
+
+		checkboxStyle := lipgloss.NewStyle().
+			Foreground(s.thm.Accent).
+			Width(width - 6).
+			MarginTop(1)
+
+		// Apply bold when focused
+		if s.checkboxFocused {
+			checkboxStyle = checkboxStyle.Bold(true)
+		}
+
+		contentLines = append(contentLines, checkboxStyle.Render(focusIndicator+checkbox+s.checkboxLabel))
+	}
+
+	contentLines = append(contentLines, inputWrapperStyle.Render(s.input.View()))
 
 	// Show fuzzy finder suggestions if enabled
 	if s.fuzzyFinderInput && len(s.filteredSuggestions) > 0 {
@@ -622,11 +674,16 @@ func (s *InputScreen) View() string {
 		contentLines = append(contentLines, errorStyle.Render(s.errorMsg))
 	}
 
-	footerText := "Enter to confirm • Esc to cancel"
-	if len(s.history) > 0 {
+	var footerText string
+	switch {
+	case s.checkboxEnabled:
+		footerText = "Tab to switch focus • Space to toggle • Enter to confirm • Esc to cancel"
+	case len(s.history) > 0:
 		footerText = "↑↓ to navigate history • Enter confirm • Esc cancel"
-	} else if s.fuzzyFinderInput && len(s.filteredSuggestions) > 0 {
+	case s.fuzzyFinderInput && len(s.filteredSuggestions) > 0:
 		footerText = "↑↓ to navigate • Enter confirm • Esc cancel"
+	default:
+		footerText = "Enter to confirm • Esc to cancel"
 	}
 	contentLines = append(contentLines, footerStyle.Render(footerText))
 
@@ -679,8 +736,8 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - n / N: Next / previous search match
 - q / Esc: Return to commit log
 
-**⚡ Worktree Actions**
-- c: Create new worktree (branch, commit, PR/MR, issue, or custom)
+-**⚡ Worktree Actions**
+- c: Create new worktree (branch, commit, PR/MR, issue, or custom) and select the new “Create from current” entry to copy the branch you are standing on, optionally carrying over local modifications via the prompt’s checkbox; Tab/Shift+Tab cycle focus to the checkbox and Space toggles it while naming the branch.
 - m: Rename selected worktree
 - D: Delete selected worktree
 - A: Absorb worktree into main (merge + delete)
@@ -1936,6 +1993,14 @@ func NewTrustScreen(filePath string, commands []string, thm *theme.Theme) *Trust
 		result:   make(chan string, 1),
 		thm:      thm,
 	}
+}
+
+// SetCheckbox enables a checkbox in the input screen with the given label and default state.
+func (s *InputScreen) SetCheckbox(label string, defaultChecked bool) {
+	s.checkboxEnabled = true
+	s.checkboxLabel = label
+	s.checkboxChecked = defaultChecked
+	s.checkboxFocused = false // Default: input field has focus
 }
 
 // Init satisfies tea.Model.Init for the trust confirmation screen.

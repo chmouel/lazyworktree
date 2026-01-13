@@ -16,6 +16,7 @@ A [BubbleTea](https://github.com/charmbracelet/bubbletea)-based Terminal User In
 - **Base Selection**: Select a base branch or commit from a list, or enter a reference when creating a worktree.
 - **Forge Integration**: Fetch and display associated Pull Request (GitHub) or Merge Request (GitLab) status, including CI check results (via `gh` or `glab` CLI).
 - **Create from PR/MR**: Create worktrees directly from open pull or merge requests, GitHub (or GitHub enterprise) or GitLab supported.
+- **Create from current branch**: Start a worktree from the branch you are standing on, and use the prompt’s checkbox to carry over any in-progress changes.
 - **Create from Issue**: Create worktrees from GitHub/GitLab issues with automatic branch name generation based on issue title.
 - **Status at a Glance**: View dirty state, ahead/behind counts, and divergence from main.
 - **[Tmux](https://github.com/tmux/tmux/) Integration**: Create and manage tmux sessions per worktree with multi-window support.
@@ -458,7 +459,7 @@ When running arbitrary commands with `!`, command history is persisted per repos
 **Command Palette Actions:**
 
 - **Select theme**: Change the application theme with live preview. Available themes: `dracula`, `dracula-light`, `narna`, `clean-light`, `catppuccin-latte`, `rose-pine-dawn`, `one-light`, `everforest-light`, `everforest-dark`, `solarized-dark`, `solarized-light`, `gruvbox-dark`, `gruvbox-light`, `nord`, `monokai`, `catppuccin-mocha`, `modern`, `tokyo-night`, `one-dark`, `rose-pine`, `ayu-mirage`.
-- **Create from changes**: Create a new worktree from current uncommitted changes in the selected worktree. This stashes all changes (including untracked files), creates a new worktree, and applies the stashed changes to it. Requires a worktree to be selected with uncommitted changes present.
+- **Create from current branch**: Choose this option after pressing `c` (or opening the palette) to copy the branch you are currently on. When uncommitted changes exist, an “Include current file changes” checkbox appears beside the name prompt; Tab switches focus to the checkbox, Space toggles it, and enabling it stashes the work and reapplies it inside the new worktree. With the checkbox ticked, any configured `branch_name_script` receives the diff to generate the suggested branch name, so the AI helpers run just as before.
 
 ### Mouse Controls
 
@@ -619,13 +620,13 @@ branch_name_script: "gemini --model gemini-2.5-flash-lite -p "Generate a short g
 
 ### How It Works
 
-1. Upon selecting "Create from changes" in the command palette, or when creating from an issue or PR
+1. When you press `c` (or open the command palette) and choose "Create from current branch", the base picker highlights that option; if the selected worktree contains uncommitted modifications, the branch-name prompt surfaces an "Include current file changes" checkbox so you can decide whether to stash and move them into the new worktree. Tab/Shift+Tab cycle focus between the input and checkbox, while Space toggles the box when it is focused.
 2. Should `branch_name_script` be configured:
-   - For changes: the current diff is piped to the script
-   - For issues: the issue title and body are piped to the script
-   - For PRs: the PR title and body are piped to the script
-3. The script's output (first line only) serves as the suggested branch name
-4. You may edit the suggestion prior to confirmation
+   - For current-branch creations where the checkbox is enabled (or the prior “changes” path), the current diff is piped to the script.
+   - For issues: the issue title and body are piped to the script.
+   - For PRs: the PR title and body are piped to the script.
+3. The script's output (first line only) serves as the suggested branch name.
+4. You may edit the suggestion prior to confirmation.
 
 ### Script Requirements
 

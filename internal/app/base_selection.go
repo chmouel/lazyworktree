@@ -39,6 +39,7 @@ type commitOption struct {
 
 func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 	items := []selectionItem{
+		{id: "from-current", label: "Create from current", description: "Create from current branch (with or without changes)"},
 		{id: "branch-list", label: "Pick a base branch or tag", description: "Branches, tags, and remotes"},
 		{id: "commit-list", label: "Pick a base commit", description: "Choose a branch, then a commit"},
 		{id: "from-pr", label: "Create from PR/MR", description: "Create from a pull/merge request"},
@@ -60,6 +61,8 @@ func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 	m.listScreen = NewListSelectionScreen(items, title, "Filter options...", "No base options available.", m.windowWidth, m.windowHeight, "", m.theme)
 	m.listSubmit = func(item selectionItem) tea.Cmd {
 		switch {
+		case item.id == "from-current":
+			return m.showCreateFromCurrent()
 		case item.id == "branch-list":
 			return m.showBranchSelection(
 				"Select base branch",
@@ -100,7 +103,7 @@ func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 func (m *Model) showFreeformBaseInput(defaultBase string) tea.Cmd {
 	m.clearListSelection()
 	m.inputScreen = NewInputScreen("Base ref", defaultBase, defaultBase, m.theme)
-	m.inputSubmit = func(baseVal string) (tea.Cmd, bool) {
+	m.inputSubmit = func(baseVal string, checked bool) (tea.Cmd, bool) {
 		baseRef := strings.TrimSpace(baseVal)
 		if baseRef == "" {
 			m.inputScreen.errorMsg = "Base ref cannot be empty."
@@ -212,7 +215,7 @@ func (m *Model) showBranchNameInput(baseRef, defaultName string) tea.Cmd {
 		suggested = m.suggestBranchName(suggested)
 	}
 	m.inputScreen = NewInputScreen("Create worktree: branch name", "feature/my-branch", suggested, m.theme)
-	m.inputSubmit = func(value string) (tea.Cmd, bool) {
+	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		newBranch := strings.TrimSpace(value)
 		if newBranch == "" {
 			m.inputScreen.errorMsg = errBranchEmpty

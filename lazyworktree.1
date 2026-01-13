@@ -23,6 +23,8 @@ Forge Integration: Fetch and display associated Pull Request (GitHub) or Merge R
 .IP \(bu 2
 Create from PR/MR: Establish worktrees directly from open pull or merge requests via the create worktree menu (c)
 .IP \(bu 2
+Create from current branch: Start a worktree from the branch you currently occupy and optionally carry over uncommitted work via the checkbox shown during branch naming.
+.IP \(bu 2
 Create from Issue: Establish worktrees from GitHub/GitLab issues with automatic branch name generation
 .IP \(bu 2
 Status at a Glance: View dirty state, ahead/behind counts, and divergence from main
@@ -263,7 +265,9 @@ Open PR/MR in browser.
 .SS Command Palette
 .TP
 .B ctrl+p, :
-Open command palette showing all available commands (e.g. create from changes, select theme).
+Open command palette showing all available commands (e.g. select theme).
+
+The palette exposes a "Create from current" entry which copies the branch you currently occupy. When uncommitted files exist, the branch-name prompt reveals an "Include current file changes" checkbox; Tab/Shift+Tab cycles focus to it and Space toggles it so you can decide whether to stash and carry the work into the fresh worktree. If the checkbox is elected, the diff is also piped to any configured `branch_name_script` for suggestions, matching the previous workflow for the "changes" path.
 .
 .SS LazyGit
 .TP

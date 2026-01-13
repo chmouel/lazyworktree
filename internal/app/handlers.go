@@ -290,7 +290,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case "tab", "]":
+	case keyTab, "]":
 		m.zoomedPane = -1 // exit zoom mode
 		wasPane1 := m.focusedPane == 1
 		m.focusedPane = (m.focusedPane + 1) % 3

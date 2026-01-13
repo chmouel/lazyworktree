@@ -115,44 +115,6 @@ func TestHandleMouseDoesNotPanic(t *testing.T) {
 	}
 }
 
-func TestShowCommandPaletteIncludesCreateFromChanges(t *testing.T) {
-	cfg := &config.AppConfig{
-		WorktreeDir: t.TempDir(),
-	}
-	m := NewModel(cfg, "")
-	m.setWindowSize(120, 40)
-
-	// Show command palette
-	cmd := m.showCommandPalette()
-	if cmd == nil {
-		t.Fatal("showCommandPalette returned nil command")
-	}
-
-	// Check that palette screen was created
-	if m.paletteScreen == nil {
-		t.Fatal("paletteScreen should be initialized")
-	}
-
-	// Check that palette includes create-from-changes
-	items := m.paletteScreen.items
-	found := false
-	for _, item := range items {
-		if item.id == "create-from-changes" {
-			found = true
-			if item.label != "Create from changes" {
-				t.Errorf("Expected label 'Create from changes', got %q", item.label)
-			}
-			if item.description != "Create a new worktree from current uncommitted changes" {
-				t.Errorf("Expected description 'Create a new worktree from current uncommitted changes', got %q", item.description)
-			}
-			break
-		}
-	}
-	if !found {
-		t.Fatal("create-from-changes item not found in command palette")
-	}
-}
-
 func TestShowCreateWorktreeFromChangesNoSelection(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
@@ -191,11 +153,14 @@ func TestShowCreateWorktreeStartsWithBasePicker(t *testing.T) {
 	if m.listScreen.title != "Select base for new worktree" {
 		t.Fatalf("unexpected list title: %q", m.listScreen.title)
 	}
-	if len(m.listScreen.items) != 5 {
-		t.Fatalf("expected 5 base options, got %d", len(m.listScreen.items))
+	if len(m.listScreen.items) != 6 {
+		t.Fatalf("expected 6 base options, got %d", len(m.listScreen.items))
 	}
-	if m.listScreen.items[0].id != "branch-list" {
-		t.Fatalf("expected first option branch-list, got %q", m.listScreen.items[0].id)
+	if m.listScreen.items[0].id != "from-current" {
+		t.Fatalf("expected first option from-current, got %q", m.listScreen.items[0].id)
+	}
+	if m.listScreen.items[1].id != "branch-list" {
+		t.Fatalf("expected second option branch-list, got %q", m.listScreen.items[1].id)
 	}
 }
 
