@@ -1,4 +1,12 @@
 version: 2
+before:
+  hooks:
+    - sh -c "mkdir -p completions"
+    - sh -c "CGO_ENABLED=0 go build -o completions/lazyworktree ./cmd/lazyworktree"
+    - sh -c "completions/lazyworktree --completion bash > completions/lazyworktree.bash"
+    - sh -c "completions/lazyworktree --completion zsh > completions/lazyworktree.zsh"
+    - sh -c "completions/lazyworktree --completion fish > completions/lazyworktree.fish"
+    - sh -c "rm -f completions/lazyworktree"
 builds:
   - id: lazyworktree
     env:
@@ -19,11 +27,6 @@ builds:
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
       - -X main.builtBy=goreleaser
-    hooks:
-      post:
-        - sh -c "mkdir -p completions && {{ .Path }} --completion bash > completions/lazyworktree.bash"
-        - sh -c "{{ .Path }} --completion zsh > completions/lazyworktree.zsh"
-        - sh -c "{{ .Path }} --completion fish > completions/lazyworktree.fish"
 archives:
   - name_template: >-
       {{- .ProjectName }}_
