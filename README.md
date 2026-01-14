@@ -1,7 +1,6 @@
-# LazyWorktree - Effortless Git worktree management for the terminal.
+# LazyWorktree - Effortless Git worktree management for the terminal
 
 <img align="right" width="180" height="180" alt="lw-logo" src="https://github.com/user-attachments/assets/77b63679-40b8-494c-a62d-19ccc39ac38e" />
-
 
 A [BubbleTea](https://github.com/charmbracelet/bubbletea)-based Terminal User Interface designed for efficient Git worktree management. Visualise the repository's status, oversee branches, and navigate between worktrees with ease.
 
@@ -156,6 +155,33 @@ lazyworktree --completion fish > ~/.config/fish/completions/lazyworktree.fish
 ```
 
 Package manager installations (deb, rpm, AUR) include completions automatically.
+
+## Branch Naming Conventions
+
+When creating worktrees with manual branch names, special characters are automatically converted to hyphens for Git and terminal multiplexer (tmux/zellij) compatibility. Branch names can contain letters, numbers, and hyphens; all other characters are converted to hyphens.
+
+| Input | Converted |
+|-------|-----------|
+| `feature.new` | `feature-new` |
+| `bug fix here` | `bug-fix-here` |
+| `feature:test` | `feature-test` |
+
+Leading/trailing hyphens are removed, consecutive hyphens collapsed, and length is capped at 50 characters (manual input) or 100 characters (auto-generated).
+
+### Examples
+
+```bash
+# Creating a worktree with user input
+#
+# Type: feature.new
+# Creates branch: feature-new
+
+# From a PR with a title "Add user.authentication feature"
+# Creates branch: add-user-authentication-feature
+
+# From a GitHub/GitLab issue "#42: Fix the login API"
+# Creates branch: issue-42-fix-the-login-api
+```
 
 ## Custom Initialization and Termination
 
@@ -661,6 +687,7 @@ If the AI script fails or returns empty output, `{generated}` automatically fall
 4. You may edit the suggestion prior to confirmation.
 
 **Example for PR #2 with AI script:**
+
 - Original PR title: "Add AI session management"
 - AI script generates: `feat-ai-session-manager`
 - Template: `pr-{number}-{generated}`
@@ -727,7 +754,7 @@ branch_name_script: |
 
 ### Create a branch from a Issue (clean-light theme)
 
-https://github.com/user-attachments/assets/a733b95f-cd11-48a9-be58-810866aff1a2
+<https://github.com/user-attachments/assets/a733b95f-cd11-48a9-be58-810866aff1a2>
 
 ## How does it compare?
 

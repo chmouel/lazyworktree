@@ -1621,6 +1621,7 @@ func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranc
 	m.inputScreen = NewInputScreen("Create worktree from changes: branch name", "feature/my-branch", defaultName, m.theme)
 	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		newBranch := strings.TrimSpace(value)
+		newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 		if newBranch == "" {
 			m.inputScreen.errorMsg = errBranchEmpty
 			return nil, false
@@ -1787,6 +1788,7 @@ func (m *Model) handleCreateFromCurrentReady(msg createFromCurrentReadyMsg) tea.
 
 	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		newBranch := strings.TrimSpace(value)
+		newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 		if newBranch == "" {
 			m.inputScreen.errorMsg = errBranchEmpty
 			return nil, false
@@ -2498,6 +2500,7 @@ func (m *Model) showRenameWorktree() tea.Cmd {
 	m.inputScreen = NewInputScreen(prompt, "New branch name", wt.Branch, m.theme)
 	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		newBranch := strings.TrimSpace(value)
+		newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 		if newBranch == "" {
 			m.inputScreen.errorMsg = "Name cannot be empty."
 			return nil, false

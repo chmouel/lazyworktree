@@ -237,6 +237,7 @@ func (m *Model) showBranchNameInput(baseRef, defaultName string) tea.Cmd {
 	m.inputScreen = NewInputScreen("Create worktree: branch name", "feature/my-branch", suggested, m.theme)
 	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		newBranch := strings.TrimSpace(value)
+		newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 		if newBranch == "" {
 			m.inputScreen.errorMsg = errBranchEmpty
 			return nil, false
@@ -672,6 +673,7 @@ func (m *Model) executeCustomCreateCommand(menu *config.CustomCreateMenu) tea.Cm
 
 		// Use output as-is (preserve case, no lowercasing)
 		branchName := strings.TrimSpace(output)
+		branchName = sanitizeBranchNameFromTitle(branchName, "")
 
 		return customCreateResultMsg{branchName: branchName}
 	}
@@ -724,6 +726,7 @@ func (m *Model) executeCustomCreateCommandInteractive(menu *config.CustomCreateM
 
 		// Use output as-is (preserve case, no lowercasing)
 		branchName := strings.TrimSpace(output)
+		branchName = sanitizeBranchNameFromTitle(branchName, "")
 
 		return customCreateResultMsg{branchName: branchName}
 	})

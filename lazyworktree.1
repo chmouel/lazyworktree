@@ -324,6 +324,44 @@ compdef _jt jt
 .fi
 .RE
 .
+.SH BRANCH NAMING CONVENTIONS
+When creating worktrees with manual branch names, special characters are automatically converted to hyphens for compatibility with Git and terminal multiplexers (tmux/zellij). This ensures worktree directories and session names are valid across all systems.
+.PP
+.SS Supported Characters
+.LP
+Branch names can contain:
+.IP \(bu 2
+Letters (a-z, A-Z)
+.IP \(bu 2
+Numbers (0-9)
+.IP \(bu 2
+Hyphens (-)
+.LP
+All other characters are automatically converted to hyphens.
+.PP
+.SS Character Conversions
+.LP
+.TS
+tab(|) allbox;
+l l l.
+Input|Converted|Reason
+_
+feature.new|feature-new|Dots not allowed in Git branch names
+bug fix here|bug-fix-here|Spaces not allowed in branch names
+path/to/branch|path-to-branch|Slashes reserved for path separators
+feature:test|feature-test|Colons reserved in tmux/zellij session names
+test_underscore|test-underscore|Normalised to hyphens for consistency
+.TE
+.PP
+.SS Rules
+.LP
+.IP \(bu 2
+Leading and trailing hyphens are removed
+.IP \(bu 2
+Consecutive hyphens are collapsed to a single hyphen
+.IP \(bu 2
+Maximum length: 50 characters (manual input), 100 characters (auto-generated from PR/issue titles)
+
 .SH CONFIGURATION
 lazyworktree reads configuration from \fB~/.config/lazyworktree/config.yaml\fR (or \fBconfig.yml\fR).
 .

@@ -83,6 +83,7 @@ func TestSanitizeBranchNameFromTitle(t *testing.T) {
 		fallback string
 		expected string
 	}{
+		// Basic functionality
 		{
 			name:     "basic title",
 			title:    "Fix: Add new feature!",
@@ -106,6 +107,121 @@ func TestSanitizeBranchNameFromTitle(t *testing.T) {
 			title:    "",
 			fallback: "",
 			expected: "commit",
+		},
+		// Special character conversions (the bug fix)
+		{
+			name:     "dots converted to hyphens",
+			title:    "feature.new",
+			fallback: "",
+			expected: "feature-new",
+		},
+		{
+			name:     "multiple dots converted to single hyphen",
+			title:    "better.agent.md",
+			fallback: "",
+			expected: "better-agent-md",
+		},
+		{
+			name:     "spaces converted to hyphens",
+			title:    "bug fix here",
+			fallback: "",
+			expected: "bug-fix-here",
+		},
+		{
+			name:     "multiple spaces converted to single hyphen",
+			title:    "feature   with   spaces",
+			fallback: "",
+			expected: "feature-with-spaces",
+		},
+		{
+			name:     "slashes converted to hyphens",
+			title:    "path/to/branch",
+			fallback: "",
+			expected: "path-to-branch",
+		},
+		{
+			name:     "backslashes converted to hyphens",
+			title:    "path\\to\\branch",
+			fallback: "",
+			expected: "path-to-branch",
+		},
+		{
+			name:     "colons converted to hyphens",
+			title:    "feature:test",
+			fallback: "",
+			expected: "feature-test",
+		},
+		{
+			name:     "underscores converted to hyphens",
+			title:    "test_underscore",
+			fallback: "",
+			expected: "test-underscore",
+		},
+		{
+			name:     "mixed special characters",
+			title:    "feature.new test:case v2_0",
+			fallback: "",
+			expected: "feature-new-test-case-v2-0",
+		},
+		{
+			name:     "leading hyphens removed",
+			title:    "---feature",
+			fallback: "",
+			expected: "feature",
+		},
+		{
+			name:     "trailing hyphens removed",
+			title:    "feature---",
+			fallback: "",
+			expected: "feature",
+		},
+		{
+			name:     "consecutive hyphens collapsed",
+			title:    "feature---new---thing",
+			fallback: "",
+			expected: "feature-new-thing",
+		},
+		{
+			name:     "special chars at edges",
+			title:    "...feature...",
+			fallback: "",
+			expected: "feature",
+		},
+		{
+			name:     "github issue format",
+			title:    "#42: Fix the login API",
+			fallback: "",
+			expected: "42-fix-the-login-api",
+		},
+		{
+			name:     "gitlab mr format",
+			title:    "!123 Add feature.new",
+			fallback: "",
+			expected: "123-add-feature-new",
+		},
+		{
+			name:     "common filename pattern",
+			title:    "update package.json",
+			fallback: "",
+			expected: "update-package-json",
+		},
+		{
+			name:     "pr title with special chars",
+			title:    "Add user.authentication feature (v2.0)",
+			fallback: "",
+			expected: "add-user-authentication-feature-v2-0",
+		},
+		{
+			name:     "case insensitivity",
+			title:    "UPPERCASE FEATURE",
+			fallback: "",
+			expected: "uppercase-feature",
+		},
+		{
+			name:     "all special chars together",
+			title:    "test.file (v1_0) [beta]: feature/update!@#$%",
+			fallback: "",
+			expected: "test-file-v1-0-beta-feature-update",
 		},
 	}
 

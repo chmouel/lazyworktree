@@ -260,6 +260,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 				)
 				m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 					newBranch := strings.TrimSpace(value)
+					newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 					if newBranch == "" {
 						m.inputScreen.errorMsg = errBranchEmpty
 						return nil, false
@@ -329,6 +330,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 		)
 		m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 			newBranch := strings.TrimSpace(value)
+			newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 			if newBranch == "" {
 				m.inputScreen.errorMsg = errBranchEmpty
 				return nil, false
@@ -470,6 +472,7 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 				)
 				m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 					newBranch := strings.TrimSpace(value)
+					newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 					if newBranch == "" {
 						m.inputScreen.errorMsg = errBranchEmpty
 						return nil, false
