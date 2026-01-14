@@ -23,4 +23,7 @@ coverage:
 	go test ./... -covermode=count -coverprofile=coverage.out
 	go tool cover -func=coverage.out -o=coverage.out
 
-.PHONY: all build lint format test coverage sanity mkdir
+release:
+	./hack/make-release.sh
+
+.PHONY: all build lint format test coverage sanity mkdir release
