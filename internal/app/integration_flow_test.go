@@ -12,6 +12,10 @@ import (
 	"github.com/chmouel/lazyworktree/internal/models"
 )
 
+const (
+	testSkipPath = "skip"
+)
+
 type recordedCommand struct {
 	name string
 	args []string
@@ -79,7 +83,7 @@ func TestIntegrationKeyBindingsTriggerCommands(t *testing.T) {
 	}
 
 	m := NewModel(cfg, "")
-	m.repoConfigPath = "skip"
+	m.repoConfigPath = testSkipPath
 
 	worktreePath := cfg.WorktreeDir + "/wt"
 	wt := &models.WorktreeInfo{
@@ -194,7 +198,7 @@ func TestIntegrationPRAndCIFlowUpdatesView(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
-	m.repoConfigPath = "skip"
+	m.repoConfigPath = testSkipPath
 	m.setWindowSize(120, 40)
 
 	worktreePath := cfg.WorktreeDir + "/wt"
@@ -333,5 +337,191 @@ func TestIntegrationPaletteSelectsActiveTmuxSession(t *testing.T) {
 	}
 	if !foundWtPrefix {
 		t.Fatalf("expected tmux command to include 'wt-' prefix in session name, got args: %v", tmuxCmd.args)
+	}
+}
+
+func TestIntegrationDiffViewerModesWithNoChanges(t *testing.T) {
+	testCases := []struct {
+		name                string
+		gitPager            string
+		gitPagerInteractive bool
+	}{
+		{
+			name:                "Non-interactive mode",
+			gitPager:            "less",
+			gitPagerInteractive: false,
+		},
+		{
+			name:                "Interactive mode",
+			gitPager:            "delta",
+			gitPagerInteractive: true,
+		},
+		{
+			name:                "VSCode mode",
+			gitPager:            "code --wait --diff",
+			gitPagerInteractive: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.AppConfig{
+				WorktreeDir:         t.TempDir(),
+				GitPager:            tc.gitPager,
+				GitPagerInteractive: tc.gitPagerInteractive,
+				MaxUntrackedDiffs:   5,
+				MaxDiffChars:        1000,
+			}
+
+			m := NewModel(cfg, "")
+			m.repoConfigPath = testSkipPath
+
+			worktreePath := cfg.WorktreeDir + "/wt"
+			wt := &models.WorktreeInfo{
+				Path:   worktreePath,
+				Branch: featureBranch,
+			}
+
+			updated, _ := m.Update(worktreesLoadedMsg{worktrees: []*models.WorktreeInfo{wt}})
+			m = updated.(*Model)
+
+			// Set up command recorder
+			recorder := &commandRecorder{}
+			m.commandRunner = recorder.runner
+			m.execProcess = recorder.exec
+
+			// statusFilesAll is empty by default, simulating no changes
+
+			// Simulate 'd' key press
+			updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+			m = updated.(*Model)
+
+			// Verify info screen is shown
+			if m.currentScreen != screenInfo {
+				t.Fatalf("expected screenInfo, got %v", m.currentScreen)
+			}
+			if m.infoScreen == nil {
+				t.Fatal("expected infoScreen to be set")
+			}
+			if m.infoScreen.message != testNoDiffMessage {
+				t.Fatalf("expected message 'No diff to show.', got %q", m.infoScreen.message)
+			}
+
+			// Verify no command was executed
+			if cmd != nil {
+				_ = cmd() // Execute to trigger any recordings
+			}
+			if len(recorder.execs) > 0 {
+				t.Fatalf("expected no commands to be executed, got %d", len(recorder.execs))
+			}
+		})
+	}
+}
+
+func TestIntegrationDiffViewerModesWithChanges(t *testing.T) {
+	testCases := []struct {
+		name                string
+		gitPager            string
+		gitPagerInteractive bool
+		expectedCommand     string
+	}{
+		{
+			name:                "Non-interactive mode",
+			gitPager:            "less",
+			gitPagerInteractive: false,
+			expectedCommand:     "bash",
+		},
+		{
+			name:                "Interactive mode",
+			gitPager:            "delta",
+			gitPagerInteractive: true,
+			expectedCommand:     "bash",
+		},
+		{
+			name:                "VSCode mode",
+			gitPager:            "code --wait --diff",
+			gitPagerInteractive: false,
+			expectedCommand:     "bash",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.AppConfig{
+				WorktreeDir:         t.TempDir(),
+				GitPager:            tc.gitPager,
+				GitPagerInteractive: tc.gitPagerInteractive,
+				MaxUntrackedDiffs:   5,
+				MaxDiffChars:        1000,
+			}
+
+			m := NewModel(cfg, "")
+			m.repoConfigPath = testSkipPath
+
+			worktreePath := cfg.WorktreeDir + "/wt"
+			wt := &models.WorktreeInfo{
+				Path:   worktreePath,
+				Branch: featureBranch,
+			}
+
+			updated, _ := m.Update(worktreesLoadedMsg{worktrees: []*models.WorktreeInfo{wt}})
+			m = updated.(*Model)
+
+			// Simulate having changes
+			m.statusFilesAll = []StatusFile{
+				{Filename: "test.go", Status: ".M", IsUntracked: false},
+			}
+
+			// Set up command recorder
+			recorder := &commandRecorder{}
+			m.commandRunner = recorder.runner
+			m.execProcess = recorder.exec
+
+			// Simulate 'd' key press
+			updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+			m = updated.(*Model)
+
+			// Verify command was returned
+			if cmd == nil {
+				t.Fatal("expected a command to be returned")
+			}
+
+			// Execute the command to trigger recording
+			_ = cmd()
+
+			// Verify bash command was executed
+			if !containsCommand(recorder.execs, "bash") {
+				t.Fatalf("expected bash command to be executed, got %v", recorder.execs)
+			}
+
+			// Verify git command is in the bash script
+			found := false
+			for _, exec := range recorder.execs {
+				if exec.name == testBashCmd && len(exec.args) >= 2 && exec.args[0] == "-c" {
+					script := exec.args[1]
+					if strings.Contains(tc.gitPager, "code") {
+						// VSCode mode uses git difftool
+						if strings.Contains(script, "git difftool") {
+							found = true
+							break
+						}
+					} else {
+						// Non-interactive and interactive modes use git diff
+						if strings.Contains(script, "git diff") {
+							found = true
+							break
+						}
+					}
+				}
+			}
+			if !found {
+				t.Fatalf("expected git command in bash script for %s", tc.name)
+			}
+
+			// Verify no info screen is shown
+			if m.currentScreen == screenInfo {
+				t.Fatal("expected no info screen when there are changes")
+			}
+		})
 	}
 }

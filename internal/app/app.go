@@ -2062,6 +2062,12 @@ func (m *Model) showDiffInteractive() tea.Cmd {
 	}
 	wt := m.filteredWts[m.selectedIndex]
 
+	// Check if there are any changes to show
+	if len(m.statusFilesAll) == 0 {
+		m.showInfo("No diff to show.", nil)
+		return nil
+	}
+
 	// Build environment variables
 	env := m.buildCommandEnv(wt.Branch, wt.Path)
 	envVars := os.Environ()
@@ -2095,6 +2101,12 @@ func (m *Model) showDiffVSCode() tea.Cmd {
 		return nil
 	}
 	wt := m.filteredWts[m.selectedIndex]
+
+	// Check if there are any changes to show
+	if len(m.statusFilesAll) == 0 {
+		m.showInfo("No diff to show.", nil)
+		return nil
+	}
 
 	// Build environment variables
 	env := m.buildCommandEnv(wt.Branch, wt.Path)
