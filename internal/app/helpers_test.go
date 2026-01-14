@@ -633,6 +633,46 @@ func TestFilterPaletteItems(t *testing.T) {
 	}
 }
 
+func TestFilterPaletteItemsSkipsSections(t *testing.T) {
+	items := []paletteItem{
+		{label: "Section", isSection: true},
+		{id: "create", label: "Create", description: "Create item"},
+		{id: "delete", label: "Delete", description: "Delete item"},
+	}
+	result := filterPaletteItems(items, "cre")
+	if len(result) != 1 {
+		t.Errorf("expected 1 result, got %d", len(result))
+	}
+	if result[0].id != "create" {
+		t.Errorf("expected 'create', got %q", result[0].id)
+	}
+}
+
+func TestFilterPaletteItemsIncludesSectionsWhenEmpty(t *testing.T) {
+	items := []paletteItem{
+		{label: "Section", isSection: true},
+		{id: "create", label: "Create", description: "Create item"},
+	}
+	result := filterPaletteItems(items, "")
+	if len(result) != 2 {
+		t.Errorf("expected 2 results, got %d", len(result))
+	}
+	if !result[0].isSection {
+		t.Error("expected first item to be a section")
+	}
+}
+
+func TestFilterPaletteItemsWithOnlySections(t *testing.T) {
+	items := []paletteItem{
+		{label: "Section 1", isSection: true},
+		{label: "Section 2", isSection: true},
+	}
+	result := filterPaletteItems(items, "sec")
+	if len(result) != 0 {
+		t.Errorf("expected 0 results, got %d", len(result))
+	}
+}
+
 func TestMinInt(t *testing.T) {
 	tests := []struct {
 		name string

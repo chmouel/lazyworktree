@@ -759,6 +759,66 @@ func TestShowCommandPaletteIncludesZellijCommands(t *testing.T) {
 	}
 }
 
+func TestShowCommandPaletteHasSectionHeaders(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.showCommandPalette()
+
+	sectionCount := 0
+	for _, item := range m.paletteScreen.items {
+		if item.isSection {
+			sectionCount++
+		}
+	}
+
+	if sectionCount != 7 {
+		t.Errorf("expected 7 sections, got %d", sectionCount)
+	}
+}
+
+func TestShowCommandPaletteFirstItemIsSection(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.showCommandPalette()
+
+	if !m.paletteScreen.items[0].isSection {
+		t.Error("expected first item to be a section header")
+	}
+	if m.paletteScreen.items[0].label != "Worktree Actions" {
+		t.Errorf("expected first section 'Worktree Actions', got %q", m.paletteScreen.items[0].label)
+	}
+}
+
+func TestShowCommandPaletteHasAllActions(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.showCommandPalette()
+
+	expectedIDs := []string{
+		"create", "delete", "rename", "absorb", "prune",
+		"create-from-current", "create-from-branch", "create-from-commit",
+		"create-from-pr", "create-from-issue", "create-freeform",
+		"diff", "refresh", "fetch", "fetch-pr-data", "pr", "lazygit", "run-command",
+		"stage-file", "commit-staged", "commit-all", "edit-file", "delete-file",
+		"cherry-pick", "commit-view",
+		"zoom-toggle", "filter", "search", "focus-worktrees", "focus-status", "focus-log", "sort-cycle",
+		"theme", "help",
+	}
+
+	itemIDs := make(map[string]bool)
+	for _, item := range m.paletteScreen.items {
+		if !item.isSection {
+			itemIDs[item.id] = true
+		}
+	}
+
+	for _, expectedID := range expectedIDs {
+		if !itemIDs[expectedID] {
+			t.Errorf("expected palette item %q not found", expectedID)
+		}
+	}
+}
+
 func TestRenderFooterIncludesCustomHelpHints(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
@@ -2464,7 +2524,7 @@ func TestRenderScreenVariants(t *testing.T) {
 		t.Fatal("expected welcome screen to render")
 	}
 
-	m.paletteScreen = NewCommandPaletteScreen([]paletteItem{{id: "help", label: "Help"}}, m.theme)
+	m.paletteScreen = NewCommandPaletteScreen([]paletteItem{{id: "help", label: "Help"}}, 100, 40, m.theme)
 	m.currentScreen = screenPalette
 	if out = m.renderScreen(); out == "" {
 		t.Fatal("expected palette screen to render")

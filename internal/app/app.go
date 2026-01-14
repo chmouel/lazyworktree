@@ -2802,28 +2802,73 @@ func (m *Model) showAbsorbWorktree() tea.Cmd {
 func (m *Model) showCommandPalette() tea.Cmd {
 	m.debugf("open palette")
 	customItems := m.customPaletteItems()
-	items := make([]paletteItem, 0, 10+len(customItems))
+	items := make([]paletteItem, 0, 40+len(customItems))
 	items = append(items,
+		// Section: Worktree Actions
+		paletteItem{label: "Worktree Actions", isSection: true},
 		paletteItem{id: "create", label: "Create worktree (c)", description: "Add a new worktree from base branch or PR/MR"},
 		paletteItem{id: "delete", label: "Delete worktree (D)", description: "Remove worktree and branch"},
 		paletteItem{id: "rename", label: "Rename worktree (m)", description: "Rename worktree and branch"},
 		paletteItem{id: "absorb", label: "Absorb worktree (A)", description: "Merge branch into main and remove worktree"},
 		paletteItem{id: "prune", label: "Prune merged (X)", description: "Remove merged PR worktrees"},
+
+		// Section: Create Shortcuts
+		paletteItem{label: "Create Shortcuts", isSection: true},
+		paletteItem{id: "create-from-current", label: "Create worktree from current branch", description: "Create from current branch with or without changes"},
+		paletteItem{id: "create-from-branch", label: "Create worktree from branch/tag", description: "Select a branch, tag, or remote as base"},
+		paletteItem{id: "create-from-commit", label: "Create worktree from commit", description: "Choose a branch, then select a specific commit"},
+		paletteItem{id: "create-from-pr", label: "Create worktree from PR/MR", description: "Create from a pull/merge request"},
+		paletteItem{id: "create-from-issue", label: "Create worktree from issue", description: "Create from a GitHub/GitLab issue"},
+		paletteItem{id: "create-freeform", label: "Create worktree from ref", description: "Enter a branch, tag, or commit manually"},
+
+		// Section: Git Operations
+		paletteItem{label: "Git Operations", isSection: true},
+		paletteItem{id: "diff", label: "Show diff (d)", description: "Show diff for current worktree or commit"},
 		paletteItem{id: "refresh", label: "Refresh (r)", description: "Reload worktrees"},
 		paletteItem{id: "fetch", label: "Fetch remotes (R)", description: "git fetch --all"},
+		paletteItem{id: "fetch-pr-data", label: "Fetch PR data (p)", description: "Fetch PR/MR status from GitHub/GitLab"},
 		paletteItem{id: "pr", label: "Open PR (o)", description: "Open PR in browser"},
+		paletteItem{id: "lazygit", label: "Open LazyGit (g)", description: "Open LazyGit in selected worktree"},
+		paletteItem{id: "run-command", label: "Run command (!)", description: "Run arbitrary command in worktree"},
+
+		// Section: Status Pane
+		paletteItem{label: "Status Pane", isSection: true},
+		paletteItem{id: "stage-file", label: "Stage/unstage file (s)", description: "Stage or unstage selected file"},
+		paletteItem{id: "commit-staged", label: "Commit staged (c)", description: "Commit staged changes"},
+		paletteItem{id: "commit-all", label: "Stage all and commit (C)", description: "Stage all changes and commit"},
+		paletteItem{id: "edit-file", label: "Edit file (e)", description: "Open selected file in editor"},
+		paletteItem{id: "delete-file", label: "Delete file (D)", description: "Delete selected file or directory"},
+
+		// Section: Log Pane
+		paletteItem{label: "Log Pane", isSection: true},
+		paletteItem{id: "cherry-pick", label: "Cherry-pick commit (C)", description: "Cherry-pick commit to another worktree"},
+		paletteItem{id: "commit-view", label: "Browse commit files", description: "Browse files changed in selected commit"},
+
+		// Section: Navigation
+		paletteItem{label: "Navigation", isSection: true},
+		paletteItem{id: "zoom-toggle", label: "Toggle zoom (=)", description: "Toggle zoom on focused pane"},
+		paletteItem{id: "filter", label: "Filter (f)", description: "Filter items in focused pane"},
+		paletteItem{id: "search", label: "Search (/)", description: "Search items in focused pane"},
+		paletteItem{id: "focus-worktrees", label: "Focus worktrees (1)", description: "Focus worktree pane"},
+		paletteItem{id: "focus-status", label: "Focus status (2)", description: "Focus status pane"},
+		paletteItem{id: "focus-log", label: "Focus log (3)", description: "Focus log pane"},
+		paletteItem{id: "sort-cycle", label: "Cycle sort (s)", description: "Cycle sort mode (path/active/switched)"},
+
+		// Section: Settings
+		paletteItem{label: "Settings", isSection: true},
 		paletteItem{id: "theme", label: "Select theme", description: "Change the application theme with live preview"},
 		paletteItem{id: "help", label: "Help (?)", description: "Show help"},
 	)
 	items = append(items, customItems...)
 
-	m.paletteScreen = NewCommandPaletteScreen(items, m.theme)
+	m.paletteScreen = NewCommandPaletteScreen(items, m.windowWidth, m.windowHeight, m.theme)
 	m.paletteSubmit = func(action string) tea.Cmd {
 		m.debugf("palette action: %s", action)
 		if _, ok := m.config.CustomCommands[action]; ok {
 			return m.executeCustomCommand(action)
 		}
 		switch action {
+		// Worktree Actions
 		case "create":
 			return m.showCreateWorktree()
 		case "delete":
@@ -2834,14 +2879,135 @@ func (m *Model) showCommandPalette() tea.Cmd {
 			return m.showAbsorbWorktree()
 		case "prune":
 			return m.showPruneMerged()
+
+		// Create Menu Shortcuts
+		case "create-from-current":
+			return m.showCreateFromCurrent()
+		case "create-from-branch":
+			defaultBase := m.git.GetMainBranch(m.ctx)
+			return m.showBranchSelection(
+				"Select base branch",
+				"Filter branches...",
+				"No branches found.",
+				defaultBase,
+				func(branch string) tea.Cmd {
+					suggestedName := stripRemotePrefix(branch)
+					return m.showBranchNameInput(branch, suggestedName)
+				},
+			)
+		case "create-from-commit":
+			defaultBase := m.git.GetMainBranch(m.ctx)
+			return m.showCommitSelection(defaultBase)
+		case "create-from-pr":
+			return m.showCreateFromPR()
+		case "create-from-issue":
+			return m.showCreateFromIssue()
+		case "create-freeform":
+			defaultBase := m.git.GetMainBranch(m.ctx)
+			return m.showFreeformBaseInput(defaultBase)
+
+		// Git Operations
 		case "diff":
 			return m.showDiff()
 		case "refresh":
 			return m.refreshWorktrees()
 		case "fetch":
 			return m.fetchRemotes()
+		case "fetch-pr-data":
+			m.ciCache = make(map[string]*ciCacheEntry)
+			m.prDataLoaded = false
+			m.updateTable()
+			m.updateTableColumns(m.worktreeTable.Width())
+			m.loading = true
+			m.statusContent = "Fetching PR data..."
+			m.loadingScreen = NewLoadingScreen("Fetching PR data...", m.theme)
+			m.currentScreen = screenLoading
+			return m.fetchPRData()
 		case "pr":
 			return m.openPR()
+		case "lazygit":
+			return m.openLazyGit()
+		case "run-command":
+			return m.showRunCommand()
+
+		// Status Pane Actions
+		case "stage-file":
+			if len(m.statusTreeFlat) > 0 && m.statusTreeIndex >= 0 && m.statusTreeIndex < len(m.statusTreeFlat) {
+				node := m.statusTreeFlat[m.statusTreeIndex]
+				if node.IsDir() {
+					return m.stageDirectory(node)
+				}
+				return m.stageCurrentFile(*node.File)
+			}
+			return nil
+		case "commit-staged":
+			return m.commitStagedChanges()
+		case "commit-all":
+			return m.commitAllChanges()
+		case "edit-file":
+			if len(m.statusTreeFlat) > 0 && m.statusTreeIndex >= 0 && m.statusTreeIndex < len(m.statusTreeFlat) {
+				node := m.statusTreeFlat[m.statusTreeIndex]
+				if !node.IsDir() {
+					return m.openStatusFileInEditor(*node.File)
+				}
+			}
+			return nil
+		case "delete-file":
+			return m.showDeleteFile()
+
+		// Log Pane Actions
+		case "cherry-pick":
+			return m.showCherryPick()
+		case "commit-view":
+			return m.openCommitView()
+
+		// Navigation & View
+		case "zoom-toggle":
+			if m.zoomedPane >= 0 {
+				m.zoomedPane = -1
+			} else {
+				m.zoomedPane = m.focusedPane
+			}
+			return nil
+		case "filter":
+			target := filterTargetWorktrees
+			switch m.focusedPane {
+			case 1:
+				target = filterTargetStatus
+			case 2:
+				target = filterTargetLog
+			}
+			return m.startFilter(target)
+		case "search":
+			target := searchTargetWorktrees
+			switch m.focusedPane {
+			case 1:
+				target = searchTargetStatus
+			case 2:
+				target = searchTargetLog
+			}
+			return m.startSearch(target)
+		case "focus-worktrees":
+			m.zoomedPane = -1
+			m.focusedPane = 0
+			m.worktreeTable.Focus()
+			return nil
+		case "focus-status":
+			m.zoomedPane = -1
+			m.focusedPane = 1
+			m.rebuildStatusContentWithHighlight()
+			return nil
+		case "focus-log":
+			m.zoomedPane = -1
+			m.focusedPane = 2
+			m.logTable.Focus()
+			return nil
+		case "sort-cycle":
+			m.sortMode = (m.sortMode + 1) % 3
+			m.updateTable()
+			return nil
+
+		// Settings & Help
 		case "theme":
 			return m.showThemeSelection()
 		case "help":
@@ -2893,7 +3059,8 @@ func (m *Model) customPaletteItems() []paletteItem {
 		return nil
 	}
 
-	items := make([]paletteItem, 0, len(keys))
+	// Separate commands into categories
+	var regularItems, tmuxItems, zellijItems []paletteItem
 	for _, key := range keys {
 		cmd := m.config.CustomCommands[key]
 		if cmd == nil {
@@ -2909,11 +3076,43 @@ func (m *Model) customPaletteItems() []paletteItem {
 		case cmd.Tmux != nil:
 			description = tmuxSessionLabel
 		}
-		items = append(items, paletteItem{
+		item := paletteItem{
 			id:          key,
 			label:       label,
 			description: description,
-		})
+		}
+		switch {
+		case cmd.Tmux != nil:
+			tmuxItems = append(tmuxItems, item)
+		case cmd.Zellij != nil:
+			zellijItems = append(zellijItems, item)
+		default:
+			regularItems = append(regularItems, item)
+		}
+	}
+
+	// Check if tmux/zellij are available
+	_, tmuxErr := exec.LookPath("tmux")
+	_, zellijErr := exec.LookPath("zellij")
+	hasTmux := len(tmuxItems) > 0 && tmuxErr == nil
+	hasZellij := len(zellijItems) > 0 && zellijErr == nil
+
+	// Build result with sections
+	var items []paletteItem
+	if len(regularItems) > 0 {
+		items = append(items, paletteItem{label: "Custom Commands", isSection: true})
+		items = append(items, regularItems...)
+	}
+
+	// Single Multiplexer section for both tmux and zellij
+	if hasTmux || hasZellij {
+		items = append(items, paletteItem{label: "Multiplexer", isSection: true})
+		if hasTmux {
+			items = append(items, tmuxItems...)
+		}
+		if hasZellij {
+			items = append(items, zellijItems...)
+		}
 	}
 
 	return items

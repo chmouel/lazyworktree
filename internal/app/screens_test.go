@@ -532,3 +532,102 @@ func TestChecklistScreenFilter(t *testing.T) {
 		t.Fatalf("expected filtered item to be Alpha, got %s", screen.filtered[0].Label)
 	}
 }
+
+func TestNewCommandPaletteScreenInitialCursorSkipsSection(t *testing.T) {
+	items := []paletteItem{
+		{label: "Section", isSection: true},
+		{id: "first", label: "First"},
+		{id: "second", label: "Second"},
+	}
+	thm := theme.Dracula()
+	screen := NewCommandPaletteScreen(items, 100, 40, thm)
+	if screen.cursor != 1 {
+		t.Errorf("expected cursor at 1 (first non-section), got %d", screen.cursor)
+	}
+}
+
+func TestCommandPaletteScreenNavigationSkipsSections(t *testing.T) {
+	items := []paletteItem{
+		{label: "Section 1", isSection: true},
+		{id: "first", label: "First"},
+		{label: "Section 2", isSection: true},
+		{id: "second", label: "Second"},
+	}
+	thm := theme.Dracula()
+	screen := NewCommandPaletteScreen(items, 100, 40, thm)
+
+	// Initial cursor should be on "first" (index 1)
+	if screen.cursor != 1 {
+		t.Errorf("expected initial cursor at 1, got %d", screen.cursor)
+	}
+
+	// Navigate down - should skip section and land on "second" (index 3)
+	screen.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if screen.cursor != 3 {
+		t.Errorf("expected cursor at 3 after down, got %d", screen.cursor)
+	}
+
+	// Navigate up - should skip section and land on "first" (index 1)
+	screen.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if screen.cursor != 1 {
+		t.Errorf("expected cursor at 1 after up, got %d", screen.cursor)
+	}
+}
+
+func TestCommandPaletteScreenApplyFilterSkipsSection(t *testing.T) {
+	items := []paletteItem{
+		{label: "Actions", isSection: true},
+		{id: "create", label: "Create worktree"},
+		{id: "delete", label: "Delete worktree"},
+	}
+	thm := theme.Dracula()
+	screen := NewCommandPaletteScreen(items, 100, 40, thm)
+
+	// Set filter
+	screen.filterInput.SetValue("del")
+	screen.applyFilter()
+
+	// Should have 1 filtered item (sections excluded)
+	if len(screen.filtered) != 1 {
+		t.Errorf("expected 1 filtered item, got %d", len(screen.filtered))
+	}
+	if screen.filtered[0].id != "delete" {
+		t.Errorf("expected 'delete', got %q", screen.filtered[0].id)
+	}
+	// Cursor should be 0
+	if screen.cursor != 0 {
+		t.Errorf("expected cursor at 0, got %d", screen.cursor)
+	}
+}
+
+func TestCommandPaletteScreenViewRendersSections(t *testing.T) {
+	items := []paletteItem{
+		{label: "My Section", isSection: true},
+		{id: "item", label: "Item"},
+	}
+	thm := theme.Dracula()
+	screen := NewCommandPaletteScreen(items, 100, 40, thm)
+	view := screen.View()
+
+	if !strings.Contains(view, "── My Section ──") {
+		t.Errorf("expected view to contain section header with decorators, got %q", view)
+	}
+}
+
+func TestCommandPaletteScreenSelectedReturnsEmptyForSection(t *testing.T) {
+	items := []paletteItem{
+		{label: "Section", isSection: true},
+	}
+	thm := theme.Dracula()
+	screen := NewCommandPaletteScreen(items, 100, 40, thm)
+	screen.cursor = 0
+
+	id, ok := screen.Selected()
+	// Section has empty id, should still return ok but empty id
+	if !ok {
+		t.Error("expected Selected to return ok=true")
+	}
+	if id != "" {
+		t.Errorf("expected empty id for section, got %q", id)
+	}
+}

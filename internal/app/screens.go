@@ -135,6 +135,8 @@ type CommandPaletteScreen struct {
 	filterInput  textinput.Model
 	cursor       int
 	scrollOffset int
+	width        int
+	height       int
 	thm          *theme.Theme
 }
 
@@ -142,6 +144,7 @@ type paletteItem struct {
 	id          string
 	label       string
 	description string
+	isSection   bool
 }
 
 type selectionItem struct {
@@ -1184,20 +1187,35 @@ Generate completions: lazyworktree --completion <bash|zsh|fish>
 }
 
 // NewCommandPaletteScreen builds a palette populated with candidate commands.
-func NewCommandPaletteScreen(items []paletteItem, thm *theme.Theme) *CommandPaletteScreen {
+func NewCommandPaletteScreen(items []paletteItem, maxWidth, maxHeight int, thm *theme.Theme) *CommandPaletteScreen {
+	// Calculate palette width: 80% of screen, capped between 60 and 110
+	width := int(float64(maxWidth) * 0.8)
+	width = max(60, min(110, width))
+
 	ti := textinput.New()
 	ti.Placeholder = "Type a command..."
 	ti.CharLimit = 100
 	ti.Prompt = "> "
 	ti.Focus()
-	ti.Width = 78 // fits inside 80 width box with padding
+	ti.Width = width - 4 // fits inside box with padding
+
+	// Find first non-section item for initial cursor
+	initialCursor := 0
+	for i, item := range items {
+		if !item.isSection {
+			initialCursor = i
+			break
+		}
+	}
 
 	screen := &CommandPaletteScreen{
 		items:        items,
 		filtered:     items,
 		filterInput:  ti,
-		cursor:       0,
+		cursor:       initialCursor,
 		scrollOffset: 0,
+		width:        width,
+		height:       maxHeight,
 		thm:          thm,
 	}
 	return screen
@@ -1295,6 +1313,10 @@ func (s *CommandPaletteScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case keyUp:
 			if s.cursor > 0 {
 				s.cursor--
+				// Skip sections when navigating
+				for s.cursor > 0 && s.filtered[s.cursor].isSection {
+					s.cursor--
+				}
 				if s.cursor < s.scrollOffset {
 					s.scrollOffset = s.cursor
 				}
@@ -1303,6 +1325,10 @@ func (s *CommandPaletteScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case keyDown:
 			if s.cursor < len(s.filtered)-1 {
 				s.cursor++
+				// Skip sections when navigating
+				for s.cursor < len(s.filtered)-1 && s.filtered[s.cursor].isSection {
+					s.cursor++
+				}
 				if s.cursor >= s.scrollOffset+maxVisible {
 					s.scrollOffset = s.cursor - maxVisible + 1
 				}
@@ -1323,6 +1349,15 @@ func (s *CommandPaletteScreen) applyFilter() {
 	if s.cursor >= len(s.filtered) {
 		s.cursor = maxInt(0, len(s.filtered)-1)
 	}
+
+	// Find first non-section item for cursor
+	for s.cursor < len(s.filtered) && s.filtered[s.cursor].isSection {
+		s.cursor++
+	}
+	if s.cursor >= len(s.filtered) {
+		s.cursor = 0
+	}
+
 	s.scrollOffset = 0
 }
 
@@ -2215,8 +2250,18 @@ func (s *HelpScreen) View() string {
 
 // View displays the palette items and current filter text.
 func (s *CommandPaletteScreen) View() string {
-	width := 110
-	maxVisible := 12
+	width := s.width
+	if width == 0 {
+		width = 110 // fallback for tests
+	}
+
+	// Calculate maxVisible based on available height
+	// Reserve: 1 input + 1 separator + 1 footer + 2 border = ~5 lines
+	maxVisible := s.height - 5
+	maxVisible = max(5, min(20, maxVisible))
+	if s.height == 0 {
+		maxVisible = 12 // fallback for tests
+	}
 
 	// Enhanced palette modal with rounded border
 	boxStyle := lipgloss.NewStyle().
@@ -2268,8 +2313,20 @@ func (s *CommandPaletteScreen) View() string {
 		start = end // Should not happen if logic is correct
 	}
 
+	sectionStyle := lipgloss.NewStyle().
+		Padding(0, 1).
+		Width(width - 2).
+		Foreground(s.thm.Accent).
+		Bold(true)
+
 	for i := start; i < end; i++ {
 		it := s.filtered[i]
+
+		// Render section headers differently
+		if it.isSection {
+			itemViews = append(itemViews, sectionStyle.Render("── "+it.label+" ──"))
+			continue
+		}
 
 		// Truncate label if too long
 		label := it.label
