@@ -20,6 +20,8 @@ type PRInfo struct {
 	Author      string // PR/MR author username
 	AuthorName  string // PR/MR author full name
 	AuthorIsBot bool   // Whether the author is a bot
+	IsDraft     bool   // Whether the PR is a draft
+	CIStatus    string // Computed CI status: "success", "failure", "pending", "none"
 }
 
 // IssueInfo captures the relevant metadata for an issue.

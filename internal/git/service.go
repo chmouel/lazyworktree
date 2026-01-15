@@ -869,7 +869,7 @@ func (s *Service) FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
 	prRaw := s.RunGit(ctx, []string{
 		"gh", "pr", "list",
 		"--state", "open",
-		"--json", "headRefName,state,number,title,body,url,author",
+		"--json", "headRefName,state,number,title,body,url,author,isDraft,statusCheckRollup",
 		"--limit", "100",
 	}, "", []int{0}, false, host == gitHostUnknown)
 
@@ -911,6 +911,9 @@ func (s *Service) FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
 			}
 		}
 
+		isDraft, _ := p["isDraft"].(bool)
+		ciStatus := computeCIStatusFromRollup(p["statusCheckRollup"])
+
 		result = append(result, &models.PRInfo{
 			Number:      int(number),
 			State:       prStateOpen,
@@ -921,6 +924,8 @@ func (s *Service) FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
 			Author:      author,
 			AuthorName:  authorName,
 			AuthorIsBot: authorIsBot,
+			IsDraft:     isDraft,
+			CIStatus:    ciStatus,
 		})
 	}
 
@@ -972,6 +977,11 @@ func (s *Service) fetchGitLabOpenPRs(ctx context.Context) ([]*models.PRInfo, err
 			}
 		}
 
+		// GitLab uses "draft" field for WIP/draft MRs
+		isDraft, _ := p["draft"].(bool)
+		// CI status would require additional API calls for GitLab, default to none
+		ciStatus := "none"
+
 		result = append(result, &models.PRInfo{
 			Number:      int(iid),
 			State:       state,
@@ -982,6 +992,8 @@ func (s *Service) fetchGitLabOpenPRs(ctx context.Context) ([]*models.PRInfo, err
 			Author:      author,
 			AuthorName:  authorName,
 			AuthorIsBot: authorIsBot,
+			IsDraft:     isDraft,
+			CIStatus:    ciStatus,
 		})
 	}
 
@@ -1173,6 +1185,47 @@ func (s *Service) githubBucketToConclusion(bucket string) string {
 	default:
 		return bucket
 	}
+}
+
+// computeCIStatusFromRollup computes overall CI status from GitHub statusCheckRollup data.
+// Returns "success", "failure", "pending", or "none".
+func computeCIStatusFromRollup(rollup any) string {
+	checks, ok := rollup.([]any)
+	if !ok || len(checks) == 0 {
+		return "none"
+	}
+
+	hasFailure := false
+	hasPending := false
+
+	for _, check := range checks {
+		checkMap, ok := check.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		conclusion, _ := checkMap["conclusion"].(string)
+		status, _ := checkMap["status"].(string)
+
+		// Check for failure states
+		switch strings.ToUpper(conclusion) {
+		case "FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED":
+			hasFailure = true
+		}
+
+		// Check for pending states
+		if status != "" && !strings.EqualFold(status, "COMPLETED") {
+			hasPending = true
+		}
+	}
+
+	if hasFailure {
+		return "failure"
+	}
+	if hasPending {
+		return "pending"
+	}
+	return "success"
 }
 
 func (s *Service) fetchGitLabCI(ctx context.Context, branch string) ([]*models.CICheck, error) {

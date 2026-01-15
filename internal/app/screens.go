@@ -1738,25 +1738,53 @@ func (s *PRSelectionScreen) View() string {
 		start = end
 	}
 
+	// Calculate column widths for display
+	// Layout: [icon] #number author CI title
+	prNumWidth := 6
+	authorWidth := min(12, max(8, (s.width-30)/5))
+	ciWidth := 2
+	iconWidth := 0
+	if s.showIcons {
+		iconWidth = 3
+	}
+	// Title gets remaining space
+	titleWidth := s.width - prNumWidth - authorWidth - ciWidth - iconWidth - 10
+
 	for i := start; i < end; i++ {
 		pr := s.filtered[i]
+
+		// Format PR number
+		prNum := fmt.Sprintf("#%-5d", pr.Number)
+
+		// Format author (truncate if needed)
+		author := pr.Author
+		if len(author) > authorWidth {
+			author = author[:authorWidth-1] + "…"
+		}
+		authorFmt := fmt.Sprintf("%-*s", authorWidth, author)
+
+		// Format CI status icon (draft takes precedence)
+		ciIcon := getCIStatusIcon(pr.CIStatus, pr.IsDraft)
+
+		// Format title (truncate if needed)
+		title := pr.Title
+		if len(title) > titleWidth {
+			title = title[:titleWidth-1] + "…"
+		}
+
+		// Build the label
 		iconPrefix := ""
 		if s.showIcons {
 			iconPrefix = iconWithSpace(iconPR)
 		}
-		prLabel := fmt.Sprintf("%s#%d: %s", iconPrefix, pr.Number, pr.Title)
-
-		// Truncate if too long
-		maxLabelLen := s.width - 10
-		if len(prLabel) > maxLabelLen {
-			prLabel = prLabel[:maxLabelLen-1] + "…"
-		}
+		prLabel := fmt.Sprintf("%s%s %s %s %s", iconPrefix, prNum, authorFmt, ciIcon, title)
 
 		var line string
 		if i == s.cursor {
 			line = selectedStyle.Render(prLabel)
 		} else {
-			line = itemStyle.Render(prLabel)
+			// Apply color to CI icon based on status
+			line = s.renderPRLine(itemStyle, iconPrefix, prNum, authorFmt, ciIcon, title, pr.CIStatus, pr.IsDraft)
 		}
 		itemViews = append(itemViews, line)
 	}
@@ -1793,6 +1821,48 @@ func (s *PRSelectionScreen) View() string {
 	)
 
 	return boxStyle.Render(content)
+}
+
+// getCIStatusIcon returns the appropriate icon for CI status.
+// Draft PRs show "D" instead of CI status per user preference.
+func getCIStatusIcon(ciStatus string, isDraft bool) string {
+	if isDraft {
+		return "D"
+	}
+	switch ciStatus {
+	case "success":
+		return "✓"
+	case "failure":
+		return "✗"
+	case "pending":
+		return "~"
+	default:
+		return "◯"
+	}
+}
+
+// renderPRLine renders a PR line with colored CI status icon.
+func (s *PRSelectionScreen) renderPRLine(baseStyle lipgloss.Style, iconPrefix, prNum, author, ciIcon, title, ciStatus string, isDraft bool) string {
+	// Style for CI icon based on status
+	var ciStyle lipgloss.Style
+	if isDraft {
+		ciStyle = lipgloss.NewStyle().Foreground(s.thm.MutedFg)
+	} else {
+		switch ciStatus {
+		case "success":
+			ciStyle = lipgloss.NewStyle().Foreground(s.thm.SuccessFg)
+		case "failure":
+			ciStyle = lipgloss.NewStyle().Foreground(s.thm.ErrorFg)
+		case "pending":
+			ciStyle = lipgloss.NewStyle().Foreground(s.thm.WarnFg)
+		default:
+			ciStyle = lipgloss.NewStyle().Foreground(s.thm.MutedFg)
+		}
+	}
+
+	// Build the line with colored CI icon
+	line := fmt.Sprintf("%s%s %s %s %s", iconPrefix, prNum, author, ciStyle.Render(ciIcon), title)
+	return baseStyle.Render(line)
 }
 
 // NewIssueSelectionScreen builds an issue selection screen with 80% of screen size.

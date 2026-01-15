@@ -374,6 +374,53 @@ func TestPRSelectionScreenViewIncludesIcon(t *testing.T) {
 	}
 }
 
+func TestGetCIStatusIcon(t *testing.T) {
+	tests := []struct {
+		name     string
+		ciStatus string
+		isDraft  bool
+		expected string
+	}{
+		{name: "draft takes precedence", ciStatus: "success", isDraft: true, expected: "D"},
+		{name: "draft over failure", ciStatus: "failure", isDraft: true, expected: "D"},
+		{name: "success icon", ciStatus: "success", isDraft: false, expected: "✓"},
+		{name: "failure icon", ciStatus: "failure", isDraft: false, expected: "✗"},
+		{name: "pending icon", ciStatus: "pending", isDraft: false, expected: "~"},
+		{name: "none icon", ciStatus: "none", isDraft: false, expected: "◯"},
+		{name: "unknown defaults to none", ciStatus: "unknown", isDraft: false, expected: "◯"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getCIStatusIcon(tt.ciStatus, tt.isDraft)
+			if result != tt.expected {
+				t.Errorf("getCIStatusIcon(%q, %v) = %q, want %q", tt.ciStatus, tt.isDraft, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPRSelectionScreenWithCIStatus(t *testing.T) {
+	prs := []*models.PRInfo{
+		{Number: 1, Title: "Success PR", Author: "user1", CIStatus: "success", IsDraft: false},
+		{Number: 2, Title: "Failed PR", Author: "user2", CIStatus: "failure", IsDraft: false},
+		{Number: 3, Title: "Draft PR", Author: "user3", CIStatus: "success", IsDraft: true},
+	}
+	screen := NewPRSelectionScreen(prs, 100, 30, theme.Dracula(), true)
+
+	view := screen.View()
+
+	// Check that author names are included
+	if !strings.Contains(view, "user1") {
+		t.Error("expected view to contain author 'user1'")
+	}
+
+	// Check that CI status icons are rendered
+	if !strings.Contains(view, "✓") && !strings.Contains(view, "✗") && !strings.Contains(view, "D") {
+		t.Error("expected view to contain at least one CI status icon")
+	}
+}
+
 func TestListSelectionScreenUpdate(t *testing.T) {
 	items := []selectionItem{
 		{id: "a", label: "Alpha"},

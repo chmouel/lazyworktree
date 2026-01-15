@@ -528,6 +528,80 @@ func TestFetchAllOpenPRs(t *testing.T) {
 	})
 }
 
+func TestComputeCIStatusFromRollup(t *testing.T) {
+	tests := []struct {
+		name     string
+		rollup   any
+		expected string
+	}{
+		{
+			name:     "nil rollup",
+			rollup:   nil,
+			expected: "none",
+		},
+		{
+			name:     "empty rollup",
+			rollup:   []any{},
+			expected: "none",
+		},
+		{
+			name: "all success",
+			rollup: []any{
+				map[string]any{"conclusion": "SUCCESS", "status": "COMPLETED"},
+				map[string]any{"conclusion": "SUCCESS", "status": "COMPLETED"},
+			},
+			expected: "success",
+		},
+		{
+			name: "one failure",
+			rollup: []any{
+				map[string]any{"conclusion": "SUCCESS", "status": "COMPLETED"},
+				map[string]any{"conclusion": "FAILURE", "status": "COMPLETED"},
+			},
+			expected: "failure",
+		},
+		{
+			name: "cancelled counts as failure",
+			rollup: []any{
+				map[string]any{"conclusion": "CANCELLED", "status": "COMPLETED"},
+			},
+			expected: "failure",
+		},
+		{
+			name: "pending status",
+			rollup: []any{
+				map[string]any{"conclusion": "", "status": "IN_PROGRESS"},
+			},
+			expected: "pending",
+		},
+		{
+			name: "mixed success and pending",
+			rollup: []any{
+				map[string]any{"conclusion": "SUCCESS", "status": "COMPLETED"},
+				map[string]any{"conclusion": "", "status": "QUEUED"},
+			},
+			expected: "pending",
+		},
+		{
+			name: "failure takes precedence over pending",
+			rollup: []any{
+				map[string]any{"conclusion": "FAILURE", "status": "COMPLETED"},
+				map[string]any{"conclusion": "", "status": "IN_PROGRESS"},
+			},
+			expected: "failure",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := computeCIStatusFromRollup(tt.rollup)
+			if result != tt.expected {
+				t.Errorf("computeCIStatusFromRollup() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestCreateWorktreeFromPR(t *testing.T) {
 	notify := func(_ string, _ string) {}
 	notifyOnce := func(_ string, _ string, _ string) {}
