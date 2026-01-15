@@ -3495,6 +3495,7 @@ func TestFilterPaletteItemsSkipsMRU(t *testing.T) {
 	}
 }
 
+
 func TestWorkspaceNameTruncation(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -3596,6 +3597,80 @@ func TestWorkspaceNameTruncation(t *testing.T) {
 			if name != tt.expected {
 				t.Errorf("expected %q, got %q (expected length: %d, got length: %d)",
 					tt.expected, name, len([]rune(tt.expected)), len([]rune(name)))
+			}
+		})
+	}
+}
+
+func TestFilterWorktreeEnvVars(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name: "filters worktree vars",
+			input: []string{
+				"PATH=/usr/bin",
+				"WORKTREE_PATH=/tmp/wt",
+				"HOME=/home/user",
+				"MAIN_WORKTREE_PATH=/main",
+				"WORKTREE_BRANCH=feature",
+				"EDITOR=vim",
+			},
+			expected: []string{
+				"PATH=/usr/bin",
+				"HOME=/home/user",
+				"EDITOR=vim",
+			},
+		},
+		{
+			name:     "handles empty input",
+			input:    []string{},
+			expected: []string{},
+		},
+		{
+			name: "handles no worktree vars",
+			input: []string{
+				"PATH=/usr/bin",
+				"HOME=/home/user",
+			},
+			expected: []string{
+				"PATH=/usr/bin",
+				"HOME=/home/user",
+			},
+		},
+		{
+			name: "filters all worktree vars",
+			input: []string{
+				"WORKTREE_PATH=/tmp/wt",
+				"MAIN_WORKTREE_PATH=/main",
+				"WORKTREE_BRANCH=feature",
+				"WORKTREE_NAME=my-wt",
+				"REPO_NAME=my-repo",
+			},
+			expected: []string{},
+		},
+		{
+			name: "handles malformed entries gracefully",
+			input: []string{
+				"PATH=/usr/bin",
+				"NOEQUALS",
+				"HOME=/home/user",
+			},
+			expected: []string{
+				"PATH=/usr/bin",
+				"NOEQUALS",
+				"HOME=/home/user",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filterWorktreeEnvVars(tt.input)
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("filterWorktreeEnvVars() = %v, want %v", result, tt.expected)
 			}
 		})
 	}

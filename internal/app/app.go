@@ -3957,7 +3957,7 @@ func (m *Model) executeCustomCommand(key string) tea.Cmd {
 
 	// Set environment variables
 	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
+	envVars := filterWorktreeEnvVars(os.Environ())
 	for k, v := range env {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
 	}
@@ -3987,7 +3987,7 @@ func (m *Model) executeCustomCommand(key string) tea.Cmd {
 
 func (m *Model) executeCustomCommandWithPager(customCmd *config.CustomCommand, wt *models.WorktreeInfo) tea.Cmd {
 	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
+	envVars := filterWorktreeEnvVars(os.Environ())
 	for k, v := range env {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
 	}
@@ -4026,7 +4026,7 @@ func (m *Model) executeArbitraryCommand(cmdStr string) tea.Cmd {
 
 	// Build environment variables (same as custom commands)
 	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
+	envVars := filterWorktreeEnvVars(os.Environ())
 	for k, v := range env {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
 	}
@@ -4464,7 +4464,7 @@ func (m *Model) showCommitFileDiff(commitSHA, filename, worktreePath string) tea
 func (m *Model) showCommitDiffInteractive(commitSHA string, wt *models.WorktreeInfo) tea.Cmd {
 	// Build environment variables
 	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
+	envVars := filterWorktreeEnvVars(os.Environ())
 	for k, v := range env {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
 	}
@@ -4514,7 +4514,7 @@ func (m *Model) showCommitFileDiffInteractive(commitSHA, filename, worktreePath 
 func (m *Model) showCommitDiffVSCode(commitSHA string, wt *models.WorktreeInfo) tea.Cmd {
 	// Build environment variables
 	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
+	envVars := filterWorktreeEnvVars(os.Environ())
 	for k, v := range env {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
 	}
@@ -4536,7 +4536,7 @@ func (m *Model) showCommitDiffVSCode(commitSHA string, wt *models.WorktreeInfo) 
 }
 
 func (m *Model) showCommitFileDiffVSCode(commitSHA, filename, worktreePath string) tea.Cmd {
-	envVars := os.Environ()
+	envVars := filterWorktreeEnvVars(os.Environ())
 	envVars = append(envVars, fmt.Sprintf("WORKTREE_PATH=%s", worktreePath))
 
 	// Use git difftool to compare the specific file between parent and this commit
@@ -5601,6 +5601,27 @@ func envMapToList(env map[string]string) []string {
 		out = append(out, fmt.Sprintf("%s=%s", key, val))
 	}
 	return out
+}
+
+// filterWorktreeEnvVars filters out worktree-specific environment variables
+// to prevent duplicates when building command environments.
+func filterWorktreeEnvVars(environ []string) []string {
+	worktreeVars := map[string]bool{
+		"WORKTREE_PATH":      true,
+		"MAIN_WORKTREE_PATH": true,
+		"WORKTREE_BRANCH":    true,
+		"WORKTREE_NAME":      true,
+		"REPO_NAME":          true,
+	}
+
+	filtered := make([]string, 0, len(environ))
+	for _, entry := range environ {
+		parts := strings.SplitN(entry, "=", 2)
+		if len(parts) > 0 && !worktreeVars[parts[0]] {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
 }
 
 func resolveTmuxWindows(windows []config.TmuxWindow, env map[string]string, defaultCwd string) ([]resolvedTmuxWindow, bool) {
