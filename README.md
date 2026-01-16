@@ -561,21 +561,7 @@ custom_commands:
   t: # Open a tmux session with multiple windows
     description: Tmux
     show_help: true
-    tmux:
-      session_name: "wt:$WORKTREE_NAME"
-      attach: true
-      on_exists: switch
-      windows:
-        - name: claude
-          command: claude
-        - name: shell
-          command: zsh
-        - name: lazygit
-          command: lazygit
-  Z: # Open a zellij session with multiple tabs
-    description: Zellij
-    show_help: true
-    zellij:
+    tmux: # If you specify zellij instead of tmux this would manage zellij sessions
       session_name: "wt:$WORKTREE_NAME"
       attach: true
       on_exists: switch
