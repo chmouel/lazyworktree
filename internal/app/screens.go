@@ -1131,8 +1131,11 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - n / N: Next / previous search match
 - q / Esc: Return to commit log
 
--**⚡ Worktree Actions**
-- c: Create new worktree (branch, commit, PR/MR, issue, or custom) and select the new "Create from current" entry to copy the branch you are standing on; the prompt pre-fills a friendly random name that you may edit, and the checkbox allows carrying over local modifications; Tab/Shift+Tab cycle focus to the checkbox and Space toggles it while naming the branch.
+**⚡ Worktree Actions**
+- c: Create new worktree (branch, commit, PR/MR, issue, or custom)
+- Create from current: suggested name is pre-filled, you may edit it
+- Tab / Shift+Tab: Move focus to the "Include current file changes" checkbox
+- Space: Toggle "Include current file changes"
 - m: Rename selected worktree
 - D: Delete selected worktree
 - A: Absorb worktree into main (merge + delete)

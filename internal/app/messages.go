@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	log "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
 // handleWorktreeMessages processes worktree-related messages.
@@ -316,7 +317,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 				template = "pr-{number}-{title}"
 			}
 			// Pass empty string for generatedTitle since we're getting it now
-			suggestedName := generatePRWorktreeName(pr, template, "")
+			suggestedName := utils.GeneratePRWorktreeName(pr, template, "")
 
 			if aiTitle, err := runBranchNameScript(
 				m.ctx,
@@ -339,7 +340,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 			template = "pr-{number}-{title}"
 		}
 
-		defaultName := generatePRWorktreeName(pr, template, generatedTitle)
+		defaultName := utils.GeneratePRWorktreeName(pr, template, generatedTitle)
 
 		// Suggest branch name (check for duplicates)
 		suggested := strings.TrimSpace(defaultName)
@@ -363,17 +364,9 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 						return nil, false
 					}
 
-					// Prevent duplicates
-					for _, wt := range m.worktrees {
-						if wt.Branch == newBranch {
-							m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
-							return nil, false
-						}
-					}
-
 					targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
-					if _, err := os.Stat(targetPath); err == nil {
-						m.inputScreen.errorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
+					if errMsg := m.validateNewWorktreeTarget(newBranch, targetPath); errMsg != "" {
+						m.inputScreen.errorMsg = errMsg
 						return nil, false
 					}
 
@@ -384,8 +377,8 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 					}
 
 					m.inputScreen.errorMsg = ""
-					if err := os.MkdirAll(m.getRepoWorktreeDir(), defaultDirPerms); err != nil {
-						return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }, true
+					if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
+						return func() tea.Msg { return errMsg{err: err} }, true
 					}
 
 					// Create worktree from PR branch (can take time, so do it async with a loading pulse)
@@ -433,17 +426,9 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 				return nil, false
 			}
 
-			// Prevent duplicates
-			for _, wt := range m.worktrees {
-				if wt.Branch == newBranch {
-					m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
-					return nil, false
-				}
-			}
-
 			targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
-			if _, err := os.Stat(targetPath); err == nil {
-				m.inputScreen.errorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
+			if errMsg := m.validateNewWorktreeTarget(newBranch, targetPath); errMsg != "" {
+				m.inputScreen.errorMsg = errMsg
 				return nil, false
 			}
 
@@ -454,8 +439,8 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 			}
 
 			m.inputScreen.errorMsg = ""
-			if err := os.MkdirAll(m.getRepoWorktreeDir(), defaultDirPerms); err != nil {
-				return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }, true
+			if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
+				return func() tea.Msg { return errMsg{err: err} }, true
 			}
 
 			// Create worktree from PR branch (can take time, so do it async with a loading pulse)
@@ -518,7 +503,7 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 						template = "issue-{number}-{title}"
 					}
 					// Pass empty string for generatedTitle since we're getting it now
-					suggestedName := generateIssueWorktreeName(issue, template, "")
+					suggestedName := utils.GenerateIssueWorktreeName(issue, template, "")
 
 					if aiTitle, err := runBranchNameScript(
 						m.ctx,
@@ -541,7 +526,7 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 					template = "issue-{number}-{title}"
 				}
 
-				defaultName := generateIssueWorktreeName(issue, template, generatedTitle)
+				defaultName := utils.GenerateIssueWorktreeName(issue, template, generatedTitle)
 
 				// Suggest branch name (check for duplicates)
 				suggested := strings.TrimSpace(defaultName)
@@ -575,23 +560,15 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 						return nil, false
 					}
 
-					// Prevent duplicates
-					for _, wt := range m.worktrees {
-						if wt.Branch == newBranch {
-							m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
-							return nil, false
-						}
-					}
-
 					targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
-					if _, err := os.Stat(targetPath); err == nil {
-						m.inputScreen.errorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
+					if errMsg := m.validateNewWorktreeTarget(newBranch, targetPath); errMsg != "" {
+						m.inputScreen.errorMsg = errMsg
 						return nil, false
 					}
 
 					m.inputScreen.errorMsg = ""
-					if err := os.MkdirAll(m.getRepoWorktreeDir(), defaultDirPerms); err != nil {
-						return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }, true
+					if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
+						return func() tea.Msg { return errMsg{err: err} }, true
 					}
 
 					// Create worktree from base branch (can take time, so do it async with a loading pulse)

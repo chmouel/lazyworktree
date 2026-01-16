@@ -393,7 +393,7 @@ Open PR/MR in browser.
 .B ctrl+p, :
 Open command palette showing all available commands (e.g. select theme).
 
-The palette exposes a "Create from current" entry which copies the branch you currently occupy. When uncommitted files exist, the branch-name prompt reveals an "Include current file changes" checkbox; Tab/Shift+Tab cycles focus to it and Space toggles it so you can decide whether to stash and carry the work into the fresh worktree. If the checkbox is elected, the diff is also piped to any configured `branch_name_script` for suggestions, matching the previous workflow for the "changes" path.
+The palette exposes a "Create from current" entry which copies the branch you currently occupy. When uncommitted files exist, the prompt shows an "Include current file changes" checkbox; Tab/Shift+Tab focuses it and Space toggles it. When selected, the diff is passed to any configured `branch_name_script` for naming suggestions.
 
 The command palette automatically lists all active tmux and zellij sessions starting with the configured session prefix (default: \fBwt-\fR) under separate "Active Tmux Sessions" and "Active Zellij Sessions" sections that appear after the Multiplexer section, allowing you to quickly switch to existing sessions without manually typing session names. The session prefix can be customised via the \fBsession_prefix\fR configuration option. Note that tmux does not permit colons (:) in session names, so any colons in the prefix will be automatically converted to hyphens (-).
 .
@@ -680,19 +680,19 @@ Default: false
 .
 .TP
 .B issue_branch_name_template
-Template for branch names created from GitHub/GitLab issues. Available placeholders: \fB{number}\fR (issue number), \fB{title}\fR (sanitised issue title), and \fB{generated}\fR (AI-generated title from branch_name_script, falls back to {title} if unavailable).
+Template for branch names created from GitHub/GitLab issues. Available placeholders: \fB{number}\fR (issue number), \fB{title}\fR (sanitised issue title), and \fB{generated}\fR (generated title from branch_name_script, falls back to {title} if unavailable).
 .br
 Default: issue-{number}-{title}
 .br
-Example: With template "fix-{number}-{title}", issue #42 titled "Memory Leak" becomes branch "fix-42-memory-leak". With template "issue-{number}-{generated}" and AI script configured, the AI-generated title is used instead.
+Example: With template "fix-{number}-{title}", issue #42 titled "Memory Leak" becomes branch "fix-42-memory-leak". With template "issue-{number}-{generated}" and a script configured, the generated title is used instead.
 .
 .TP
 .B pr_branch_name_template
-Template for branch names created from pull/merge requests. Available placeholders: \fB{number}\fR (PR/MR number), \fB{title}\fR (sanitised PR/MR title), \fB{pr_author}\fR (sanitised PR author username), and \fB{generated}\fR (AI-generated title from branch_name_script, falls back to {title} if unavailable).
+Template for branch names created from pull/merge requests. Available placeholders: \fB{number}\fR (PR/MR number), \fB{title}\fR (sanitised PR/MR title), \fB{pr_author}\fR (sanitised PR author username), and \fB{generated}\fR (generated title from branch_name_script, falls back to {title} if unavailable).
 .br
 Default: pr-{number}-{title}
 .br
-Example: With template "review-{number}", PR #123 becomes branch "review-123". With template "pr-{number}-{pr_author}-{title}", PR #123 by alice becomes branch "pr-123-alice-fix-bug". With template "pr-{number}-{generated}" and AI script configured, the AI-generated title is used instead.
+Example: With template "review-{number}", PR #123 becomes branch "review-123". With template "pr-{number}-{pr_author}-{title}", PR #123 by alice becomes branch "pr-123-alice-fix-bug". With template "pr-{number}-{generated}" and a script configured, the generated title is used instead.
 .
 .SS Security and Behaviour
 .TP
@@ -710,7 +710,7 @@ Options: \fBrebase\fR (default - rebases onto main then fast-forwards, synchroni
 .SS Automation
 .TP
 .B branch_name_script
-Script to generate branch name suggestions when creating worktrees from changes, issues, or PRs. For PRs/issues, the script should output a title (e.g., "feat-ai-session-manager") which will be sanitized and made available via the \fB{generated}\fR placeholder in your configured template. For diffs, the script should output a complete branch name. The script receives content on stdin (git diff for changes, issue/PR title and body for issues/PRs). First line of output is used. Useful for AI-powered branch name generation.
+Script to generate branch name suggestions when creating worktrees from changes, issues, or PRs. For PRs/issues, the script should output a title (e.g., "feat-ai-session-manager") which will be sanitised and made available via the \fB{generated}\fR placeholder in your configured template. For diffs, the script should output a complete branch name. The script receives content on stdin (git diff for changes, issue/PR title and body for issues/PRs). First line of output is used.
 .br
 Available environment variables: LAZYWORKTREE_TYPE (pr/issue/diff), LAZYWORKTREE_NUMBER (PR/issue number), LAZYWORKTREE_TEMPLATE (configured template), LAZYWORKTREE_SUGGESTED_NAME (template-generated name using original PR/issue title).
 .br

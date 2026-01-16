@@ -249,7 +249,7 @@ Commands run via `!` are saved per repository (100 entries max). Use `↑`/`↓`
 **Command Palette Actions:**
 
 * **Select theme**: Change the application theme with live preview (see [Themes](#themes)).
-* **Create from current branch**: Copy your current branch to a new worktree. If uncommitted changes exist, tick "Include current file changes" to stash and reapply them in the new worktree. Any configured `branch_name_script` receives the diff for AI-powered naming.
+* **Create from current branch**: Copy your current branch to a new worktree. If uncommitted changes exist, tick "Include current file changes" to stash and reapply them in the new worktree. Any configured `branch_name_script` receives the diff for automatic naming.
 
 ### Mouse Controls
 
@@ -296,8 +296,8 @@ session_prefix: "wt-" # Prefix for tmux/zellij session names (default: "wt-")
 # Branch name generation for issues and PRs
 issue_branch_name_template: "issue-{number}-{title}" # Placeholders: {number}, {title}, {generated}
 pr_branch_name_template: "pr-{number}-{title}" # Placeholders: {number}, {title}, {generated}
-# AI-powered branch name generation (works for changes, issues, and PRs)
-branch_name_script: "" # Script to generate branch names from diff/issue/PR content
+# Automatic branch name generation (see "Automatically Generated Branch Names")
+branch_name_script: "" # Script to generate names from diff/issue/PR content
 init_commands:
   - link_topsymlinks
 terminate_commands:
@@ -399,7 +399,7 @@ git config --local --get-regexp "^lw\."
 
 **Branch naming**
 
-* `branch_name_script`: script for AI-powered branch suggestions. See [AI-powered branch names](#ai-powered-branch-names).
+* `branch_name_script`: script for automatic branch suggestions. See [Automatically generated branch names](#automatically-generated-branch-names).
 * `issue_branch_name_template`, `pr_branch_name_template`: templates with placeholders `{number}`, `{title}`, `{generated}`.
 
 **Custom create menu**
@@ -660,13 +660,13 @@ Special characters are converted to hyphens for Git compatibility. Leading/trail
 
 ## Automatically Generated Branch Names
 
-Configure `branch_name_script` to generate branch names via AI tools like [aichat](https://github.com/sigoden/aichat/) or [claude code](https://claude.com/product/claude-code).
+Configure `branch_name_script` to generate branch names via a helper tool, for example [aichat](https://github.com/sigoden/aichat/) or [claude code](https://claude.com/product/claude-code).
 
 * **PRs/issues:** Script outputs a title available via `{generated}` placeholder.
 * **Diffs:** Script outputs a complete branch name.
 
 > [!NOTE]
-> There's no need for a large or cutting-edge model for branch generation. Smaller models are usually cheaper and much faster. Google's `gemini-2.5-flash-lite` is currently the fastest and most reliable choice.
+> Smaller, faster models are usually sufficient for short branch names. Choose a tool and model that fit your workflow.
 
 ### Configuration
 
@@ -677,7 +677,7 @@ Add `branch_name_script` to your `~/.config/lazyworktree/config.yaml`:
 branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title for this PR or issue. Output only the title (like feat-ai-session-manager), nothing else.'"
 
 # Choose which template to use:
-pr_branch_name_template: "pr-{number}-{generated}"  # Use AI-generated title
+pr_branch_name_template: "pr-{number}-{generated}"  # Use generated title
 # pr_branch_name_template: "pr-{number}-{title}"    # Use original PR title
 # pr_branch_name_template: "pr-{number}-{generated}-{title}"  # Use both!
 
@@ -691,19 +691,19 @@ When creating worktrees from PRs or issues, the following placeholders are avail
 
 * `{number}` - The PR/issue number
 * `{title}` - The original sanitised PR/issue title (always available)
-* `{generated}` - The AI-generated title (falls back to `{title}` if the script is not configured or returns empty output)
+* `{generated}` - The generated title (falls back to `{title}` if the script is not configured or returns empty output)
 * `{pr_author}` - The PR author's username (PRs only, sanitised)
 
 **Examples:**
 
-| Template | Result (PR #2 by @alice: "Add AI session management") | AI generates: `feat-ai-session-manager` |
+| Template | Result (PR #2 by @alice: "Add AI session management") | Generated: `feat-ai-session-manager` |
 |----------|-------------------------------------------------------|----------------------------------------|
 | `pr-{number}-{title}` | `pr-2-add-ai-session-management` | Not used |
 | `pr-{number}-{generated}` | `pr-2-feat-ai-session-manager` | Used |
 | `pr-{number}-{pr_author}-{title}` | `pr-2-alice-add-ai-session-management` | Not used |
 | `pr-{number}-{pr_author}-{generated}` | `pr-2-alice-feat-ai-session-manager` | Used |
 
-If the AI script fails or returns empty output, `{generated}` automatically falls back to the sanitised original title.
+If the script fails or returns empty output, `{generated}` automatically falls back to the sanitised original title.
 
 ### Script Requirements
 

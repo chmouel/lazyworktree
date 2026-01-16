@@ -243,23 +243,15 @@ func (m *Model) showBranchNameInput(baseRef, defaultName string) tea.Cmd {
 			return nil, false
 		}
 
-		// Prevent duplicates
-		for _, wt := range m.worktrees {
-			if wt.Branch == newBranch {
-				m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
-				return nil, false
-			}
-		}
-
 		targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
-		if _, err := os.Stat(targetPath); err == nil {
-			m.inputScreen.errorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
+		if errMsg := m.validateNewWorktreeTarget(newBranch, targetPath); errMsg != "" {
+			m.inputScreen.errorMsg = errMsg
 			return nil, false
 		}
 
 		// Show loading screen immediately (before returning from inputSubmit)
-		if err := os.MkdirAll(m.getRepoWorktreeDir(), defaultDirPerms); err != nil {
-			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }, true
+		if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
+			return func() tea.Msg { return errMsg{err: err} }, true
 		}
 		m.loading = true
 		m.statusContent = fmt.Sprintf("Creating worktree from %s...", baseRef)
@@ -411,8 +403,8 @@ func (m *Model) createWorktreeFromBaseAsync(newBranch, targetPath, baseRef strin
 
 // createWorktreeFromBase is kept for backward compatibility (e.g., custom create menus)
 func (m *Model) createWorktreeFromBase(newBranch, targetPath, baseRef string) tea.Cmd {
-	if err := os.MkdirAll(m.getRepoWorktreeDir(), defaultDirPerms); err != nil {
-		return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }
+	if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
+		return func() tea.Msg { return errMsg{err: err} }
 	}
 
 	// Show loading screen while creating worktree (can take time, so do it async with a loading pulse)

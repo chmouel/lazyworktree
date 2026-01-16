@@ -16,6 +16,7 @@ import (
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/theme"
+	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
 var (
@@ -52,7 +53,7 @@ func main() {
 	flag.StringVar(&worktreeDir, "worktree-dir", "", "Override the default worktree root directory")
 	flag.StringVar(&debugLog, "debug-log", "", "Path to debug log file")
 	flag.StringVar(&outputSelection, "output-selection", "", "Write selected worktree path to a file")
-	flag.StringVar(&themeName, "theme", "", "Override the UI theme (supported: dracula, dracula-light, narna, clean-light, catppuccin-latte, rose-pine-dawn, one-light, everforest-light, everforest-dark, solarized-dark, solarized-light, gruvbox-dark, gruvbox-light, nord, monokai, catppuccin-mocha, modern, tokyo-night, one-dark, rose-pine, ayu-mirage)")
+	flag.StringVar(&themeName, "theme", "", themeHelpText())
 	flag.BoolVar(&searchAutoSelect, "search-auto-select", false, "Start with filter focused")
 	flag.BoolVar(&showVersion, "version", false, "Print version information")
 	flag.BoolVar(&showSyntaxThemes, "show-syntax-themes", false, "List available delta syntax themes")
@@ -124,7 +125,7 @@ func main() {
 
 	// Set up debug logging before loading config, so debug output is captured
 	if debugLog != "" {
-		expanded, err := expandPath(debugLog)
+		expanded, err := utils.ExpandPath(debugLog)
 		if err == nil {
 			if err := log.SetFile(expanded); err != nil {
 				fmt.Fprintf(os.Stderr, "Error opening debug log file %q: %v\n", expanded, err)
@@ -146,7 +147,7 @@ func main() {
 	// If it is, enable logging. If not, disable logging and discard buffer.
 	if debugLog == "" {
 		if cfg.DebugLog != "" {
-			expanded, err := expandPath(cfg.DebugLog)
+			expanded, err := utils.ExpandPath(cfg.DebugLog)
 			path := cfg.DebugLog
 			if err == nil {
 				path = expanded
@@ -178,7 +179,7 @@ func main() {
 
 	switch {
 	case worktreeDir != "":
-		expanded, err := expandPath(worktreeDir)
+		expanded, err := utils.ExpandPath(worktreeDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error expanding worktree-dir: %v\n", err)
 			_ = log.Close()
@@ -186,7 +187,7 @@ func main() {
 		}
 		cfg.WorktreeDir = expanded
 	case cfg.WorktreeDir != "":
-		expanded, err := expandPath(cfg.WorktreeDir)
+		expanded, err := utils.ExpandPath(cfg.WorktreeDir)
 		if err == nil {
 			cfg.WorktreeDir = expanded
 		}
@@ -196,7 +197,7 @@ func main() {
 	}
 
 	if debugLog != "" {
-		expanded, err := expandPath(debugLog)
+		expanded, err := utils.ExpandPath(debugLog)
 		if err == nil {
 			cfg.DebugLog = expanded
 		} else {
@@ -226,7 +227,7 @@ func main() {
 
 	selectedPath := model.GetSelectedPath()
 	if outputSelection != "" {
-		expanded, err := expandPath(outputSelection)
+		expanded, err := utils.ExpandPath(outputSelection)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error expanding output-selection: %v\n", err)
 			_ = log.Close()
@@ -258,29 +259,18 @@ func main() {
 	}
 }
 
-func expandPath(path string) (string, error) {
-	if strings.HasPrefix(path, "~") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		path = filepath.Join(home, path[1:])
-	}
-	return os.ExpandEnv(path), nil
-}
-
 // applyWorktreeDirConfig applies the worktree directory configuration.
 // This ensures the same path expansion logic is used in both TUI and CLI modes.
 func applyWorktreeDirConfig(cfg *config.AppConfig, worktreeDirFlag string) error {
 	switch {
 	case worktreeDirFlag != "":
-		expanded, err := expandPath(worktreeDirFlag)
+		expanded, err := utils.ExpandPath(worktreeDirFlag)
 		if err != nil {
 			return fmt.Errorf("error expanding worktree-dir: %w", err)
 		}
 		cfg.WorktreeDir = expanded
 	case cfg.WorktreeDir != "":
-		expanded, err := expandPath(cfg.WorktreeDir)
+		expanded, err := utils.ExpandPath(cfg.WorktreeDir)
 		if err == nil {
 			cfg.WorktreeDir = expanded
 		}
@@ -298,6 +288,12 @@ func printSyntaxThemes() {
 	for _, name := range names {
 		fmt.Printf("  %-16s -> %s\n", name, config.SyntaxThemeForUITheme(name))
 	}
+}
+
+func themeHelpText() string {
+	names := theme.AvailableThemes()
+	sort.Strings(names)
+	return fmt.Sprintf("Override the UI theme (supported: %s)", strings.Join(names, ", "))
 }
 
 func printCompletion(shell string) error {

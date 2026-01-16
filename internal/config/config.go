@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/chmouel/lazyworktree/internal/theme"
+	"github.com/chmouel/lazyworktree/internal/utils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -149,14 +150,14 @@ func parseConfig(data map[string]any) *AppConfig {
 	cfg := DefaultConfig()
 
 	if worktreeDir, ok := data["worktree_dir"].(string); ok {
-		expanded, err := expandPath(worktreeDir)
+		expanded, err := utils.ExpandPath(worktreeDir)
 		if err == nil {
 			cfg.WorktreeDir = expanded
 		}
 	}
 
 	if debugLog, ok := data["debug_log"].(string); ok {
-		expanded, err := expandPath(debugLog)
+		expanded, err := utils.ExpandPath(debugLog)
 		if err == nil {
 			cfg.DebugLog = expanded
 		}
@@ -459,7 +460,7 @@ func loadYAMLFile(configPath string) map[string]any {
 	var paths []string
 
 	if configPath != "" {
-		expanded, err := expandPath(configPath)
+		expanded, err := utils.ExpandPath(configPath)
 		if err != nil {
 			return nil
 		}
@@ -622,7 +623,7 @@ func LoadConfig(configPath string) (*AppConfig, error) {
 
 		// Determine actual config path
 		if configPath != "" {
-			expanded, _ := expandPath(configPath)
+			expanded, _ := utils.ExpandPath(configPath)
 			absPath, _ := filepath.Abs(expanded)
 			actualConfigPath = absPath
 		} else {
@@ -777,17 +778,6 @@ func SyntaxThemeForUITheme(themeName string) string {
 		}
 	}
 	return "Dracula"
-}
-
-func expandPath(path string) (string, error) {
-	if strings.HasPrefix(path, "~") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		path = filepath.Join(home, path[1:])
-	}
-	return os.ExpandEnv(path), nil
 }
 
 func isPathWithin(base, target string) bool {

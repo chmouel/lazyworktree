@@ -9,9 +9,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/chmouel/lazyworktree/internal/models"
-	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
 // runBranchNameScript executes the configured branch_name_script with the content as stdin.
@@ -179,27 +176,42 @@ func minInt(a, b int) int {
 	return b
 }
 
-// generatePRWorktreeName creates a worktree name from a PR using a template.
-// The template supports placeholders: {number}, {title}, {generated}, {pr_author}
-// The name is sanitized to be a valid git branch name and truncated to 100 characters.
-// generatedTitle is the AI-generated title (optional). If empty, {generated} falls back to {title}.
-func generatePRWorktreeName(pr *models.PRInfo, template, generatedTitle string) string {
-	return utils.GeneratePRWorktreeName(pr, template, generatedTitle)
-}
-
-// generateIssueWorktreeName creates a worktree name from an issue using a template.
-// The template supports placeholders: {number}, {title}, {generated}, {author}
-// The name is sanitized to be a valid git branch name and truncated to 100 characters.
-// generatedTitle is the AI-generated title (optional). If empty, {generated} falls back to {title}.
-func generateIssueWorktreeName(issue *models.IssueInfo, template, generatedTitle string) string {
-	return utils.GenerateIssueWorktreeName(issue, template, generatedTitle)
-}
-
 func maxInt(a, b int) int {
 	if a > b {
 		return a
 	}
 	return b
+}
+
+func (m *Model) branchExistsInWorktrees(branch string) bool {
+	for _, wt := range m.worktrees {
+		if wt.Branch == branch {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) worktreePathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func (m *Model) validateNewWorktreeTarget(branch, targetPath string) string {
+	if m.branchExistsInWorktrees(branch) {
+		return fmt.Sprintf("Branch %q already exists.", branch)
+	}
+	if m.worktreePathExists(targetPath) {
+		return fmt.Sprintf("Path already exists: %s", targetPath)
+	}
+	return ""
+}
+
+func (m *Model) ensureWorktreeDir(dir string) error {
+	if err := os.MkdirAll(dir, defaultDirPerms); err != nil {
+		return fmt.Errorf("failed to create worktree directory: %w", err)
+	}
+	return nil
 }
 
 type scoredSuggestion struct {

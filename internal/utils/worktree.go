@@ -18,24 +18,14 @@ func GeneratePRWorktreeName(pr *models.PRInfo, template, generatedTitle string) 
 	}
 	author := SanitizeBranchName(pr.Author, 0)
 
-	// Replace placeholders in template
-	name := template
-	name = strings.ReplaceAll(name, "{number}", fmt.Sprintf("%d", pr.Number))
-	name = strings.ReplaceAll(name, "{title}", title)
-	name = strings.ReplaceAll(name, "{generated}", generated)
-	name = strings.ReplaceAll(name, "{pr_author}", author)
-
-	// Remove trailing hyphens that might result from empty title
-	name = strings.TrimRight(name, "-")
-
-	// Truncate to 100 characters
-	if len(name) > 100 {
-		name = name[:100]
-		// Make sure we don't end with a hyphen after truncation
-		name = strings.TrimRight(name, "-")
+	replacements := []placeholderReplacement{
+		{placeholder: "{number}", value: fmt.Sprintf("%d", pr.Number)},
+		{placeholder: "{title}", value: title},
+		{placeholder: "{generated}", value: generated},
+		{placeholder: "{pr_author}", value: author},
 	}
 
-	return name
+	return applyWorktreeTemplate(template, replacements)
 }
 
 // GenerateIssueWorktreeName generates a worktree name from an issue using a template.
@@ -48,20 +38,32 @@ func GenerateIssueWorktreeName(issue *models.IssueInfo, template, generatedTitle
 		generated = SanitizeBranchName(generatedTitle, 0)
 	}
 
-	// Replace placeholders in template
-	name := template
-	name = strings.ReplaceAll(name, "{number}", fmt.Sprintf("%d", issue.Number))
-	name = strings.ReplaceAll(name, "{title}", title)
-	name = strings.ReplaceAll(name, "{generated}", generated)
+	replacements := []placeholderReplacement{
+		{placeholder: "{number}", value: fmt.Sprintf("%d", issue.Number)},
+		{placeholder: "{title}", value: title},
+		{placeholder: "{generated}", value: generated},
+	}
 
-	// Remove trailing hyphens that might result from empty title
+	return applyWorktreeTemplate(template, replacements)
+}
+
+type placeholderReplacement struct {
+	placeholder string
+	value       string
+}
+
+func applyWorktreeTemplate(template string, replacements []placeholderReplacement) string {
+	name := template
+	for _, replacement := range replacements {
+		name = strings.ReplaceAll(name, replacement.placeholder, replacement.value)
+	}
+
+	// Remove trailing hyphens that might result from empty title.
 	name = strings.TrimRight(name, "-")
 
-	// Truncate to 100 characters
+	// Truncate to 100 characters.
 	if len(name) > 100 {
-		name = name[:100]
-		// Make sure we don't end with a hyphen after truncation
-		name = strings.TrimRight(name, "-")
+		name = strings.TrimRight(name[:100], "-")
 	}
 
 	return name

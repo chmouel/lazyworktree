@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
 func TestGeneratePRWorktreeName(t *testing.T) {
@@ -76,21 +77,21 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Use default template format
-			result := generatePRWorktreeName(tt.pr, "pr-{number}-{title}", "")
+			result := utils.GeneratePRWorktreeName(tt.pr, "pr-{number}-{title}", "")
 			// For the long title test, just verify it's <= 100 chars and doesn't end with hyphen
 			if tt.name == "long title gets truncated" {
 				if len(result) > 100 {
-					t.Errorf("generatePRWorktreeName() result length = %d, want <= 100", len(result))
+					t.Errorf("utils.GeneratePRWorktreeName() result length = %d, want <= 100", len(result))
 				}
 				if strings.HasSuffix(result, "-") {
-					t.Errorf("generatePRWorktreeName() result ends with hyphen: %q", result)
+					t.Errorf("utils.GeneratePRWorktreeName() result ends with hyphen: %q", result)
 				}
 			} else if result != tt.expected {
-				t.Errorf("generatePRWorktreeName() = %q, want %q", result, tt.expected)
+				t.Errorf("utils.GeneratePRWorktreeName() = %q, want %q", result, tt.expected)
 			}
 			// Ensure result is max 100 chars
 			if len(result) > 100 {
-				t.Errorf("generatePRWorktreeName() result length = %d, want <= 100", len(result))
+				t.Errorf("utils.GeneratePRWorktreeName() result length = %d, want <= 100", len(result))
 			}
 		})
 	}
@@ -101,10 +102,10 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 			Number: 123,
 			Title:  "Add feature",
 		}
-		result := generatePRWorktreeName(pr, "pr{number}-{title}", "")
+		result := utils.GeneratePRWorktreeName(pr, "pr{number}-{title}", "")
 		expected := "pr123-add-feature"
 		if result != expected {
-			t.Errorf("generatePRWorktreeName() with custom template = %q, want %q", result, expected)
+			t.Errorf("utils.GeneratePRWorktreeName() with custom template = %q, want %q", result, expected)
 		}
 	})
 
@@ -113,10 +114,10 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 			Number: 456,
 			Title:  "Fix bug",
 		}
-		result := generatePRWorktreeName(pr, "{number}-{title}", "")
+		result := utils.GeneratePRWorktreeName(pr, "{number}-{title}", "")
 		expected := "456-fix-bug"
 		if result != expected {
-			t.Errorf("generatePRWorktreeName() with custom template = %q, want %q", result, expected)
+			t.Errorf("utils.GeneratePRWorktreeName() with custom template = %q, want %q", result, expected)
 		}
 	})
 
@@ -125,10 +126,10 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 			Number: 789,
 			Title:  "Update docs",
 		}
-		result := generatePRWorktreeName(pr, "pull{number}-{title}", "")
+		result := utils.GeneratePRWorktreeName(pr, "pull{number}-{title}", "")
 		expected := "pull789-update-docs"
 		if result != expected {
-			t.Errorf("generatePRWorktreeName() with custom prefix = %q, want %q", result, expected)
+			t.Errorf("utils.GeneratePRWorktreeName() with custom prefix = %q, want %q", result, expected)
 		}
 	})
 
@@ -138,10 +139,10 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 			Title:  "Fix bug",
 			Author: "alice",
 		}
-		result := generatePRWorktreeName(pr, "pr-{pr_author}-{number}-{title}", "")
+		result := utils.GeneratePRWorktreeName(pr, "pr-{pr_author}-{number}-{title}", "")
 		expected := "pr-alice-456-fix-bug"
 		if result != expected {
-			t.Errorf("generatePRWorktreeName() with pr_author = %q, want %q", result, expected)
+			t.Errorf("utils.GeneratePRWorktreeName() with pr_author = %q, want %q", result, expected)
 		}
 	})
 
@@ -151,10 +152,10 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 			Title:  "Update docs",
 			Author: "user@bot",
 		}
-		result := generatePRWorktreeName(pr, "pr-{pr_author}-{number}-{title}", "")
+		result := utils.GeneratePRWorktreeName(pr, "pr-{pr_author}-{number}-{title}", "")
 		expected := "pr-user-bot-789-update-docs"
 		if result != expected {
-			t.Errorf("generatePRWorktreeName() with special chars in author = %q, want %q", result, expected)
+			t.Errorf("utils.GeneratePRWorktreeName() with special chars in author = %q, want %q", result, expected)
 		}
 	})
 
@@ -164,10 +165,10 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 			Title:  "Feature",
 			Author: "",
 		}
-		result := generatePRWorktreeName(pr, "pr-{pr_author}-{number}-{title}", "")
+		result := utils.GeneratePRWorktreeName(pr, "pr-{pr_author}-{number}-{title}", "")
 		expected := "pr--100-feature"
 		if result != expected {
-			t.Errorf("generatePRWorktreeName() with empty author = %q, want %q", result, expected)
+			t.Errorf("utils.GeneratePRWorktreeName() with empty author = %q, want %q", result, expected)
 		}
 	})
 
@@ -177,10 +178,10 @@ func TestGeneratePRWorktreeName(t *testing.T) {
 			Title:  "New feature",
 			Author: "bob",
 		}
-		result := generatePRWorktreeName(pr, "{pr_author}-{number}-{title}", "")
+		result := utils.GeneratePRWorktreeName(pr, "{pr_author}-{number}-{title}", "")
 		expected := "bob-123-new-feature"
 		if result != expected {
-			t.Errorf("generatePRWorktreeName() with author at start = %q, want %q", result, expected)
+			t.Errorf("utils.GeneratePRWorktreeName() with author at start = %q, want %q", result, expected)
 		}
 	})
 }
@@ -241,20 +242,20 @@ func TestGenerateIssueWorktreeName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := generateIssueWorktreeName(tt.issue, tt.template, "")
+			result := utils.GenerateIssueWorktreeName(tt.issue, tt.template, "")
 			if tt.name == "long title gets truncated" {
 				if len(result) > 100 {
-					t.Errorf("generateIssueWorktreeName() result length = %d, want <= 100", len(result))
+					t.Errorf("utils.GenerateIssueWorktreeName() result length = %d, want <= 100", len(result))
 				}
 				if strings.HasSuffix(result, "-") {
-					t.Errorf("generateIssueWorktreeName() result ends with hyphen: %q", result)
+					t.Errorf("utils.GenerateIssueWorktreeName() result ends with hyphen: %q", result)
 				}
 			} else if result != tt.expected {
-				t.Errorf("generateIssueWorktreeName() = %q, want %q", result, tt.expected)
+				t.Errorf("utils.GenerateIssueWorktreeName() = %q, want %q", result, tt.expected)
 			}
 			// Ensure result is max 100 chars
 			if len(result) > 100 {
-				t.Errorf("generateIssueWorktreeName() result length = %d, want <= 100", len(result))
+				t.Errorf("utils.GenerateIssueWorktreeName() result length = %d, want <= 100", len(result))
 			}
 		})
 	}
@@ -332,20 +333,20 @@ func TestGeneratePRWorktreeNameWithGenerated(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := generatePRWorktreeName(tt.pr, tt.template, tt.generatedTitle)
+			result := utils.GeneratePRWorktreeName(tt.pr, tt.template, tt.generatedTitle)
 			if tt.name == "long {generated} title gets truncated" {
 				if len(result) > 100 {
-					t.Errorf("generatePRWorktreeName() result length = %d, want <= 100", len(result))
+					t.Errorf("utils.GeneratePRWorktreeName() result length = %d, want <= 100", len(result))
 				}
 				if strings.HasSuffix(result, "-") {
-					t.Errorf("generatePRWorktreeName() result ends with hyphen: %q", result)
+					t.Errorf("utils.GeneratePRWorktreeName() result ends with hyphen: %q", result)
 				}
 			} else if result != tt.expected {
-				t.Errorf("generatePRWorktreeName() = %q, want %q", result, tt.expected)
+				t.Errorf("utils.GeneratePRWorktreeName() = %q, want %q", result, tt.expected)
 			}
 			// Ensure result is max 100 chars
 			if len(result) > 100 {
-				t.Errorf("generatePRWorktreeName() result length = %d, want <= 100", len(result))
+				t.Errorf("utils.GeneratePRWorktreeName() result length = %d, want <= 100", len(result))
 			}
 		})
 	}
@@ -393,13 +394,13 @@ func TestGenerateIssueWorktreeNameWithGenerated(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := generateIssueWorktreeName(tt.issue, tt.template, tt.generatedTitle)
+			result := utils.GenerateIssueWorktreeName(tt.issue, tt.template, tt.generatedTitle)
 			if result != tt.expected {
-				t.Errorf("generateIssueWorktreeName() = %q, want %q", result, tt.expected)
+				t.Errorf("utils.GenerateIssueWorktreeName() = %q, want %q", result, tt.expected)
 			}
 			// Ensure result is max 100 chars
 			if len(result) > 100 {
-				t.Errorf("generateIssueWorktreeName() result length = %d, want <= 100", len(result))
+				t.Errorf("utils.GenerateIssueWorktreeName() result length = %d, want <= 100", len(result))
 			}
 		})
 	}

@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
 // TrustStatus represents the outcome of a trust check on a file.
@@ -67,10 +69,7 @@ func (tm *TrustManager) load() {
 	}
 }
 
-const (
-	defaultDirPerms  = 0o750
-	defaultFilePerms = 0o600
-)
+const defaultFilePerms = 0o600
 
 func (tm *TrustManager) save() error {
 	tm.mu.RLock()
@@ -81,7 +80,7 @@ func (tm *TrustManager) save() error {
 	}
 
 	dir := filepath.Dir(tm.dbPath)
-	if err := os.MkdirAll(dir, defaultDirPerms); err != nil {
+	if err := os.MkdirAll(dir, utils.DefaultDirPerms); err != nil {
 		return err
 	}
 

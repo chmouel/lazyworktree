@@ -28,6 +28,7 @@ import (
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/security"
 	"github.com/chmouel/lazyworktree/internal/theme"
+	"github.com/chmouel/lazyworktree/internal/utils"
 	"github.com/fsnotify/fsnotify"
 	"github.com/muesli/reflow/wrap"
 )
@@ -51,7 +52,7 @@ const (
 	detailsCacheTTL  = 2 * time.Second
 	debounceDelay    = 200 * time.Millisecond
 	ciCacheTTL       = 30 * time.Second
-	defaultDirPerms  = 0o750
+	defaultDirPerms  = utils.DefaultDirPerms
 	defaultFilePerms = 0o600
 
 	osDarwin  = "darwin"
@@ -2224,11 +2225,9 @@ func (m *Model) handleCreateFromCurrentReady(msg createFromCurrentReadyMsg) tea.
 		}
 
 		// Validate branch doesn't exist
-		for _, existingWt := range m.worktrees {
-			if existingWt.Branch == newBranch {
-				m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
-				return nil, false
-			}
+		if m.branchExistsInWorktrees(newBranch) {
+			m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
+			return nil, false
 		}
 
 		// Check if branch exists in git
@@ -2239,7 +2238,7 @@ func (m *Model) handleCreateFromCurrentReady(msg createFromCurrentReadyMsg) tea.
 		}
 
 		targetPath := filepath.Join(m.getWorktreeDir(), newBranch)
-		if _, err := os.Stat(targetPath); err == nil {
+		if m.worktreePathExists(targetPath) {
 			m.inputScreen.errorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
 			return nil, false
 		}
@@ -2268,8 +2267,8 @@ func (m *Model) handleCreateFromCurrentReady(msg createFromCurrentReadyMsg) tea.
 
 func (m *Model) executeCreateWithChanges(wt *models.WorktreeInfo, currentBranch, newBranch, targetPath string) tea.Cmd {
 	return func() tea.Msg {
-		if err := os.MkdirAll(m.getWorktreeDir(), 0o750); err != nil {
-			return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)}
+		if err := m.ensureWorktreeDir(m.getWorktreeDir()); err != nil {
+			return errMsg{err: err}
 		}
 
 		// Stash changes with descriptive message
@@ -2341,8 +2340,8 @@ func (m *Model) executeCreateWithChanges(wt *models.WorktreeInfo, currentBranch,
 
 func (m *Model) executeCreateWithoutChanges(currentBranch, newBranch, targetPath string) tea.Cmd {
 	return func() tea.Msg {
-		if err := os.MkdirAll(m.getWorktreeDir(), 0o750); err != nil {
-			return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)}
+		if err := m.ensureWorktreeDir(m.getWorktreeDir()); err != nil {
+			return errMsg{err: err}
 		}
 
 		args := []string{"git", "worktree", "add", "-b", newBranch, targetPath, currentBranch}

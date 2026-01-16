@@ -14,8 +14,6 @@ import (
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
-const defaultDirPerms = 0o750
-
 // CreateFromBranch creates a worktree from a branch name.
 func CreateFromBranch(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, branchName string, withChange, silent bool) error {
 	// Validate branch exists
@@ -56,7 +54,7 @@ func CreateFromBranch(ctx context.Context, gitSvc *git.Service, cfg *config.AppC
 	}
 
 	// Create parent directory
-	if err := os.MkdirAll(filepath.Dir(targetPath), defaultDirPerms); err != nil {
+	if err := os.MkdirAll(filepath.Dir(targetPath), utils.DefaultDirPerms); err != nil {
 		return fmt.Errorf("failed to create worktree directory: %w", err)
 	}
 
@@ -159,7 +157,7 @@ func CreateFromPR(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfi
 	}
 
 	// Create parent directory
-	if err := os.MkdirAll(filepath.Dir(targetPath), defaultDirPerms); err != nil {
+	if err := os.MkdirAll(filepath.Dir(targetPath), utils.DefaultDirPerms); err != nil {
 		return fmt.Errorf("failed to create worktree directory: %w", err)
 	}
 

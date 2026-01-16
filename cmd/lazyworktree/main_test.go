@@ -30,31 +30,6 @@ func captureStdout(t *testing.T, fn func()) string {
 	return string(out)
 }
 
-func TestExpandPath(t *testing.T) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("failed to read home dir: %v", err)
-	}
-
-	result, err := expandPath("~/worktrees")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	expected := filepath.Join(home, "worktrees")
-	if result != expected {
-		t.Fatalf("expected %q, got %q", expected, result)
-	}
-
-	t.Setenv("LW_TEST_DIR", "/tmp/lw")
-	result, err = expandPath("$LW_TEST_DIR/path")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result != "/tmp/lw/path" {
-		t.Fatalf("expected env expansion, got %q", result)
-	}
-}
-
 func TestPrintSyntaxThemes(t *testing.T) {
 	out := captureStdout(t, func() {
 		printSyntaxThemes()
@@ -115,57 +90,6 @@ func TestPrintCompletionInvalidShell(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "unsupported shell") {
 		t.Errorf("unexpected error message: %v", err)
-	}
-}
-
-func TestExpandPathTildeOnly(t *testing.T) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("failed to read home dir: %v", err)
-	}
-
-	result, err := expandPath("~")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result != home {
-		t.Fatalf("expected %q, got %q", home, result)
-	}
-}
-
-func TestExpandPathNestedTildePath(t *testing.T) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("failed to read home dir: %v", err)
-	}
-
-	result, err := expandPath("~/.config/lazyworktree")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	expected := filepath.Join(home, ".config", "lazyworktree")
-	if result != expected {
-		t.Fatalf("expected %q, got %q", expected, result)
-	}
-}
-
-func TestExpandPathAbsolutePath(t *testing.T) {
-	result, err := expandPath("/tmp/worktrees")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result != "/tmp/worktrees" {
-		t.Fatalf("absolute path should not change: got %q", result)
-	}
-}
-
-func TestExpandPathRelativePath(t *testing.T) {
-	result, err := expandPath("relative/path")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result != "relative/path" {
-		t.Fatalf("relative path should not change: got %q", result)
 	}
 }
 
