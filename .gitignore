@@ -4,4 +4,4 @@ coverage.out
 bin/*
 .claude
 tmp/
-./lazyworktree
+/lazyworktree
