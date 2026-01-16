@@ -14,8 +14,27 @@ import (
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
+var (
+	osStat     = os.Stat
+	osMkdirAll = os.MkdirAll
+	osGetwd    = os.Getwd
+)
+
+type gitService interface {
+	CreateWorktreeFromPR(ctx context.Context, prNumber int, branch string, worktreeName string, targetPath string) bool
+	ExecuteCommands(ctx context.Context, cmdList []string, cwd string, env map[string]string) error
+	FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
+	GetMainWorktreePath(ctx context.Context) string
+	GetWorktrees(ctx context.Context) ([]*models.WorktreeInfo, error)
+	ResolveRepoName(ctx context.Context) string
+	RunCommandChecked(ctx context.Context, args []string, cwd string, errorMsg string) bool
+	RunGit(ctx context.Context, args []string, cwd string, exitCodes []int, silent bool, ignoreErrors bool) string
+}
+
+var _ gitService = (*git.Service)(nil)
+
 // CreateFromBranch creates a worktree from a branch name.
-func CreateFromBranch(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, branchName string, withChange, silent bool) error {
+func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branchName string, withChange, silent bool) error {
 	// Validate branch exists
 	if !branchExists(ctx, gitSvc, branchName) {
 		return fmt.Errorf("branch %q does not exist", branchName)
@@ -47,14 +66,14 @@ func CreateFromBranch(ctx context.Context, gitSvc *git.Service, cfg *config.AppC
 	targetPath := filepath.Join(cfg.WorktreeDir, repoName, worktreeName)
 
 	// Check for path conflicts
-	if _, err := os.Stat(targetPath); err == nil {
+	if _, err := osStat(targetPath); err == nil {
 		return fmt.Errorf("path already exists: %s", targetPath)
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("failed to check path %s: %w", targetPath, err)
 	}
 
 	// Create parent directory
-	if err := os.MkdirAll(filepath.Dir(targetPath), utils.DefaultDirPerms); err != nil {
+	if err := osMkdirAll(filepath.Dir(targetPath), utils.DefaultDirPerms); err != nil {
 		return fmt.Errorf("failed to create worktree directory: %w", err)
 	}
 
@@ -114,7 +133,7 @@ func CreateFromBranch(ctx context.Context, gitSvc *git.Service, cfg *config.AppC
 }
 
 // CreateFromPR creates a worktree from a PR number.
-func CreateFromPR(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, silent bool) error {
+func CreateFromPR(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, prNumber int, silent bool) error {
 	if !silent {
 		fmt.Fprintf(os.Stderr, "Fetching PR #%d...\n", prNumber)
 	}
@@ -150,14 +169,14 @@ func CreateFromPR(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfi
 	targetPath := filepath.Join(cfg.WorktreeDir, repoName, branchName)
 
 	// Check for path conflicts
-	if _, err := os.Stat(targetPath); err == nil {
+	if _, err := osStat(targetPath); err == nil {
 		return fmt.Errorf("path already exists: %s", targetPath)
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("failed to check path %s: %w", targetPath, err)
 	}
 
 	// Create parent directory
-	if err := os.MkdirAll(filepath.Dir(targetPath), utils.DefaultDirPerms); err != nil {
+	if err := osMkdirAll(filepath.Dir(targetPath), utils.DefaultDirPerms); err != nil {
 		return fmt.Errorf("failed to create worktree directory: %w", err)
 	}
 
@@ -180,7 +199,7 @@ func CreateFromPR(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfi
 }
 
 // DeleteWorktree deletes a worktree. If worktreePath is empty, lists available worktrees.
-func DeleteWorktree(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, worktreePath string, deleteBranch, silent bool) error {
+func DeleteWorktree(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, worktreePath string, deleteBranch, silent bool) error {
 	worktrees, err := gitSvc.GetWorktrees(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get worktrees: %w", err)
@@ -287,7 +306,7 @@ func findWorktreeByPathOrName(pathOrName string, worktrees []*models.WorktreeInf
 }
 
 // runInitCommands runs init commands with TOFU trust checks.
-func runInitCommands(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, branch, wtPath string, silent bool) error {
+func runInitCommands(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branch, wtPath string, silent bool) error {
 	// Collect init commands from global and repo config
 	commands := make([]string, 0)
 	commands = append(commands, cfg.InitCommands...)
@@ -330,7 +349,7 @@ func runInitCommands(ctx context.Context, gitSvc *git.Service, cfg *config.AppCo
 }
 
 // runTerminateCommands runs terminate commands with TOFU trust checks.
-func runTerminateCommands(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, branch, wtPath string, silent bool) error {
+func runTerminateCommands(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branch, wtPath string, silent bool) error {
 	// Collect terminate commands
 	commands := make([]string, 0)
 	commands = append(commands, cfg.TerminateCommands...)
@@ -410,15 +429,15 @@ func buildCommandEnv(branch, wtPath, mainPath, repoName string) map[string]strin
 }
 
 // branchExists checks if a branch exists.
-func branchExists(ctx context.Context, gitSvc *git.Service, branch string) bool {
+func branchExists(ctx context.Context, gitSvc gitService, branch string) bool {
 	// Try to verify the branch exists
 	output := gitSvc.RunGit(ctx, []string{"git", "rev-parse", "--verify", branch}, "", []int{0}, true, true)
 	return strings.TrimSpace(output) != ""
 }
 
 // getCurrentWorktreeWithChanges returns the current worktree and whether it has uncommitted changes.
-func getCurrentWorktreeWithChanges(ctx context.Context, gitSvc *git.Service) (*models.WorktreeInfo, bool, error) {
-	pwd, err := os.Getwd()
+func getCurrentWorktreeWithChanges(ctx context.Context, gitSvc gitService) (*models.WorktreeInfo, bool, error) {
+	pwd, err := osGetwd()
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get working directory: %w", err)
 	}
@@ -449,7 +468,7 @@ func getCurrentWorktreeWithChanges(ctx context.Context, gitSvc *git.Service) (*m
 }
 
 // createWorktreeWithChanges creates a worktree and carries over uncommitted changes from the current worktree.
-func createWorktreeWithChanges(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, currentWt *models.WorktreeInfo, baseBranch, newBranch, targetPath string, silent bool) error {
+func createWorktreeWithChanges(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, currentWt *models.WorktreeInfo, baseBranch, newBranch, targetPath string, silent bool) error {
 	if !silent {
 		fmt.Fprintf(os.Stderr, "Stashing uncommitted changes...\n")
 	}
