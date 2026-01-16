@@ -21,21 +21,21 @@ _See other [Screenshots below](#screenshots)_
 
 * **Worktree lifecycle**: Create, rename, remove, absorb, and prune merged worktrees.
 * **Worktree state**: Show dirty files, ahead/behind counts, and divergence from main.
-* **From current branch**: Create a worktree from the current branch, optionally carrying over uncommitted changes.
-* **From issue**: Create a worktree from a GitHub or GitLab issue, with automatic branch name generation.
-* **From PR or MR**: Create a worktree from an open pull or merge request (GitHub, GitHub Enterprise, GitLab).
-* **Forge integration**: Display linked pull or merge requests, CI status, and checks via the `gh` or `glab` CLI.
+* **From current branch**: Create from the current branch, optionally carrying over uncommitted changes.
+* **From issue**: Create from a GitHub/GitLab issue with automatic branch naming.
+* **From PR or MR**: Create from an open GitHub/GitLab pull or merge request.
+* **Forge integration**: Show linked PR/MR, CI status, and checks via `gh` or `glab`.
 * **Cherry-picking**: Apply commits from one worktree to another.
 * **Commit inspection**: Browse commit logs with author initials and per-commit file trees.
-* **Status management**: Stage, unstage, commit, edit, and diff files from an interactive status pane.
+* **Status management**: Stage, unstage, commit, edit, and diff files interactively.
 * **Diff viewing**: View diffs in a pager, with optional delta integration.
 * **Terminal multiplexers**: Manage per-worktree tmux or zellij sessions.
 * **Shell integration**: Jump into selected worktrees and return to the last-used one.
 * **Command palette**: Access actions, commands, and sessions with MRU-based navigation.
 * **Custom commands**: Define keybindings, tmux/zellij layouts, and per-repo command workflows.
-* **Automation and hooks**: Initialise and tear down worktrees via `.wt` files with TOFU security.
-* **Automatic branch naming**: Generate branch names from diffs, issues, or PRs via external scripts.
-* **LazyGit integration**: Launch lazygit scoped to the selected worktree.
+* **Automation and hooks**: Run init/terminate commands via `.wt` files with TOFU security.
+* **Automatic branch naming**: Generate branch names from diffs, issues, or PRs via scripts.
+* **LazyGit integration**: Launch lazygit for the selected worktree.
 
 ## Getting Started
 
@@ -130,7 +130,7 @@ See [./shell/README.md](./shell/README.md) for more detailed instructions.
 | `D` | Delete selected worktree |
 | `d` | View diff in pager (respects pager config) |
 | `A` | Absorb worktree into main |
-| `X` | Prune merged worktrees (auto-refreshes PR data, then checks PR/branch merge status) |
+| `X` | Prune merged worktrees (refreshes PR data, checks merge status) |
 | `!` | Run arbitrary command in selected worktree (with command history) |
 | `p` | Fetch PR/MR status (also refreshes CI checks) |
 | `o` | Open PR/MR in browser |
@@ -138,8 +138,8 @@ See [./shell/README.md](./shell/README.md) for more detailed instructions.
 | `g` | Open LazyGit |
 | `r` | Refresh list |
 | `R` | Fetch all remotes |
-| `S` | Synchronise with upstream (git pull, then git push, current branch only, requires a clean worktree, honours merge_method) |
-| `P` | Push to upstream branch (current branch only, requires a clean worktree, prompts to set upstream when missing) |
+| `S` | Sync with upstream (pull + push, requires clean worktree) |
+| `P` | Push to upstream (prompts to set upstream if missing) |
 | `f` | Filter focused pane (worktrees, files, commits) |
 | `/` | Search focused pane (incremental) |
 | `alt+n`, `alt+p` | Move selection and fill filter input |
@@ -148,9 +148,9 @@ See [./shell/README.md](./shell/README.md) for more detailed instructions.
 | `Home` | Go to first item in focused pane |
 | `End` | Go to last item in focused pane |
 | `?` | Show help |
-| `1` | Switch to Worktree pane (or toggle zoom if already focused) |
-| `2` | Switch to Status pane (or toggle zoom if already focused) |
-| `3` | Switch to Log pane (or toggle zoom if already focused) |
+| `1` | Focus Worktree pane (toggle zoom if focused) |
+| `2` | Focus Status pane (toggle zoom if focused) |
+| `3` | Focus Log pane (toggle zoom if focused) |
 | `Tab`, `]` | Cycle to next pane |
 | `[` | Cycle to previous pane |
 | `=` | Toggle zoom for focused pane (full screen) |
@@ -218,17 +218,12 @@ When a filter is active, the pane title shows a filter indicator with `[Esc] Cle
 
 **Command History (! command):**
 
-When running arbitrary commands with `!`, command history is persisted per repository:
-
-* `↑`, `↓`: Navigate through command history (most recent first)
-* Commands are automatically saved after execution
-* History is limited to 100 entries per repository
-* Stored in `~/.local/share/lazyworktree/<repo-key>/.command-history.json`
+Commands run via `!` are saved per repository (100 entries max). Use `↑`/`↓` to navigate history.
 
 **Command Palette Actions:**
 
 * **Select theme**: Change the application theme with live preview (see [Themes](#themes)).
-* **Create from current branch**: Choose this option after pressing `c` (or opening the palette) to copy the branch you are currently on. A friendly random name is suggested for the new branch (you may edit it), and when uncommitted changes exist an “Include current file changes” checkbox appears beside the name prompt; Tab switches focus to the checkbox, Space toggles it, and enabling it stashes the work and reapplies it inside the new worktree. With the checkbox ticked, any configured `branch_name_script` receives the diff to generate the suggested branch name, so the AI helpers run just as before.
+* **Create from current branch**: Copy your current branch to a new worktree. If uncommitted changes exist, tick "Include current file changes" to stash and reapply them in the new worktree. Any configured `branch_name_script` receives the diff for AI-powered naming.
 
 ### Mouse Controls
 
@@ -345,27 +340,27 @@ git config --local --get-regexp "^lw\."
 
 **Worktree list and refresh**
 
-* `sort_mode` controls the default sort order: `"switched"` (last accessed, default), `"active"` (last commit date), or `"path"` (alphabetical). The old `sort_by_active` option is still supported for backwards compatibility.
-* Set `auto_fetch_prs` to `true` to fetch PR data upon startup.
-* Set `auto_refresh` to `false` to disable background refresh of git metadata and working tree status.
-* Set `refresh_interval` to control background refresh frequency in seconds (e.g., `10`).
-* Set `show_icons: false` to disable icons.
-* Use `max_untracked_diffs: 0` to conceal untracked diffs; `max_diff_chars: 0` disables truncation.
-* Use `max_name_length` to control the maximum length for worktree names displayed in the table (default: 95 characters). Names longer than this limit will be truncated with "..." appended. Set to 0 to disable truncation entirely.
+* `sort_mode`: `"switched"` (last accessed, default), `"active"` (commit date), or `"path"` (alphabetical).
+* `auto_fetch_prs`: fetch PR data on startup.
+* `auto_refresh`: background refresh of git metadata (default: true).
+* `refresh_interval`: refresh frequency in seconds (default: 10).
+* `show_icons`: display icons (default: true).
+* `max_untracked_diffs`, `max_diff_chars`: limits for diff display (0 disables).
+* `max_name_length`: maximum display length for worktree names (default: 95, 0 disables truncation).
 
 **Search and palette**
 
-* Set `search_auto_select` to `true` to commence with the filter focused (alternatively, pass `--search-auto-select`).
-* Set `fuzzy_finder_input` to `true` to enable fuzzy finder suggestions in input dialogs. When enabled, typing in text input fields displays fuzzy-filtered suggestions from available options. Use arrow keys to navigate suggestions and Enter to select.
-* The command palette includes MRU (Most Recently Used) sorting by default (`palette_mru: true`). A "Recently Used" section appears at the top of the palette showing your most frequently used commands. The number of commands shown is controlled by `palette_mru_limit` (default: 5). Usage history is stored per-repository in `.command-palette-history.json`. Set `palette_mru: false` to disable this feature.
+* `search_auto_select`: start with filter focused (or use `--search-auto-select`).
+* `fuzzy_finder_input`: show fuzzy suggestions in input dialogs.
+* `palette_mru`: enable MRU sorting in command palette (default: true). Control count with `palette_mru_limit` (default: 5).
 
 **Diff, pager, and editor**
 
-* `git_pager` specifies the diff formatter/pager command (default: `delta`). Set to an empty string to disable diff formatting and use plain git diff output.
-* `git_pager_args` configures arguments passed to `git_pager`. If omitted and `git_pager` is `delta`, lazyworktree selects a matching `--syntax-theme` (see `--show-syntax-themes` above).
-* `git_pager_interactive` enables interactive diff viewers that require terminal control (default: `false`). Set to `true` for tools like `diffnav`, `ftdv`, or `tig`.
-* `pager` designates the pager for `show_output` commands and the diff viewer (default: `$PAGER`, fallback `less --use-color --wordwrap -qcR -P 'Press q to exit..'`, then `more`, then `cat`).
-* `editor` sets the editor command for the Status pane `e` key (default: config value, then `$EDITOR`, then `nvim`, then `vi`).
+* `git_pager`: diff formatter (default: `delta`). Empty string disables formatting.
+* `git_pager_args`: arguments for git_pager. Auto-selects syntax theme for delta.
+* `git_pager_interactive`: set `true` for interactive viewers like `diffnav` or `tig`.
+* `pager`: pager for output display (default: `$PAGER`, fallback to `less`).
+* `editor`: editor for Status pane `e` key (default: `$EDITOR`, fallback to `nvim`).
 
 **Worktree lifecycle**
 
@@ -373,18 +368,17 @@ git config --local --get-regexp "^lw\."
 
 **Sync and multiplexers**
 
-* `merge_method` controls how the "Absorb worktree" action integrates changes into main and how `S` synchronises with upstream: `rebase` (default) rebases the feature branch onto main then fast-forwards, and uses `git pull --rebase=true`; `merge` creates a merge commit and performs a standard `git pull`.
-* `session_prefix` defines the prefix for tmux and zellij session names (default: `wt-`). The command palette filters active sessions by this prefix. Sessions created by lazyworktree will use this prefix, and the palette will only show sessions matching this prefix. Note: tmux does not permit colons (`:`) in session names, so any colons in the prefix will be automatically converted to hyphens (`-`).
+* `merge_method`: `"rebase"` (default) or `"merge"`. Controls Absorb and Sync (`S`) behaviour.
+* `session_prefix`: prefix for tmux/zellij sessions (default: `wt-`). Palette filters by this prefix.
 
 **Branch naming**
 
-* `branch_name_script` executes a script to generate branch name suggestions for changes, issues, and PRs. The output is available via the `{generated}` placeholder in templates. Refer to [AI-powered branch names](#ai-powered-branch-names) below.
-* `issue_branch_name_template` defines the template for issue branch names (placeholders: `{number}`, `{title}`, `{generated}`).
-* `pr_branch_name_template` defines the template for PR branch names (placeholders: `{number}`, `{title}`, `{generated}`).
+* `branch_name_script`: script for AI-powered branch suggestions. See [AI-powered branch names](#ai-powered-branch-names).
+* `issue_branch_name_template`, `pr_branch_name_template`: templates with placeholders `{number}`, `{title}`, `{generated}`.
 
 **Custom create menu**
 
-* `custom_create_menus` adds custom items to the worktree creation menu (`c` key). Each entry requires a `label` and `command`, with optional `description`. Commands may be interactive, and optional `post_command` hooks run in the new worktree directory.
+* `custom_create_menus`: add custom items to the creation menu (`c` key). Supports `interactive` and `post_command`.
 
 ## Themes
 
@@ -434,11 +428,9 @@ CI status is retrieved lazily (only for the selected worktree) and cached for 30
 
 ## Custom Commands
 
-You may define custom keybindings in your `~/.config/lazyworktree/config.yaml` to execute commands within the selected worktree. Custom commands execute interactively (the Terminal User Interface suspends, much like when launching `lazygit`) and appear in the command palette. Should you set `show_output`, lazyworktree pipes the command output through the configured pager.
+Define custom keybindings in `~/.config/lazyworktree/config.yaml`. Commands run interactively (TUI suspends) and appear in the command palette. Use `show_output` to pipe output through the pager.
 
-By default, `t` opens a tmux session with a single `shell` window and `Z` opens a zellij session with the same layout fields. You may override these by defining `custom_commands.t` or `custom_commands.Z`. When `attach` is true, lazyworktree attaches to the session immediately; when false, it displays an information modal with instructions for manual attachment.
-
-The command palette automatically lists all active tmux and zellij sessions that start with the configured session prefix (default: `wt-`) under separate "Active Tmux Sessions" and "Active Zellij Sessions" sections that appear after the Multiplexer section. Selecting an active session allows you to quickly switch to it without manually typing session names. You can customise the session prefix by setting `session_prefix` in your configuration file.
+Defaults: `t` opens tmux, `Z` opens zellij. Override by defining `custom_commands.t` or `custom_commands.Z`. The palette lists active sessions matching `session_prefix` (default: `wt-`).
 
 ### Configuration Format
 
@@ -514,8 +506,8 @@ custom_commands:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `session_name` | string | `wt:$WORKTREE_NAME` | tmux session name (supports env vars). Colons, slashes, and backslashes are replaced with `-`. |
-| `attach` | bool | `true` | If true, attach/switch immediately; if false, show info modal with attach instructions |
+| `session_name` | string | `wt:$WORKTREE_NAME` | Session name (env vars supported, special chars replaced) |
+| `attach` | bool | `true` | Attach immediately; if false, show modal with instructions |
 | `on_exists` | string | `switch` | Behaviour if session exists: `switch`, `attach`, `kill`, `new` |
 | `windows` | list | `[ { name: "shell" } ]` | Window definitions for the session |
 
@@ -533,8 +525,8 @@ If `windows` is omitted or empty, lazyworktree creates a single `shell` window.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `session_name` | string | `wt:$WORKTREE_NAME` | zellij session name (supports env vars) |
-| `attach` | bool | `true` | If true, attach immediately; if false, show info modal with attach instructions |
+| `session_name` | string | `wt:$WORKTREE_NAME` | Session name (env vars supported, special chars replaced) |
+| `attach` | bool | `true` | Attach immediately; if false, show modal with instructions |
 | `on_exists` | string | `switch` | Behaviour if session exists: `switch`, `attach`, `kill`, `new` |
 | `windows` | list | `[ { name: "shell" } ]` | Tab definitions for the session |
 
@@ -582,11 +574,11 @@ custom_commands:
 
 ### Key Precedence
 
-**Custom commands take precedence over built-in keys.** If you define a custom command with key `s`, it shall override the built-in sort toggle. This permits you to fully customise your workflow.
+**Custom commands take precedence over built-in keys.** If you define a custom command with key `s`, it overrides the built-in sort toggle.
 
 ## Custom Initialisation and Termination
 
-You may create a `.wt` file in your main repository to define custom commands that execute when creating or removing a worktree. This format is inspired by [wt](https://github.com/taecontrol/wt).
+Create a `.wt` file in your main repository to define commands that run when creating or removing a worktree. Format inspired by [wt](https://github.com/taecontrol/wt).
 
 ### Example `.wt` configuration
 
@@ -610,13 +602,13 @@ The following environment variables are available to your commands:
 
 ### Security: Trust on First Use (TOFU)
 
-Since `.wt` files permit the execution of arbitrary commands found within a repository, `lazyworktree` implements a **Trust on First Use** security model to prevent malicious repositories from automatically executing code on your system.
+Since `.wt` files can execute arbitrary commands, lazyworktree uses a **Trust on First Use** security model.
 
-* **First Run**: Upon encountering a new or modified `.wt` file, `lazyworktree` will pause and display the commands it intends to execute. You may select **Trust** (run and save), **Block** (skip for now), or **Cancel** the operation.
+* **First Run**: When encountering a new or modified `.wt` file, lazyworktree pauses and displays the commands. Select **Trust** (run and save), **Block** (skip), or **Cancel**.
 * **Trusted**: Once trusted, commands run silently in the background until the `.wt` file changes again.
 * **Persistence**: Trusted file hashes are stored in `~/.local/share/lazyworktree/trusted.json`.
 
-This behaviour may be configured in `config.yaml` via the `trust_mode` setting:
+Configure via `trust_mode` in `config.yaml`:
 
 * **`tofu`** (Default): Prompts for confirmation on new or changed files. Secure and usable.
 * **`never`**: Never runs commands from `.wt` files. Safest for untrusted environments.
@@ -632,7 +624,7 @@ This behaviour may be configured in `config.yaml` via the `trust_mode` setting:
 
 ## Branch Naming Conventions
 
-When creating worktrees with manual branch names, special characters are automatically converted to hyphens for Git and terminal multiplexer (tmux/zellij) compatibility. Branch names can contain letters, numbers, and hyphens; all other characters are converted to hyphens.
+Special characters are converted to hyphens for Git compatibility. Leading/trailing hyphens are removed, consecutive hyphens collapsed. Length capped at 50 (manual) or 100 (auto) characters.
 
 | Input | Converted |
 |-------|-----------|
@@ -640,32 +632,12 @@ When creating worktrees with manual branch names, special characters are automat
 | `bug fix here` | `bug-fix-here` |
 | `feature:test` | `feature-test` |
 
-Leading/trailing hyphens are removed, consecutive hyphens collapsed, and length is capped at 50 characters (manual input) or 100 characters (auto-generated).
-
-### Examples
-
-```bash
-# Creating a worktree with user input
-#
-# Type: feature.new
-# Creates branch: feature-new
-
-# From a PR with a title "Add user.authentication feature"
-# Creates branch: add-user-authentication-feature
-
-# From a GitHub/GitLab issue "#42: Fix the login API"
-# Creates branch: issue-42-fix-the-login-api
-```
-
 ## Automatically Generated Branch Names
 
-When creating a worktree from changes (via the command palette), issues, or PRs, you may configure an external script to suggest branch names or titles using AI.
+Configure `branch_name_script` to generate branch names via AI tools like [aichat](https://github.com/sigoden/aichat/) or [claude code](https://claude.com/product/claude-code).
 
-**For PRs and issues:** The script should output a **title** (e.g., `feat-ai-session-manager`) that will be sanitised and available via the `{generated}` placeholder in your template. You can choose whether to use the AI-generated title, the original title, or both.
-
-**For diffs:** The script should output a complete branch name.
-
-This proves useful for integrating AI tools such as [aichat](https://github.com/sigoden/aichat/), [claude code](https://claude.com/product/claude-code), or any other command-line tool capable of generating meaningful branch names from code changes.
+* **PRs/issues:** Script outputs a title available via `{generated}` placeholder.
+* **Diffs:** Script outputs a complete branch name.
 
 > [!NOTE]
 > There's no need for a large or cutting-edge model for branch generation. Smaller models are usually cheaper and much faster. Google's `gemini-2.5-flash-lite` is currently the fastest and most reliable choice.
@@ -707,49 +679,15 @@ When creating worktrees from PRs or issues, the following placeholders are avail
 
 If the AI script fails or returns empty output, `{generated}` automatically falls back to the sanitised original title.
 
-### How It Works
-
-1. When you press `c` (or open the command palette) and choose "Create from current branch", the base picker highlights that option; if the selected worktree contains uncommitted modifications, the branch-name prompt surfaces an "Include current file changes" checkbox so you can decide whether to stash and move them into the new worktree. Tab/Shift+Tab cycle focus between the input and checkbox, while Space toggles the box when it is focused.
-2. Should `branch_name_script` be configured:
-   * **For PRs:** The PR title and body are piped to the script. The script outputs a title, which is sanitised and made available via the `{generated}` placeholder. Your `pr_branch_name_template` determines how it is used.
-   * **For issues:** The issue title and body are piped to the script. The script outputs a title, which is sanitised and made available via the `{generated}` placeholder. Your `issue_branch_name_template` determines how it is used.
-   * **For diffs:** The git diff is piped to the script. The script outputs a complete branch name.
-3. The final branch name is suggested to you.
-4. You may edit the suggestion prior to confirmation.
-
-**Example for PR #2 with AI script:**
-
-* Original PR title: "Add AI session management"
-* AI script generates: `feat-ai-session-manager`
-* Template: `pr-{number}-{generated}`
-* Placeholders replaced: `{number}` → `2`, `{generated}` → `feat-ai-session-manager`
-* Result: `pr-2-feat-ai-session-manager`
-
 ### Script Requirements
 
-* The script receives content on stdin:
-  * Git diff for changes
-  * Issue title+body for issues
-  * PR title+body for PRs
-* Output requirements:
-  * **For PRs/issues:** Output only a title (e.g., `feat-ai-session-manager`). First line is used.
-  * **For diffs:** Output a complete branch name (e.g., `feature/add-caching`). First line is used.
-* Should the script fail or return empty output:
-  * For changes: the default name (`{current-branch}-changes`) is employed
-  * For issues: the issue's actual title is used in the template
-  * For PRs: the PR's actual title is used in the template
-* The script operates under a 30-second timeout to prevent hanging.
+The script receives content on stdin (diff, issue, or PR title+body) and outputs the branch name on stdout (first line used). Timeout: 30 seconds. Falls back to the original title if the script fails.
 
 ### Environment Variables
 
-The script receives additional context via environment variables:
+Available to scripts: `LAZYWORKTREE_TYPE` (pr/issue/diff), `LAZYWORKTREE_NUMBER`, `LAZYWORKTREE_TEMPLATE`, `LAZYWORKTREE_SUGGESTED_NAME`.
 
-* `LAZYWORKTREE_TYPE`: The type of creation (`"pr"`, `"issue"`, or `"diff"`)
-* `LAZYWORKTREE_NUMBER`: The PR/issue number (empty for diff-based creation)
-* `LAZYWORKTREE_TEMPLATE`: The configured template (e.g., `"pr-{number}-{title}"`)
-* `LAZYWORKTREE_SUGGESTED_NAME`: The template-generated branch name using the original PR/issue title
-
-These variables allow scripts to adapt behaviour based on context. Examples:
+**Example:**
 
 ```yaml
 # Different prompts for different types
