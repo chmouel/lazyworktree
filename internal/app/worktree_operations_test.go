@@ -668,7 +668,7 @@ func TestShowPruneMergedUnknownHost(t *testing.T) {
 	}
 
 	// showPruneMerged should skip PR fetch and go straight to merged check
-	cmd := m.showPruneMerged()
+	_ = m.showPruneMerged()
 
 	// Should return performMergedWorktreeCheck (which returns nil for no merged worktrees)
 	// or textinput.Blink if there are merged worktrees
@@ -678,10 +678,6 @@ func TestShowPruneMergedUnknownHost(t *testing.T) {
 	}
 	if m.currentScreen == screenLoading {
 		t.Fatal("expected no loading screen for unknown host")
-	}
-	if cmd != nil {
-		// If there are merged worktrees, it might return textinput.Blink
-		// Otherwise it should return nil
 	}
 }
 

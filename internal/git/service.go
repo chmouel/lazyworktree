@@ -39,6 +39,10 @@ const (
 	issueStateOpened = "OPENED"
 )
 
+// LookupPath is used to find executables in PATH. It's exposed as a package variable
+// so tests can mock it and avoid depending on system binaries being installed.
+var LookupPath = exec.LookPath
+
 // NotifyFn receives ongoing notifications.
 type NotifyFn func(message string, severity string)
 
@@ -108,7 +112,7 @@ func (s *Service) isGitPagerAvailable() bool {
 	if s.gitPager == "" {
 		return false
 	}
-	_, err := exec.LookPath(s.gitPager)
+	_, err := LookupPath(s.gitPager)
 	return err == nil
 }
 

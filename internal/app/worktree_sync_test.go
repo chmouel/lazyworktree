@@ -808,7 +808,7 @@ func TestConfirmNoDoesNormalSync(t *testing.T) {
 
 	// Simulate user pressing NO (n key)
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
-	m = newModel.(*Model)
+	_ = newModel.(*Model)
 
 	if cmd == nil {
 		t.Fatal("expected command to be returned from confirmCancel")

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/chmouel/lazyworktree/internal/config"
+	"github.com/chmouel/lazyworktree/internal/git"
 )
 
 func captureStdout(t *testing.T, fn func()) string {
@@ -294,6 +295,13 @@ func TestLoadCLIConfig(t *testing.T) {
 }
 
 func TestNewCLIGitService(t *testing.T) {
+	// Mock the lookup function to avoid dependency on delta being installed
+	oldLookup := git.LookupPath
+	defer func() { git.LookupPath = oldLookup }()
+	git.LookupPath = func(name string) (string, error) {
+		return "/mock/" + name, nil
+	}
+
 	cfg := config.DefaultConfig()
 	cfg.GitPager = "delta"
 	cfg.GitPagerArgs = []string{"--syntax-theme", "Dracula"}
