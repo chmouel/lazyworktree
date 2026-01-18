@@ -5,12 +5,15 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/security"
 )
+
+const testRepoName = "testRepoName"
 
 type fakeGitService struct {
 	resolveRepoName     string
@@ -23,8 +26,10 @@ type fakeGitService struct {
 	prs           []*models.PRInfo
 	prsErr        error
 
-	mainWorktreePath string
-	executedCommands error
+	mainWorktreePath      string
+	executedCommands      error
+	lastWorktreeAddPath   string
+	lastWorktreeAddBranch string
 }
 
 func (f *fakeGitService) CreateWorktreeFromPR(_ context.Context, _ int, _, _, _ string) bool {
@@ -51,7 +56,22 @@ func (f *fakeGitService) ResolveRepoName(_ context.Context) string {
 	return f.resolveRepoName
 }
 
-func (f *fakeGitService) RunCommandChecked(_ context.Context, _ []string, _, _ string) bool {
+func (f *fakeGitService) RunCommandChecked(_ context.Context, args []string, _, _ string) bool {
+	// Capture worktree add commands for testing
+	if len(args) > 2 && args[0] == "git" && args[1] == "worktree" && args[2] == "add" {
+		// Find the path in the args (it's before the branch name)
+		for i := 3; i < len(args); i++ {
+			if args[i] == "-b" && i+2 < len(args) {
+				f.lastWorktreeAddBranch = args[i+1]
+				f.lastWorktreeAddPath = args[i+2]
+				break
+			} else if !strings.HasPrefix(args[i], "-") {
+				// First non-flag argument after "add" is the path
+				f.lastWorktreeAddPath = args[i]
+				break
+			}
+		}
+	}
 	return f.runCommandCheckedOK
 }
 
@@ -60,6 +80,10 @@ func (f *fakeGitService) RunGit(_ context.Context, args []string, _ string, _ []
 		return ""
 	}
 	return f.runGitOutput[filepath.Join(args...)]
+}
+
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
 }
 
 func TestFindWorktreeByPathOrName(t *testing.T) {
@@ -238,7 +262,7 @@ func TestRunInitCommands(t *testing.T) {
 
 	svc := &fakeGitService{
 		mainWorktreePath: mainPath,
-		resolveRepoName:  "test-repo",
+		resolveRepoName:  testRepoName,
 		executedCommands: nil, // Success
 	}
 
@@ -271,7 +295,7 @@ func TestRunTerminateCommands(t *testing.T) {
 
 	svc := &fakeGitService{
 		mainWorktreePath: mainPath,
-		resolveRepoName:  "test-repo",
+		resolveRepoName:  testRepoName,
 		executedCommands: nil, // Success
 	}
 
@@ -358,20 +382,20 @@ func TestCreateFromBranch(t *testing.T) {
 
 	t.Run("branch does not exist", func(t *testing.T) {
 		svc := &fakeGitService{
-			resolveRepoName: "test-repo",
+			resolveRepoName: testRepoName,
 			runGitOutput: map[string]string{
 				filepath.Join("git", "rev-parse", "--verify", "nonexistent"): "",
 			},
 		}
 
-		err := CreateFromBranch(ctx, svc, cfg, "nonexistent", false, false)
+		err := CreateFromBranch(ctx, svc, cfg, "nonexistent", "", false, false)
 		if err == nil {
 			t.Fatal("expected error for nonexistent branch")
 		}
 	})
 
 	t.Run("path already exists", func(t *testing.T) {
-		repoName := "test-repo"
+		repoName := testRepoName
 		branchName := "existing"
 		targetPath := filepath.Join(tmpDir, repoName, branchName)
 
@@ -387,14 +411,14 @@ func TestCreateFromBranch(t *testing.T) {
 			},
 		}
 
-		err := CreateFromBranch(ctx, svc, cfg, branchName, false, false)
+		err := CreateFromBranch(ctx, svc, cfg, branchName, "", false, false)
 		if err == nil {
 			t.Fatal("expected error for existing path")
 		}
 	})
 
 	t.Run("successful creation", func(t *testing.T) {
-		repoName := "test-repo"
+		repoName := testRepoName
 		branchName := "new-branch"
 		mainPath := filepath.Join(tmpDir, "main")
 		if err := os.MkdirAll(mainPath, 0o750); err != nil {
@@ -411,9 +435,92 @@ func TestCreateFromBranch(t *testing.T) {
 			},
 		}
 
-		err := CreateFromBranch(ctx, svc, cfg, branchName, false, true)
+		err := CreateFromBranch(ctx, svc, cfg, branchName, "", false, true)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("explicit branch name provided", func(t *testing.T) {
+		repoName := testRepoName
+		sourceBranch := "main"
+		worktreeName := "feature-1"
+		mainPath := filepath.Join(tmpDir, "main")
+		if err := os.MkdirAll(mainPath, 0o750); err != nil {
+			t.Fatalf("failed to create main path: %v", err)
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName:     repoName,
+			mainWorktreePath:    mainPath,
+			runCommandCheckedOK: true,
+			runGitOutput: map[string]string{
+				filepath.Join("git", "rev-parse", "--verify", sourceBranch):              "abc123\n",
+				filepath.Join("git", "show-ref", "--verify", "refs/heads/"+sourceBranch): "abc123\n",
+			},
+		}
+
+		err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Verify the worktree was created with the explicit name
+		expectedPath := filepath.Join(tmpDir, repoName, worktreeName)
+		if svc.lastWorktreeAddPath != expectedPath {
+			t.Errorf("expected path %q, got %q", expectedPath, svc.lastWorktreeAddPath)
+		}
+	})
+
+	t.Run("explicit branch name gets sanitised", func(t *testing.T) {
+		repoName := testRepoName
+		sourceBranch := "main"
+		worktreeName := "Feature@#123!"
+		mainPath := filepath.Join(tmpDir, "main")
+		if err := os.MkdirAll(mainPath, 0o750); err != nil {
+			t.Fatalf("failed to create main path: %v", err)
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName:     repoName,
+			mainWorktreePath:    mainPath,
+			runCommandCheckedOK: true,
+			runGitOutput: map[string]string{
+				filepath.Join("git", "rev-parse", "--verify", sourceBranch):              "abc123\n",
+				filepath.Join("git", "show-ref", "--verify", "refs/heads/"+sourceBranch): "abc123\n",
+			},
+		}
+
+		err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Verify the name was sanitised
+		expectedPath := filepath.Join(tmpDir, repoName, "feature-123")
+		if svc.lastWorktreeAddPath != expectedPath {
+			t.Errorf("expected sanitised path %q, got %q", expectedPath, svc.lastWorktreeAddPath)
+		}
+	})
+
+	t.Run("invalid branch name all special chars", func(t *testing.T) {
+		repoName := testRepoName
+		sourceBranch := "main"
+		worktreeName := "@#$%^&*()"
+
+		svc := &fakeGitService{
+			resolveRepoName: repoName,
+			runGitOutput: map[string]string{
+				filepath.Join("git", "rev-parse", "--verify", sourceBranch): "abc123\n",
+			},
+		}
+
+		err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true)
+		if err == nil {
+			t.Fatal("expected error for invalid worktree name")
+		}
+		if !contains(err.Error(), "invalid worktree name") {
+			t.Errorf("expected 'invalid worktree name' error, got: %v", err)
 		}
 	})
 }
@@ -430,7 +537,7 @@ func TestDeleteWorktree(t *testing.T) {
 
 	t.Run("worktree not found", func(t *testing.T) {
 		svc := &fakeGitService{
-			resolveRepoName: "test-repo",
+			resolveRepoName: testRepoName,
 			worktrees:       []*models.WorktreeInfo{},
 			worktreesErr:    nil,
 		}
@@ -442,13 +549,13 @@ func TestDeleteWorktree(t *testing.T) {
 	})
 
 	t.Run("successful deletion", func(t *testing.T) {
-		wtPath := filepath.Join(tmpDir, "test-repo", "worktree")
+		wtPath := filepath.Join(tmpDir, testRepoName, "worktree")
 		worktrees := []*models.WorktreeInfo{
 			{Path: wtPath, Branch: "worktree"},
 		}
 
 		svc := &fakeGitService{
-			resolveRepoName:     "test-repo",
+			resolveRepoName:     testRepoName,
 			worktrees:           worktrees,
 			runCommandCheckedOK: true,
 		}

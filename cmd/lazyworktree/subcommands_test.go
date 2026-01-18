@@ -47,6 +47,22 @@ func TestHandleWtCreateValidation(t *testing.T) {
 			args:        []string{"--from-branch", "main", "--with-change"},
 			expectError: false,
 		},
+		{
+			name:        "valid from-branch with branch name",
+			args:        []string{"--from-branch", "main", "feature-1"},
+			expectError: false,
+		},
+		{
+			name:        "branch name with from-pr",
+			args:        []string{"--from-pr", "123", "my-branch"},
+			expectError: true,
+			errorMsg:    "branch name argument cannot be used with --from-pr",
+		},
+		{
+			name:        "from-branch with branch name and with-change",
+			args:        []string{"--from-branch", "main", "feature-1", "--with-change"},
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -84,6 +100,8 @@ func TestHandleWtCreateValidation(t *testing.T) {
 			case cmd.FromBranch == "" && cmd.FromPR == 0:
 				hasError = true
 			case cmd.WithChange && cmd.FromPR > 0:
+				hasError = true
+			case cmd.BranchName != "" && cmd.FromPR > 0:
 				hasError = true
 			}
 

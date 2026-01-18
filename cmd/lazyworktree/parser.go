@@ -33,6 +33,7 @@ type WtCreateCmd struct {
 	FromPR     int    `help:"Create worktree from PR number" xor:"source"`
 	WithChange bool   `help:"Carry over uncommitted changes to the new worktree (only with --from-branch)"`
 	Silent     bool   `help:"Suppress progress messages"`
+	BranchName string `arg:"" optional:"" help:"Name for the new worktree/branch (defaults to sanitised source branch name)"`
 }
 
 // WtDeleteCmd represents the wt-delete subcommand.

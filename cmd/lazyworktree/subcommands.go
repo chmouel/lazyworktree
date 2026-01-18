@@ -22,7 +22,7 @@ func handleWtCreate(cmd *WtCreateCmd, worktreeDirFlag, configFileFlag string, co
 	if cmd.FromBranch == "" && cmd.FromPR == 0 {
 		fmt.Fprintf(os.Stderr, "Error: must specify either --from-branch or --from-pr\n")
 		fmt.Fprintf(os.Stderr, "Usage:\n")
-		fmt.Fprintf(os.Stderr, "  lazyworktree wt-create --from-branch <branch-name> [--with-change]\n")
+		fmt.Fprintf(os.Stderr, "  lazyworktree wt-create --from-branch <branch-name> [worktree-name] [--with-change]\n")
 		fmt.Fprintf(os.Stderr, "  lazyworktree wt-create --from-pr <pr-number>\n")
 		os.Exit(1)
 	}
@@ -30,6 +30,12 @@ func handleWtCreate(cmd *WtCreateCmd, worktreeDirFlag, configFileFlag string, co
 	// Validate --with-change is only used with --from-branch
 	if cmd.WithChange && cmd.FromPR > 0 {
 		fmt.Fprintf(os.Stderr, "Error: --with-change can only be used with --from-branch\n")
+		os.Exit(1)
+	}
+
+	// Validate branch name argument is only used with --from-branch
+	if cmd.BranchName != "" && cmd.FromPR > 0 {
+		fmt.Fprintf(os.Stderr, "Error: branch name argument cannot be used with --from-pr\n")
 		os.Exit(1)
 	}
 
@@ -46,7 +52,7 @@ func handleWtCreate(cmd *WtCreateCmd, worktreeDirFlag, configFileFlag string, co
 	// Execute appropriate operation
 	var opErr error
 	if cmd.FromBranch != "" {
-		opErr = cli.CreateFromBranch(ctx, gitSvc, cfg, cmd.FromBranch, cmd.WithChange, cmd.Silent)
+		opErr = cli.CreateFromBranch(ctx, gitSvc, cfg, cmd.FromBranch, cmd.BranchName, cmd.WithChange, cmd.Silent)
 	} else if cmd.FromPR > 0 {
 		opErr = cli.CreateFromPR(ctx, gitSvc, cfg, cmd.FromPR, cmd.Silent)
 	}

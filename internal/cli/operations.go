@@ -34,7 +34,7 @@ type gitService interface {
 var _ gitService = (*git.Service)(nil)
 
 // CreateFromBranch creates a worktree from a branch name.
-func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branchName string, withChange, silent bool) error {
+func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) error {
 	// Validate branch exists
 	if !branchExists(ctx, gitSvc, branchName) {
 		return fmt.Errorf("branch %q does not exist", branchName)
@@ -58,8 +58,17 @@ func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppCon
 		}
 	}
 
-	// Use sanitized branch name as worktree name
-	worktreeName := utils.SanitizeBranchName(branchName, 100)
+	// Use provided worktree name, or sanitise branch name if not provided
+	if worktreeName == "" {
+		worktreeName = utils.SanitizeBranchName(branchName, 100)
+	} else {
+		// Validate and sanitise user-provided name
+		sanitised := utils.SanitizeBranchName(worktreeName, 100)
+		if sanitised == "" {
+			return fmt.Errorf("invalid worktree name: must contain at least one alphanumeric character")
+		}
+		worktreeName = sanitised
+	}
 
 	// Construct target path
 	repoName := gitSvc.ResolveRepoName(ctx)
