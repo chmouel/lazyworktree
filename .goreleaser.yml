@@ -3,9 +3,10 @@ before:
   hooks:
     - sh -c "mkdir -p completions"
     - sh -c "CGO_ENABLED=0 go build -o completions/lazyworktree ./cmd/lazyworktree"
-    - sh -c "completions/lazyworktree completion --code bash > completions/lazyworktree.bash"
-    - sh -c "completions/lazyworktree completion --code zsh > completions/lazyworktree.zsh"
-    - sh -c "completions/lazyworktree completion --code fish > completions/lazyworktree.fish"
+    - sh -c "completions/lazyworktree completion bash > completions/lazyworktree.bash"
+    - sh -c "completions/lazyworktree completion zsh > completions/lazyworktree.zsh"
+    - sh -c "completions/lazyworktree completion fish > completions/lazyworktree.fish"
+    - sh -c "completions/lazyworktree completion pwsh > completions/lazyworktree.ps1"
     - sh -c "rm -f completions/lazyworktree"
 builds:
   - id: lazyworktree
@@ -96,6 +97,8 @@ nfpms:
         dst: /usr/share/bash-completion/completions/lazyworktree
       - src: completions/lazyworktree.zsh
         dst: /usr/share/zsh/site-functions/_lazyworktree
+      - src: completions/lazyworktree.ps1
+        dst: /usr/share/powershell/Modules/lazyworktree/lazyworktree.ps1
       - src: completions/lazyworktree.fish
         dst: /usr/share/fish/vendor_completions.d/lazyworktree.fish
     overrides:
@@ -172,3 +175,4 @@ aurs:
       install -Dm644 "./completions/lazyworktree.bash" "${pkgdir}/usr/share/bash-completion/completions/lazyworktree"
       install -Dm644 "./completions/lazyworktree.zsh" "${pkgdir}/usr/share/zsh/site-functions/_lazyworktree"
       install -Dm644 "./completions/lazyworktree.fish" "${pkgdir}/usr/share/fish/vendor_completions.d/lazyworktree.fish"
+      install -Dm644 "./completions/lazyworktree.ps1" "${pkgdir}/usr/share/powershell/Modules/lazyworktree/lazyworktree.ps1"
