@@ -1,9 +1,10 @@
 package main
 
 import (
+	"context"
 	"testing"
 
-	urfavecli "github.com/urfave/cli/v2"
+	urfavecli "github.com/urfave/cli/v3"
 )
 
 func TestHandleWtCreateValidation(t *testing.T) {
@@ -81,20 +82,25 @@ func TestHandleWtCreateValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a test app with just the wt-create command
-			// We override the Action to avoid actually executing the command
+			// The validation is now part of the Action function
 			cmd := wtCreateCommand()
-			originalAction := cmd.Action
-			cmd.Action = func(c *urfavecli.Context) error {
-				// Just return nil - we're only testing validation
-				return nil
-			}
 
-			app := &urfavecli.App{
+			app := &urfavecli.Command{
 				Name:     "lazyworktree",
 				Commands: []*urfavecli.Command{cmd},
 			}
 
-			err := app.Run(tt.args)
+			// Capture validation errors without executing the full action
+			savedAction := cmd.Action
+			cmd.Action = func(ctx context.Context, c *urfavecli.Command) error {
+				// Run validation only
+				if err := validateWtCreateFlags(ctx, c); err != nil {
+					return err
+				}
+				return nil
+			}
+
+			err := app.Run(context.Background(), tt.args)
 
 			if tt.expectError && err == nil {
 				t.Error("expected validation error but got none")
@@ -104,7 +110,7 @@ func TestHandleWtCreateValidation(t *testing.T) {
 			}
 
 			// Restore original action
-			cmd.Action = originalAction
+			cmd.Action = savedAction
 		})
 	}
 }
@@ -159,7 +165,7 @@ func TestHandleWtDeleteFlags(t *testing.T) {
 			var capturedNoBranch, capturedSilent bool
 			var capturedWorktree string
 
-			cmd.Action = func(c *urfavecli.Context) error {
+			cmd.Action = func(ctx context.Context, c *urfavecli.Command) error {
 				capturedNoBranch = c.Bool("no-branch")
 				capturedSilent = c.Bool("silent")
 				if c.NArg() > 0 {
@@ -168,12 +174,12 @@ func TestHandleWtDeleteFlags(t *testing.T) {
 				return nil
 			}
 
-			app := &urfavecli.App{
+			app := &urfavecli.Command{
 				Name:     "lazyworktree",
 				Commands: []*urfavecli.Command{cmd},
 			}
 
-			if err := app.Run(tt.args); err != nil {
+			if err := app.Run(context.Background(), tt.args); err != nil {
 				t.Fatalf("unexpected parse error: %v", err)
 			}
 

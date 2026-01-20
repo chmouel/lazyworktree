@@ -8,34 +8,38 @@ import (
 
 	"github.com/chmouel/lazyworktree/internal/cli"
 	"github.com/chmouel/lazyworktree/internal/log"
-	urfavecli "github.com/urfave/cli/v2"
+	appiCli "github.com/urfave/cli/v3"
 )
 
 // wtCreateCommand returns the wt-create subcommand definition.
-func wtCreateCommand() *urfavecli.Command {
-	return &urfavecli.Command{
-		Name:   "wt-create",
-		Usage:  "Create a new worktree",
-		Before: validateWtCreateFlags,
-		Action: handleWtCreateAction,
-		Flags: []urfavecli.Flag{
-			&urfavecli.StringFlag{
+func wtCreateCommand() *appiCli.Command {
+	return &appiCli.Command{
+		Name:  "wt-create",
+		Usage: "Create a new worktree",
+		Action: func(ctx context.Context, cmd *appiCli.Command) error {
+			if err := validateWtCreateFlags(ctx, cmd); err != nil {
+				return err
+			}
+			return handleWtCreateAction(ctx, cmd)
+		},
+		Flags: []appiCli.Flag{
+			&appiCli.StringFlag{
 				Name:  "from-branch",
 				Usage: "Create worktree from branch (defaults to current branch)",
 			},
-			&urfavecli.IntFlag{
+			&appiCli.IntFlag{
 				Name:  "from-pr",
 				Usage: "Create worktree from PR number",
 			},
-			&urfavecli.StringFlag{
+			&appiCli.StringFlag{
 				Name:  "name",
 				Usage: "Name for the new worktree/branch (defaults to sanitised source branch name)",
 			},
-			&urfavecli.BoolFlag{
+			&appiCli.BoolFlag{
 				Name:  "with-change",
 				Usage: "Carry over uncommitted changes to the new worktree",
 			},
-			&urfavecli.BoolFlag{
+			&appiCli.BoolFlag{
 				Name:  "silent",
 				Usage: "Suppress progress messages",
 			},
@@ -43,19 +47,18 @@ func wtCreateCommand() *urfavecli.Command {
 	}
 }
 
-// wtDeleteCommand returns the wt-delete subcommand definition.
-func wtDeleteCommand() *urfavecli.Command {
-	return &urfavecli.Command{
+func wtDeleteCommand() *appiCli.Command {
+	return &appiCli.Command{
 		Name:      "wt-delete",
 		Usage:     "Delete a worktree",
 		ArgsUsage: "[worktree-path]",
 		Action:    handleWtDeleteAction,
-		Flags: []urfavecli.Flag{
-			&urfavecli.BoolFlag{
+		Flags: []appiCli.Flag{
+			&appiCli.BoolFlag{
 				Name:  "no-branch",
 				Usage: "Skip branch deletion",
 			},
-			&urfavecli.BoolFlag{
+			&appiCli.BoolFlag{
 				Name:  "silent",
 				Usage: "Suppress progress messages",
 			},
@@ -64,11 +67,11 @@ func wtDeleteCommand() *urfavecli.Command {
 }
 
 // validateWtCreateFlags validates mutual exclusivity rules for wt-create flags.
-func validateWtCreateFlags(c *urfavecli.Context) error {
-	fromBranch := c.String("from-branch")
-	fromPR := c.Int("from-pr")
-	name := c.String("name")
-	withChange := c.Bool("with-change")
+func validateWtCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
+	fromBranch := cmd.String("from-branch")
+	fromPR := cmd.Int("from-pr")
+	name := cmd.String("name")
+	withChange := cmd.Bool("with-change")
 
 	// Mutual exclusivity: from-branch and from-pr
 	if fromBranch != "" && fromPR > 0 {
@@ -89,14 +92,12 @@ func validateWtCreateFlags(c *urfavecli.Context) error {
 }
 
 // handleWtCreateAction handles the wt-create subcommand action.
-func handleWtCreateAction(c *urfavecli.Context) error {
-	ctx := context.Background()
-
+func handleWtCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	// Load config with global flags
 	cfg, err := loadCLIConfig(
-		c.String("config-file"),
-		c.String("worktree-dir"),
-		c.StringSlice("config"),
+		cmd.String("config-file"),
+		cmd.String("worktree-dir"),
+		cmd.StringSlice("config"),
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -106,11 +107,11 @@ func handleWtCreateAction(c *urfavecli.Context) error {
 	gitSvc := newCLIGitService(cfg)
 
 	// Extract command-specific flags
-	fromPR := c.Int("from-pr")
-	fromBranch := c.String("from-branch")
-	name := c.String("name")
-	withChange := c.Bool("with-change")
-	silent := c.Bool("silent")
+	fromPR := cmd.Int("from-pr")
+	fromBranch := cmd.String("from-branch")
+	name := cmd.String("name")
+	withChange := cmd.Bool("with-change")
+	silent := cmd.Bool("silent")
 
 	// Execute appropriate operation
 	var opErr error
@@ -151,14 +152,12 @@ func handleWtCreateAction(c *urfavecli.Context) error {
 }
 
 // handleWtDeleteAction handles the wt-delete subcommand action.
-func handleWtDeleteAction(c *urfavecli.Context) error {
-	ctx := context.Background()
-
+func handleWtDeleteAction(ctx context.Context, cmd *appiCli.Command) error {
 	// Load config with global flags
 	cfg, err := loadCLIConfig(
-		c.String("config-file"),
-		c.String("worktree-dir"),
-		c.StringSlice("config"),
+		cmd.String("config-file"),
+		cmd.String("worktree-dir"),
+		cmd.StringSlice("config"),
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -169,13 +168,13 @@ func handleWtDeleteAction(c *urfavecli.Context) error {
 
 	// Get worktree path from args
 	worktreePath := ""
-	if c.NArg() > 0 {
-		worktreePath = c.Args().Get(0)
+	if cmd.NArg() > 0 {
+		worktreePath = cmd.Args().Get(0)
 	}
 
 	// Extract command-specific flags
-	noBranch := c.Bool("no-branch")
-	silent := c.Bool("silent")
+	noBranch := cmd.Bool("no-branch")
+	silent := cmd.Bool("silent")
 
 	// Execute delete operation
 	deleteBranch := !noBranch

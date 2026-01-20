@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,7 +15,7 @@ import (
 	"github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/theme"
 	"github.com/chmouel/lazyworktree/internal/utils"
-	urfavecli "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var (
@@ -25,45 +26,39 @@ var (
 )
 
 func main() {
-	cliApp := &urfavecli.App{
-		Name:                 "lazyworktree",
-		Usage:                "A TUI tool to manage git worktrees",
-		Version:              version,
-		EnableBashCompletion: true,
+	cliApp := &cli.Command{
+		Name:                  "lazyworktree",
+		Usage:                 "A TUI tool to manage git worktrees",
+		Version:               version,
+		EnableShellCompletion: true,
+		Flags:                 globalFlags(),
 
-		Flags: globalFlags(),
-
-		Commands: []*urfavecli.Command{
+		Commands: []*cli.Command{
 			wtCreateCommand(),
 			wtDeleteCommand(),
-			completionCommand(),
 		},
 
-		Before: func(c *urfavecli.Context) error {
-			// Handle early exit flags
-			// Note: --version is handled automatically by urfave/cli
-			if c.Bool("show-syntax-themes") {
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			if cmd.Bool("show-syntax-themes") {
 				printSyntaxThemes()
 				os.Exit(0)
 			}
-			return nil
+			if cmd.Bool("generate-shell-completion") {
+				os.Exit(0)
+			}
+			return runTUI(ctx, cmd)
 		},
-
-		Action: runTUI,
-
-		BashComplete: completeGlobalFlags,
+		Suggest: true,
 	}
 
-	if err := cliApp.Run(os.Args); err != nil {
+	if err := cliApp.Run(context.Background(), os.Args); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
-// runTUI is the default action that launches the TUI when no subcommand is given.
-func runTUI(c *urfavecli.Context) error {
-	// Set up debug logging before loading config
-	if debugLog := c.String("debug-log"); debugLog != "" {
+func runTUI(_ context.Context, cmd *cli.Command) error {
+	if debugLog := cmd.String("debug-log"); debugLog != "" {
 		expanded, err := utils.ExpandPath(debugLog)
 		if err == nil {
 			if err := log.SetFile(expanded); err != nil {
@@ -76,15 +71,13 @@ func runTUI(c *urfavecli.Context) error {
 		}
 	}
 
-	// Load config
-	cfg, err := config.LoadConfig(c.String("config-file"))
+	cfg, err := config.LoadConfig(cmd.String("config-file"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		cfg = config.DefaultConfig()
 	}
 
-	// If debug log wasn't set via flag, check if it's in the config
-	if c.String("debug-log") == "" {
+	if cmd.String("debug-log") == "" {
 		if cfg.DebugLog != "" {
 			expanded, err := utils.ExpandPath(cfg.DebugLog)
 			path := cfg.DebugLog
@@ -100,27 +93,23 @@ func runTUI(c *urfavecli.Context) error {
 		}
 	}
 
-	// Apply theme configuration
-	if err := applyThemeConfig(cfg, c.String("theme")); err != nil {
+	if err := applyThemeConfig(cfg, cmd.String("theme")); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		_ = log.Close()
 		return err
 	}
 
-	// Apply search-auto-select flag
-	if c.Bool("search-auto-select") {
+	if cmd.Bool("search-auto-select") {
 		cfg.SearchAutoSelect = true
 	}
 
-	// Apply worktree directory configuration
-	if err := applyWorktreeDirConfig(cfg, c.String("worktree-dir")); err != nil {
+	if err := applyWorktreeDirConfig(cfg, cmd.String("worktree-dir")); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		_ = log.Close()
 		return err
 	}
 
-	// Update debug log in config if set via flag
-	if debugLog := c.String("debug-log"); debugLog != "" {
+	if debugLog := cmd.String("debug-log"); debugLog != "" {
 		expanded, err := utils.ExpandPath(debugLog)
 		if err == nil {
 			cfg.DebugLog = expanded
@@ -129,8 +118,7 @@ func runTUI(c *urfavecli.Context) error {
 		}
 	}
 
-	// Apply CLI config overrides (highest precedence)
-	if configOverrides := c.StringSlice("config"); len(configOverrides) > 0 {
+	if configOverrides := cmd.StringSlice("config"); len(configOverrides) > 0 {
 		if err := cfg.ApplyCLIOverrides(configOverrides); err != nil {
 			fmt.Fprintf(os.Stderr, "Error applying config overrides: %v\n", err)
 			_ = log.Close()
@@ -138,7 +126,6 @@ func runTUI(c *urfavecli.Context) error {
 		}
 	}
 
-	// Launch TUI (no initial filter support as per user request)
 	model := app.NewModel(cfg, "")
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
@@ -152,7 +139,7 @@ func runTUI(c *urfavecli.Context) error {
 
 	// Handle output-selection flag
 	selectedPath := model.GetSelectedPath()
-	if outputSelection := c.String("output-selection"); outputSelection != "" {
+	if outputSelection := cmd.String("output-selection"); outputSelection != "" {
 		expanded, err := utils.ExpandPath(outputSelection)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error expanding output-selection: %v\n", err)
