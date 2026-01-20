@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"sort"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/chmouel/lazyworktree/internal/app"
@@ -49,6 +50,15 @@ func main() {
 			return runTUI(ctx, cmd)
 		},
 		Suggest: true,
+	}
+
+	// Update theme flag with available themes list
+	for _, flag := range cliApp.Flags {
+		if strFlag, ok := flag.(*cli.StringFlag); ok && strFlag.Name == "theme" {
+			themes := theme.AvailableThemes()
+			strFlag.Usage = fmt.Sprintf("Override the UI theme (%s)", formatThemeList(themes))
+			break
+		}
 	}
 
 	if err := cliApp.Run(context.Background(), os.Args); err != nil {
@@ -208,6 +218,11 @@ func printSyntaxThemes() {
 	for _, name := range names {
 		fmt.Printf("  %-16s -> %s\n", name, config.SyntaxThemeForUITheme(name))
 	}
+}
+
+// formatThemeList formats theme names as a comma-separated string.
+func formatThemeList(themes []string) string {
+	return strings.Join(themes, ", ")
 }
 
 // printVersion prints version information.
