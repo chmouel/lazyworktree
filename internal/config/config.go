@@ -54,21 +54,18 @@ type CustomCreateMenu struct {
 
 // CustomTheme represents a user-defined theme that can inherit from built-in or other custom themes.
 type CustomTheme struct {
-	Base       string // Optional base theme name (built-in or custom)
-	Background string
-	Accent     string
-	AccentFg   string
-	AccentDim  string
-	Border     string
-	BorderDim  string
-	MutedFg    string
-	TextFg     string
-	SuccessFg  string
-	WarnFg     string
-	ErrorFg    string
-	Cyan       string
-	Pink       string
-	Yellow     string
+	Base      string // Optional base theme name (built-in or custom)
+	Accent    string
+	AccentFg  string
+	AccentDim string
+	Border    string
+	BorderDim string
+	MutedFg   string
+	TextFg    string
+	SuccessFg string
+	WarnFg    string
+	ErrorFg   string
+	Cyan      string
 }
 
 // AppConfig defines the global lazyworktree configuration options.
@@ -460,21 +457,18 @@ func parseCustomThemes(data map[string]any) map[string]*CustomTheme {
 		}
 
 		customTheme := &CustomTheme{
-			Base:       strings.TrimSpace(getString(themeData, "base")),
-			Background: strings.TrimSpace(getString(themeData, "background")),
-			Accent:     strings.TrimSpace(getString(themeData, "accent")),
-			AccentFg:   strings.TrimSpace(getString(themeData, "accent_fg")),
-			AccentDim:  strings.TrimSpace(getString(themeData, "accent_dim")),
-			Border:     strings.TrimSpace(getString(themeData, "border")),
-			BorderDim:  strings.TrimSpace(getString(themeData, "border_dim")),
-			MutedFg:    strings.TrimSpace(getString(themeData, "muted_fg")),
-			TextFg:     strings.TrimSpace(getString(themeData, "text_fg")),
-			SuccessFg:  strings.TrimSpace(getString(themeData, "success_fg")),
-			WarnFg:     strings.TrimSpace(getString(themeData, "warn_fg")),
-			ErrorFg:    strings.TrimSpace(getString(themeData, "error_fg")),
-			Cyan:       strings.TrimSpace(getString(themeData, "cyan")),
-			Pink:       strings.TrimSpace(getString(themeData, "pink")),
-			Yellow:     strings.TrimSpace(getString(themeData, "yellow")),
+			Base:      strings.TrimSpace(getString(themeData, "base")),
+			Accent:    strings.TrimSpace(getString(themeData, "accent")),
+			AccentFg:  strings.TrimSpace(getString(themeData, "accent_fg")),
+			AccentDim: strings.TrimSpace(getString(themeData, "accent_dim")),
+			Border:    strings.TrimSpace(getString(themeData, "border")),
+			BorderDim: strings.TrimSpace(getString(themeData, "border_dim")),
+			MutedFg:   strings.TrimSpace(getString(themeData, "muted_fg")),
+			TextFg:    strings.TrimSpace(getString(themeData, "text_fg")),
+			SuccessFg: strings.TrimSpace(getString(themeData, "success_fg")),
+			WarnFg:    strings.TrimSpace(getString(themeData, "warn_fg")),
+			ErrorFg:   strings.TrimSpace(getString(themeData, "error_fg")),
+			Cyan:      strings.TrimSpace(getString(themeData, "cyan")),
 		}
 
 		// Validate: if no base, all fields must be present
@@ -507,9 +501,6 @@ func parseCustomThemes(data map[string]any) map[string]*CustomTheme {
 func validateCompleteTheme(custom *CustomTheme) error {
 	var missing []string
 
-	if custom.Background == "" {
-		missing = append(missing, "background")
-	}
 	if custom.Accent == "" {
 		missing = append(missing, "accent")
 	}
@@ -543,12 +534,6 @@ func validateCompleteTheme(custom *CustomTheme) error {
 	if custom.Cyan == "" {
 		missing = append(missing, "cyan")
 	}
-	if custom.Pink == "" {
-		missing = append(missing, "pink")
-	}
-	if custom.Yellow == "" {
-		missing = append(missing, "yellow")
-	}
 
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required fields: %s", strings.Join(missing, ", "))
@@ -560,7 +545,6 @@ func validateCompleteTheme(custom *CustomTheme) error {
 // validateThemeColors validates all color hex values in a custom theme.
 func validateThemeColors(custom *CustomTheme) bool {
 	colors := []string{
-		custom.Background,
 		custom.Accent,
 		custom.AccentFg,
 		custom.AccentDim,
@@ -572,8 +556,6 @@ func validateThemeColors(custom *CustomTheme) bool {
 		custom.WarnFg,
 		custom.ErrorFg,
 		custom.Cyan,
-		custom.Pink,
-		custom.Yellow,
 	}
 
 	for _, color := range colors {
@@ -1142,21 +1124,18 @@ func (ct *CustomTheme) ToThemeData() *theme.CustomThemeData {
 		return nil
 	}
 	return &theme.CustomThemeData{
-		Base:       ct.Base,
-		Background: ct.Background,
-		Accent:     ct.Accent,
-		AccentFg:   ct.AccentFg,
-		AccentDim:  ct.AccentDim,
-		Border:     ct.Border,
-		BorderDim:  ct.BorderDim,
-		MutedFg:    ct.MutedFg,
-		TextFg:     ct.TextFg,
-		SuccessFg:  ct.SuccessFg,
-		WarnFg:     ct.WarnFg,
-		ErrorFg:    ct.ErrorFg,
-		Cyan:       ct.Cyan,
-		Pink:       ct.Pink,
-		Yellow:     ct.Yellow,
+		Base:      ct.Base,
+		Accent:    ct.Accent,
+		AccentFg:  ct.AccentFg,
+		AccentDim: ct.AccentDim,
+		Border:    ct.Border,
+		BorderDim: ct.BorderDim,
+		MutedFg:   ct.MutedFg,
+		TextFg:    ct.TextFg,
+		SuccessFg: ct.SuccessFg,
+		WarnFg:    ct.WarnFg,
+		ErrorFg:   ct.ErrorFg,
+		Cyan:      ct.Cyan,
 	}
 }
 

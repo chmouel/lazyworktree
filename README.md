@@ -437,8 +437,8 @@ git config --local --get-regexp "^lw\."
 
 lazyworktree includes built-in themes:
 
-| Theme | Background | Best For |
-|-------|-----------|----------|
+| Theme | Notes | Best For |
+|-------|-------|----------|
 | **dracula** | Dark (#282A36) | Dark terminals, vibrant colours, default fallback |
 | **dracula-light** | White (#FFFFFF) | Light terminals, Dracula colours, default light theme |
 | **narna** | Charcoal (#0D1117) | Dark terminals, blue highlights |
@@ -482,16 +482,14 @@ custom_themes:
 
   my-light:
     base: dracula-light
-    background: "#FAFAFA"
     accent: "#0066CC"
 ```
 
-**Defining a complete theme (all 14 colour fields required):**
+**Defining a complete theme (all 11 colour fields required):**
 
 ```yaml
 custom_themes:
   completely-custom:
-    background: "#1A1A1A"
     accent: "#00FF00"
     accent_fg: "#000000"
     accent_dim: "#2A2A2A"
@@ -503,8 +501,6 @@ custom_themes:
     warn_fg: "#FFFF00"
     error_fg: "#FF0000"
     cyan: "#00FFFF"
-    pink: "#FF00FF"
-    yellow: "#FFFF00"
 ```
 
 **Custom themes can inherit from other custom themes:**
@@ -521,7 +517,6 @@ custom_themes:
 
 **Available colour fields:**
 
-* `background` - Main background colour
 * `accent` - Primary accent colour (highlights, selected items)
 * `accent_fg` - Foreground colour for text on accent background
 * `accent_dim` - Dimmed accent colour (selected rows/panels)
@@ -533,10 +528,8 @@ custom_themes:
 * `warn_fg` - Warning indicator colour
 * `error_fg` - Error indicator colour
 * `cyan` - Cyan accent colour
-* `pink` - Pink accent colour
-* `yellow` - Yellow accent colour
 
-Colour values must be in hex format (`#RRGGBB` or `#RGB`). When using a `base` theme, only specify colours you want to override. When not using a base, all 14 colour fields are required.
+Colour values must be in hex format (`#RRGGBB` or `#RGB`). When using a `base` theme, only specify colours you want to override. When not using a base, all 11 colour fields are required.
 
 Custom themes appear in the theme selection screen alongside built-in themes.
 

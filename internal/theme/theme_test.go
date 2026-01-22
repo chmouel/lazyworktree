@@ -11,8 +11,8 @@ func TestGetTheme(t *testing.T) {
 	}
 
 	fallback := GetTheme("unknown")
-	if fallback.Background != Dracula().Background {
-		t.Fatalf("expected Dracula fallback, got %q", fallback.Background)
+	if fallback.Accent != Dracula().Accent {
+		t.Fatalf("expected Dracula fallback, got %q", fallback.Accent)
 	}
 }
 

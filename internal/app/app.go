@@ -4676,7 +4676,7 @@ func (m *Model) UpdateTheme(themeName string) {
 
 	// Update table styles
 	s := table.DefaultStyles()
-	s.Selected = s.Selected.Foreground(thm.TextFg).Background(thm.Accent)
+	s.Selected = s.Selected.Foreground(thm.AccentFg).Background(thm.Accent)
 	s.Header = s.Header.
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(thm.BorderDim).

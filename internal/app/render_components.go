@@ -12,7 +12,7 @@ import (
 func (m *Model) renderHeader(layout layoutDims) string {
 	// Create a "toolbar" style header with visual flair
 	headerStyle := lipgloss.NewStyle().
-		Background(m.theme.AccentFg).
+		Background(m.theme.AccentDim).
 		Foreground(m.theme.TextFg).
 		Bold(true).
 		Width(layout.width).
@@ -136,8 +136,8 @@ func (m *Model) renderFooter(layout layoutDims) string {
 func (m *Model) renderKeyHint(key, label string) string {
 	// Enhanced key hints with pill/badge styling
 	keyStyle := lipgloss.NewStyle().
-		Foreground(m.theme.TextFg).
-		Background(m.theme.AccentFg).
+		Foreground(m.theme.AccentFg).
+		Background(m.theme.Accent).
 		Bold(true).
 		Padding(0, 1) // Add padding for pill effect
 	labelStyle := lipgloss.NewStyle().Foreground(m.theme.Accent)

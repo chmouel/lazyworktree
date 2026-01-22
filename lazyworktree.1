@@ -854,12 +854,11 @@ custom_themes:
 .fi
 .RE
 .IP 2. 4
-Define a complete theme without a base (all 14 colour fields required):
+Define a complete theme without a base (all 11 colour fields required):
 .RS
 .nf
 custom_themes:
   completely-custom:
-    background: "#1A1A1A"
     accent: "#00FF00"
     accent_fg: "#000000"
     accent_dim: "#2A2A2A"
@@ -871,15 +870,13 @@ custom_themes:
     warn_fg: "#FFFF00"
     error_fg: "#FF0000"
     cyan: "#00FFFF"
-    pink: "#FF00FF"
-    yellow: "#FFFF00"
 .fi
 .RE
 .RE
 .PP
-Custom themes can also inherit from other custom themes. Available colour fields (snake_case in YAML): \fBbackground\fR, \fBaccent\fR, \fBaccent_fg\fR, \fBaccent_dim\fR, \fBborder\fR, \fBborder_dim\fR, \fBmuted_fg\fR, \fBtext_fg\fR, \fBsuccess_fg\fR, \fBwarn_fg\fR, \fBerror_fg\fR, \fBcyan\fR, \fBpink\fR, \fByellow\fR.
+Custom themes can also inherit from other custom themes. Available colour fields (snake_case in YAML): \fBaccent\fR, \fBaccent_fg\fR, \fBaccent_dim\fR, \fBborder\fR, \fBborder_dim\fR, \fBmuted_fg\fR, \fBtext_fg\fR, \fBsuccess_fg\fR, \fBwarn_fg\fR, \fBerror_fg\fR, \fBcyan\fR.
 .br
-Colour values must be in hex format (\fB#RRGGBB\fR or \fB#RGB\fR). When using a \fBbase\fR theme, only specify colours you want to override. When not using a base, all 14 colour fields are required.
+Colour values must be in hex format (\fB#RRGGBB\fR or \fB#RGB\fR). When using a \fBbase\fR theme, only specify colours you want to override. When not using a base, all 11 colour fields are required.
 .br
 Custom themes appear in the theme selection screen alongside built-in themes.
 .

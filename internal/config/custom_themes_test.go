@@ -43,7 +43,6 @@ func TestParseCustomThemes_ValidWithoutBase(t *testing.T) {
 	data := map[string]any{
 		"custom_themes": map[string]any{
 			"complete-theme": map[string]any{
-				"background": "#1A1A1A",
 				"accent":     "#00FF00",
 				"accent_fg":  "#000000",
 				"accent_dim": "#2A2A2A",
@@ -55,8 +54,6 @@ func TestParseCustomThemes_ValidWithoutBase(t *testing.T) {
 				"warn_fg":    "#FFFF00",
 				"error_fg":   "#FF0000",
 				"cyan":       "#00FFFF",
-				"pink":       "#FF00FF",
-				"yellow":     "#FFFF00",
 			},
 		},
 	}
@@ -75,18 +72,18 @@ func TestParseCustomThemes_ValidWithoutBase(t *testing.T) {
 	if customTheme.Base != "" {
 		t.Errorf("expected empty base, got %s", customTheme.Base)
 	}
-	if customTheme.Background != "#1A1A1A" {
-		t.Errorf("expected background '#1A1A1A', got %s", customTheme.Background)
+	if customTheme.Accent != "#00FF00" {
+		t.Errorf("expected accent '#00FF00', got %s", customTheme.Accent)
 	}
 }
 
 func TestParseCustomThemes_MissingRequiredFields(t *testing.T) {
-	// Test missing background
+	// Test missing accent
 	data := map[string]any{
 		"custom_themes": map[string]any{
 			"incomplete": map[string]any{
-				"accent": "#00FF00",
-				// missing background and other required fields
+				"text_fg": "#FFFFFF",
+				// missing accent and other required fields
 			},
 		},
 	}
@@ -99,13 +96,12 @@ func TestParseCustomThemes_MissingRequiredFields(t *testing.T) {
 
 func TestParseCustomThemes_MissingEachField(t *testing.T) {
 	requiredFields := []string{
-		"background", "accent", "accent_fg", "accent_dim", "border",
+		"accent", "accent_fg", "accent_dim", "border",
 		"border_dim", "muted_fg", "text_fg", "success_fg", "warn_fg",
-		"error_fg", "cyan", "pink", "yellow",
+		"error_fg", "cyan",
 	}
 
 	completeTheme := map[string]any{
-		"background": "#1A1A1A",
 		"accent":     "#00FF00",
 		"accent_fg":  "#000000",
 		"accent_dim": "#2A2A2A",
@@ -117,8 +113,6 @@ func TestParseCustomThemes_MissingEachField(t *testing.T) {
 		"warn_fg":    "#FFFF00",
 		"error_fg":   "#FF0000",
 		"cyan":       "#00FFFF",
-		"pink":       "#FF00FF",
-		"yellow":     "#FFFF00",
 	}
 
 	for _, missingField := range requiredFields {
@@ -161,8 +155,8 @@ func TestParseCustomThemes_InvalidColorFormat(t *testing.T) {
 			data := map[string]any{
 				"custom_themes": map[string]any{
 					"test": map[string]any{
-						"base":       "dracula",
-						"background": tc.color,
+						"base":   "dracula",
+						"accent": tc.color,
 					},
 				},
 			}
@@ -197,8 +191,8 @@ func TestParseCustomThemes_ValidColorFormats(t *testing.T) {
 			data := map[string]any{
 				"custom_themes": map[string]any{
 					"test": map[string]any{
-						"base":       "dracula",
-						"background": tc.color,
+						"base":   "dracula",
+						"accent": tc.color,
 					},
 				},
 			}
@@ -223,8 +217,8 @@ func TestParseCustomThemes_ConflictsWithBuiltIn(t *testing.T) {
 	data := map[string]any{
 		"custom_themes": map[string]any{
 			conflictName: map[string]any{
-				"base":       "dracula",
-				"background": "#FF0000",
+				"base":   "dracula",
+				"accent": "#FF0000",
 			},
 		},
 	}
@@ -413,20 +407,17 @@ func TestValidateColorHex(t *testing.T) {
 
 func TestValidateCompleteTheme(t *testing.T) {
 	completeTheme := &CustomTheme{
-		Background: "#1A1A1A",
-		Accent:     "#00FF00",
-		AccentFg:   "#000000",
-		AccentDim:  "#2A2A2A",
-		Border:     "#3A3A3A",
-		BorderDim:  "#2A2A2A",
-		MutedFg:    "#888888",
-		TextFg:     "#FFFFFF",
-		SuccessFg:  "#00FF00",
-		WarnFg:     "#FFFF00",
-		ErrorFg:    "#FF0000",
-		Cyan:       "#00FFFF",
-		Pink:       "#FF00FF",
-		Yellow:     "#FFFF00",
+		Accent:    "#00FF00",
+		AccentFg:  "#000000",
+		AccentDim: "#2A2A2A",
+		Border:    "#3A3A3A",
+		BorderDim: "#2A2A2A",
+		MutedFg:   "#888888",
+		TextFg:    "#FFFFFF",
+		SuccessFg: "#00FF00",
+		WarnFg:    "#FFFF00",
+		ErrorFg:   "#FF0000",
+		Cyan:      "#00FFFF",
 	}
 
 	if err := validateCompleteTheme(completeTheme); err != nil {
@@ -438,7 +429,6 @@ func TestValidateCompleteTheme(t *testing.T) {
 		name   string
 		setter func(*CustomTheme)
 	}{
-		{"background", func(ct *CustomTheme) { ct.Background = "" }},
 		{"accent", func(ct *CustomTheme) { ct.Accent = "" }},
 		{"accent_fg", func(ct *CustomTheme) { ct.AccentFg = "" }},
 		{"accent_dim", func(ct *CustomTheme) { ct.AccentDim = "" }},
@@ -450,8 +440,6 @@ func TestValidateCompleteTheme(t *testing.T) {
 		{"warn_fg", func(ct *CustomTheme) { ct.WarnFg = "" }},
 		{"error_fg", func(ct *CustomTheme) { ct.ErrorFg = "" }},
 		{"cyan", func(ct *CustomTheme) { ct.Cyan = "" }},
-		{"pink", func(ct *CustomTheme) { ct.Pink = "" }},
-		{"yellow", func(ct *CustomTheme) { ct.Yellow = "" }},
 	}
 
 	for _, field := range fields {

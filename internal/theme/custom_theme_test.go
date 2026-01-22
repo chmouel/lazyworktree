@@ -17,8 +17,8 @@ func TestGetThemeWithCustoms_BuiltInTheme(t *testing.T) {
 	}
 
 	// Verify it's actually Dracula theme
-	if thm.Background != lipgloss.Color("#282A36") {
-		t.Errorf("expected Dracula background, got %s", thm.Background)
+	if thm.Accent != lipgloss.Color("#C68FE6") {
+		t.Errorf("expected Dracula accent, got %s", thm.Accent)
 	}
 }
 
@@ -35,11 +35,6 @@ func TestGetThemeWithCustoms_CustomThemeWithBase(t *testing.T) {
 		t.Fatal("expected theme, got nil")
 	}
 
-	// Should have Dracula background
-	if thm.Background != lipgloss.Color("#282A36") {
-		t.Errorf("expected Dracula background, got %s", thm.Background)
-	}
-
 	// Should have custom accent
 	if thm.Accent != lipgloss.Color("#FF6B9D") {
 		t.Errorf("expected custom accent #FF6B9D, got %s", thm.Accent)
@@ -54,20 +49,17 @@ func TestGetThemeWithCustoms_CustomThemeWithBase(t *testing.T) {
 func TestGetThemeWithCustoms_CustomThemeWithoutBase(t *testing.T) {
 	customThemes := map[string]*CustomThemeData{
 		"complete-theme": {
-			Background: "#1A1A1A",
-			Accent:     "#00FF00",
-			AccentFg:   "#000000",
-			AccentDim:  "#2A2A2A",
-			Border:     "#3A3A3A",
-			BorderDim:  "#2A2A2A",
-			MutedFg:    "#888888",
-			TextFg:     "#FFFFFF",
-			SuccessFg:  "#00FF00",
-			WarnFg:     "#FFFF00",
-			ErrorFg:    "#FF0000",
-			Cyan:       "#00FFFF",
-			Pink:       "#FF00FF",
-			Yellow:     "#FFFF00",
+			Accent:    "#00FF00",
+			AccentFg:  "#000000",
+			AccentDim: "#2A2A2A",
+			Border:    "#3A3A3A",
+			BorderDim: "#2A2A2A",
+			MutedFg:   "#888888",
+			TextFg:    "#FFFFFF",
+			SuccessFg: "#00FF00",
+			WarnFg:    "#FFFF00",
+			ErrorFg:   "#FF0000",
+			Cyan:      "#00FFFF",
 		},
 	}
 
@@ -76,9 +68,6 @@ func TestGetThemeWithCustoms_CustomThemeWithoutBase(t *testing.T) {
 		t.Fatal("expected theme, got nil")
 	}
 
-	if thm.Background != lipgloss.Color("#1A1A1A") {
-		t.Errorf("expected background #1A1A1A, got %s", thm.Background)
-	}
 	if thm.Accent != lipgloss.Color("#00FF00") {
 		t.Errorf("expected accent #00FF00, got %s", thm.Accent)
 	}
@@ -101,14 +90,14 @@ func TestGetThemeWithCustoms_CustomInheritsCustom(t *testing.T) {
 		t.Fatal("expected theme, got nil")
 	}
 
-	// Should have Dracula background (from base-custom's base)
-	if thm.Background != lipgloss.Color("#282A36") {
-		t.Errorf("expected Dracula background, got %s", thm.Background)
-	}
-
 	// Should have derived accent (overrides base-custom)
 	if thm.Accent != lipgloss.Color("#00FF00") {
 		t.Errorf("expected derived accent #00FF00, got %s", thm.Accent)
+	}
+
+	// Should inherit other fields from Dracula
+	if thm.TextFg != lipgloss.Color("#F8F8F2") {
+		t.Errorf("expected Dracula text_fg, got %s", thm.TextFg)
 	}
 }
 
@@ -133,11 +122,6 @@ func TestGetThemeWithCustoms_MultiLevelInheritance(t *testing.T) {
 		t.Fatal("expected theme, got nil")
 	}
 
-	// Should have Dracula background
-	if thm.Background != lipgloss.Color("#282A36") {
-		t.Errorf("expected Dracula background, got %s", thm.Background)
-	}
-
 	// Should have level3 accent
 	if thm.Accent != lipgloss.Color("#00FF00") {
 		t.Errorf("expected level3 accent #00FF00, got %s", thm.Accent)
@@ -146,6 +130,11 @@ func TestGetThemeWithCustoms_MultiLevelInheritance(t *testing.T) {
 	// Should have level2 accent_fg
 	if thm.AccentFg != lipgloss.Color("#FFFFFF") {
 		t.Errorf("expected level2 accent_fg #FFFFFF, got %s", thm.AccentFg)
+	}
+
+	// Should inherit other fields from Dracula
+	if thm.TextFg != lipgloss.Color("#F8F8F2") {
+		t.Errorf("expected Dracula text_fg, got %s", thm.TextFg)
 	}
 }
 
@@ -158,8 +147,8 @@ func TestGetThemeWithCustoms_UnknownTheme(t *testing.T) {
 	}
 
 	// Should fallback to Dracula
-	if thm.Background != lipgloss.Color("#282A36") {
-		t.Errorf("expected Dracula fallback, got %s", thm.Background)
+	if thm.Accent != lipgloss.Color("#C68FE6") {
+		t.Errorf("expected Dracula fallback, got %s", thm.Accent)
 	}
 }
 
@@ -172,8 +161,8 @@ func TestGetThemeWithCustoms_EmptyName(t *testing.T) {
 	}
 
 	// Should fallback to Dracula
-	if thm.Background != lipgloss.Color("#282A36") {
-		t.Errorf("expected Dracula fallback, got %s", thm.Background)
+	if thm.Accent != lipgloss.Color("#C68FE6") {
+		t.Errorf("expected Dracula fallback, got %s", thm.Accent)
 	}
 }
 
@@ -195,9 +184,6 @@ func TestMergeTheme_PartialOverrides(t *testing.T) {
 	}
 
 	// Non-overridden fields should be from base
-	if merged.Background != base.Background {
-		t.Errorf("expected base background, got %s", merged.Background)
-	}
 	if merged.SuccessFg != base.SuccessFg {
 		t.Errorf("expected base success_fg, got %s", merged.SuccessFg)
 	}
@@ -206,27 +192,21 @@ func TestMergeTheme_PartialOverrides(t *testing.T) {
 func TestMergeTheme_AllFieldsOverridden(t *testing.T) {
 	base := Dracula()
 	custom := &CustomThemeData{
-		Background: "#1A1A1A",
-		Accent:     "#00FF00",
-		AccentFg:   "#000000",
-		AccentDim:  "#2A2A2A",
-		Border:     "#3A3A3A",
-		BorderDim:  "#2A2A2A",
-		MutedFg:    "#888888",
-		TextFg:     "#FFFFFF",
-		SuccessFg:  "#00FF00",
-		WarnFg:     "#FFFF00",
-		ErrorFg:    "#FF0000",
-		Cyan:       "#00FFFF",
-		Pink:       "#FF00FF",
-		Yellow:     "#FFFF00",
+		Accent:    "#00FF00",
+		AccentFg:  "#000000",
+		AccentDim: "#2A2A2A",
+		Border:    "#3A3A3A",
+		BorderDim: "#2A2A2A",
+		MutedFg:   "#888888",
+		TextFg:    "#FFFFFF",
+		SuccessFg: "#00FF00",
+		WarnFg:    "#FFFF00",
+		ErrorFg:   "#FF0000",
+		Cyan:      "#00FFFF",
 	}
 
 	merged := MergeTheme(base, custom)
 
-	if merged.Background != lipgloss.Color("#1A1A1A") {
-		t.Errorf("expected custom background, got %s", merged.Background)
-	}
 	if merged.Accent != lipgloss.Color("#00FF00") {
 		t.Errorf("expected custom accent, got %s", merged.Accent)
 	}
@@ -245,9 +225,6 @@ func TestMergeTheme_NoOverrides(t *testing.T) {
 	merged := MergeTheme(base, custom)
 
 	// Should be identical to base
-	if merged.Background != base.Background {
-		t.Errorf("expected base background, got %s", merged.Background)
-	}
 	if merged.Accent != base.Accent {
 		t.Errorf("expected base accent, got %s", merged.Accent)
 	}
@@ -317,27 +294,21 @@ func TestIsBuiltInTheme(t *testing.T) {
 
 func TestThemeFromCustom(t *testing.T) {
 	custom := &CustomThemeData{
-		Background: "#1A1A1A",
-		Accent:     "#00FF00",
-		AccentFg:   "#000000",
-		AccentDim:  "#2A2A2A",
-		Border:     "#3A3A3A",
-		BorderDim:  "#2A2A2A",
-		MutedFg:    "#888888",
-		TextFg:     "#FFFFFF",
-		SuccessFg:  "#00FF00",
-		WarnFg:     "#FFFF00",
-		ErrorFg:    "#FF0000",
-		Cyan:       "#00FFFF",
-		Pink:       "#FF00FF",
-		Yellow:     "#FFFF00",
+		Accent:    "#00FF00",
+		AccentFg:  "#000000",
+		AccentDim: "#2A2A2A",
+		Border:    "#3A3A3A",
+		BorderDim: "#2A2A2A",
+		MutedFg:   "#888888",
+		TextFg:    "#FFFFFF",
+		SuccessFg: "#00FF00",
+		WarnFg:    "#FFFF00",
+		ErrorFg:   "#FF0000",
+		Cyan:      "#00FFFF",
 	}
 
 	thm := themeFromCustom(custom)
 
-	if thm.Background != lipgloss.Color("#1A1A1A") {
-		t.Errorf("expected background #1A1A1A, got %s", thm.Background)
-	}
 	if thm.Accent != lipgloss.Color("#00FF00") {
 		t.Errorf("expected accent #00FF00, got %s", thm.Accent)
 	}

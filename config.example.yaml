@@ -345,10 +345,9 @@ custom_create_menus:
 #        accent: "#FF6B9D"
 #        text_fg: "#E8E8E8"
 #
-# 2. Define a complete theme without a base (all 14 colour fields required):
+# 2. Define a complete theme without a base (all 11 colour fields required):
 #    custom_themes:
 #      completely-custom:
-#        background: "#1A1A1A"
 #        accent: "#00FF00"
 #        accent_fg: "#000000"
 #        accent_dim: "#2A2A2A"
@@ -360,8 +359,6 @@ custom_create_menus:
 #        warn_fg: "#FFFF00"
 #        error_fg: "#FF0000"
 #        cyan: "#00FFFF"
-#        pink: "#FF00FF"
-#        yellow: "#FFFF00"
 #
 # Custom themes can also inherit from other custom themes:
 #    custom_themes:
@@ -373,7 +370,6 @@ custom_create_menus:
 #        accent: "#00FF00"
 #
 # Available colour fields (snake_case in YAML):
-#   - background: Main background colour
 #   - accent: Primary accent colour (used for highlights, selected items)
 #   - accent_fg: Foreground colour for text on accent background
 #   - accent_dim: Dimmed accent colour (used for selected rows/panels)
@@ -385,12 +381,10 @@ custom_create_menus:
 #   - warn_fg: Warning indicator colour
 #   - error_fg: Error indicator colour
 #   - cyan: Cyan accent colour
-#   - pink: Pink accent colour
-#   - yellow: Yellow accent colour
 #
 # Colour values must be in hex format: #RRGGBB or #RGB
 # When using a base theme, only specify colours you want to override.
-# When not using a base, all 14 colour fields are required.
+# When not using a base, all 11 colour fields are required.
 #
 # custom_themes:
 #   my-dark:
@@ -398,5 +392,4 @@ custom_create_menus:
 #     accent: "#FF6B9D"
 #   my-light:
 #     base: dracula-light
-#     background: "#FAFAFA"
 #     accent: "#0066CC"

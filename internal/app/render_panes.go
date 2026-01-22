@@ -317,7 +317,7 @@ func (m *Model) renderStatusFiles() string {
 	modifiedStyle := lipgloss.NewStyle().Foreground(m.theme.WarnFg)
 	addedStyle := lipgloss.NewStyle().Foreground(m.theme.SuccessFg)
 	deletedStyle := lipgloss.NewStyle().Foreground(m.theme.ErrorFg)
-	untrackedStyle := lipgloss.NewStyle().Foreground(m.theme.Yellow)
+	untrackedStyle := lipgloss.NewStyle().Foreground(m.theme.WarnFg)
 	stagedStyle := lipgloss.NewStyle().Foreground(m.theme.Cyan)
 	dirStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
 	selectedStyle := lipgloss.NewStyle().

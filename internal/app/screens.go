@@ -1207,6 +1207,8 @@ Configuration is read from multiple sources (in order of precedence):
 
 Example: lazyworktree --config=lw.theme=nord --config=lw.auto_fetch_prs=true
 
+Custom themes: define custom_themes in the configuration file. Without a base theme, all 11 colour fields are required.
+
 💡 Tip: PR data is not fetched by default for speed.
        Press 'p' to fetch PR information on demand.`
 
@@ -2022,7 +2024,7 @@ func (s *IssueSelectionScreen) View() string {
 		Padding(0, 1).
 		Width(s.width - 2).
 		Background(s.thm.Accent).
-		Foreground(s.thm.TextFg).
+		Foreground(s.thm.AccentFg).
 		Bold(true)
 
 	noResultsStyle := lipgloss.NewStyle().
@@ -3328,7 +3330,7 @@ func (s *CommitFilesScreen) View() string {
 	// Inline highlight style - no width, no padding
 	highlightStyle := lipgloss.NewStyle().
 		Background(s.thm.Accent).
-		Foreground(s.thm.TextFg).
+		Foreground(s.thm.AccentFg).
 		Bold(true)
 
 	dirStyle := lipgloss.NewStyle().
