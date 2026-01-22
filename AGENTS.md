@@ -28,6 +28,10 @@ Read the README.md if you really need to know what this project is all about.
   - Remove any overly casual Americanisms
   - Keep technical precision whilst maintaining readability
 
+## UI
+
+- UI colours must come from theme fields, avoid hardcoded colours in rendering.
+
 ## Before Finishing
 
 - Always Run `make sanity` which will run `golangci-lint`, `gofumpt`, and `go test`.
