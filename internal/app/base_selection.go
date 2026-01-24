@@ -133,7 +133,7 @@ func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 
 func (m *Model) showFreeformBaseInput(defaultBase string) tea.Cmd {
 	m.clearListSelection()
-	m.inputScreen = NewInputScreen("Base ref", defaultBase, defaultBase, m.theme)
+	m.inputScreen = NewInputScreen("Base ref", defaultBase, defaultBase, m.theme, m.config.ShowIcons)
 	m.inputSubmit = func(baseVal string, checked bool) (tea.Cmd, bool) {
 		baseRef := strings.TrimSpace(baseVal)
 		if baseRef == "" {
@@ -245,7 +245,7 @@ func (m *Model) showBranchNameInput(baseRef, defaultName string) tea.Cmd {
 	if suggested != "" {
 		suggested = m.suggestBranchName(suggested)
 	}
-	m.inputScreen = NewInputScreen("Create worktree: branch name", "feature/my-branch", suggested, m.theme)
+	m.inputScreen = NewInputScreen("Create worktree: branch name", "feature/my-branch", suggested, m.theme, m.config.ShowIcons)
 	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		newBranch := strings.TrimSpace(value)
 		newBranch = sanitizeBranchNameFromTitle(newBranch, "")
@@ -411,6 +411,7 @@ func (m *Model) showWorktreeNameForExistingBranch(branchName string) tea.Cmd {
 		"my-worktree",
 		suggested,
 		m.theme,
+		m.config.ShowIcons,
 	)
 
 	m.inputSubmit = func(value string, _ bool) (tea.Cmd, bool) {

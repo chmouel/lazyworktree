@@ -188,7 +188,7 @@ func (m *Model) updateFromBase(wt *models.WorktreeInfo) tea.Cmd {
 func (m *Model) showUpstreamInput(wt *models.WorktreeInfo, onSubmit func(remote, branch string) tea.Cmd) tea.Cmd {
 	defaultUpstream := fmt.Sprintf("origin/%s", wt.Branch)
 	prompt := fmt.Sprintf("Set upstream for '%s' (remote/branch)", wt.Branch)
-	m.inputScreen = NewInputScreen(prompt, defaultUpstream, defaultUpstream, m.theme)
+	m.inputScreen = NewInputScreen(prompt, defaultUpstream, defaultUpstream, m.theme, m.config.ShowIcons)
 	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		remote, branch, ok := parseUpstreamRef(value)
 		if !ok {

@@ -110,6 +110,7 @@ type InputScreen struct {
 	checkboxLabel       string   // Label text for checkbox
 	checkboxChecked     bool     // Current checkbox state
 	checkboxFocused     bool     // Track whether checkbox has focus (vs input field)
+	showIcons           bool
 }
 
 // HelpScreen renders searchable documentation for the app controls.
@@ -834,7 +835,7 @@ func (s *LoadingScreen) View() string {
 }
 
 // NewInputScreen builds an input modal with prompt, placeholder, and initial value.
-func NewInputScreen(prompt, placeholder, value string, thm *theme.Theme) *InputScreen {
+func NewInputScreen(prompt, placeholder, value string, thm *theme.Theme, showIcons bool) *InputScreen {
 	ti := textinput.New()
 	ti.Placeholder = placeholder
 	ti.SetValue(value)
@@ -862,6 +863,7 @@ func NewInputScreen(prompt, placeholder, value string, thm *theme.Theme) *InputS
 		history:             []string{},
 		historyIndex:        -1,
 		originalInput:       "",
+		showIcons:           showIcons,
 	}
 }
 
@@ -1074,9 +1076,9 @@ func (s *InputScreen) View() string {
 	case s.checkboxEnabled:
 		footerText = "Tab to switch focus • Space to toggle • Enter to confirm • Esc to cancel"
 	case len(s.history) > 0:
-		footerText = "↑↓ to navigate history • Enter confirm • Esc cancel"
+		footerText = fmt.Sprintf("%s to navigate history • Enter confirm • Esc cancel", arrowPair(s.showIcons))
 	case s.fuzzyFinderInput && len(s.filteredSuggestions) > 0:
-		footerText = "↑↓ to navigate • Enter confirm • Esc cancel"
+		footerText = fmt.Sprintf("%s to navigate • Enter confirm • Esc cancel", arrowPair(s.showIcons))
 	default:
 		footerText = "Enter to confirm • Esc to cancel"
 	}
@@ -1088,18 +1090,18 @@ func (s *InputScreen) View() string {
 }
 
 // NewHelpScreen initializes help content with the available screen size.
-func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.CustomCommand, thm *theme.Theme) *HelpScreen {
-	helpText := `🌲 LazyWorktree Help Guide
+func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.CustomCommand, thm *theme.Theme, showIcons bool) *HelpScreen {
+	helpTextTemplate := `{{HELP_TITLE}}LazyWorktree Help Guide
 
-**🧭 Navigation**
-- j / ↓: Move cursor down
-- k / ↑: Move cursor up
+**{{HELP_NAV}}Navigation**
+- j / {{ARROW_DOWN}}: Move cursor down
+- k / {{ARROW_UP}}: Move cursor up
 - 1 / 2 / 3: Switch to pane (or toggle zoom if already focused)
 - [ / ]: Previous / Next pane
 - Tab: Cycle to next pane
 - Enter: Jump to selected worktree (exit and cd)
 
-**📝 Status Pane (when focused)**
+**{{HELP_STATUS_PANE}}Status Pane (when focused)**
 - j / k: Navigate files and directories
 - Enter: Show diff for selected file in pager
 - e: Open selected file in editor
@@ -1108,21 +1110,21 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - D: Delete selected file or directory (with confirmation)
 - c: Commit staged changes
 - C: Stage all changes and commit
-- Ctrl+← / →: Jump to previous / next folder
+- Ctrl+{{ARROW_LEFT}} / {{ARROW_RIGHT}}: Jump to previous / next folder
 - /: Search file names
 - Ctrl+D / Space: Half page down
 - Ctrl+U: Half page up
 - PageUp / PageDown: Full page up/down
 - g / G: Jump to top / bottom
 
-**📜 Log Pane**
+**{{HELP_LOG}}Log Pane**
 - j / k: Move between commits
 - Ctrl+J: Next commit and open file tree
 - Enter: Open commit file tree (browse changed files)
 - C: Cherry-pick commit to another worktree
 - /: Search commit titles
 
-**📁 Commit File Tree (viewing files in a commit)**
+**{{HELP_COMMIT_TREE}}Commit File Tree (viewing files in a commit)**
 - j / k: Navigate files and directories
 - Enter: Toggle directory or show file diff
 - d: Show full commit diff in pager
@@ -1131,7 +1133,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - n / N: Next / previous search match
 - q / Esc: Return to commit log
 
-**⚡ Worktree Actions**
+**{{HELP_WORKTREE_ACTIONS}}Worktree Actions**
 - c: Create new worktree (branch, commit, PR/MR, issue, or custom)
 - Create from current: suggested name is pre-filled, you may edit it
 - Existing local branch: choose to checkout the branch or create a new one based on it
@@ -1143,14 +1145,14 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - X: Prune merged worktrees (auto-refreshes PR data, then checks PR/branch merge status)
 - !: Run arbitrary command in selected worktree
 
-**📝 Branch Naming**
+**{{HELP_BRANCH_NAMING}}Branch Naming**
 Special characters in branch names are automatically converted to hyphens for compatibility with Git and terminal multiplexers. Examples:
-- "feature.new" → "feature-new"
-- "bug fix here" → "bug-fix-here"
-- "path/to/branch" → "path-to-branch"
+- "feature.new" {{ARROW_RIGHT}} "feature-new"
+- "bug fix here" {{ARROW_RIGHT}} "bug-fix-here"
+- "path/to/branch" {{ARROW_RIGHT}} "path-to-branch"
 Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full details.
 
-**🔍 Viewing & Tools**
+**{{HELP_VIEWING_TOOLS}}Viewing & Tools**
 - d: Full-screen diff viewer
 - o: Open PR/MR in browser
 - g: Open LazyGit (or go to top in diff pane)
@@ -1158,7 +1160,7 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 - : / Ctrl+P: Command Palette
 - ?: Show this help
 
-**🔄 Repository Operations**
+**{{HELP_REPO_OPS}}Repository Operations**
 - r: Refresh worktree list
 - R: Fetch all remotes
 - S: Synchronise with upstream (git pull, then git push, current branch only, requires a clean worktree, honours merge_method)
@@ -1166,14 +1168,14 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 - p: Fetch PR/MR status from GitHub/GitLab
 - s: Cycle sort (Path / Last Active / Last Switched)
 
-**🕰 Background Refresh**
+**{{HELP_BACKGROUND_REFRESH}}Background Refresh**
 - Configured via auto_refresh and refresh_interval in the configuration file
 
-**🔎 Filtering & Search**
+**{{HELP_FILTERING_SEARCH}}Filtering & Search**
 - f: Filter focused pane
 - /: Search focused pane (incremental)
 - Alt+N / Alt+P: Move selection and fill filter input
-- ↑ / ↓: Move selection (filter active, no fill)
+- {{ARROW_UP}} / {{ARROW_DOWN}}: Move selection (filter active, no fill)
 - Ctrl+J / Ctrl+K: Same as above
 - Home / End: Jump to first / last item
 
@@ -1183,22 +1185,22 @@ Search Mode:
 - Enter: Close search
 - Esc: Clear search
 
-**📊 Status Indicators**
-- ✔: No local changes (clean)
-- ✎: Uncommitted changes (dirty)
-- ↑N: Ahead of remote by N commits
-- ↓N: Behind remote by N commits
+**{{HELP_STATUS_INDICATORS}}Status Indicators**
+- {{STATUS_CLEAN}}: No local changes (clean)
+- {{STATUS_DIRTY}}: Uncommitted changes (dirty)
+- {{STATUS_AHEAD}}N: Ahead of remote by N commits
+- {{STATUS_BEHIND}}N: Behind remote by N commits
 
-**❓ Help Navigation**
+**{{HELP_HELP_NAVIGATION}}Help Navigation**
 - /: Search help (Enter to apply, Esc to clear)
 - q / Esc: Close help
 - j / k: Scroll up / down
 - Ctrl+D / Ctrl+U: Scroll half page down / up
 
-**🔧 Shell Completion**
+**{{HELP_SHELL_COMPLETION}}Shell Completion**
 Generate completions: lazyworktree --completion <bash|zsh|fish>
 
-**⚙️ Configuration & Overrides**
+**{{HELP_CONFIGURATION}}Configuration & Overrides**
 Configuration is read from multiple sources (in order of precedence):
 1. CLI overrides (highest): lazyworktree --config=lw.key=value
 2. Git local config: git config --local lw.key value
@@ -1210,8 +1212,42 @@ Example: lazyworktree --config=lw.theme=nord --config=lw.auto_fetch_prs=true
 
 Custom themes: define custom_themes in the configuration file. Without a base theme, all 11 colour fields are required.
 
-💡 Tip: PR data is not fetched by default for speed.
+**{{HELP_ICON_CONFIGURATION}}Icon Configuration**
+- icon_set: Choose icon set ("nerd-font-v3", "nerd-font-v2", "emoji", "unicode"). Default: "nerd-font-v3". Applies to file icons, UI indicators, and help headings. Nerd Font v2 uses the lazygit icon map patched for Nerd Fonts v2.
+- show_icons: Toggle icons across file trees, PR/issue views, CI checks, and UI indicators (true/false).
+
+{{HELP_TIP}}Tip: PR data is not fetched by default for speed.
        Press 'p' to fetch PR information on demand.`
+
+	replacer := strings.NewReplacer(
+		"{{HELP_TITLE}}", iconPrefix(UIIconHelpTitle, showIcons),
+		"{{HELP_NAV}}", iconPrefix(UIIconNavigation, showIcons),
+		"{{HELP_STATUS_PANE}}", iconPrefix(UIIconStatusPane, showIcons),
+		"{{HELP_LOG}}", iconPrefix(UIIconLogPane, showIcons),
+		"{{HELP_COMMIT_TREE}}", iconPrefix(UIIconCommitTree, showIcons),
+		"{{HELP_WORKTREE_ACTIONS}}", iconPrefix(UIIconWorktreeActions, showIcons),
+		"{{HELP_BRANCH_NAMING}}", iconPrefix(UIIconBranchNaming, showIcons),
+		"{{HELP_VIEWING_TOOLS}}", iconPrefix(UIIconViewingTools, showIcons),
+		"{{HELP_REPO_OPS}}", iconPrefix(UIIconRepoOps, showIcons),
+		"{{HELP_BACKGROUND_REFRESH}}", iconPrefix(UIIconBackgroundRefresh, showIcons),
+		"{{HELP_FILTERING_SEARCH}}", iconPrefix(UIIconFilterSearch, showIcons),
+		"{{HELP_STATUS_INDICATORS}}", iconPrefix(UIIconStatusIndicators, showIcons),
+		"{{HELP_HELP_NAVIGATION}}", iconPrefix(UIIconHelpNavigation, showIcons),
+		"{{HELP_SHELL_COMPLETION}}", iconPrefix(UIIconShellCompletion, showIcons),
+		"{{HELP_CONFIGURATION}}", iconPrefix(UIIconConfiguration, showIcons),
+		"{{HELP_ICON_CONFIGURATION}}", iconPrefix(UIIconIconConfiguration, showIcons),
+		"{{HELP_TIP}}", iconPrefix(UIIconTip, showIcons),
+		"{{STATUS_CLEAN}}", statusIndicator(true, showIcons),
+		"{{STATUS_DIRTY}}", statusIndicator(false, showIcons),
+		"{{STATUS_AHEAD}}", aheadIndicator(showIcons),
+		"{{STATUS_BEHIND}}", behindIndicator(showIcons),
+		"{{ARROW_UP}}", arrowUp(showIcons),
+		"{{ARROW_DOWN}}", arrowDown(showIcons),
+		"{{ARROW_LEFT}}", arrowLeft(showIcons),
+		"{{ARROW_RIGHT}}", arrowRight(showIcons),
+	)
+
+	helpText := replacer.Replace(helpTextTemplate)
 
 	// Append custom commands section if any exist with show_help=true
 	if len(customCommands) > 0 {
@@ -1224,7 +1260,8 @@ Custom themes: define custom_themes in the configuration file. Without a base th
 
 		if len(customKeys) > 0 {
 			sort.Strings(customKeys)
-			helpText += "\n\n**⚙️ Custom Commands**\n" + strings.Join(customKeys, "\n")
+			customTitle := labelWithIcon(UIIconConfiguration, "Custom Commands", showIcons)
+			helpText += "\n\n**" + customTitle + "**\n" + strings.Join(customKeys, "\n")
 		}
 	}
 
@@ -1715,7 +1752,7 @@ func (s *PRSelectionScreen) View() string {
 		BorderForeground(s.thm.BorderDim).
 		Width(s.width-2).
 		Padding(0, 1).
-		Render("🔀 Select PR/MR to Create Worktree")
+		Render(labelWithIcon(UIIconPRSelect, "Select PR/MR to Create Worktree", s.showIcons))
 
 	inputStyle := lipgloss.NewStyle().
 		Padding(0, 1).
@@ -1780,7 +1817,7 @@ func (s *PRSelectionScreen) View() string {
 		authorFmt := fmt.Sprintf("%-*s", authorWidth, author)
 
 		// Format CI status icon (draft takes precedence)
-		ciIcon := getCIStatusIcon(pr.CIStatus, pr.IsDraft)
+		ciIcon := getCIStatusIcon(pr.CIStatus, pr.IsDraft, s.showIcons)
 
 		// Format title (truncate if needed)
 		title := pr.Title
@@ -1791,7 +1828,7 @@ func (s *PRSelectionScreen) View() string {
 		// Build the label
 		iconPrefix := ""
 		if s.showIcons {
-			iconPrefix = iconWithSpace(iconPR)
+			iconPrefix = iconWithSpace(getIconPR())
 		}
 		prLabel := fmt.Sprintf("%s%s %s %s %s", iconPrefix, prNum, authorFmt, ciIcon, title)
 
@@ -1841,9 +1878,14 @@ func (s *PRSelectionScreen) View() string {
 
 // getCIStatusIcon returns the appropriate icon for CI status.
 // Draft PRs show "D" instead of CI status per user preference.
-func getCIStatusIcon(ciStatus string, isDraft bool) string {
+func getCIStatusIcon(ciStatus string, isDraft, showIcons bool) string {
 	if isDraft {
 		return "D"
+	}
+	if showIcons {
+		if icon := ciIconForConclusion(ciStatus); icon != "" {
+			return icon
+		}
 	}
 	switch ciStatus {
 	case "success":
@@ -2010,7 +2052,7 @@ func (s *IssueSelectionScreen) View() string {
 		BorderForeground(s.thm.BorderDim).
 		Width(s.width-2).
 		Padding(0, 1).
-		Render("📋 Select Issue to Create Worktree")
+		Render(labelWithIcon(UIIconIssueSelect, "Select Issue to Create Worktree", s.showIcons))
 
 	inputStyle := lipgloss.NewStyle().
 		Padding(0, 1).
@@ -2053,7 +2095,7 @@ func (s *IssueSelectionScreen) View() string {
 		issue := s.filtered[i]
 		iconPrefix := ""
 		if s.showIcons {
-			iconPrefix = iconWithSpace(iconIssue)
+			iconPrefix = iconWithSpace(getIconIssue())
 		}
 		issueLabel := fmt.Sprintf("%s#%d: %s", iconPrefix, issue.Number, issue.Title)
 
@@ -3430,7 +3472,7 @@ func (s *CommitFilesScreen) View() string {
 
 	footerText := "j/k: navigate • Enter: toggle/view diff • d: full diff • f: filter • /: search • q: close"
 	if s.showingFilter {
-		footerText = "↑↓: navigate • Enter: apply filter • Esc: clear filter"
+		footerText = fmt.Sprintf("%s: navigate • Enter: apply filter • Esc: clear filter", arrowPair(s.showIcons))
 	} else if s.showingSearch {
 		footerText = "n/N: next/prev match • Enter: close search • Esc: clear search"
 	}

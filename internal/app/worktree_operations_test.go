@@ -157,7 +157,7 @@ func TestHandleCheckboxToggleWithAIScript(t *testing.T) {
 	m.createFromCurrentBranch = mainWorktreeName
 	m.createFromCurrentAIName = ""
 
-	m.inputScreen = NewInputScreen("test", "placeholder", testRandomName, m.theme)
+	m.inputScreen = NewInputScreen("test", "placeholder", testRandomName, m.theme, m.config.ShowIcons)
 	m.inputScreen.SetCheckbox("Include changes", false)
 	m.inputScreen.checkboxFocused = true // Simulate tab to checkbox
 
@@ -218,7 +218,7 @@ func TestHandleCheckboxToggleBackToUnchecked(t *testing.T) {
 	m.createFromCurrentBranch = mainWorktreeName
 	m.createFromCurrentAIName = "ai-name-cached"
 
-	m.inputScreen = NewInputScreen("test", "placeholder", "ai-name-cached", m.theme)
+	m.inputScreen = NewInputScreen("test", "placeholder", "ai-name-cached", m.theme, m.config.ShowIcons)
 	m.inputScreen.SetCheckbox("Include changes", true) // Start checked
 
 	// Uncheck the checkbox
@@ -250,7 +250,7 @@ func TestHandleCheckboxToggleUsesCachedAIName(t *testing.T) {
 	m.createFromCurrentBranch = mainWorktreeName
 	m.createFromCurrentAIName = "cached-ai-name"
 
-	m.inputScreen = NewInputScreen("test", "placeholder", testRandomName, m.theme)
+	m.inputScreen = NewInputScreen("test", "placeholder", testRandomName, m.theme, m.config.ShowIcons)
 	m.inputScreen.SetCheckbox("Include changes", false)
 
 	// Check the checkbox (should use cached AI name, not run script again)
@@ -280,7 +280,7 @@ func TestHandleCheckboxToggleNoScriptConfigured(t *testing.T) {
 	m.createFromCurrentRandomName = testRandomName
 	m.createFromCurrentBranch = mainWorktreeName
 
-	m.inputScreen = NewInputScreen("test", "placeholder", testRandomName, m.theme)
+	m.inputScreen = NewInputScreen("test", "placeholder", testRandomName, m.theme, m.config.ShowIcons)
 	m.inputScreen.SetCheckbox("Include changes", false)
 
 	// Check the checkbox

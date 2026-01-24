@@ -170,7 +170,7 @@ func TestAIBranchNameSanitization(t *testing.T) {
 			}
 
 			// Setup input screen
-			m.inputScreen = NewInputScreen("test", "placeholder", "initial", m.theme)
+			m.inputScreen = NewInputScreen("test", "placeholder", "initial", m.theme, m.config.ShowIcons)
 			m.inputScreen.SetCheckbox("Include changes", true)
 
 			// Handle the AI name generation
@@ -2058,7 +2058,7 @@ func TestRenderScreenVariants(t *testing.T) {
 		t.Fatal("expected diff screen to render")
 	}
 
-	m.inputScreen = NewInputScreen("Prompt", "Placeholder", "value", m.theme)
+	m.inputScreen = NewInputScreen("Prompt", "Placeholder", "value", m.theme, m.config.ShowIcons)
 	m.currentScreen = screenInput
 	if out = m.renderScreen(); out == "" {
 		t.Fatal("expected input screen to render")
@@ -2298,6 +2298,7 @@ func TestUpdateTheme(t *testing.T) {
 func TestShowThemeSelection(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
+		ShowIcons:   true,
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
@@ -2315,8 +2316,9 @@ func TestShowThemeSelection(t *testing.T) {
 		t.Fatal("listScreen should be initialized")
 	}
 
-	if m.listScreen.title != "🎨 Select Theme" {
-		t.Fatalf("expected title '🎨 Select Theme', got %q", m.listScreen.title)
+	expectedTitle := labelWithIcon(UIIconThemeSelect, "Select Theme", m.config.ShowIcons)
+	if m.listScreen.title != expectedTitle {
+		t.Fatalf("expected title %q, got %q", expectedTitle, m.listScreen.title)
 	}
 
 	// Verify all themes are present

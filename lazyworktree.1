@@ -26,7 +26,7 @@ Commit Log Details: Log pane shows author initials alongside commit subjects
 .IP \(bu 2
 Base Selection: Select a base branch or commit from a list, or enter a reference when creating a worktree
 .IP \(bu 2
-Forge Integration: Fetch and display associated Pull Request (GitHub) or Merge Request (GitLab) status and CI checks with Nerd Font v3 icons when enabled
+Forge Integration: Fetch and display associated Pull Request (GitHub) or Merge Request (GitLab) status and CI checks with icons from the selected icon set when enabled
 .IP \(bu 2
 Create from PR/MR: Establish worktrees directly from open pull or merge requests via the create worktree menu (c)
 .IP \(bu 2
@@ -317,7 +317,7 @@ Push to upstream branch. Current branch only, requires a clean worktree and prom
 Cycle sort mode (Path / Last Active / Last Switched).
 .
 .SS Status Pane
-The Status pane displays changed files in a collapsible tree view, grouped by directory. Directories are shown with expand/collapse indicators (▼/▶) and can be toggled with Enter. Files are sorted alphabetically within each directory level and include Nerd Font v3 icons when enabled.
+The Status pane displays changed files in a collapsible tree view, grouped by directory. Directories are shown with expand/collapse indicators (▼/▶) and can be toggled with Enter. Files are sorted alphabetically within each directory level and include icons from the selected icon set when enabled.
 .
 .TP
 .B Enter
@@ -365,7 +365,7 @@ Cherry-pick commit to another worktree (interactive picker).
 Move to next commit and open commit file tree.
 .
 .SS Commit File Tree
-When pressing Enter on a commit in the log pane, a file tree view opens showing all files changed in that commit. The tree is collapsible by directory and includes Nerd Font v3 icons when enabled.
+When pressing Enter on a commit in the log pane, a file tree view opens showing all files changed in that commit. The tree is collapsible by directory and includes icons from the selected icon set when enabled.
 .
 .TP
 .B Enter
@@ -609,9 +609,19 @@ Can also be set with \fB--theme\fR.
 .
 .TP
 .B show_icons
-Toggle Nerd Font v3 icons in file trees, PR views, and CI checks.
+Toggle icons in file trees, PR views, CI checks, and UI indicators.
 .br
 Default: true
+.
+.TP
+.B icon_set
+Choose icon set. Options: "nerd-font-v3", "nerd-font-v2", "emoji", "unicode".
+.br
+Applies to file icons, UI indicators, and help headings.
+.br
+Nerd Font v2 uses the lazygit icon map patched for Nerd Fonts v2.
+.br
+Default: "nerd-font-v3"
 .
 .TP
 .B fuzzy_finder_input

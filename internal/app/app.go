@@ -441,6 +441,18 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	// Load theme
 	thm := theme.GetThemeWithCustoms(cfg.Theme, config.CustomThemesToThemeDataMap(cfg.CustomThemes))
 
+	// Initialize icon provider based on config
+	switch cfg.IconSet {
+	case "nerd-font-v2":
+		SetIconProvider(&NerdFontV2Provider{})
+	case "emoji":
+		SetIconProvider(&EmojiProvider{})
+	case "unicode":
+		SetIconProvider(&UnicodeProvider{})
+	default:
+		SetIconProvider(&NerdFontV3Provider{})
+	}
+
 	debugNotified := map[string]bool{}
 	var debugMu sync.Mutex // Protects debugNotified map
 
@@ -983,22 +995,22 @@ func (m *Model) inputLabel() string {
 func (m *Model) searchLabel() string {
 	switch m.searchTarget {
 	case searchTargetStatus:
-		return "🔍 Search Files"
+		return labelWithIcon(UIIconSearch, "Search Files", m.config.ShowIcons)
 	case searchTargetLog:
-		return "🔍 Search Commits"
+		return labelWithIcon(UIIconSearch, "Search Commits", m.config.ShowIcons)
 	default:
-		return "🔍 Search Worktrees"
+		return labelWithIcon(UIIconSearch, "Search Worktrees", m.config.ShowIcons)
 	}
 }
 
 func (m *Model) filterLabel() string {
 	switch m.filterTarget {
 	case filterTargetStatus:
-		return "🔍 Filter Files"
+		return labelWithIcon(UIIconFilter, "Filter Files", m.config.ShowIcons)
 	case filterTargetLog:
-		return "🔍 Filter Commits"
+		return labelWithIcon(UIIconFilter, "Filter Commits", m.config.ShowIcons)
 	default:
-		return "🔍 Filter Worktrees"
+		return labelWithIcon(UIIconFilter, "Filter Worktrees", m.config.ShowIcons)
 	}
 }
 
@@ -1157,11 +1169,12 @@ func (m *Model) updateTable() {
 	rows := make([]table.Row, 0, len(m.filteredWts))
 	for _, wt := range m.filteredWts {
 		name := filepath.Base(wt.Path)
+		worktreeIcon := UIIconWorktree
 		if wt.IsMain {
-			name = " " + mainWorktreeName
-		} else {
-			name = " " + name
+			worktreeIcon = UIIconWorktreeMain
+			name = mainWorktreeName
 		}
+		name = iconPrefix(worktreeIcon, m.config.ShowIcons) + name
 
 		// Truncate to configured max length with ellipsis if needed
 		if m.config.MaxNameLength > 0 {
@@ -1171,25 +1184,28 @@ func (m *Model) updateTable() {
 			}
 		}
 
-		status := "✓ "
-		if wt.Dirty {
-			status = "✎ "
+		status := statusIndicator(!wt.Dirty, m.config.ShowIcons)
+		if m.config.ShowIcons {
+			status = iconWithSpace(status)
 		}
 
-		// Build lazygit-style sync status: ↓N↑M, ✓ (in sync), or - (no upstream)
+		// Build lazygit-style sync status: behind/ahead counts, sync, or no upstream.
 		var abStr string
 		switch {
 		case !wt.HasUpstream:
 			abStr = "-"
 		case wt.Ahead == 0 && wt.Behind == 0:
-			abStr = "✓ "
+			abStr = syncIndicator(m.config.ShowIcons)
+			if m.config.ShowIcons {
+				abStr = iconWithSpace(abStr)
+			}
 		default:
 			var parts []string
 			if wt.Behind > 0 {
-				parts = append(parts, fmt.Sprintf("↓%d", wt.Behind))
+				parts = append(parts, fmt.Sprintf("%s%d", behindIndicator(m.config.ShowIcons), wt.Behind))
 			}
 			if wt.Ahead > 0 {
-				parts = append(parts, fmt.Sprintf("↑%d", wt.Ahead))
+				parts = append(parts, fmt.Sprintf("%s%d", aheadIndicator(m.config.ShowIcons), wt.Ahead))
 			}
 			abStr = strings.Join(parts, "")
 		}
@@ -1207,7 +1223,7 @@ func (m *Model) updateTable() {
 			if wt.PR != nil {
 				prIcon := ""
 				if m.config.ShowIcons {
-					prIcon = iconWithSpace(iconPR)
+					prIcon = iconWithSpace(getIconPR())
 				}
 				// Use Unicode symbols to indicate PR state
 				var stateSymbol string
@@ -2005,6 +2021,7 @@ func (m *Model) showRunCommand() tea.Cmd {
 		"e.g., make test, npm install, etc.",
 		"",
 		m.theme,
+		m.config.ShowIcons,
 	)
 	// Enable bash-style history navigation with up/down arrows
 	// Always set history, even if empty - it will populate as commands are added
@@ -2402,7 +2419,7 @@ func (m *Model) showThemeSelection() tea.Cmd {
 	for _, t := range themes {
 		items = append(items, selectionItem{id: t, label: t})
 	}
-	m.listScreen = NewListSelectionScreen(items, "🎨 Select Theme", "Filter themes...", "", m.windowWidth, m.windowHeight, m.originalTheme, m.theme)
+	m.listScreen = NewListSelectionScreen(items, labelWithIcon(UIIconThemeSelect, "Select Theme", m.config.ShowIcons), "Filter themes...", "", m.windowWidth, m.windowHeight, m.originalTheme, m.theme)
 	m.listScreen.onCursorChange = func(item selectionItem) {
 		m.UpdateTheme(item.id)
 	}
@@ -3259,7 +3276,7 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.currentScreen {
 	case screenHelp:
 		if m.helpScreen == nil {
-			m.helpScreen = NewHelpScreen(m.windowWidth, m.windowHeight, m.config.CustomCommands, m.theme)
+			m.helpScreen = NewHelpScreen(m.windowWidth, m.windowHeight, m.config.CustomCommands, m.theme, m.config.ShowIcons)
 		}
 		keyStr := msg.String()
 		if keyStr == keyQ || isEscKey(keyStr) {
@@ -5139,7 +5156,10 @@ func (m *Model) applyLogFilter(reset bool) {
 		}
 		initials := authorInitials(entry.authorInitials)
 		if entry.isUnpushed || entry.isUnmerged {
-			initials = "⬆ "
+			initials = aheadIndicator(m.config.ShowIcons)
+			if m.config.ShowIcons {
+				initials = iconWithSpace(initials)
+			}
 		}
 
 		rows = append(rows, table.Row{sha, initials, msg})

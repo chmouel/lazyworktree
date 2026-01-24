@@ -364,6 +364,8 @@ func TestHandleCachedWorktreesUpdatesState(t *testing.T) {
 }
 
 func TestHandlePRDataLoadedUpdatesTable(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
@@ -401,12 +403,14 @@ func TestHandlePRDataLoadedUpdatesTable(t *testing.T) {
 	if len(rows[0]) != 5 {
 		t.Fatalf("expected 5 columns in row, got %d", len(rows[0]))
 	}
-	if !strings.Contains(rows[0][4], iconPR) {
-		t.Fatalf("expected PR column to include icon %q, got %q", iconPR, rows[0][4])
+	if !strings.Contains(rows[0][4], getIconPR()) {
+		t.Fatalf("expected PR column to include icon %q, got %q", getIconPR(), rows[0][4])
 	}
 }
 
 func TestHandlePRDataLoadedOmitsIconWhenDisabled(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	cfg.ShowIcons = false
@@ -434,12 +438,14 @@ func TestHandlePRDataLoadedOmitsIconWhenDisabled(t *testing.T) {
 	if len(rows) != 1 || len(rows[0]) != 5 {
 		t.Fatalf("unexpected row shape: %+v", rows)
 	}
-	if strings.Contains(rows[0][4], iconPR) {
+	if strings.Contains(rows[0][4], getIconPR()) {
 		t.Fatalf("expected PR icon to be omitted, got %q", rows[0][4])
 	}
 }
 
 func TestHandlePRDataLoadedWithWorktreePRs(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 	}
@@ -480,6 +486,8 @@ func TestHandlePRDataLoadedWithWorktreePRs(t *testing.T) {
 }
 
 func TestHandleCIStatusLoadedUpdatesCache(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
@@ -514,12 +522,14 @@ func TestHandleCIStatusLoadedUpdatesCache(t *testing.T) {
 	if !strings.Contains(m.infoContent, "CI Checks:") {
 		t.Fatalf("expected info content to include CI checks, got %q", m.infoContent)
 	}
-	if !strings.Contains(m.infoContent, iconCISuccess) {
-		t.Fatalf("expected info content to include CI icon %q, got %q", iconCISuccess, m.infoContent)
+	if !strings.Contains(m.infoContent, ciIconForConclusion("success")) {
+		t.Fatalf("expected info content to include CI icon %q, got %q", ciIconForConclusion("success"), m.infoContent)
 	}
 }
 
 func TestHandleCIStatusLoadedOmitsIconWhenDisabled(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	cfg.ShowIcons = false
@@ -552,12 +562,14 @@ func TestHandleCIStatusLoadedOmitsIconWhenDisabled(t *testing.T) {
 	if !strings.Contains(m.infoContent, "CI Checks:") {
 		t.Fatalf("expected info content to include CI checks, got %q", m.infoContent)
 	}
-	if strings.Contains(m.infoContent, iconCISuccess) {
+	if strings.Contains(m.infoContent, ciIconForConclusion("success")) {
 		t.Fatalf("expected CI icon to be omitted, got %q", m.infoContent)
 	}
 }
 
 func TestFilterEnterClosesWithoutSelectingItem(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	cfg := &config.AppConfig{
 		WorktreeDir:      t.TempDir(),
 		SortMode:         "path",
@@ -1701,6 +1713,7 @@ func TestSearchStatusSelectsMatch(t *testing.T) {
 
 // TestRenderStatusFilesHighlighting tests that selected file is highlighted.
 func TestRenderStatusFilesHighlighting(t *testing.T) {
+	SetIconProvider(&NerdFontV3Provider{})
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
@@ -1737,6 +1750,7 @@ func TestRenderStatusFilesHighlighting(t *testing.T) {
 }
 
 func TestRenderStatusFilesIconsDisabled(t *testing.T) {
+	SetIconProvider(&NerdFontV3Provider{})
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	cfg.ShowIcons = false

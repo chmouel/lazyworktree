@@ -2,138 +2,142 @@ package app
 
 import (
 	"fmt"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIconFileInfoName(t *testing.T) {
-	info := iconFileInfo{name: "example.go", isDir: false}
-	assert.Equal(t, "example.go", info.Name())
-}
-
-func TestIconFileInfoSize(t *testing.T) {
-	info := iconFileInfo{name: "file.txt", isDir: false}
-	assert.Equal(t, int64(0), info.Size())
-}
-
-func TestIconFileInfoModeFile(t *testing.T) {
-	info := iconFileInfo{name: "file.txt", isDir: false}
-	assert.Equal(t, os.FileMode(0), info.Mode())
-}
-
-func TestIconFileInfoModeDirectory(t *testing.T) {
-	info := iconFileInfo{name: "dir", isDir: true}
-	expectedMode := os.ModeDir | 0o755
-	assert.Equal(t, expectedMode, info.Mode())
-}
-
-func TestIconFileInfoModTime(t *testing.T) {
-	info := iconFileInfo{name: "file.txt", isDir: false}
-	assert.Equal(t, time.Time{}, info.ModTime())
-}
-
-func TestIconFileInfoIsDir(t *testing.T) {
-	tests := []struct {
-		name   string
-		isDir  bool
-		expect bool
-	}{
-		{"file", false, false},
-		{"directory", true, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			info := iconFileInfo{name: tt.name, isDir: tt.isDir}
-			assert.Equal(t, tt.expect, info.IsDir())
-		})
-	}
-}
-
-func TestIconFileInfoSys(t *testing.T) {
-	info := iconFileInfo{name: "file.txt", isDir: false}
-	assert.Nil(t, info.Sys())
-}
-
 func TestDeviconForNameEmpty(t *testing.T) {
+	SetIconProvider(&NerdFontV3Provider{})
 	result := deviconForName("", false)
 	assert.Empty(t, result)
 }
 
 func TestDeviconForNameFile(t *testing.T) {
+	SetIconProvider(&NerdFontV3Provider{})
 	tests := []struct {
 		name     string
 		isDir    bool
 		fileName string
+		expected string
 	}{
-		{"go file", false, "main.go"},
-		{"python file", false, "script.py"},
-		{"markdown file", false, "README.md"},
-		{"directory", true, "src"},
-		{"json file", false, "config.json"},
+		{"go file", false, "main.go", ""},
+		{"markdown file", false, "README.md", "󰂺"},
+		{"directory", true, "src", ""},
+		{"unknown file", false, "file.unknown", ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := deviconForName(tt.fileName, tt.isDir)
-			// Result should not be empty for valid files
-			// (actual icons depend on devicons library)
-			assert.NotEmpty(t, result)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
+func TestNerdFontV2ProviderFileIcons(t *testing.T) {
+	provider := &NerdFontV2Provider{}
+	assert.Equal(t, "﵂", provider.GetFileIcon("main.vue", false))
+	assert.Equal(t, "", provider.GetFileIcon("src", true))
+}
+
+func TestNerdFontV3ProviderFileIcons(t *testing.T) {
+	provider := &NerdFontV3Provider{}
+	assert.Equal(t, "", provider.GetFileIcon("main.vue", false))
+}
+
+func TestUIIconUsesProvider(t *testing.T) {
+	SetIconProvider(&EmojiProvider{})
+	assert.Equal(t, "🔍", uiIcon(UIIconSearch))
+
+	SetIconProvider(&NerdFontV3Provider{})
+	assert.Equal(t, nerdFontUIIconSearch, uiIcon(UIIconSearch))
+}
+
+func TestLabelWithIconToggle(t *testing.T) {
+	SetIconProvider(&NerdFontV3Provider{})
+	label := labelWithIcon(UIIconSearch, "Search", true)
+	assert.Equal(t, nerdFontUIIconSearch+" Search", label)
+
+	label = labelWithIcon(UIIconSearch, "Search", false)
+	assert.Equal(t, "Search", label)
+}
+
+func TestStatusAndSyncIndicators(t *testing.T) {
+	SetIconProvider(&EmojiProvider{})
+	t.Cleanup(func() { SetIconProvider(&NerdFontV3Provider{}) })
+	assert.Equal(t, "✅", statusIndicator(true, true))
+	assert.Equal(t, "✎", statusIndicator(false, true))
+	assert.Equal(t, "C", statusIndicator(true, false))
+	assert.Equal(t, "D", statusIndicator(false, false))
+	assert.Equal(t, "✅", syncIndicator(true))
+	assert.Equal(t, "OK", syncIndicator(false))
+}
+
 func TestCIIconForConclusionSuccess(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	result := ciIconForConclusion("success")
-	assert.Equal(t, iconCISuccess, result)
+	assert.Equal(t, "", result)
 }
 
 func TestCIIconForConclusionFailure(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	result := ciIconForConclusion("failure")
-	assert.Equal(t, iconCIFailure, result)
+	assert.Equal(t, "", result)
 }
 
 func TestCIIconForConclusionSkipped(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	result := ciIconForConclusion("skipped")
-	assert.Equal(t, iconCISkipped, result)
+	assert.Equal(t, "", result)
 }
 
 func TestCIIconForConclusionCancelled(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	result := ciIconForConclusion("cancelled")
-	assert.Equal(t, iconCICancelled, result)
+	assert.Equal(t, "", result)
 }
 
 func TestCIIconForConclusionPending(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	result := ciIconForConclusion("pending")
-	assert.Equal(t, iconCIPending, result)
+	assert.Equal(t, "", result)
 }
 
 func TestCIIconForConclusionEmpty(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	result := ciIconForConclusion("")
-	assert.Equal(t, iconCIPending, result)
+	assert.Equal(t, "", result)
 }
 
 func TestCIIconForConclusionUnknown(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	result := ciIconForConclusion("unknown_status")
-	assert.Equal(t, iconCIUnknown, result)
+	assert.Equal(t, "", result)
 }
 
 func TestCIIconForConclusionAllStates(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	tests := []struct {
 		conclusion string
 		expected   string
 	}{
-		{"success", iconCISuccess},
-		{"failure", iconCIFailure},
-		{"skipped", iconCISkipped},
-		{"cancelled", iconCICancelled},
-		{"pending", iconCIPending},
-		{"", iconCIPending},
-		{"unknown", iconCIUnknown},
-		{"random_value", iconCIUnknown},
+		{"success", ""},
+		{"failure", ""},
+		{"skipped", ""},
+		{"cancelled", ""},
+		{"pending", ""},
+		{"", ""},
+		{"unknown", ""},
+		{"random_value", ""},
 	}
 
 	for _, tt := range tests {

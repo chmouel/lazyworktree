@@ -195,6 +195,8 @@ func TestIntegrationPaletteSelectsCustomCommand(t *testing.T) {
 }
 
 func TestIntegrationPRAndCIFlowUpdatesView(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
@@ -253,7 +255,7 @@ func TestIntegrationPRAndCIFlowUpdatesView(t *testing.T) {
 	if !strings.Contains(view, "PR:") {
 		t.Fatalf("expected PR info to be rendered, got %q", view)
 	}
-	if !strings.Contains(view, iconPR) {
+	if !strings.Contains(view, getIconPR()) {
 		t.Fatalf("expected PR icon to be rendered, got %q", view)
 	}
 	if !strings.Contains(view, "CI Checks:") {

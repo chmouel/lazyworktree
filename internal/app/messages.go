@@ -350,6 +350,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 					"Worktree name",
 					suggested,
 					m.theme,
+					m.config.ShowIcons,
 				)
 				m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 					newBranch := strings.TrimSpace(value)
@@ -412,6 +413,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 			"Worktree name",
 			suggested,
 			m.theme,
+			m.config.ShowIcons,
 		)
 		m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 			newBranch := strings.TrimSpace(value)
@@ -546,6 +548,7 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 					"Worktree name",
 					suggested,
 					m.theme,
+					m.config.ShowIcons,
 				)
 				m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 					newBranch := strings.TrimSpace(value)

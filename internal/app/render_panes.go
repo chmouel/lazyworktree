@@ -158,9 +158,11 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		infoLines = append(infoLines, fmt.Sprintf("%s %s", labelStyle.Render("Last Accessed:"), valueStyle.Render(relTime)))
 	}
 	if wt.Divergence != "" {
-		// Colorize arrows to match Python: cyan ↑, red ↓
-		coloredDiv := strings.ReplaceAll(wt.Divergence, "↑", lipgloss.NewStyle().Foreground(m.theme.Cyan).Render("↑"))
-		coloredDiv = strings.ReplaceAll(coloredDiv, "↓", lipgloss.NewStyle().Foreground(m.theme.ErrorFg).Render("↓"))
+		// Colorize arrows to match Python: cyan ahead, red behind
+		aheadIcon := aheadIndicator(m.config.ShowIcons)
+		behindIcon := behindIndicator(m.config.ShowIcons)
+		coloredDiv := strings.ReplaceAll(wt.Divergence, "↑", lipgloss.NewStyle().Foreground(m.theme.Cyan).Render(aheadIcon))
+		coloredDiv = strings.ReplaceAll(coloredDiv, "↓", lipgloss.NewStyle().Foreground(m.theme.ErrorFg).Render(behindIcon))
 		infoLines = append(infoLines, fmt.Sprintf("%s %s", labelStyle.Render("Divergence:"), coloredDiv))
 	}
 	if wt.PR != nil {
@@ -168,7 +170,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		prLabelStyle := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true) // Accent for PR prominence
 		prPrefix := "PR:"
 		if m.config.ShowIcons {
-			prPrefix = iconWithSpace(iconPR) + prPrefix
+			prPrefix = iconWithSpace(getIconPR()) + prPrefix
 		}
 		prLabel := prLabelStyle.Render(prPrefix)
 		numStyle := lipgloss.NewStyle().Foreground(m.theme.TextFg)
@@ -196,7 +198,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 				authorText = wt.PR.Author
 			}
 			if wt.PR.AuthorIsBot {
-				authorText = "🤖 " + authorText
+				authorText = iconPrefix(UIIconBot, m.config.ShowIcons) + authorText
 			}
 			infoLines = append(infoLines, fmt.Sprintf("     by %s", grayStyle.Render(authorText)))
 		}

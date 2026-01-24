@@ -414,7 +414,8 @@ git config --local --get-regexp "^lw\."
 * `auto_fetch_prs`: fetch PR data on startup.
 * `auto_refresh`: background refresh of git metadata (default: true).
 * `refresh_interval`: refresh frequency in seconds (default: 10).
-* `show_icons`: display icons (default: true).
+* `show_icons`: display icons across file trees, PR/issue views, CI checks, and UI indicators (default: true).
+* `icon_set`: choose icon set ("nerd-font-v3", "nerd-font-v2", "emoji", "unicode"). Default: "nerd-font-v3". Applies to file icons, UI indicators, and help headings. Nerd Font v2 uses the lazygit icon map patched for Nerd Fonts v2.
 * `max_untracked_diffs`, `max_diff_chars`: limits for diff display (0 disables).
 * `max_name_length`: maximum display length for worktree names (default: 95, 0 disables truncation).
 

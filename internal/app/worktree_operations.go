@@ -140,7 +140,7 @@ func (m *Model) showCreateWorktreeFromChanges() tea.Cmd {
 // showCreateFromChangesInput shows the input screen for creating a worktree from changes.
 func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranch, defaultName string) tea.Cmd {
 	// Show input screen for worktree name
-	m.inputScreen = NewInputScreen("Create worktree from changes: branch name", "feature/my-branch", defaultName, m.theme)
+	m.inputScreen = NewInputScreen("Create worktree from changes: branch name", "feature/my-branch", defaultName, m.theme, m.config.ShowIcons)
 	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		newBranch := strings.TrimSpace(value)
 		newBranch = sanitizeBranchNameFromTitle(newBranch, "")
@@ -301,7 +301,7 @@ func (m *Model) handleCreateFromCurrentReady(msg createFromCurrentReadyMsg) tea.
 	m.createFromCurrentAIName = "" // Reset cached AI name
 
 	// Show input screen with random name
-	m.inputScreen = NewInputScreen("Create from current: branch name", "feature/my-branch", msg.defaultBranchName, m.theme)
+	m.inputScreen = NewInputScreen("Create from current: branch name", "feature/my-branch", msg.defaultBranchName, m.theme, m.config.ShowIcons)
 	if msg.hasChanges {
 		m.inputScreen.SetCheckbox("Include current file changes", false)
 	}
@@ -487,7 +487,7 @@ func (m *Model) showRenameWorktree() tea.Cmd {
 	}
 
 	prompt := fmt.Sprintf("Enter new name for '%s'", wt.Branch)
-	m.inputScreen = NewInputScreen(prompt, "New branch name", wt.Branch, m.theme)
+	m.inputScreen = NewInputScreen(prompt, "New branch name", wt.Branch, m.theme, m.config.ShowIcons)
 	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
 		newBranch := strings.TrimSpace(value)
 		newBranch = sanitizeBranchNameFromTitle(newBranch, "")

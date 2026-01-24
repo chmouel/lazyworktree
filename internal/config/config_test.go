@@ -24,6 +24,7 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, "tofu", cfg.TrustMode)
 	assert.Equal(t, "rebase", cfg.MergeMethod)
 	assert.True(t, cfg.ShowIcons)
+	assert.Equal(t, "nerd-font-v3", cfg.IconSet)
 	assert.Empty(t, cfg.WorktreeDir)
 	assert.Empty(t, cfg.InitCommands)
 	assert.Empty(t, cfg.TerminateCommands)
@@ -507,6 +508,33 @@ func TestParseConfig(t *testing.T) {
 			},
 			validate: func(t *testing.T, cfg *AppConfig) {
 				assert.False(t, cfg.ShowIcons)
+			},
+		},
+		{
+			name: "icon_set nerd-font-v3",
+			data: map[string]interface{}{
+				"icon_set": "nerd-font-v3",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, "nerd-font-v3", cfg.IconSet)
+			},
+		},
+		{
+			name: "icon_set emoji",
+			data: map[string]interface{}{
+				"icon_set": "emoji",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, "emoji", cfg.IconSet)
+			},
+		},
+		{
+			name: "icon_set invalid defaults to default",
+			data: map[string]interface{}{
+				"icon_set": "invalid",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, "nerd-font-v3", cfg.IconSet)
 			},
 		},
 		{

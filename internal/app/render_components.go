@@ -167,7 +167,8 @@ func (m *Model) renderPaneTitle(index int, title string, focused bool, width int
 			Background(m.theme.Accent).
 			Bold(true).
 			Padding(0, 1)
-		filterIndicator = fmt.Sprintf(" 🔍 %s  %s %s",
+		filterIndicator = fmt.Sprintf(" %s%s  %s %s",
+			iconPrefix(UIIconFilter, m.config.ShowIcons),
 			filteredStyle.Render("Filtered"),
 			keyStyle.Render("Esc"),
 			lipgloss.NewStyle().Foreground(m.theme.MutedFg).Render("Clear"))
@@ -181,8 +182,8 @@ func (m *Model) renderPaneTitle(index int, title string, focused bool, width int
 			Background(m.theme.Accent).
 			Bold(true).
 			Padding(0, 1)
-		zoomIndicator = fmt.Sprintf(" %s %s  %s %s",
-			"🔎",
+		zoomIndicator = fmt.Sprintf(" %s%s  %s %s",
+			iconPrefix(UIIconZoom, m.config.ShowIcons),
 			zoomedStyle.Render("Zoomed"),
 			keyStyle.Render("="),
 			lipgloss.NewStyle().Foreground(m.theme.MutedFg).Render("Unzoom"))

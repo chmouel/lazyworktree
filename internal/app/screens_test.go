@@ -326,7 +326,7 @@ func TestCommitFilesScreen_GetSelectedNode(t *testing.T) {
 
 func TestHelpScreenSetSizeAndHighlight(t *testing.T) {
 	thm := theme.Dracula()
-	screen := NewHelpScreen(120, 40, nil, thm)
+	screen := NewHelpScreen(120, 40, nil, thm, true)
 	screen.SetSize(160, 60)
 
 	if screen.width <= 0 || screen.height <= 0 {
@@ -363,14 +363,16 @@ func TestPRSelectionScreenUpdate(t *testing.T) {
 }
 
 func TestPRSelectionScreenViewIncludesIcon(t *testing.T) {
+	// Set default provider for testing
+	SetIconProvider(&NerdFontV3Provider{})
 	prs := []*models.PRInfo{
 		{Number: 1, Title: "First"},
 	}
 	screen := NewPRSelectionScreen(prs, 80, 30, theme.Dracula(), true)
 
 	view := screen.View()
-	if !strings.Contains(view, iconPR) {
-		t.Fatalf("expected PR selection view to include icon %q, got %q", iconPR, view)
+	if !strings.Contains(view, getIconPR()) {
+		t.Fatalf("expected PR selection view to include icon %q, got %q", getIconPR(), view)
 	}
 }
 
@@ -392,15 +394,16 @@ func TestGetCIStatusIcon(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getCIStatusIcon(tt.ciStatus, tt.isDraft)
+			result := getCIStatusIcon(tt.ciStatus, tt.isDraft, false)
 			if result != tt.expected {
-				t.Errorf("getCIStatusIcon(%q, %v) = %q, want %q", tt.ciStatus, tt.isDraft, result, tt.expected)
+				t.Errorf("getCIStatusIcon(%q, %v, false) = %q, want %q", tt.ciStatus, tt.isDraft, result, tt.expected)
 			}
 		})
 	}
 }
 
 func TestPRSelectionScreenWithCIStatus(t *testing.T) {
+	SetIconProvider(&NerdFontV3Provider{})
 	prs := []*models.PRInfo{
 		{Number: 1, Title: "Success PR", Author: "user1", CIStatus: "success", IsDraft: false},
 		{Number: 2, Title: "Failed PR", Author: "user2", CIStatus: "failure", IsDraft: false},
@@ -416,7 +419,9 @@ func TestPRSelectionScreenWithCIStatus(t *testing.T) {
 	}
 
 	// Check that CI status icons are rendered
-	if !strings.Contains(view, "✓") && !strings.Contains(view, "✗") && !strings.Contains(view, "D") {
+	if !strings.Contains(view, ciIconForConclusion("success")) &&
+		!strings.Contains(view, ciIconForConclusion("failure")) &&
+		!strings.Contains(view, "D") {
 		t.Error("expected view to contain at least one CI status icon")
 	}
 }
@@ -817,7 +822,7 @@ func TestInfoScreenInit(t *testing.T) {
 
 func TestInputScreenInit(t *testing.T) {
 	thm := theme.Dracula()
-	screen := NewInputScreen("Prompt", "placeholder", "default", thm)
+	screen := NewInputScreen("Prompt", "placeholder", "default", thm, true)
 	cmd := screen.Init()
 	if cmd == nil {
 		t.Error("expected Init to return textinput.Blink command")
@@ -826,7 +831,7 @@ func TestInputScreenInit(t *testing.T) {
 
 func TestInputScreenUpdate(t *testing.T) {
 	thm := theme.Dracula()
-	screen := NewInputScreen("Prompt", "placeholder", "default", thm)
+	screen := NewInputScreen("Prompt", "placeholder", "default", thm, true)
 	screen.Init()
 
 	// Test Enter key submits value
@@ -845,7 +850,7 @@ func TestInputScreenUpdate(t *testing.T) {
 	}
 
 	// Test Esc cancels
-	screen2 := NewInputScreen("Prompt", "placeholder", "default", thm)
+	screen2 := NewInputScreen("Prompt", "placeholder", "default", thm, true)
 	screen2.Init()
 	_, cmd2 := screen2.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if cmd2 == nil {
@@ -863,7 +868,7 @@ func TestInputScreenUpdate(t *testing.T) {
 
 func TestHelpScreenInit(t *testing.T) {
 	thm := theme.Dracula()
-	screen := NewHelpScreen(40, 20, nil, thm)
+	screen := NewHelpScreen(40, 20, nil, thm, true)
 	cmd := screen.Init()
 	if cmd != nil {
 		t.Error("expected Init to return nil command")
@@ -872,7 +877,7 @@ func TestHelpScreenInit(t *testing.T) {
 
 func TestHelpScreenUpdate(t *testing.T) {
 	thm := theme.Dracula()
-	screen := NewHelpScreen(40, 20, nil, thm)
+	screen := NewHelpScreen(40, 20, nil, thm, true)
 	screen.Init()
 
 	// Test / key starts search
