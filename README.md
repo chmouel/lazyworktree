@@ -865,9 +865,9 @@ branch_name_script: |
 
 <img width="3730" height="2484" alt="image" src="https://github.com/user-attachments/assets/92888a4f-c3aa-4b39-b78b-d3c62897b69a" />
 
-### Files in commit view (dracula)
+### Files in commit view (kanagawa)
 
-<img width="3835" height="2116" alt="files-in-git-commit-view" src="https://github.com/user-attachments/assets/031bd043-c1a2-4f88-837e-89e26812cea7" />
+<img width="3730" height="2484" alt="image" src="https://github.com/user-attachments/assets/7f68c113-2306-4ecc-b9a6-425f2b2063ab" />
 
 ### Create a branch from a Issue (clean-light)
 
