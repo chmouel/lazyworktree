@@ -1419,15 +1419,24 @@ func (m *Model) fetchCIStatus(prNumber int, branch string) tea.Cmd {
 	}
 }
 
-// maybeFetchCIStatus triggers CI fetch for current worktree if it has a PR and cache is stale.
+// fetchCIStatusByCommit fetches CI status for a commit SHA (non-PR branches on GitHub).
+func (m *Model) fetchCIStatusByCommit(worktreePath, branch string) tea.Cmd {
+	return func() tea.Msg {
+		commitSHA := m.git.GetHeadSHA(m.ctx, worktreePath)
+		if commitSHA == "" {
+			return ciStatusLoadedMsg{branch: branch, checks: nil, err: nil}
+		}
+		checks, err := m.git.FetchCIStatusByCommit(m.ctx, commitSHA, worktreePath)
+		return ciStatusLoadedMsg{branch: branch, checks: checks, err: err}
+	}
+}
+
+// maybeFetchCIStatus triggers CI fetch for current worktree if it has a PR or commit and cache is stale.
 func (m *Model) maybeFetchCIStatus() tea.Cmd {
 	if m.selectedIndex < 0 || m.selectedIndex >= len(m.filteredWts) {
 		return nil
 	}
 	wt := m.filteredWts[m.selectedIndex]
-	if wt.PR == nil {
-		return nil
-	}
 
 	// Check cache - skip if fresh (within ciCacheTTL)
 	if cached, ok := m.ciCache[wt.Branch]; ok {
@@ -1436,7 +1445,18 @@ func (m *Model) maybeFetchCIStatus() tea.Cmd {
 		}
 	}
 
-	return m.fetchCIStatus(wt.PR.Number, wt.Branch)
+	// If we have an OPEN PR, use PR-based CI fetch
+	// For merged/closed PRs, gh pr checks returns empty, so use commit-based fetch
+	if wt.PR != nil && wt.PR.State == "OPEN" {
+		return m.fetchCIStatus(wt.PR.Number, wt.Branch)
+	}
+
+	// For non-PR branches on GitHub, use commit-based CI fetch
+	if m.git.IsGitHub(m.ctx) {
+		return m.fetchCIStatusByCommit(wt.Path, wt.Branch)
+	}
+
+	return nil
 }
 
 func (m *Model) fetchRemotes() tea.Cmd {

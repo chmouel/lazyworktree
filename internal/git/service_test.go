@@ -1608,3 +1608,122 @@ func TestApplyGitPagerEdgeCases(t *testing.T) {
 		assert.NotNil(t, result)
 	})
 }
+
+func TestGetHeadSHA(t *testing.T) {
+	notify := func(_ string, _ string) {}
+	notifyOnce := func(_ string, _ string, _ string) {}
+
+	service := NewService(notify, notifyOnce)
+	ctx := context.Background()
+
+	t.Run("returns HEAD SHA for valid repo", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		setupGitRepo(t, tmpDir)
+
+		sha := service.GetHeadSHA(ctx, tmpDir)
+		assert.NotEmpty(t, sha)
+		// SHA should be 40 hex characters
+		assert.Len(t, sha, 40)
+	})
+
+	t.Run("returns empty for non-repo directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		sha := service.GetHeadSHA(ctx, tmpDir)
+		assert.Empty(t, sha)
+	})
+}
+
+func TestFetchCIStatusByCommit(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns nil for non-github host", func(t *testing.T) {
+		// Set up a GitLab remote
+		repo := t.TempDir()
+		runGit(t, repo, "init")
+		runGit(t, repo, "remote", "add", "origin", "git@gitlab.com:org/repo.git")
+		withCwd(t, repo)
+
+		service := NewService(func(string, string) {}, func(string, string, string) {})
+		checks, err := service.FetchCIStatusByCommit(ctx, "abc123", repo)
+
+		require.NoError(t, err)
+		assert.Nil(t, checks)
+	})
+
+	t.Run("returns nil for unknown repo", func(t *testing.T) {
+		// Set up a GitHub remote but with local repo name detection
+		repo := t.TempDir()
+		runGit(t, repo, "init")
+		// No remote, so ResolveRepoName will return local-* pattern
+		withCwd(t, repo)
+
+		service := NewService(func(string, string) {}, func(string, string, string) {})
+		// Force github detection by setting internal state
+		service.gitHost = gitHostGithub
+		checks, err := service.FetchCIStatusByCommit(ctx, "abc123", repo)
+
+		require.NoError(t, err)
+		assert.Nil(t, checks)
+	})
+
+	t.Run("parses github api response correctly", func(t *testing.T) {
+		// Create a stub for gh that returns check runs
+		stub := "#!/bin/sh\n" +
+			"echo '[{\"name\":\"build\",\"status\":\"completed\",\"conclusion\":\"success\",\"html_url\":\"https://github.com/run/1\",\"started_at\":\"2024-01-15T14:00:00Z\"},{\"name\":\"test\",\"status\":\"in_progress\",\"conclusion\":\"\",\"html_url\":\"https://github.com/run/2\",\"started_at\":\"2024-01-15T14:01:00Z\"}]'\n" +
+			"exit 0\n"
+		dir := writeStub(t, "gh", stub)
+		withStubbedPath(t, dir)
+
+		// Set up a GitHub remote
+		repo := t.TempDir()
+		runGit(t, repo, "init")
+		runGit(t, repo, "remote", "add", "origin", "git@github.com:org/repo.git")
+		withCwd(t, repo)
+
+		service := NewService(func(string, string) {}, func(string, string, string) {})
+		checks, err := service.FetchCIStatusByCommit(ctx, "abc123", repo)
+
+		require.NoError(t, err)
+		require.Len(t, checks, 2)
+
+		// First check - completed success
+		assert.Equal(t, "build", checks[0].Name)
+		assert.Equal(t, "completed", checks[0].Status)
+		assert.Equal(t, "success", checks[0].Conclusion)
+		assert.Equal(t, "https://github.com/run/1", checks[0].Link)
+
+		// Second check - in progress
+		assert.Equal(t, "test", checks[1].Name)
+		assert.Equal(t, "in_progress", checks[1].Status)
+		assert.Equal(t, "pending", checks[1].Conclusion) // in_progress maps to pending
+	})
+}
+
+func TestMapGitHubConclusion(t *testing.T) {
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+
+	tests := []struct {
+		status     string
+		conclusion string
+		expected   string
+	}{
+		{"queued", "", "pending"},
+		{"in_progress", "", "pending"},
+		{"completed", "success", "success"},
+		{"completed", "failure", "failure"},
+		{"completed", "neutral", "skipped"},
+		{"completed", "skipped", "skipped"},
+		{"completed", "cancelled", "cancelled"},
+		{"completed", "timed_out", "cancelled"},
+		{"completed", "action_required", "cancelled"},
+		{"completed", "unknown_value", "unknown_value"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.status+"/"+tt.conclusion, func(t *testing.T) {
+			result := service.mapGitHubConclusion(tt.status, tt.conclusion)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

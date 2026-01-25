@@ -209,37 +209,6 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		// URL styled with cyan for consistency
 		urlStyle := lipgloss.NewStyle().Foreground(m.theme.Cyan).Underline(true)
 		infoLines = append(infoLines, fmt.Sprintf("     %s", urlStyle.Render(wt.PR.URL)))
-
-		// CI status from cache
-		if cached, ok := m.ciCache[wt.Branch]; ok && len(cached.checks) > 0 {
-			infoLines = append(infoLines, "") // blank line before CI
-			infoLines = append(infoLines, labelStyle.Render("CI Checks:"))
-
-			greenStyle := lipgloss.NewStyle().Foreground(m.theme.SuccessFg)
-			redStyle := lipgloss.NewStyle().Foreground(m.theme.ErrorFg)
-			yellowStyle := lipgloss.NewStyle().Foreground(m.theme.WarnFg)
-			grayStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
-
-			for _, check := range sortCIChecks(cached.checks) {
-				var style lipgloss.Style
-				switch check.Conclusion {
-				case "success":
-					style = greenStyle
-				case "failure":
-					style = redStyle
-				case "skipped":
-					style = grayStyle
-				case "cancelled":
-					style = grayStyle
-				case "pending", "":
-					style = yellowStyle
-				default:
-					style = grayStyle
-				}
-				symbol := getCIStatusIcon(check.Conclusion, false, m.config.IconsEnabled())
-				infoLines = append(infoLines, fmt.Sprintf("  %s %s", style.Render(symbol), check.Name))
-			}
-		}
 	} else {
 		// Show PR status/error when PR is nil
 		grayStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
@@ -292,6 +261,38 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 			}
 		}
 	}
+
+	// CI status from cache (shown for all branches with cached checks, not just PRs)
+	if cached, ok := m.ciCache[wt.Branch]; ok && len(cached.checks) > 0 {
+		infoLines = append(infoLines, "") // blank line before CI
+		infoLines = append(infoLines, labelStyle.Render("CI Checks:"))
+
+		greenStyle := lipgloss.NewStyle().Foreground(m.theme.SuccessFg)
+		redStyle := lipgloss.NewStyle().Foreground(m.theme.ErrorFg)
+		yellowStyle := lipgloss.NewStyle().Foreground(m.theme.WarnFg)
+		grayStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
+
+		for _, check := range sortCIChecks(cached.checks) {
+			var style lipgloss.Style
+			switch check.Conclusion {
+			case "success":
+				style = greenStyle
+			case "failure":
+				style = redStyle
+			case "skipped":
+				style = grayStyle
+			case "cancelled":
+				style = grayStyle
+			case "pending", "":
+				style = yellowStyle
+			default:
+				style = grayStyle
+			}
+			symbol := getCIStatusIcon(check.Conclusion, false, m.config.IconsEnabled())
+			infoLines = append(infoLines, fmt.Sprintf("  %s %s", style.Render(symbol), check.Name))
+		}
+	}
+
 	return strings.Join(infoLines, "\n")
 }
 

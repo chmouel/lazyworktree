@@ -2130,6 +2130,32 @@ func TestMaybeFetchCIStatus(t *testing.T) {
 	}
 }
 
+func TestMaybeFetchCIStatusNonPRBranch(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	// Branch without a PR
+	m.filteredWts = []*models.WorktreeInfo{
+		{Branch: featureBranch, Path: "/tmp/worktree", PR: nil},
+	}
+	m.selectedIndex = 0
+
+	// Note: On a GitHub repo (like the test environment), maybeFetchCIStatus
+	// will return a command to fetch CI by commit. On non-GitHub repos, it returns nil.
+	// Either behaviour is valid depending on the test environment.
+
+	// With cache set and fresh, should not fetch regardless of host
+	m.ciCache[featureBranch] = &ciCacheEntry{fetchedAt: time.Now()}
+	cmd := m.maybeFetchCIStatus()
+	if cmd != nil {
+		t.Fatal("expected no fetch when cache is fresh for non-PR branch")
+	}
+
+	// With stale cache, should return command on GitHub host (if detected)
+	delete(m.ciCache, featureBranch)
+	m.ciCache[featureBranch] = &ciCacheEntry{fetchedAt: time.Now().Add(-ciCacheTTL - time.Second)}
+	// We don't check cmd here as it depends on whether the test runs in a GitHub repo
+}
+
 func TestBuildTmuxInfoMessage(t *testing.T) {
 	msg := buildTmuxInfoMessage("session", true)
 	if !strings.Contains(msg, "switch-client") {
