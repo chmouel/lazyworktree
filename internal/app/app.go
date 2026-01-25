@@ -2041,6 +2041,7 @@ func (m *Model) buildMRUPaletteItems() []paletteItem {
 		{id: "push", label: "Push to upstream (P)", description: "git push (clean worktree only)"},
 		{id: "sync", label: "Synchronise with upstream (S)", description: "git pull, then git push (clean worktree only)"},
 		{id: "fetch-pr-data", label: "Fetch PR data (p)", description: "Fetch PR/MR status from GitHub/GitLab"},
+		{id: "ci-checks", label: "View CI checks (v)", description: "View CI check logs for current worktree"},
 		{id: "pr", label: "Open PR (o)", description: "Open PR in browser"},
 		{id: "lazygit", label: "Open LazyGit (g)", description: "Open LazyGit in selected worktree"},
 		{id: "run-command", label: "Run command (!)", description: "Run arbitrary command in worktree"},
@@ -2156,6 +2157,9 @@ func (m *Model) showCommandPalette() tea.Cmd {
 	addItem(paletteItem{id: "push", label: "Push to upstream (P)", description: "git push (clean worktree only)"})
 	addItem(paletteItem{id: "sync", label: "Synchronise with upstream (S)", description: "git pull, then git push (clean worktree only)"})
 	addItem(paletteItem{id: "fetch-pr-data", label: "Fetch PR data (p)", description: "Fetch PR/MR status from GitHub/GitLab"})
+	if m.git != nil && m.git.IsGitHub(m.ctx) {
+		addItem(paletteItem{id: "ci-checks", label: "View CI checks (v)", description: "View CI check logs for current worktree"})
+	}
 	addItem(paletteItem{id: "pr", label: "Open PR (o)", description: "Open PR in browser"})
 	addItem(paletteItem{id: "lazygit", label: "Open LazyGit (g)", description: "Open LazyGit in selected worktree"})
 	addItem(paletteItem{id: "run-command", label: "Run command (!)", description: "Run arbitrary command in worktree"})
@@ -2284,6 +2288,8 @@ func (m *Model) showCommandPalette() tea.Cmd {
 			return m.fetchPRData()
 		case "pr":
 			return m.openPR()
+		case "ci-checks":
+			return m.openCICheckSelection()
 		case "lazygit":
 			return m.openLazyGit()
 		case "run-command":
@@ -2862,6 +2868,65 @@ func (m *Model) openPR() tea.Cmd {
 		return func() tea.Msg { return errMsg{err: err} }
 	}
 	return m.openURLInBrowser(prURL)
+}
+
+// openCICheckSelection opens a selection screen for CI checks on the current worktree.
+func (m *Model) openCICheckSelection() tea.Cmd {
+	if m.selectedIndex < 0 || m.selectedIndex >= len(m.filteredWts) {
+		return nil
+	}
+	wt := m.filteredWts[m.selectedIndex]
+
+	// Get CI checks from cache
+	cached, ok := m.ciCache[wt.Branch]
+	if !ok || len(cached.checks) == 0 {
+		m.showInfo("No CI checks available. Press 'p' to fetch PR data first.", nil)
+		return nil
+	}
+
+	// Build selection items from CI checks
+	items := make([]selectionItem, 0, len(cached.checks))
+	for i, check := range cached.checks {
+		// Build status indicator
+		status := ciIconForConclusion(check.Conclusion)
+		if status == "" {
+			status = check.Status
+		}
+		label := fmt.Sprintf("%s %s", status, check.Name)
+		items = append(items, selectionItem{
+			id:    fmt.Sprintf("%d", i),
+			label: label,
+		})
+	}
+
+	m.listScreen = NewListSelectionScreen(
+		items,
+		labelWithIcon(UIIconCICheck, "Select CI Check", m.config.IconsEnabled()),
+		"Filter checks...",
+		"No CI checks found.",
+		m.windowWidth,
+		m.windowHeight,
+		"",
+		m.theme,
+	)
+
+	// Store checks for later access in submit handler
+	checks := cached.checks
+	m.listSubmit = func(item selectionItem) tea.Cmd {
+		// Keep the selection screen open - don't clear listScreen/listSubmit/currentScreen
+		// This allows users to view multiple checks without reopening the selection
+
+		// Parse the index from item.id
+		var idx int
+		if _, err := fmt.Sscanf(item.id, "%d", &idx); err != nil || idx < 0 || idx >= len(checks) {
+			return nil
+		}
+
+		return m.showCICheckLog(checks[idx])
+	}
+
+	m.currentScreen = screenListSelect
+	return textinput.Blink
 }
 
 // showCICheckLog opens the CI check log in a pager using gh run view.

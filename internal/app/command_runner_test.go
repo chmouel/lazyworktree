@@ -681,3 +681,62 @@ func TestExtractRunIDFromLink(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenCICheckSelectionNoChecks(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.filteredWts = []*models.WorktreeInfo{
+		{
+			Path:   testWorktreePath,
+			Branch: "feat",
+		},
+	}
+	m.selectedIndex = 0
+
+	// No CI checks in cache
+	cmd := m.openCICheckSelection()
+	if cmd != nil {
+		t.Fatal("expected nil command when no CI checks available")
+	}
+	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "No CI checks available") {
+		t.Fatalf("expected info message about no CI checks, got %v", m.infoScreen)
+	}
+}
+
+func TestOpenCICheckSelectionWithChecks(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.filteredWts = []*models.WorktreeInfo{
+		{
+			Path:   testWorktreePath,
+			Branch: "feat",
+		},
+	}
+	m.selectedIndex = 0
+	m.setWindowSize(120, 40)
+
+	// Add CI checks to cache
+	m.ciCache["feat"] = &ciCacheEntry{
+		checks: []*models.CICheck{
+			{Name: "build", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/123"},
+			{Name: "test", Conclusion: "failure", Link: "https://tekton.dev/runs/456"},
+		},
+	}
+
+	cmd := m.openCICheckSelection()
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+
+	// Should have opened the list selection screen
+	if m.currentScreen != screenListSelect {
+		t.Fatalf("expected screenListSelect, got %v", m.currentScreen)
+	}
+	if m.listScreen == nil {
+		t.Fatal("expected listScreen to be set")
+	}
+}

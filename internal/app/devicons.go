@@ -47,6 +47,7 @@ const (
 	UIIconThemeSelect
 	UIIconPRSelect
 	UIIconIssueSelect
+	UIIconCICheck
 	UIIconWorktreeMain
 	UIIconWorktree
 	UIIconStatusClean
@@ -329,6 +330,8 @@ func nerdFontUIIcon(icon UIIcon, prIcon, issueIcon string) string {
 		return prIcon
 	case UIIconIssueSelect:
 		return issueIcon
+	case UIIconCICheck:
+		return "" // CI/workflow icon
 	case UIIconWorktreeMain:
 		return nerdFontUIIconWorktreeMain
 	case UIIconWorktree:
@@ -416,6 +419,8 @@ func emojiUIIcon(icon UIIcon, prIcon, issueIcon string) string {
 		return prIcon
 	case UIIconIssueSelect:
 		return issueIcon
+	case UIIconCICheck:
+		return "⚙️" // CI/workflow icon
 	case UIIconWorktreeMain:
 		return "🌳"
 	case UIIconWorktree:
@@ -503,6 +508,8 @@ func textUIIcon(icon UIIcon, prIcon, issueIcon string) string {
 		return prIcon
 	case UIIconIssueSelect:
 		return issueIcon
+	case UIIconCICheck:
+		return "C" // CI/workflow icon
 	case UIIconWorktreeMain:
 		return textUIIconWorktreeMain
 	case UIIconWorktree:

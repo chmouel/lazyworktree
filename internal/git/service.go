@@ -620,6 +620,11 @@ func (s *Service) IsGitHubOrGitLab(ctx context.Context) bool {
 	return host == gitHostGithub || host == gitHostGitLab
 }
 
+// IsGitHub returns true if the repository is connected to GitHub.
+func (s *Service) IsGitHub(ctx context.Context) bool {
+	return s.DetectHost(ctx) == gitHostGithub
+}
+
 func (s *Service) fetchGitLabPRs(ctx context.Context) (map[string]*models.PRInfo, error) {
 	prRaw := s.RunGit(ctx, []string{"glab", "api", "merge_requests?state=all&per_page=100"}, "", []int{0}, false, false)
 	if prRaw == "" {
@@ -1174,7 +1179,7 @@ func (s *Service) fetchGitHubCI(ctx context.Context, prNumber int) ([]*models.CI
 	// Use gh pr checks to get CI status
 	out := s.RunGit(ctx, []string{
 		"gh", "pr", "checks", fmt.Sprintf("%d", prNumber),
-		"--json", "name,state,bucket",
+		"--json", "name,state,bucket,link",
 	}, "", []int{0, 1, 8}, true, true) // exit code 8 = checks pending
 
 	if out == "" {
@@ -1185,6 +1190,7 @@ func (s *Service) fetchGitHubCI(ctx context.Context, prNumber int) ([]*models.CI
 		Name   string `json:"name"`
 		State  string `json:"state"`
 		Bucket string `json:"bucket"` // pass, fail, pending, skipping, cancel
+		Link   string `json:"link"`   // URL to the check details
 	}
 
 	if err := json.Unmarshal([]byte(out), &checks); err != nil {
@@ -1199,6 +1205,7 @@ func (s *Service) fetchGitHubCI(ctx context.Context, prNumber int) ([]*models.CI
 			Name:       c.Name,
 			Status:     strings.ToLower(c.State),
 			Conclusion: conclusion,
+			Link:       c.Link,
 		})
 	}
 	return result, nil
@@ -1276,6 +1283,7 @@ func (s *Service) fetchGitLabCI(ctx context.Context, branch string) ([]*models.C
 		Jobs []struct {
 			Name   string `json:"name"`
 			Status string `json:"status"`
+			WebURL string `json:"web_url"`
 		} `json:"jobs"`
 	}
 
@@ -1284,6 +1292,7 @@ func (s *Service) fetchGitLabCI(ctx context.Context, branch string) ([]*models.C
 		var jobs []struct {
 			Name   string `json:"name"`
 			Status string `json:"status"`
+			WebURL string `json:"web_url"`
 		}
 		if err2 := json.Unmarshal([]byte(out), &jobs); err2 != nil {
 			return nil, err
@@ -1294,6 +1303,7 @@ func (s *Service) fetchGitLabCI(ctx context.Context, branch string) ([]*models.C
 				Name:       j.Name,
 				Status:     strings.ToLower(j.Status),
 				Conclusion: s.gitlabStatusToConclusion(j.Status),
+				Link:       j.WebURL,
 			})
 		}
 		return result, nil
@@ -1305,6 +1315,7 @@ func (s *Service) fetchGitLabCI(ctx context.Context, branch string) ([]*models.C
 			Name:       j.Name,
 			Status:     strings.ToLower(j.Status),
 			Conclusion: s.gitlabStatusToConclusion(j.Status),
+			Link:       j.WebURL,
 		})
 	}
 	return result, nil

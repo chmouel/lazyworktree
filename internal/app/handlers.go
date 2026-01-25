@@ -431,6 +431,10 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case "v":
+		// Open CI check selection from any pane
+		return m, m.openCICheckSelection()
+
 	case "p":
 		m.ciCache = make(map[string]*ciCacheEntry)
 		m.prDataLoaded = false
