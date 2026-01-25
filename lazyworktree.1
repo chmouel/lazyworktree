@@ -697,6 +697,28 @@ Default: $PAGER, fallback: less --use-color --wordwrap -qcR -P 'Press q to exit.
 When the pager is less, lazyworktree configures LESS= and LESSHISTFILE=- to ignore user defaults.
 .
 .TP
+.B ci_script_pager
+Pager command for CI check logs.
+.br
+When set, runs interactively with direct terminal control (no set -o pipefail or environment adjustments).
+.br
+Falls back to pager if not configured.
+.br
+Example: ci_script_pager: "less -R" or ci_script_pager: "bat --style=plain"
+.PP
+CI-specific environment variables available to ci_script_pager:
+.RS
+.IP \(bu 2
+LW_CI_JOB_NAME \- Name of the CI check/job
+.IP \(bu 2
+LW_CI_JOB_NAME_CLEAN \- Sanitised job name suitable for filenames (lowercase, hyphens only)
+.IP \(bu 2
+LW_CI_RUN_ID \- GitHub Actions run ID (extracted from check URL)
+.IP \(bu 2
+LW_CI_STARTED_AT \- Job start time in ISO 8601 format (if available)
+.RE
+.
+.TP
 .B editor
 Editor command for Status pane file edits.
 .br

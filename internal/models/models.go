@@ -1,6 +1,8 @@
 // Package models defines the data objects shared across lazyworktree packages.
 package models
 
+import "time"
+
 // CommitFile represents a file changed in a commit.
 type CommitFile struct {
 	Filename   string
@@ -38,10 +40,11 @@ type IssueInfo struct {
 
 // CICheck represents a single CI check/job status.
 type CICheck struct {
-	Name       string // Name of the check/job
-	Status     string // Status: "completed", "in_progress", "queued", "pending"
-	Conclusion string // Conclusion: "success", "failure", "skipped", "cancelled", etc.
-	Link       string // URL to the check details page
+	Name       string    // Name of the check/job
+	Status     string    // Status: "completed", "in_progress", "queued", "pending"
+	Conclusion string    // Conclusion: "success", "failure", "skipped", "cancelled", etc.
+	Link       string    // URL to the check details page
+	StartedAt  time.Time // When the check started (zero if not available)
 }
 
 // WorktreeInfo summarizes the information for a git worktree.

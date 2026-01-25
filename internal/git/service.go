@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/chmouel/lazyworktree/internal/commands"
 	"github.com/chmouel/lazyworktree/internal/config"
@@ -1179,7 +1180,7 @@ func (s *Service) fetchGitHubCI(ctx context.Context, prNumber int) ([]*models.CI
 	// Use gh pr checks to get CI status
 	out := s.RunGit(ctx, []string{
 		"gh", "pr", "checks", fmt.Sprintf("%d", prNumber),
-		"--json", "name,state,bucket,link",
+		"--json", "name,state,bucket,link,startedAt",
 	}, "", []int{0, 1, 8}, true, true) // exit code 8 = checks pending
 
 	if out == "" {
@@ -1187,10 +1188,11 @@ func (s *Service) fetchGitHubCI(ctx context.Context, prNumber int) ([]*models.CI
 	}
 
 	var checks []struct {
-		Name   string `json:"name"`
-		State  string `json:"state"`
-		Bucket string `json:"bucket"` // pass, fail, pending, skipping, cancel
-		Link   string `json:"link"`   // URL to the check details
+		Name      string `json:"name"`
+		State     string `json:"state"`
+		Bucket    string `json:"bucket"`    // pass, fail, pending, skipping, cancel
+		Link      string `json:"link"`      // URL to the check details
+		StartedAt string `json:"startedAt"` // ISO 8601 format from GH CLI
 	}
 
 	if err := json.Unmarshal([]byte(out), &checks); err != nil {
@@ -1201,11 +1203,16 @@ func (s *Service) fetchGitHubCI(ctx context.Context, prNumber int) ([]*models.CI
 	for _, c := range checks {
 		// Map bucket to our conclusion format
 		conclusion := s.githubBucketToConclusion(c.Bucket)
+		var startedAt time.Time
+		if c.StartedAt != "" {
+			startedAt, _ = time.Parse(time.RFC3339, c.StartedAt)
+		}
 		result = append(result, &models.CICheck{
 			Name:       c.Name,
 			Status:     strings.ToLower(c.State),
 			Conclusion: conclusion,
 			Link:       c.Link,
+			StartedAt:  startedAt,
 		})
 	}
 	return result, nil
@@ -1281,29 +1288,36 @@ func (s *Service) fetchGitLabCI(ctx context.Context, branch string) ([]*models.C
 
 	var pipeline struct {
 		Jobs []struct {
-			Name   string `json:"name"`
-			Status string `json:"status"`
-			WebURL string `json:"web_url"`
+			Name      string `json:"name"`
+			Status    string `json:"status"`
+			WebURL    string `json:"web_url"`
+			StartedAt string `json:"started_at"` // ISO 8601 format from GitLab
 		} `json:"jobs"`
 	}
 
 	if err := json.Unmarshal([]byte(out), &pipeline); err != nil {
 		// Try parsing as array of jobs directly
 		var jobs []struct {
-			Name   string `json:"name"`
-			Status string `json:"status"`
-			WebURL string `json:"web_url"`
+			Name      string `json:"name"`
+			Status    string `json:"status"`
+			WebURL    string `json:"web_url"`
+			StartedAt string `json:"started_at"` // ISO 8601 format from GitLab
 		}
 		if err2 := json.Unmarshal([]byte(out), &jobs); err2 != nil {
 			return nil, err
 		}
 		result := make([]*models.CICheck, 0, len(jobs))
 		for _, j := range jobs {
+			var startedAt time.Time
+			if j.StartedAt != "" {
+				startedAt, _ = time.Parse(time.RFC3339, j.StartedAt)
+			}
 			result = append(result, &models.CICheck{
 				Name:       j.Name,
 				Status:     strings.ToLower(j.Status),
 				Conclusion: s.gitlabStatusToConclusion(j.Status),
 				Link:       j.WebURL,
+				StartedAt:  startedAt,
 			})
 		}
 		return result, nil
@@ -1311,11 +1325,16 @@ func (s *Service) fetchGitLabCI(ctx context.Context, branch string) ([]*models.C
 
 	result := make([]*models.CICheck, 0, len(pipeline.Jobs))
 	for _, j := range pipeline.Jobs {
+		var startedAt time.Time
+		if j.StartedAt != "" {
+			startedAt, _ = time.Parse(time.RFC3339, j.StartedAt)
+		}
 		result = append(result, &models.CICheck{
 			Name:       j.Name,
 			Status:     strings.ToLower(j.Status),
 			Conclusion: s.gitlabStatusToConclusion(j.Status),
 			Link:       j.WebURL,
+			StartedAt:  startedAt,
 		})
 	}
 	return result, nil

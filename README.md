@@ -15,7 +15,6 @@ Built with [BubbleTea](https://github.com/charmbracelet/bubbletea), it focuses o
 
 ![lazyworktree screenshot](https://github.com/user-attachments/assets/229a4d6d-f26f-4b85-b909-fc28b9c524c2)
 
-
 _See other [Screenshots below](#screenshots)_
 
 ## Features
@@ -432,6 +431,25 @@ git config --local --get-regexp "^lw\."
 * `git_pager_args`: arguments for git_pager. Auto-selects syntax theme for delta.
 * `git_pager_interactive`: set `true` for interactive viewers like `diffnav` or `tig`.
 * `pager`: pager for output display (default: `$PAGER`, fallback to `less`).
+* `ci_script_pager`: pager for CI check logs. When set, runs interactively with direct terminal control (no `set -o pipefail` or environment adjustments). Falls back to `pager` if not configured. This let you for example preprocess the logs with `sed` or another script. For example here is a configuration to remove the date of the GitHub action logs:
+
+```yaml
+ci_script_pager: |
+  sed -E '
+  s/.*[0-9]{4}-[0-9]{2}-[0-9]{2}T([0-9]{2}:[0-9]{2}:[0-9]{2})\.[0-9]+Z[[:space:]]*/\1 /;
+  t;
+  s/.*UNKNOWN STEP[[:space:]]+//' | \
+  tee /tmp/.ci.${LW_CI_JOB_NAME_CLEAN}-${LW_CI_STARTED_AT}.md |
+  less --use-color -q --wordwrap -qcR -P 'Press q to exit..'
+```
+
+CI-specific environment variables available to `ci_script_pager`:
+
+* `LW_CI_JOB_NAME`: Name of the CI check/job
+* `LW_CI_JOB_NAME_CLEAN`: Sanitised job name suitable for filenames (lowercase, hyphens only)
+* `LW_CI_RUN_ID`: GitHub Actions run ID (extracted from check URL)
+* `LW_CI_STARTED_AT`: Job start time in ISO 8601 format (if available)
+
 * `editor`: editor for Status pane `e` key (default: `$EDITOR`, fallback to `nvim`).
 
 **Worktree lifecycle**

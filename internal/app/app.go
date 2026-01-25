@@ -2951,17 +2951,18 @@ func (m *Model) showCICheckLog(check *models.CICheck) tea.Cmd {
 
 	// Build environment variables
 	env := m.buildCommandEnv(wt.Branch, wt.Path)
+
+	// Add CI-specific environment variables
+	env["LW_CI_JOB_NAME"] = check.Name
+	env["LW_CI_JOB_NAME_CLEAN"] = utils.SanitizeBranchName(check.Name, 0)
+	env["LW_CI_RUN_ID"] = runID
+	if !check.StartedAt.IsZero() {
+		env["LW_CI_STARTED_AT"] = check.StartedAt.Format(time.RFC3339)
+	}
+
 	envVars := os.Environ()
 	for k, v := range env {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	// Get pager configuration
-	pager := m.pagerCommand()
-	pagerEnv := m.pagerEnv(pager)
-	pagerCmd := pager
-	if pagerEnv != "" {
-		pagerCmd = fmt.Sprintf("%s %s", pagerEnv, pager)
 	}
 
 	// Use --log-failed for failed checks, --log for others
@@ -2970,8 +2971,22 @@ func (m *Model) showCICheckLog(check *models.CICheck) tea.Cmd {
 		logFlag = "--log-failed"
 	}
 
-	// Build the command to fetch and display logs
-	cmdStr := fmt.Sprintf("set -o pipefail; gh run view %s %s 2>&1 | %s", runID, logFlag, pagerCmd)
+	// Get CI-specific pager configuration
+	pager, isInteractive := m.ciScriptPagerCommand()
+
+	var cmdStr string
+	if isInteractive {
+		// Interactive pager - direct terminal control
+		cmdStr = fmt.Sprintf("gh run view %s %s 2>&1 | %s", runID, logFlag, pager)
+	} else {
+		// Non-interactive pager - use pager environment settings
+		pagerEnv := m.pagerEnv(pager)
+		pagerCmd := pager
+		if pagerEnv != "" {
+			pagerCmd = fmt.Sprintf("%s %s", pagerEnv, pager)
+		}
+		cmdStr = fmt.Sprintf("set -o pipefail; gh run view %s %s 2>&1 | %s", runID, logFlag, pagerCmd)
+	}
 
 	// Create command
 	// #nosec G204 -- command is constructed from controlled inputs
@@ -4220,12 +4235,23 @@ func (m *Model) pagerCommand() string {
 		return pager
 	}
 	if _, err := exec.LookPath("less"); err == nil {
-		return "less --use-color -z-4 -q --wordwrap -qcR -P 'Press q to exit..'"
+		return "less --use-color -q --wordwrap -qcR -P 'Press q to exit..'"
 	}
 	if _, err := exec.LookPath("more"); err == nil {
 		return "more"
 	}
 	return "cat"
+}
+
+// ciScriptPagerCommand returns the pager command for CI logs.
+// Returns (pager, isInteractive) - ci_script_pager is implicitly interactive.
+func (m *Model) ciScriptPagerCommand() (string, bool) {
+	if m.config != nil {
+		if ciPager := strings.TrimSpace(m.config.CIScriptPager); ciPager != "" {
+			return ciPager, true
+		}
+	}
+	return m.pagerCommand(), false
 }
 
 func (m *Model) editorCommand() string {

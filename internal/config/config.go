@@ -86,6 +86,7 @@ type AppConfig struct {
 	TrustMode               string
 	DebugLog                string
 	Pager                   string
+	CIScriptPager           string // Pager for CI check logs, implicitly interactive
 	Editor                  string
 	AutoRefresh             bool
 	RefreshIntervalSeconds  int
@@ -197,6 +198,12 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 		pager = strings.TrimSpace(pager)
 		if pager != "" {
 			cfg.Pager = pager
+		}
+	}
+	if ciScriptPager, ok := data["ci_script_pager"].(string); ok {
+		ciScriptPager = strings.TrimSpace(ciScriptPager)
+		if ciScriptPager != "" {
+			cfg.CIScriptPager = ciScriptPager
 		}
 	}
 	if editor, ok := data["editor"].(string); ok {
@@ -764,6 +771,9 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	}
 	if overrideCfg.Pager != "" {
 		cfg.Pager = overrideCfg.Pager
+	}
+	if overrideCfg.CIScriptPager != "" {
+		cfg.CIScriptPager = overrideCfg.CIScriptPager
 	}
 	if overrideCfg.Editor != "" {
 		cfg.Editor = overrideCfg.Editor

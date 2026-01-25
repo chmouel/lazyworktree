@@ -1711,6 +1711,48 @@ func TestParseConfigPager(t *testing.T) {
 	assert.Equal(t, "less -R", cfg.Pager)
 }
 
+func TestParseConfigCIScriptPager(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]interface{}
+		expected string
+	}{
+		{
+			name:     "basic value",
+			input:    map[string]interface{}{"ci_script_pager": "less -R"},
+			expected: "less -R",
+		},
+		{
+			name:     "empty string is ignored",
+			input:    map[string]interface{}{"ci_script_pager": ""},
+			expected: "",
+		},
+		{
+			name:     "whitespace only is ignored",
+			input:    map[string]interface{}{"ci_script_pager": "   "},
+			expected: "",
+		},
+		{
+			name:     "whitespace is trimmed",
+			input:    map[string]interface{}{"ci_script_pager": "  bat --style=plain  "},
+			expected: "bat --style=plain",
+		},
+		{
+			name:     "not set uses default empty",
+			input:    map[string]interface{}{},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := parseConfig(tt.input)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, cfg.CIScriptPager)
+		})
+	}
+}
+
 func TestSaveConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "lazyworktree", "config.yaml")
