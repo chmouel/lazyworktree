@@ -211,11 +211,11 @@ func TestIntegrationPRAndCIFlowUpdatesView(t *testing.T) {
 
 	updated, cmd := m.Update(worktreesLoadedMsg{worktrees: []*models.WorktreeInfo{wt}})
 	m = updated.(*Model)
-	m.detailsCache[worktreePath] = &detailsCacheEntry{
+	m.setDetailsCache(worktreePath, &detailsCacheEntry{
 		statusRaw: "",
 		logRaw:    "",
 		fetchedAt: time.Now(),
-	}
+	})
 	if cmd != nil {
 		if msg := cmd(); msg != nil {
 			updated, _ = m.Update(msg)
@@ -230,11 +230,11 @@ func TestIntegrationPRAndCIFlowUpdatesView(t *testing.T) {
 	}
 	updated, cmd = m.Update(prMsg)
 	m = updated.(*Model)
-	m.detailsCache[worktreePath] = &detailsCacheEntry{
+	m.setDetailsCache(worktreePath, &detailsCacheEntry{
 		statusRaw: "",
 		logRaw:    "",
 		fetchedAt: time.Now(),
-	}
+	})
 	if cmd != nil {
 		if msg := cmd(); msg != nil {
 			updated, _ = m.Update(msg)

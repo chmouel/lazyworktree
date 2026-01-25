@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -66,14 +67,14 @@ func TestRefreshDetails(t *testing.T) {
 	if len(m.worktreeTable.Rows()) > 0 {
 		m.worktreeTable.SetCursor(0)
 		// Add something to cache
-		m.detailsCache = make(map[string]*detailsCacheEntry)
-		m.detailsCache[wtPath] = &detailsCacheEntry{}
+		m.resetDetailsCache()
+		m.setDetailsCache(wtPath, &detailsCacheEntry{})
 
 		cmd := m.refreshDetails()
 		// Command may or may not be nil depending on updateDetailsView implementation
 		_ = cmd
 		// Cache should be cleared
-		if _, ok := m.detailsCache[wtPath]; ok {
+		if _, ok := m.getDetailsCache(wtPath); ok {
 			t.Error("expected details cache to be cleared")
 		}
 	}
@@ -96,6 +97,42 @@ func TestRefreshDetailsInvalidCursor(t *testing.T) {
 	cmd := m.refreshDetails()
 	if cmd != nil {
 		t.Error("expected nil command for invalid cursor")
+	}
+}
+
+func TestDetailsCacheConcurrentAccess(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	cacheKey := filepath.Join(cfg.WorktreeDir, "wt1")
+	m.resetDetailsCache()
+	m.setDetailsCache(cacheKey, &detailsCacheEntry{})
+
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 2000; j++ {
+				_, _ = m.getDetailsCache(cacheKey)
+			}
+		}()
+	}
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 2000; j++ {
+				m.setDetailsCache(cacheKey, &detailsCacheEntry{})
+				m.deleteDetailsCache(cacheKey)
+			}
+		}()
+	}
+	wg.Wait()
+
+	m.setDetailsCache(cacheKey, &detailsCacheEntry{})
+	if _, ok := m.getDetailsCache(cacheKey); !ok {
+		t.Fatal("expected details cache entry to be set")
 	}
 }
 

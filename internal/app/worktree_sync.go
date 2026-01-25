@@ -169,7 +169,7 @@ func (m *Model) updateFromBase(wt *models.WorktreeInfo) tea.Cmd {
 	}
 
 	// Clear cache so status pane refreshes
-	delete(m.detailsCache, wt.Path)
+	m.deleteDetailsCache(wt.Path)
 
 	cmd := m.commandRunner(args[0], args[1:]...)
 	cmd.Dir = wt.Path
@@ -263,7 +263,7 @@ func (m *Model) runPush(wt *models.WorktreeInfo, args []string) tea.Cmd {
 	}
 
 	// Clear cache so status pane refreshes with latest git status
-	delete(m.detailsCache, wt.Path)
+	m.deleteDetailsCache(wt.Path)
 
 	cmdArgs := append([]string{"push"}, args...)
 	c := m.commandRunner("git", cmdArgs...)
@@ -288,7 +288,7 @@ func (m *Model) runSync(wt *models.WorktreeInfo, pullArgs, pushArgs []string) te
 	}
 
 	// Clear cache so status pane refreshes with latest git status
-	delete(m.detailsCache, wt.Path)
+	m.deleteDetailsCache(wt.Path)
 
 	pullCmdArgs := append([]string{"pull"}, m.syncPullArgs(pullArgs)...)
 	pullCmd := m.commandRunner("git", pullCmdArgs...)

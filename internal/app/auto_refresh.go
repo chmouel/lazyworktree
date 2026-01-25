@@ -58,7 +58,7 @@ func (m *Model) refreshDetails() tea.Cmd {
 	if idx < 0 || idx >= len(m.filteredWts) {
 		return nil
 	}
-	delete(m.detailsCache, m.filteredWts[idx].Path)
+	m.deleteDetailsCache(m.filteredWts[idx].Path)
 	return m.updateDetailsView()
 }
 

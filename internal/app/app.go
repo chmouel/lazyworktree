@@ -349,6 +349,7 @@ type Model struct {
 	notifiedErrors  map[string]bool
 	ciCache         map[string]*ciCacheEntry // branch -> CI checks cache
 	detailsCache    map[string]*detailsCacheEntry
+	detailsCacheMu  sync.RWMutex
 	worktreesLoaded bool
 
 	// Create from current state
@@ -1480,7 +1481,7 @@ func (m *Model) deleteFilesCmd(wt *models.WorktreeInfo, files []*StatusFile) fun
 		}
 
 		// Clear cache so status pane refreshes
-		delete(m.detailsCache, wt.Path)
+		m.deleteDetailsCache(wt.Path)
 		return func() tea.Msg { return refreshCompleteMsg{} }
 	}
 }
@@ -1800,7 +1801,7 @@ func (m *Model) commitAllChanges() tea.Cmd {
 	}
 
 	// Clear cache so status pane refreshes with latest git status
-	delete(m.detailsCache, wt.Path)
+	m.deleteDetailsCache(wt.Path)
 
 	// #nosec G204 -- command is a fixed git command
 	c := m.commandRunner("bash", "-c", "git add -A && git commit")
@@ -1845,7 +1846,7 @@ func (m *Model) commitStagedChanges() tea.Cmd {
 	}
 
 	// Clear cache so status pane refreshes with latest git status
-	delete(m.detailsCache, wt.Path)
+	m.deleteDetailsCache(wt.Path)
 
 	// #nosec G204 -- command is a fixed git command
 	c := m.commandRunner("bash", "-c", "git commit")
@@ -1899,7 +1900,7 @@ func (m *Model) stageCurrentFile(sf StatusFile) tea.Cmd {
 	}
 
 	// Clear cache so status pane refreshes with latest git status
-	delete(m.detailsCache, wt.Path)
+	m.deleteDetailsCache(wt.Path)
 
 	// Run git command in background without suspending the TUI to avoid flicker
 	// #nosec G204 -- command is constructed with quoted filename
@@ -1962,7 +1963,7 @@ func (m *Model) stageDirectory(node *StatusTreeNode) tea.Cmd {
 	}
 
 	// Clear cache so status pane refreshes with latest git status
-	delete(m.detailsCache, wt.Path)
+	m.deleteDetailsCache(wt.Path)
 
 	// Run git command in background without suspending the TUI to avoid flicker
 	// #nosec G204 -- command is constructed with quoted filenames
@@ -4108,13 +4109,41 @@ func (m *Model) getRepoKey() string {
 	return m.repoKey
 }
 
+func (m *Model) getDetailsCache(cacheKey string) (*detailsCacheEntry, bool) {
+	m.detailsCacheMu.RLock()
+	defer m.detailsCacheMu.RUnlock()
+	cached, ok := m.detailsCache[cacheKey]
+	return cached, ok
+}
+
+func (m *Model) setDetailsCache(cacheKey string, entry *detailsCacheEntry) {
+	m.detailsCacheMu.Lock()
+	defer m.detailsCacheMu.Unlock()
+	if m.detailsCache == nil {
+		m.detailsCache = make(map[string]*detailsCacheEntry)
+	}
+	m.detailsCache[cacheKey] = entry
+}
+
+func (m *Model) deleteDetailsCache(cacheKey string) {
+	m.detailsCacheMu.Lock()
+	defer m.detailsCacheMu.Unlock()
+	delete(m.detailsCache, cacheKey)
+}
+
+func (m *Model) resetDetailsCache() {
+	m.detailsCacheMu.Lock()
+	defer m.detailsCacheMu.Unlock()
+	m.detailsCache = make(map[string]*detailsCacheEntry)
+}
+
 func (m *Model) getCachedDetails(wt *models.WorktreeInfo) (string, string, map[string]bool, map[string]bool) {
 	if wt == nil || strings.TrimSpace(wt.Path) == "" {
 		return "", "", nil, nil
 	}
 
 	cacheKey := wt.Path
-	if cached, ok := m.detailsCache[cacheKey]; ok {
+	if cached, ok := m.getDetailsCache(cacheKey); ok {
 		if time.Since(cached.fetchedAt) < detailsCacheTTL {
 			return cached.statusRaw, cached.logRaw, cached.unpushedSHAs, cached.unmergedSHAs
 		}
@@ -4146,13 +4175,13 @@ func (m *Model) getCachedDetails(wt *models.WorktreeInfo) (string, string, map[s
 		}
 	}
 
-	m.detailsCache[cacheKey] = &detailsCacheEntry{
+	m.setDetailsCache(cacheKey, &detailsCacheEntry{
 		statusRaw:    statusRaw,
 		logRaw:       logRaw,
 		unpushedSHAs: unpushedSHAs,
 		unmergedSHAs: unmergedSHAs,
 		fetchedAt:    time.Now(),
-	}
+	})
 
 	return statusRaw, logRaw, unpushedSHAs, unmergedSHAs
 }

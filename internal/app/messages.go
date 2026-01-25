@@ -57,7 +57,7 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 			wt.LastSwitchedTS = ts
 		}
 	}
-	m.detailsCache = make(map[string]*detailsCacheEntry)
+	m.resetDetailsCache()
 	m.ensureRepoConfig()
 
 	// If we have a pending selection (newly created worktree), record access first
