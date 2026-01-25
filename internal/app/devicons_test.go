@@ -204,8 +204,8 @@ func TestCombinedStatusIndicator(t *testing.T) {
 		{"clean_synced_text", false, true, 0, 0, 0, false, "  -", "text"},
 		{"clean_synced_icons", false, true, 0, 0, 0, true, "  -", "nerdFont"},
 		// Dirty only
-		{"dirty_only_text", true, true, 0, 0, 0, false, "~", "text"},
-		{"dirty_only_icons", true, true, 0, 0, 0, true, nerdFontUIIconStatusDirty, "nerdFont"},
+		{"dirty_only_text", true, true, 0, 0, 0, false, "~ -", "text"},
+		{"dirty_only_icons", true, true, 0, 0, 0, true, nerdFontUIIconStatusDirty + " -", "nerdFont"},
 		// Ahead only
 		{"ahead_only_text", false, true, 3, 0, 0, false, "  ↑3", "text"},
 		{"ahead_only_icons", false, true, 3, 0, 0, true, "  ↑3", "nerdFont"},
