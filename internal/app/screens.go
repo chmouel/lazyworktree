@@ -1145,7 +1145,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 
 **{{HELP_WORKTREE_ACTIONS}}Worktree Actions**
 - c: Create new worktree (branch, commit, PR/MR, issue, or custom)
-- Create from current: suggested name is pre-filled, you may edit it
+- Create from current: supply an explicit name or leave empty for auto-generation
 - Existing local branch: choose to checkout the branch or create a new one based on it
 - Tab / Shift+Tab: Move focus to the "Include current file changes" checkbox
 - Space: Toggle "Include current file changes"

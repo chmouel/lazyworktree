@@ -130,9 +130,9 @@ func createCommand() *appiCli.Command {
 				Name:  "from-pr",
 				Usage: "Create worktree from PR number",
 			},
-			&appiCli.StringFlag{
-				Name:  "name",
-				Usage: "Name for the new worktree/branch (defaults to sanitised source branch name)",
+			&appiCli.BoolFlag{
+				Name:  "generate",
+				Usage: "Generate name automatically from the current branch",
 			},
 			&appiCli.BoolFlag{
 				Name:  "with-change",
@@ -176,7 +176,8 @@ func deleteCommand() *appiCli.Command {
 func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 	fromBranch := cmd.String("from-branch")
 	fromPR := cmd.Int("from-pr")
-	name := cmd.String("name")
+	hasName := len(cmd.Args().Slice()) > 0
+	generate := cmd.Bool("generate")
 	withChange := cmd.Bool("with-change")
 
 	// Mutual exclusivity: from-branch and from-pr
@@ -184,9 +185,14 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 		return fmt.Errorf("--from-branch and --from-pr are mutually exclusive")
 	}
 
-	// Name cannot be used with from-pr
-	if name != "" && fromPR > 0 {
-		return fmt.Errorf("--name cannot be used with --from-pr")
+	// Generate flag cannot be used with positional name argument
+	if generate && hasName {
+		return fmt.Errorf("--generate flag cannot be used with a positional name argument")
+	}
+
+	// Name (positional arg) cannot be used with from-pr
+	if hasName && fromPR > 0 {
+		return fmt.Errorf("positional name argument cannot be used with --from-pr")
 	}
 
 	// with-change cannot be used with from-pr
@@ -215,9 +221,15 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	// Extract command-specific flags
 	fromPR := cmd.Int("from-pr")
 	fromBranch := cmd.String("from-branch")
-	name := cmd.String("name")
+	generate := cmd.Bool("generate")
 	withChange := cmd.Bool("with-change")
 	silent := cmd.Bool("silent")
+
+	// Get name from positional argument if provided
+	var name string
+	if len(cmd.Args().Slice()) > 0 && !generate {
+		name = cmd.Args().Get(0)
+	}
 
 	// Execute appropriate operation
 	var opErr error

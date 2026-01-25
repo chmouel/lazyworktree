@@ -37,18 +37,18 @@ func TestHandleCreateValidation(t *testing.T) {
 		},
 		{
 			name:        "valid from-branch with branch name",
-			args:        []string{"lazyworktree", "create", "--from-branch", "main", "--name", "feature-1"},
+			args:        []string{"lazyworktree", "create", "--from-branch", "main", "feature-1"},
 			expectError: false,
 		},
 		{
 			name:        "branch name with from-pr",
-			args:        []string{"lazyworktree", "create", "--from-pr", "123", "--name", "my-branch"},
+			args:        []string{"lazyworktree", "create", "--from-pr", "123", "my-branch"},
 			expectError: true,
-			errorMsg:    "--name cannot be used with --from-pr",
+			errorMsg:    "positional name argument cannot be used with --from-pr",
 		},
 		{
 			name:        "from-branch with branch name and with-change",
-			args:        []string{"lazyworktree", "create", "--from-branch", "main", "--name", "feature-1", "--with-change"},
+			args:        []string{"lazyworktree", "create", "--from-branch", "main", "feature-1", "--with-change"},
 			expectError: false,
 		},
 		{
@@ -58,7 +58,7 @@ func TestHandleCreateValidation(t *testing.T) {
 		},
 		{
 			name:        "branch name only (current branch + explicit name)",
-			args:        []string{"lazyworktree", "create", "--name", "my-feature"},
+			args:        []string{"lazyworktree", "create", "my-feature"},
 			expectError: false,
 		},
 		{
@@ -68,7 +68,7 @@ func TestHandleCreateValidation(t *testing.T) {
 		},
 		{
 			name:        "branch name and with-change (current branch + explicit name + changes)",
-			args:        []string{"lazyworktree", "create", "--name", "my-feature", "--with-change"},
+			args:        []string{"lazyworktree", "create", "my-feature", "--with-change"},
 			expectError: false,
 		},
 		{
@@ -76,6 +76,28 @@ func TestHandleCreateValidation(t *testing.T) {
 			args:        []string{"lazyworktree", "create", "--from-pr", "123", "--with-change"},
 			expectError: true,
 			errorMsg:    "--with-change cannot be used with --from-pr",
+		},
+		{
+			name:        "generate flag (valid)",
+			args:        []string{"lazyworktree", "create", "--generate"},
+			expectError: false,
+		},
+		{
+			name:        "generate flag with from-branch (valid)",
+			args:        []string{"lazyworktree", "create", "--from-branch", "main", "--generate"},
+			expectError: false,
+		},
+		{
+			name:        "generate flag with positional name (invalid)",
+			args:        []string{"lazyworktree", "create", "--generate", "my-feature"},
+			expectError: true,
+			errorMsg:    "--generate flag cannot be used with a positional name argument",
+		},
+		{
+			name:        "generate flag with positional name and from-branch (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-branch", "main", "--generate", "my-feature"},
+			expectError: true,
+			errorMsg:    "--generate flag cannot be used with a positional name argument",
 		},
 	}
 

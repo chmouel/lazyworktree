@@ -175,6 +175,7 @@ The worktree/branch name can be specified explicitly or auto-generated:
 * **Specific branch + explicit name:** `lw create --from-branch main my-feature`
 * **Current branch + auto-generated:** `lw create` uses current branch name
 * **Specific branch + auto-generated:** `lw create --from-branch feature/cool-thing` creates "feature-cool-thing"
+* **Force auto-generation:** `lw create --generate` forces automatic name generation even if a positional argument is provided
 * Names are automatically sanitised to lowercase alphanumeric characters with hyphens
 
 **Create from a PR:**
