@@ -163,10 +163,10 @@ lazyworktree create my-feature --with-change
 
 ```bash
 # Explicit name
-lazyworktree create --from-branch main my-feature [--with-change] [--silent]
+lazyworktree create --from-branch main my-feature [--with-change] [--silent] [--output-selection /tmp/selection]
 
 # Auto-generated name (sanitised from source branch)
-lazyworktree create --from-branch feature/new-feature [--with-change] [--silent]
+lazyworktree create --from-branch feature/new-feature [--with-change] [--silent] [--output-selection /tmp/selection]
 ```
 
 The worktree/branch name can be specified explicitly or auto-generated:
@@ -181,7 +181,7 @@ The worktree/branch name can be specified explicitly or auto-generated:
 **Create from a PR:**
 
 ```bash
-lazyworktree create --from-pr 123 [--silent]
+lazyworktree create --from-pr 123 [--silent] [--output-selection /tmp/selection]
 ```
 
 ### Deleting Worktrees

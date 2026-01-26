@@ -375,6 +375,14 @@ func TestCreateFromBranch(t *testing.T) {
 
 	ctx := context.Background()
 	tmpDir := t.TempDir()
+	oldMkdirAll := osMkdirAll
+	oldStat := osStat
+	t.Cleanup(func() {
+		osMkdirAll = oldMkdirAll
+		osStat = oldStat
+	})
+	osMkdirAll = os.MkdirAll
+	osStat = os.Stat
 	cfg := &config.AppConfig{
 		WorktreeDir:  tmpDir,
 		InitCommands: []string{},
@@ -388,7 +396,7 @@ func TestCreateFromBranch(t *testing.T) {
 			},
 		}
 
-		err := CreateFromBranch(ctx, svc, cfg, "nonexistent", "", false, false)
+		_, err := CreateFromBranch(ctx, svc, cfg, "nonexistent", "", false, false)
 		if err == nil {
 			t.Fatal("expected error for nonexistent branch")
 		}
@@ -413,7 +421,7 @@ func TestCreateFromBranch(t *testing.T) {
 		}
 
 		// Provide explicit worktreeName to avoid random generation
-		err := CreateFromBranch(ctx, svc, cfg, branchName, worktreeName, false, false)
+		_, err := CreateFromBranch(ctx, svc, cfg, branchName, worktreeName, false, false)
 		if err == nil {
 			t.Fatal("expected error for existing path")
 		}
@@ -437,9 +445,12 @@ func TestCreateFromBranch(t *testing.T) {
 			},
 		}
 
-		err := CreateFromBranch(ctx, svc, cfg, branchName, "", false, true)
+		outputPath, err := CreateFromBranch(ctx, svc, cfg, branchName, "", false, true)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if outputPath == "" {
+			t.Fatal("expected output path to be returned")
 		}
 	})
 
@@ -462,9 +473,12 @@ func TestCreateFromBranch(t *testing.T) {
 			},
 		}
 
-		err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true)
+		outputPath, err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if outputPath == "" {
+			t.Fatal("expected output path to be returned")
 		}
 
 		// Verify the worktree was created with the explicit name
@@ -493,9 +507,12 @@ func TestCreateFromBranch(t *testing.T) {
 			},
 		}
 
-		err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true)
+		outputPath, err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if outputPath == "" {
+			t.Fatal("expected output path to be returned")
 		}
 
 		// Verify the name was sanitised
@@ -517,7 +534,7 @@ func TestCreateFromBranch(t *testing.T) {
 			},
 		}
 
-		err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true)
+		_, err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true)
 		if err == nil {
 			t.Fatal("expected error for invalid worktree name")
 		}

@@ -131,7 +131,10 @@ Carry over uncommitted changes to the new worktree. Works with current branch or
 .
 .TP
 .B \-\-silent
-Suppress all progress messages to stderr. Only the worktree path is written to stdout. Useful for scripting and automation.
+Suppress all progress messages to stderr. Only the worktree path is written to stdout unless \-\-output\-selection is used. Useful for scripting and automation.
+.TP
+.B \-\-output\-selection \fIFILE\fR
+Write the created worktree path to FILE. When set, stdout output is suppressed.
 .
 .SS delete
 Delete a worktree without launching the TUI. Legacy alias: \fBwt-delete\fR.

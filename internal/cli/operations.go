@@ -35,10 +35,10 @@ type gitService interface {
 var _ gitService = (*git.Service)(nil)
 
 // CreateFromBranch creates a worktree from a branch name.
-func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) error {
+func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) (string, error) {
 	// Validate branch exists
 	if !branchExists(ctx, gitSvc, branchName) {
-		return fmt.Errorf("branch %q does not exist", branchName)
+		return "", fmt.Errorf("branch %q does not exist", branchName)
 	}
 
 	// Get current worktree if --with-change is specified
@@ -48,7 +48,7 @@ func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppCon
 		var err error
 		currentWt, hasChanges, err = getCurrentWorktreeWithChanges(ctx, gitSvc)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		if !hasChanges {
@@ -71,7 +71,7 @@ func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppCon
 		// Validate and sanitise user-provided name
 		sanitised := utils.SanitizeBranchName(worktreeName, 100)
 		if sanitised == "" {
-			return fmt.Errorf("invalid worktree name: must contain at least one alphanumeric character")
+			return "", fmt.Errorf("invalid worktree name: must contain at least one alphanumeric character")
 		}
 		worktreeName = sanitised
 	}
@@ -80,14 +80,14 @@ func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppCon
 
 	// Check for path conflicts
 	if _, err := osStat(targetPath); err == nil {
-		return fmt.Errorf("path already exists: %s", targetPath)
+		return "", fmt.Errorf("path already exists: %s", targetPath)
 	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to check path %s: %w", targetPath, err)
+		return "", fmt.Errorf("failed to check path %s: %w", targetPath, err)
 	}
 
 	// Create parent directory
 	if err := osMkdirAll(filepath.Dir(targetPath), utils.DefaultDirPerms); err != nil {
-		return fmt.Errorf("failed to create worktree directory: %w", err)
+		return "", fmt.Errorf("failed to create worktree directory: %w", err)
 	}
 
 	if !silent {
@@ -97,55 +97,60 @@ func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppCon
 	// Create worktree with or without changes
 	if withChange && hasChanges && currentWt != nil {
 		if err := createWorktreeWithChanges(ctx, gitSvc, cfg, currentWt, branchName, worktreeName, targetPath, silent); err != nil {
-			return err
+			return "", err
 		}
 	} else {
-		// Create worktree normally
-		args := []string{"git", "worktree", "add"}
-
-		// Determine if we need to create a new branch
-		switch {
-		case strings.Contains(branchName, "/"):
-			// Remote branch - create new local branch with tracking
-			args = append(args, "-b", worktreeName, "--track", targetPath, branchName)
-		case worktreeName != branchName:
-			// Creating a new branch with a different name (e.g., random name)
-			// Always use -b to create the new branch based on the source branch
-			args = append(args, "-b", worktreeName, targetPath, branchName)
-		default:
-			// Worktree name matches branch name - check if branch already exists
-			localBranchExists := gitSvc.RunGit(
-				ctx,
-				[]string{"git", "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", branchName)},
-				"",
-				[]int{0, 1},
-				true,
-				true,
-			)
-
-			if strings.TrimSpace(localBranchExists) != "" {
-				// Local branch exists - checkout without creating new branch
-				args = append(args, targetPath, branchName)
-			} else {
-				// Local branch doesn't exist - create it
-				args = append(args, "-b", worktreeName, targetPath, branchName)
-			}
-		}
-
-		if !gitSvc.RunCommandChecked(ctx, args, "", fmt.Sprintf("Failed to create worktree from branch %s", branchName)) {
-			return fmt.Errorf("failed to create worktree")
-		}
-
-		// Run init commands
-		if err := runInitCommands(ctx, gitSvc, cfg, worktreeName, targetPath, silent); err != nil {
-			// Clean up the worktree if init commands fail
-			gitSvc.RunCommandChecked(ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", "Failed to cleanup worktree")
-			return err
+		if err := createWorktreeFromBranch(ctx, gitSvc, cfg, branchName, worktreeName, targetPath, silent); err != nil {
+			return "", err
 		}
 	}
 
-	// Output only the path to stdout
-	fmt.Println(targetPath)
+	return targetPath, nil
+}
+
+func createWorktreeFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branchName, worktreeName, targetPath string, silent bool) error {
+	// Create worktree normally
+	args := []string{"git", "worktree", "add"}
+
+	// Determine if we need to create a new branch
+	switch {
+	case strings.Contains(branchName, "/"):
+		// Remote branch - create new local branch with tracking
+		args = append(args, "-b", worktreeName, "--track", targetPath, branchName)
+	case worktreeName != branchName:
+		// Creating a new branch with a different name (e.g., random name)
+		// Always use -b to create the new branch based on the source branch
+		args = append(args, "-b", worktreeName, targetPath, branchName)
+	default:
+		// Worktree name matches branch name - check if branch already exists
+		localBranchExists := gitSvc.RunGit(
+			ctx,
+			[]string{"git", "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", branchName)},
+			"",
+			[]int{0, 1},
+			true,
+			true,
+		)
+
+		if strings.TrimSpace(localBranchExists) != "" {
+			// Local branch exists - checkout without creating new branch
+			args = append(args, targetPath, branchName)
+		} else {
+			// Local branch doesn't exist - create it
+			args = append(args, "-b", worktreeName, targetPath, branchName)
+		}
+	}
+
+	if !gitSvc.RunCommandChecked(ctx, args, "", fmt.Sprintf("Failed to create worktree from branch %s", branchName)) {
+		return fmt.Errorf("failed to create worktree")
+	}
+
+	// Run init commands
+	if err := runInitCommands(ctx, gitSvc, cfg, worktreeName, targetPath, silent); err != nil {
+		// Clean up the worktree if init commands fail
+		gitSvc.RunCommandChecked(ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", "Failed to cleanup worktree")
+		return err
+	}
 
 	return nil
 }
@@ -173,7 +178,7 @@ func generateUniqueWorktreeName(cfg *config.AppConfig, repoName, branchName stri
 }
 
 // CreateFromPR creates a worktree from a PR number.
-func CreateFromPR(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, prNumber int, silent bool) error {
+func CreateFromPR(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, prNumber int, silent bool) (string, error) {
 	if !silent {
 		fmt.Fprintf(os.Stderr, "Fetching PR #%d...\n", prNumber)
 	}
@@ -181,7 +186,7 @@ func CreateFromPR(ctx context.Context, gitSvc gitService, cfg *config.AppConfig,
 	// Fetch all PRs to find the specific one
 	prs, err := gitSvc.FetchAllOpenPRs(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to fetch PRs: %w", err)
+		return "", fmt.Errorf("failed to fetch PRs: %w", err)
 	}
 
 	// Find the PR with the specified number
@@ -194,7 +199,7 @@ func CreateFromPR(ctx context.Context, gitSvc gitService, cfg *config.AppConfig,
 	}
 
 	if selectedPR == nil {
-		return fmt.Errorf("PR #%d not found (must be an open PR)", prNumber)
+		return "", fmt.Errorf("PR #%d not found (must be an open PR)", prNumber)
 	}
 
 	// Generate branch name using template
@@ -210,32 +215,29 @@ func CreateFromPR(ctx context.Context, gitSvc gitService, cfg *config.AppConfig,
 
 	// Check for path conflicts
 	if _, err := osStat(targetPath); err == nil {
-		return fmt.Errorf("path already exists: %s", targetPath)
+		return "", fmt.Errorf("path already exists: %s", targetPath)
 	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to check path %s: %w", targetPath, err)
+		return "", fmt.Errorf("failed to check path %s: %w", targetPath, err)
 	}
 
 	// Create parent directory
 	if err := osMkdirAll(filepath.Dir(targetPath), utils.DefaultDirPerms); err != nil {
-		return fmt.Errorf("failed to create worktree directory: %w", err)
+		return "", fmt.Errorf("failed to create worktree directory: %w", err)
 	}
 
 	// Create worktree from PR
 	if !gitSvc.CreateWorktreeFromPR(ctx, selectedPR.Number, selectedPR.Branch, branchName, targetPath) {
-		return fmt.Errorf("failed to create worktree from PR #%d", selectedPR.Number)
+		return "", fmt.Errorf("failed to create worktree from PR #%d", selectedPR.Number)
 	}
 
 	// Run init commands
 	if err := runInitCommands(ctx, gitSvc, cfg, branchName, targetPath, silent); err != nil {
 		// Clean up the worktree if init commands fail
 		gitSvc.RunCommandChecked(ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", "Failed to cleanup worktree")
-		return err
+		return "", err
 	}
 
-	// Output only the path to stdout
-	fmt.Println(targetPath)
-
-	return nil
+	return targetPath, nil
 }
 
 // DeleteWorktree deletes a worktree. If worktreePath is empty, lists available worktrees.

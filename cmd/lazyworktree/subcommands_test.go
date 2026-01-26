@@ -2,8 +2,14 @@ package main
 
 import (
 	"context"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/chmouel/lazyworktree/internal/config"
+	"github.com/chmouel/lazyworktree/internal/git"
 	urfavecli "github.com/urfave/cli/v3"
 )
 
@@ -134,6 +140,135 @@ func TestHandleCreateValidation(t *testing.T) {
 			// Restore original action
 			cmd.Action = savedAction
 		})
+	}
+}
+
+func TestHandleCreateOutputSelection(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputFile := filepath.Join(tmpDir, "output.txt")
+	expectedPath := filepath.Join(tmpDir, "repo", "feature")
+
+	oldLoadCLIConfig := loadCLIConfigFunc
+	oldNewCLIGitService := newCLIGitServiceFunc
+	oldCreateFromBranch := createFromBranchFunc
+	oldCreateFromPR := createFromPRFunc
+	oldWriteOutputSelection := writeOutputSelectionFunc
+	t.Cleanup(func() {
+		loadCLIConfigFunc = oldLoadCLIConfig
+		newCLIGitServiceFunc = oldNewCLIGitService
+		createFromBranchFunc = oldCreateFromBranch
+		createFromPRFunc = oldCreateFromPR
+		writeOutputSelectionFunc = oldWriteOutputSelection
+	})
+
+	loadCLIConfigFunc = func(string, string, []string) (*config.AppConfig, error) {
+		return &config.AppConfig{WorktreeDir: tmpDir}, nil
+	}
+	newCLIGitServiceFunc = func(*config.AppConfig) *git.Service {
+		return &git.Service{}
+	}
+	createFromBranchFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _, _ string, _, _ bool) (string, error) {
+		return expectedPath, nil
+	}
+	createFromPRFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ bool) (string, error) {
+		return "", os.ErrInvalid
+	}
+	writeOutputSelectionFunc = writeOutputSelection
+
+	cmd := createCommand()
+	app := &urfavecli.Command{
+		Name:     "lazyworktree",
+		Commands: []*urfavecli.Command{cmd},
+	}
+
+	origStdout := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to capture stdout: %v", err)
+	}
+	os.Stdout = writer
+	t.Cleanup(func() {
+		_ = writer.Close()
+		os.Stdout = origStdout
+	})
+
+	args := []string{"lazyworktree", "create", "--from-branch", "main", "--output-selection", outputFile}
+	if err := app.Run(context.Background(), args); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	_ = writer.Close()
+	// #nosec G304 - test file operations with t.TempDir() are safe
+	output, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+	if string(output) != expectedPath+"\n" {
+		t.Fatalf("expected output %q, got %q", expectedPath+"\n", string(output))
+	}
+
+	stdoutBytes, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("failed to read stdout: %v", err)
+	}
+	if strings.TrimSpace(string(stdoutBytes)) != "" {
+		t.Fatalf("expected no stdout output, got %q", string(stdoutBytes))
+	}
+}
+
+func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputFile := filepath.Join(tmpDir, "output.txt")
+	const filePerms = 0o600
+	if err := os.WriteFile(outputFile, []byte("existing\n"), filePerms); err != nil {
+		t.Fatalf("failed to seed output file: %v", err)
+	}
+
+	oldLoadCLIConfig := loadCLIConfigFunc
+	oldNewCLIGitService := newCLIGitServiceFunc
+	oldCreateFromBranch := createFromBranchFunc
+	oldCreateFromPR := createFromPRFunc
+	oldWriteOutputSelection := writeOutputSelectionFunc
+	t.Cleanup(func() {
+		loadCLIConfigFunc = oldLoadCLIConfig
+		newCLIGitServiceFunc = oldNewCLIGitService
+		createFromBranchFunc = oldCreateFromBranch
+		createFromPRFunc = oldCreateFromPR
+		writeOutputSelectionFunc = oldWriteOutputSelection
+	})
+
+	loadCLIConfigFunc = func(string, string, []string) (*config.AppConfig, error) {
+		return &config.AppConfig{WorktreeDir: tmpDir}, nil
+	}
+	newCLIGitServiceFunc = func(*config.AppConfig) *git.Service {
+		return &git.Service{}
+	}
+	createFromBranchFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _, _ string, _, _ bool) (string, error) {
+		return "", os.ErrInvalid
+	}
+	createFromPRFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ bool) (string, error) {
+		return "", os.ErrInvalid
+	}
+	writeOutputSelectionFunc = writeOutputSelection
+
+	cmd := createCommand()
+	app := &urfavecli.Command{
+		Name:     "lazyworktree",
+		Commands: []*urfavecli.Command{cmd},
+	}
+
+	args := []string{"lazyworktree", "create", "--from-branch", "main", "--output-selection", outputFile}
+	if err := app.Run(context.Background(), args); err == nil {
+		t.Fatal("expected error")
+	}
+
+	// #nosec G304 - test file operations with t.TempDir() are safe
+	output, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+	if string(output) != "existing\n" {
+		t.Fatalf("expected output file to remain unchanged, got %q", string(output))
 	}
 }
 

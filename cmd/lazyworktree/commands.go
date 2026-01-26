@@ -5,12 +5,33 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/chmouel/lazyworktree/internal/cli"
+	"github.com/chmouel/lazyworktree/internal/config"
+	"github.com/chmouel/lazyworktree/internal/git"
 	"github.com/chmouel/lazyworktree/internal/log"
+	"github.com/chmouel/lazyworktree/internal/utils"
 	appiCli "github.com/urfave/cli/v3"
+)
+
+type (
+	createFromBranchFuncType func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) (string, error)
+	createFromPRFuncType     func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, silent bool) (string, error)
+)
+
+var (
+	loadCLIConfigFunc                             = loadCLIConfig
+	newCLIGitServiceFunc                          = newCLIGitService
+	createFromBranchFunc createFromBranchFuncType = func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) (string, error) {
+		return cli.CreateFromBranch(ctx, gitSvc, cfg, branchName, worktreeName, withChange, silent)
+	}
+	createFromPRFunc createFromPRFuncType = func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, silent bool) (string, error) {
+		return cli.CreateFromPR(ctx, gitSvc, cfg, prNumber, silent)
+	}
+	writeOutputSelectionFunc = writeOutputSelection
 )
 
 // handleSubcommandCompletion checks if completion is being requested and outputs flags.
@@ -142,6 +163,10 @@ func createCommand() *appiCli.Command {
 				Name:  "silent",
 				Usage: "Suppress progress messages",
 			},
+			&appiCli.StringFlag{
+				Name:  "output-selection",
+				Usage: "Write created worktree path to a file",
+			},
 		},
 	}
 }
@@ -206,7 +231,7 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 // handleCreateAction handles the create subcommand action.
 func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	// Load config with global flags
-	cfg, err := loadCLIConfig(
+	cfg, err := loadCLIConfigFunc(
 		cmd.String("config-file"),
 		cmd.String("worktree-dir"),
 		cmd.StringSlice("config"),
@@ -216,7 +241,7 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 		return err
 	}
 
-	gitSvc := newCLIGitService(cfg)
+	gitSvc := newCLIGitServiceFunc(cfg)
 
 	// Extract command-specific flags
 	fromPR := cmd.Int("from-pr")
@@ -232,10 +257,13 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	}
 
 	// Execute appropriate operation
-	var opErr error
+	var (
+		opErr      error
+		outputPath string
+	)
 	if fromPR > 0 {
 		// Create from PR
-		opErr = cli.CreateFromPR(ctx, gitSvc, cfg, fromPR, silent)
+		outputPath, opErr = createFromPRFunc(ctx, gitSvc, cfg, fromPR, silent)
 	} else {
 		// Create from branch (either specified or current)
 		sourceBranch := fromBranch
@@ -256,7 +284,7 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 			}
 		}
 
-		opErr = cli.CreateFromBranch(ctx, gitSvc, cfg, sourceBranch, name, withChange, silent)
+		outputPath, opErr = createFromBranchFunc(ctx, gitSvc, cfg, sourceBranch, name, withChange, silent)
 	}
 
 	if opErr != nil {
@@ -265,7 +293,40 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 		return opErr
 	}
 
+	if outputSelection := cmd.String("output-selection"); outputSelection != "" {
+		if err := writeOutputSelectionFunc(outputSelection, outputPath); err != nil {
+			_ = log.Close()
+			return err
+		}
+		_ = log.Close()
+		return nil
+	}
+
+	if outputPath != "" {
+		fmt.Println(outputPath)
+	}
+
 	_ = log.Close()
+	return nil
+}
+
+func writeOutputSelection(outputSelection, outputPath string) error {
+	expanded, err := utils.ExpandPath(outputSelection)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error expanding output-selection: %v\n", err)
+		return err
+	}
+	const defaultDirPerms = 0o750
+	if err := os.MkdirAll(filepath.Dir(expanded), defaultDirPerms); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output-selection dir: %v\n", err)
+		return err
+	}
+	const defaultFilePerms = 0o600
+	data := outputPath + "\n"
+	if err := os.WriteFile(expanded, []byte(data), defaultFilePerms); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing output-selection: %v\n", err)
+		return err
+	}
 	return nil
 }
 

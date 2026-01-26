@@ -25,7 +25,7 @@ func TestCreateFromPR_NotFound(t *testing.T) {
 
 	cfg := &config.AppConfig{WorktreeDir: "/worktrees", PRBranchNameTemplate: "pr-{number}-{title}"}
 
-	if err := CreateFromPR(ctx, svc, cfg, 99, true); err == nil {
+	if _, err := CreateFromPR(ctx, svc, cfg, 99, true); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -57,7 +57,7 @@ func TestCreateFromPR_ExistingPath(t *testing.T) {
 	}
 	cfg := &config.AppConfig{WorktreeDir: "/worktrees", PRBranchNameTemplate: "pr-{number}-{title}"}
 
-	if err := CreateFromPR(ctx, svc, cfg, 1, true); err == nil {
+	if _, err := CreateFromPR(ctx, svc, cfg, 1, true); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -89,7 +89,7 @@ func TestCreateFromPR_MkdirFailure(t *testing.T) {
 	}
 	cfg := &config.AppConfig{WorktreeDir: "/worktrees", PRBranchNameTemplate: "pr-{number}-{title}"}
 
-	if err := CreateFromPR(ctx, svc, cfg, 1, true); err == nil {
+	if _, err := CreateFromPR(ctx, svc, cfg, 1, true); err == nil {
 		t.Fatalf("expected error")
 	}
 }
