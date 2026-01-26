@@ -86,7 +86,7 @@ func (m *Model) computeLayout() layoutDims {
 	leftRatio := 0.55
 	switch m.focusedPane {
 	case 0:
-		leftRatio = 0.60
+		leftRatio = 0.45
 	case 1, 2:
 		leftRatio = 0.20
 	}
@@ -117,9 +117,9 @@ func (m *Model) computeLayout() layoutDims {
 	topRatio := 0.70
 	switch m.focusedPane {
 	case 1: // Status focused → give more height to top pane
-		topRatio = 0.82
+		topRatio = 0.50
 	case 2: // Log focused → give more height to bottom pane
-		topRatio = 0.30
+		topRatio = 0.50
 	}
 
 	rightTopHeight := maxInt(int(float64(bodyHeight-gapY)*topRatio), 6)
