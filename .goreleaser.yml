@@ -92,8 +92,12 @@ nfpms:
     contents:
       - src: config.example.yaml
         dst: /usr/share/doc/lazyworktree/config.example.yaml
-      - src: shell/functions.shell
-        dst: /usr/share/lazyworktree/functions.shell
+      - src: shell/functions.bash
+        dst: /usr/share/lazyworktree/functions.bash
+      - src: shell/functions.zsh
+        dst: /usr/share/lazyworktree/functions.zsh
+      - src: shell/functions.fish
+        dst: /usr/share/lazyworktree/functions.fish
       - src: lazyworktree.1
         dst: /usr/share/man/man1/lazyworktree.1
       - src: completions/lazyworktree.bash
@@ -169,7 +173,9 @@ aurs:
       install -Dm644 "./config.example.yaml" "${pkgdir}/usr/share/doc/lazyworktree/config.example.yaml"
 
       # shell functions
-      install -Dm644 "./shell/functions.shell" "${pkgdir}/usr/share/lazyworktree/functions.shell"
+      install -Dm644 "./shell/functions.bash" "${pkgdir}/usr/share/lazyworktree/functions.bash"
+      install -Dm644 "./shell/functions.zsh" "${pkgdir}/usr/share/lazyworktree/functions.zsh"
+      install -Dm644 "./shell/functions.fish" "${pkgdir}/usr/share/lazyworktree/functions.fish"
 
       # man page
       install -Dm644 "./lazyworktree.1" "${pkgdir}/usr/share/man/man1/lazyworktree.1"

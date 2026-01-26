@@ -132,7 +132,7 @@ LazyWorktree provides shell helpers to change the current directory to the
 selected worktree on exit. These helpers are optional but recommended for
 interactive use.
 
-Zsh helpers are provided under shell/functions.shell and can be sourced
+Zsh helpers are provided under shell/functions.zsh and can be sourced
 directly or downloaded.
 
 See [./shell/README.md](./shell/README.md) for more detailed instructions.
