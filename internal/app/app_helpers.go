@@ -1,117 +1,48 @@
 package app
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/chmouel/lazyworktree/internal/app/services"
+	"github.com/chmouel/lazyworktree/internal/app/util"
 	log "github.com/chmouel/lazyworktree/internal/log"
-	"github.com/chmouel/lazyworktree/internal/models"
 )
 
 // commandPaletteUsage tracks usage frequency and recency for command palette items.
-type commandPaletteUsage struct {
-	ID        string `json:"id"`
-	Timestamp int64  `json:"timestamp"`
-	Count     int    `json:"count"`
-}
+type commandPaletteUsage = services.CommandPaletteUsage
 
 func (m *Model) debugf(format string, args ...any) {
 	log.Printf(format, args...)
 }
 
 func (m *Model) pagerCommand() string {
-	if m.config != nil {
-		if pager := strings.TrimSpace(m.config.Pager); pager != "" {
-			return pager
-		}
-	}
-	if pager := strings.TrimSpace(os.Getenv("PAGER")); pager != "" {
-		return pager
-	}
-	if _, err := exec.LookPath("less"); err == nil {
-		return "less --use-color -q --wordwrap -qcR -P 'Press q to exit..'"
-	}
-	if _, err := exec.LookPath("more"); err == nil {
-		return "more"
-	}
-	return "cat"
+	return services.PagerCommand(m.config)
 }
 
 func (m *Model) editorCommand() string {
-	if m.config != nil {
-		if editor := strings.TrimSpace(m.config.Editor); editor != "" {
-			return os.ExpandEnv(editor)
-		}
-	}
-	if editor := strings.TrimSpace(os.Getenv("EDITOR")); editor != "" {
-		return editor
-	}
-	if _, err := exec.LookPath("nvim"); err == nil {
-		return "nvim"
-	}
-	if _, err := exec.LookPath("vi"); err == nil {
-		return "vi"
-	}
-	return ""
+	return services.EditorCommand(m.config)
 }
 
 func (m *Model) pagerEnv(pager string) string {
-	if pagerIsLess(pager) {
-		return "LESS= LESSHISTFILE=-"
-	}
-	return ""
-}
-
-func pagerIsLess(pager string) bool {
-	fields := strings.FieldsSeq(pager)
-	for field := range fields {
-		if strings.Contains(field, "=") && !strings.HasPrefix(field, "-") && !strings.Contains(field, "/") {
-			continue
-		}
-		return filepath.Base(field) == "less"
-	}
-	return false
+	return services.PagerEnv(pager)
 }
 
 func (m *Model) buildCommandEnv(branch, wtPath string) map[string]string {
-	return map[string]string{
-		"WORKTREE_BRANCH":    branch,
-		"MAIN_WORKTREE_PATH": m.git.GetMainWorktreePath(m.ctx),
-		"WORKTREE_PATH":      wtPath,
-		"WORKTREE_NAME":      filepath.Base(wtPath),
-		"REPO_NAME":          m.repoKey,
-	}
+	return services.BuildCommandEnv(branch, wtPath, m.repoKey, m.git.GetMainWorktreePath(m.ctx))
 }
 
 func expandWithEnv(input string, env map[string]string) string {
-	if input == "" {
-		return ""
-	}
-	return os.Expand(input, func(key string) string {
-		if val, ok := env[key]; ok {
-			return val
-		}
-		return os.Getenv(key)
-	})
+	return services.ExpandWithEnv(input, env)
 }
 
 func envMapToList(env map[string]string) []string {
-	if len(env) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(env))
-	for key, val := range env {
-		out = append(out, fmt.Sprintf("%s=%s", key, val))
-	}
-	return out
+	return services.EnvMapToList(env)
 }
 
 // filterWorktreeEnvVars filters out worktree-specific environment variables
@@ -167,106 +98,29 @@ func formatCommitMessage(message string) string {
 }
 
 func authorInitials(name string) string {
-	fields := strings.Fields(name)
-	if len(fields) == 0 {
-		return ""
-	}
-	if len(fields) == 1 {
-		runes := []rune(fields[0])
-		if len(runes) <= 2 {
-			return string(runes)
-		}
-		return string(runes[:2])
-	}
-	first := []rune(fields[0])
-	last := []rune(fields[len(fields)-1])
-	if len(first) == 0 || len(last) == 0 {
-		return ""
-	}
-	return string([]rune{first[0], last[0]})
+	return util.AuthorInitials(name)
 }
 
 func parseCommitMeta(raw string) commitMeta {
-	parts := strings.Split(raw, "\x1f")
-	meta := commitMeta{}
-	if len(parts) > 0 {
-		meta.sha = parts[0]
+	parsed := util.ParseCommitMeta(raw)
+	return commitMeta{
+		sha:     parsed.SHA,
+		author:  parsed.Author,
+		email:   parsed.Email,
+		date:    parsed.Date,
+		subject: parsed.Subject,
+		body:    parsed.Body,
 	}
-	if len(parts) > 1 {
-		meta.author = parts[1]
-	}
-	if len(parts) > 2 {
-		meta.email = parts[2]
-	}
-	if len(parts) > 3 {
-		meta.date = parts[3]
-	}
-	if len(parts) > 4 {
-		meta.subject = parts[4]
-	}
-	if len(parts) > 5 {
-		meta.body = strings.Split(parts[5], "\n")
-	}
-	return meta
 }
 
 func sanitizePRURL(raw string) (string, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return "", fmt.Errorf("PR URL is empty")
-	}
-
-	u, err := url.Parse(raw)
-	if err != nil {
-		return "", fmt.Errorf("invalid PR URL %q: %w", raw, err)
-	}
-
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return "", fmt.Errorf("unsupported URL scheme %q", u.Scheme)
-	}
-
-	return u.String(), nil
+	return util.SanitizePRURL(raw)
 }
 
 // gitURLToWebURL converts a git remote URL to a web URL.
 // Handles both SSH (git@github.com:user/repo.git) and HTTPS (https://github.com/user/repo.git) formats.
 func (m *Model) gitURLToWebURL(gitURL string) string {
-	gitURL = strings.TrimSpace(gitURL)
-
-	// Remove .git suffix if present
-	gitURL = strings.TrimSuffix(gitURL, ".git")
-
-	// Handle SSH format: git@github.com:user/repo
-	if strings.HasPrefix(gitURL, "git@") {
-		// Extract host and path
-		parts := strings.SplitN(gitURL, "@", 2)
-		if len(parts) == 2 {
-			hostPath := parts[1]
-			// Replace : with /
-			hostPath = strings.Replace(hostPath, ":", "/", 1)
-			return "https://" + hostPath
-		}
-	}
-
-	// Handle HTTPS format: https://github.com/user/repo
-	if strings.HasPrefix(gitURL, "https://") || strings.HasPrefix(gitURL, "http://") {
-		return gitURL
-	}
-
-	// Handle ssh:// format: ssh://git@github.com/user/repo
-	if after, ok := strings.CutPrefix(gitURL, "ssh://"); ok {
-		gitURL = after
-		// Remove git@ if present
-		gitURL = strings.TrimPrefix(gitURL, "git@")
-		return "https://" + gitURL
-	}
-
-	// Handle git:// format: git://github.com/user/repo
-	if strings.HasPrefix(gitURL, "git://") {
-		return strings.Replace(gitURL, "git://", "https://", 1)
-	}
-
-	return ""
+	return util.GitURLToWebURL(gitURL)
 }
 
 func filterNonEmpty(values []string) []string {
@@ -283,89 +137,40 @@ func filterNonEmpty(values []string) []string {
 func (m *Model) loadCache() tea.Cmd {
 	return func() tea.Msg {
 		repoKey := m.getRepoKey()
-		cachePath := filepath.Join(m.getWorktreeDir(), repoKey, models.CacheFilename)
-		// #nosec G304 -- cachePath is constructed from vetted worktree directory and constant filename
-		data, err := os.ReadFile(cachePath)
+		worktrees, err := services.LoadCache(repoKey, m.getWorktreeDir())
 		if err != nil {
-			return nil
-		}
-
-		var payload struct {
-			Worktrees []*models.WorktreeInfo `json:"worktrees"`
-		}
-		if err := json.Unmarshal(data, &payload); err != nil {
 			return errMsg{err: err}
 		}
-		if len(payload.Worktrees) == 0 {
+		if len(worktrees) == 0 {
 			return nil
 		}
-		return cachedWorktreesMsg{worktrees: payload.Worktrees}
+		return cachedWorktreesMsg{worktrees: worktrees}
 	}
 }
 
 // saveCache saves worktree data to the cache file.
 func (m *Model) saveCache() {
 	repoKey := m.getRepoKey()
-	cachePath := filepath.Join(m.getWorktreeDir(), repoKey, models.CacheFilename)
-	if err := os.MkdirAll(filepath.Dir(cachePath), defaultDirPerms); err != nil {
-		m.showInfo(fmt.Sprintf("Failed to create cache dir: %v", err), nil)
-		return
-	}
-
-	cacheData := struct {
-		Worktrees []*models.WorktreeInfo `json:"worktrees"`
-	}{
-		Worktrees: m.worktrees,
-	}
-	data, _ := json.Marshal(cacheData)
-	if err := os.WriteFile(cachePath, data, defaultFilePerms); err != nil {
+	if err := services.SaveCache(repoKey, m.getWorktreeDir(), m.worktrees); err != nil {
 		m.showInfo(fmt.Sprintf("Failed to write cache: %v", err), nil)
 	}
 }
 
 // loadCommandHistory loads command history from file.
 func (m *Model) loadCommandHistory() {
-	repoKey := m.getRepoKey()
-	historyPath := filepath.Join(m.getWorktreeDir(), repoKey, models.CommandHistoryFilename)
-	// #nosec G304 -- historyPath is constructed from vetted worktree directory and constant filename
-	data, err := os.ReadFile(historyPath)
+	history, err := services.LoadCommandHistory(m.getRepoKey(), m.getWorktreeDir())
 	if err != nil {
-		// No history file yet, that's fine
-		m.commandHistory = []string{}
-		return
-	}
-
-	var payload struct {
-		Commands []string `json:"commands"`
-	}
-	if err := json.Unmarshal(data, &payload); err != nil {
 		m.debugf("failed to parse command history: %v", err)
-		m.commandHistory = []string{}
-		return
 	}
-
-	m.commandHistory = payload.Commands
-	if m.commandHistory == nil {
-		m.commandHistory = []string{}
+	if history == nil {
+		history = []string{}
 	}
+	m.commandHistory = history
 }
 
 // saveCommandHistory saves command history to file.
 func (m *Model) saveCommandHistory() {
-	repoKey := m.getRepoKey()
-	historyPath := filepath.Join(m.getWorktreeDir(), repoKey, models.CommandHistoryFilename)
-	if err := os.MkdirAll(filepath.Dir(historyPath), defaultDirPerms); err != nil {
-		m.debugf("failed to create history dir: %v", err)
-		return
-	}
-
-	historyData := struct {
-		Commands []string `json:"commands"`
-	}{
-		Commands: m.commandHistory,
-	}
-	data, _ := json.Marshal(historyData)
-	if err := os.WriteFile(historyPath, data, defaultFilePerms); err != nil {
+	if err := services.SaveCommandHistory(m.getRepoKey(), m.getWorktreeDir(), m.commandHistory); err != nil {
 		m.debugf("failed to write command history: %v", err)
 	}
 }
@@ -399,77 +204,38 @@ func (m *Model) addToCommandHistory(cmd string) {
 
 // loadAccessHistory loads access history from file.
 func (m *Model) loadAccessHistory() {
-	repoKey := m.getRepoKey()
-	historyPath := filepath.Join(m.getWorktreeDir(), repoKey, models.AccessHistoryFilename)
-	// #nosec G304 -- path is constructed from known safe components
-	data, err := os.ReadFile(historyPath)
+	history, err := services.LoadAccessHistory(m.getRepoKey(), m.getWorktreeDir())
 	if err != nil {
-		return
-	}
-	var history map[string]int64
-	if err := json.Unmarshal(data, &history); err != nil {
 		m.debugf("failed to parse access history: %v", err)
 		return
 	}
-	m.accessHistory = history
+	if history != nil {
+		m.accessHistory = history
+	}
 }
 
 // saveAccessHistory saves access history to file.
 func (m *Model) saveAccessHistory() {
-	repoKey := m.getRepoKey()
-	historyPath := filepath.Join(m.getWorktreeDir(), repoKey, models.AccessHistoryFilename)
-	if err := os.MkdirAll(filepath.Dir(historyPath), defaultDirPerms); err != nil {
-		m.debugf("failed to create access history dir: %v", err)
-		return
-	}
-	data, _ := json.Marshal(m.accessHistory)
-	if err := os.WriteFile(historyPath, data, defaultFilePerms); err != nil {
+	if err := services.SaveAccessHistory(m.getRepoKey(), m.getWorktreeDir(), m.accessHistory); err != nil {
 		m.debugf("failed to write access history: %v", err)
 	}
 }
 
 // loadPaletteHistory loads palette usage history from file.
 func (m *Model) loadPaletteHistory() {
-	repoKey := m.getRepoKey()
-	historyPath := filepath.Join(m.getWorktreeDir(), repoKey, models.CommandPaletteHistoryFilename)
-	// #nosec G304 -- historyPath is constructed from vetted worktree directory and constant filename
-	data, err := os.ReadFile(historyPath)
+	history, err := services.LoadPaletteHistory(m.getRepoKey(), m.getWorktreeDir())
 	if err != nil {
-		m.paletteHistory = []commandPaletteUsage{}
-		return
-	}
-
-	var payload struct {
-		Commands []commandPaletteUsage `json:"commands"`
-	}
-	if err := json.Unmarshal(data, &payload); err != nil {
 		m.debugf("failed to parse palette history: %v", err)
-		m.paletteHistory = []commandPaletteUsage{}
-		return
 	}
-
-	m.paletteHistory = payload.Commands
-	if m.paletteHistory == nil {
-		m.paletteHistory = []commandPaletteUsage{}
+	if history == nil {
+		history = []commandPaletteUsage{}
 	}
+	m.paletteHistory = history
 }
 
 // savePaletteHistory saves palette usage history to file.
 func (m *Model) savePaletteHistory() {
-	repoKey := m.getRepoKey()
-	historyPath := filepath.Join(m.getWorktreeDir(), repoKey, models.CommandPaletteHistoryFilename)
-	if err := os.MkdirAll(filepath.Dir(historyPath), defaultDirPerms); err != nil {
-		m.debugf("failed to create palette history dir: %v", err)
-		return
-	}
-
-	historyData := struct {
-		Commands []commandPaletteUsage `json:"commands"`
-	}{
-		Commands: m.paletteHistory,
-	}
-	data, _ := json.Marshal(historyData)
-	if err := os.WriteFile(historyPath, data, defaultFilePerms); err != nil {
+	if err := services.SavePaletteHistory(m.getRepoKey(), m.getWorktreeDir(), m.paletteHistory); err != nil {
 		m.debugf("failed to write palette history: %v", err)
 	}
 }
