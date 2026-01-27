@@ -29,8 +29,8 @@ func TestHandleMouseDoesNotPanic(t *testing.T) {
 		WorktreeDir: "/tmp/test",
 	}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	// Test mouse wheel events
 	mouseMsg := tea.MouseMsg{

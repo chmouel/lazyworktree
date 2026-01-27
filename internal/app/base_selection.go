@@ -78,7 +78,7 @@ func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 
 	title := "Select base for new worktree"
 
-	m.listScreen = NewListSelectionScreen(items, title, "Filter options...", "No base options available.", m.windowWidth, m.windowHeight, "", m.theme)
+	m.listScreen = NewListSelectionScreen(items, title, "Filter options...", "No base options available.", m.view.WindowWidth, m.view.WindowHeight, "", m.theme)
 	m.listSubmit = func(item selectionItem) tea.Cmd {
 		switch {
 		case item.id == "from-current":
@@ -153,7 +153,7 @@ func (m *Model) showFreeformBaseInput(defaultBase string) tea.Cmd {
 
 func (m *Model) showBranchSelection(title, placeholder, noResults, preferred string, onSelect func(string) tea.Cmd) tea.Cmd {
 	items := m.branchSelectionItems(preferred)
-	m.listScreen = NewListSelectionScreen(items, title, placeholder, noResults, m.windowWidth, m.windowHeight, preferred, m.theme)
+	m.listScreen = NewListSelectionScreen(items, title, placeholder, noResults, m.view.WindowWidth, m.view.WindowHeight, preferred, m.theme)
 	m.listSubmit = func(item selectionItem) tea.Cmd {
 		return onSelect(item.id)
 	}
@@ -192,7 +192,7 @@ func (m *Model) showCommitSelection(baseBranch string) tea.Cmd {
 	title := fmt.Sprintf("Select commit from %q", baseBranch)
 	noResults := fmt.Sprintf("No commits found on %s.", baseBranch)
 
-	m.listScreen = NewListSelectionScreen(items, title, "Filter commits...", noResults, m.windowWidth, m.windowHeight, "", m.theme)
+	m.listScreen = NewListSelectionScreen(items, title, "Filter commits...", noResults, m.view.WindowWidth, m.view.WindowHeight, "", m.theme)
 	m.listSubmit = func(item selectionItem) tea.Cmd {
 		m.clearListSelection()
 		commit, ok := commitLookup[item.id]
@@ -386,7 +386,7 @@ func (m *Model) showCheckoutOrCreatePrompt(branch string) tea.Cmd {
 
 	m.listScreen = NewListSelectionScreen(items,
 		fmt.Sprintf("Branch %q exists locally", branch),
-		"Filter...", "No options.", m.windowWidth, m.windowHeight, "", m.theme)
+		"Filter...", "No options.", m.view.WindowWidth, m.view.WindowHeight, "", m.theme)
 
 	m.listSubmit = func(item selectionItem) tea.Cmd {
 		if item.id == "checkout" {
@@ -514,7 +514,7 @@ func (m *Model) createWorktreeFromBaseAsync(newBranch, targetPath, baseRef strin
 		// Run init commands with trust checks, passing after callback
 		after := func() tea.Msg {
 			// If there's a custom menu with post-command, run it
-			if m.pendingCustomMenu != nil && m.pendingCustomMenu.PostCommand != "" {
+			if m.pending.CustomMenu != nil && m.pending.CustomMenu.PostCommand != "" {
 				return customPostCommandPendingMsg{
 					targetPath: targetPath,
 					env:        env,
@@ -865,8 +865,8 @@ func (m *Model) showBaseBranchForCustomCreateMenu(menu *config.CustomCreateMenu)
 		"",
 		func(branch string) tea.Cmd {
 			// Store base branch and menu for later use
-			m.pendingCustomBaseRef = branch
-			m.pendingCustomMenu = menu
+			m.pending.CustomBaseRef = branch
+			m.pending.CustomMenu = menu
 			// Now run the command
 			return m.executeCustomCreateCommand(menu)
 		},

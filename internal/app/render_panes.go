@@ -12,8 +12,8 @@ import (
 // renderBody renders the main body area with panes.
 func (m *Model) renderBody(layout layoutDims) string {
 	// Handle zoom mode: only render the zoomed pane
-	if m.zoomedPane >= 0 {
-		switch m.zoomedPane {
+	if m.view.ZoomedPane >= 0 {
+		switch m.view.ZoomedPane {
 		case 0:
 			return m.renderZoomedLeftPane(layout)
 		case 1:
@@ -33,10 +33,10 @@ func (m *Model) renderBody(layout layoutDims) string {
 
 // renderLeftPane renders the left pane (worktree table).
 func (m *Model) renderLeftPane(layout layoutDims) string {
-	title := m.renderPaneTitle(1, "Worktrees", m.focusedPane == 0, layout.leftInnerWidth)
+	title := m.renderPaneTitle(1, "Worktrees", m.view.FocusedPane == 0, layout.leftInnerWidth)
 	tableView := m.worktreeTable.View()
 	content := lipgloss.JoinVertical(lipgloss.Left, title, tableView)
-	return m.paneStyle(m.focusedPane == 0).
+	return m.paneStyle(m.view.FocusedPane == 0).
 		Width(layout.leftWidth).
 		Height(layout.bodyHeight).
 		Render(content)
@@ -52,7 +52,7 @@ func (m *Model) renderRightPane(layout layoutDims) string {
 
 // renderRightTopPane renders the right top pane (status viewport).
 func (m *Model) renderRightTopPane(layout layoutDims) string {
-	title := m.renderPaneTitle(2, "Status", m.focusedPane == 1, layout.rightInnerWidth)
+	title := m.renderPaneTitle(2, "Status", m.view.FocusedPane == 1, layout.rightInnerWidth)
 	infoBox := m.renderInnerBox("Info", m.infoContent, layout.rightInnerWidth, 0)
 
 	innerBoxStyle := m.baseInnerBoxStyle()
@@ -73,7 +73,7 @@ func (m *Model) renderRightTopPane(layout layoutDims) string {
 		infoBox,
 		statusBox,
 	)
-	return m.paneStyle(m.focusedPane == 1).
+	return m.paneStyle(m.view.FocusedPane == 1).
 		Width(layout.rightWidth).
 		Height(layout.rightTopHeight).
 		Render(content)
@@ -81,9 +81,9 @@ func (m *Model) renderRightTopPane(layout layoutDims) string {
 
 // renderRightBottomPane renders the right bottom pane (log table).
 func (m *Model) renderRightBottomPane(layout layoutDims) string {
-	title := m.renderPaneTitle(3, "Log", m.focusedPane == 2, layout.rightInnerWidth)
+	title := m.renderPaneTitle(3, "Log", m.view.FocusedPane == 2, layout.rightInnerWidth)
 	content := lipgloss.JoinVertical(lipgloss.Left, title, m.logTable.View())
-	return m.paneStyle(m.focusedPane == 2).
+	return m.paneStyle(m.view.FocusedPane == 2).
 		Width(layout.rightWidth).
 		Height(layout.rightBottomHeight).
 		Render(content)
@@ -275,7 +275,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		checks := sortCIChecks(cached.checks)
 		for i, check := range checks {
 			symbol := getCIStatusIcon(check.Conclusion, false, m.config.IconsEnabled())
-			isSelected := m.focusedPane == 1 && m.ciCheckIndex >= 0 && i == m.ciCheckIndex
+			isSelected := m.view.FocusedPane == 1 && m.ciCheckIndex >= 0 && i == m.ciCheckIndex
 
 			var line string
 			if isSelected {
@@ -362,7 +362,7 @@ func (m *Model) renderStatusFiles() string {
 
 		// Apply styling based on selection and node type
 		switch {
-		case m.focusedPane == 1 && i == m.statusTreeIndex:
+		case m.view.FocusedPane == 1 && i == m.statusTreeIndex:
 			if viewportWidth > 0 && len(lineContent) < viewportWidth {
 				lineContent += strings.Repeat(" ", viewportWidth-len(lineContent))
 			}

@@ -33,7 +33,7 @@ func TestHandlePageDownUpOnStatusPane(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(10, 2)
 	m.statusViewport.SetContent(strings.Repeat("line\n", 10))
 
@@ -55,7 +55,7 @@ func TestHandleEnterKeySelectsWorktree(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0
+	m.view.FocusedPane = 0
 	m.filteredWts = []*models.WorktreeInfo{
 		{Path: filepath.Join(cfg.WorktreeDir, "wt"), Branch: testFeat},
 	}
@@ -76,7 +76,7 @@ func TestFilterEnterClosesWithoutSelecting(t *testing.T) {
 		SortMode:    "path",
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0
+	m.view.FocusedPane = 0
 
 	m.worktrees = []*models.WorktreeInfo{
 		{Path: filepath.Join(cfg.WorktreeDir, "b-worktree"), Branch: testFeat},
@@ -85,7 +85,7 @@ func TestFilterEnterClosesWithoutSelecting(t *testing.T) {
 	m.filterQuery = testFeat
 	m.filterInput.SetValue(testFeat)
 	m.updateTable()
-	m.showingFilter = true
+	m.view.ShowingFilter = true
 	m.filterInput.Focus()
 	m.worktreeTable.SetCursor(1)
 	m.selectedIndex = 1
@@ -100,7 +100,7 @@ func TestFilterEnterClosesWithoutSelecting(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected no command to be returned")
 	}
-	if m.showingFilter {
+	if m.view.ShowingFilter {
 		t.Fatal("expected filter to be closed")
 	}
 	if m.selectedPath != "" {
@@ -124,7 +124,7 @@ func TestFilterAltNPMovesSelectionAndFills(t *testing.T) {
 	m.filterQuery = testFeat
 	m.filterInput.SetValue(testFeat)
 	m.updateTable()
-	m.showingFilter = true
+	m.view.ShowingFilter = true
 	m.filterInput.Focus()
 	m.worktreeTable.SetCursor(0)
 	m.selectedIndex = 0
@@ -174,7 +174,7 @@ func TestFilterArrowKeysNavigateWithoutFilling(t *testing.T) {
 	m.filterQuery = testFeat
 	m.filterInput.SetValue(testFeat)
 	m.updateTable()
-	m.showingFilter = true
+	m.view.ShowingFilter = true
 	m.filterInput.Focus()
 	m.worktreeTable.SetCursor(0)
 	m.selectedIndex = 0
@@ -218,7 +218,7 @@ func TestFilterEmptyEnterSelectsCurrent(t *testing.T) {
 	m.filterQuery = ""
 	m.filterInput.SetValue("")
 	m.updateTable()
-	m.showingFilter = true
+	m.view.ShowingFilter = true
 	m.filterInput.Focus()
 	m.worktreeTable.SetCursor(1)
 	m.selectedIndex = 1
@@ -230,7 +230,7 @@ func TestFilterEmptyEnterSelectsCurrent(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.showingFilter {
+	if m.view.ShowingFilter {
 		t.Fatal("expected filter to be closed")
 	}
 	if m.selectedIndex != 1 {
@@ -252,7 +252,7 @@ func TestFilterCtrlCExitsFilter(t *testing.T) {
 	m.filterQuery = "something"
 	m.filterInput.SetValue("something")
 	m.updateTable()
-	m.showingFilter = true
+	m.view.ShowingFilter = true
 	m.filterInput.Focus()
 
 	updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyCtrlC})
@@ -262,7 +262,7 @@ func TestFilterCtrlCExitsFilter(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.showingFilter {
+	if m.view.ShowingFilter {
 		t.Fatal("expected filter to be closed after Ctrl+C")
 	}
 	if m.filterInput.Focused() {
@@ -276,7 +276,7 @@ func TestSearchWorktreeSelectsMatch(t *testing.T) {
 		SortMode:    "path",
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0
+	m.view.FocusedPane = 0
 
 	wt1Path := filepath.Join(cfg.WorktreeDir, "alpha")
 	wt2Path := filepath.Join(cfg.WorktreeDir, "beta")
@@ -307,7 +307,7 @@ func TestFilterStatusNarrowsList(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 	m.setStatusFiles([]StatusFile{
 		{Filename: "app.go", Status: ".M"},
@@ -576,7 +576,7 @@ func TestFilterEnterClosesWithoutSelectingItem(t *testing.T) {
 		SearchAutoSelect: false,
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0
+	m.view.FocusedPane = 0
 
 	wt1Path := filepath.Join(cfg.WorktreeDir, "srv-api")
 	wt2Path := filepath.Join(cfg.WorktreeDir, "srv-auth")
@@ -591,7 +591,7 @@ func TestFilterEnterClosesWithoutSelectingItem(t *testing.T) {
 	m.filterQuery = "srv"
 	m.filterInput.SetValue("srv")
 	m.updateTable()
-	m.showingFilter = true
+	m.view.ShowingFilter = true
 	m.filterInput.Focus()
 
 	// Navigate to the second item (srv-auth)
@@ -609,7 +609,7 @@ func TestFilterEnterClosesWithoutSelectingItem(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected no command to be returned")
 	}
-	if m.showingFilter {
+	if m.view.ShowingFilter {
 		t.Fatal("expected filter to be closed")
 	}
 	if m.selectedPath != "" {
@@ -643,7 +643,7 @@ func TestFilterNavigationThroughMultipleFilteredItems(t *testing.T) {
 	m.filterQuery = "srv"
 	m.filterInput.SetValue("srv")
 	m.updateTable()
-	m.showingFilter = true
+	m.view.ShowingFilter = true
 	m.filterInput.Focus()
 	m.worktreeTable.SetCursor(0)
 	m.selectedIndex = 0
@@ -718,7 +718,7 @@ func TestStatusFileNavigation(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 
 	// Set up status files using setStatusFiles to build tree
@@ -771,7 +771,7 @@ func TestLogPaneCtrlJMovesNextCommit(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 2
+	m.view.FocusedPane = 2
 	m.logTable.Focus()
 	m.filteredWts = []*models.WorktreeInfo{
 		{Path: t.TempDir(), Branch: testFeat},
@@ -813,7 +813,7 @@ func TestSearchLogSelectsNextMatch(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 2
+	m.view.FocusedPane = 2
 	m.logEntries = []commitLogEntry{
 		{sha: "abc123", authorInitials: "ab", message: "Fix bug in parser"},
 		{sha: "def456", authorInitials: "de", message: "Add new feature"},
@@ -851,7 +851,7 @@ func TestFilterLogNarrowsList(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 2
+	m.view.FocusedPane = 2
 	m.setLogEntries([]commitLogEntry{
 		{sha: "abc123", authorInitials: "ab", message: "Fix bug in parser"},
 		{sha: "def456", authorInitials: "de", message: "Add new feature"},
@@ -882,7 +882,7 @@ func TestStatusFileNavigationEmptyList(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 	m.setStatusFiles(nil)
 	m.statusTreeIndex = 0
@@ -905,7 +905,7 @@ func TestStatusFileEnterShowsDiff(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 
 	// Set up worktree and status files
@@ -945,7 +945,7 @@ func TestStatusFileEditOpensEditor(t *testing.T) {
 		Editor:      "nvim",
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -997,7 +997,7 @@ func TestCommitAllChangesFromStatusPane(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1041,7 +1041,7 @@ func TestCommitAllChangesNotInStatusPane(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0 // Not status pane
+	m.view.FocusedPane = 0 // Not status pane
 
 	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'C'}})
 	if cmd != nil {
@@ -1054,7 +1054,7 @@ func TestCommitStagedChangesFromStatusPane(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1107,7 +1107,7 @@ func TestCommitStagedChangesNoStagedFiles(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1144,7 +1144,7 @@ func TestCommitStagedChangesNotInStatusPane(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0 // Not status pane
+	m.view.FocusedPane = 0 // Not status pane
 
 	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
 	// When not in status pane, 'c' should trigger create worktree which returns a command
@@ -1162,7 +1162,7 @@ func TestStageUnstagedFile(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1209,7 +1209,7 @@ func TestUnstageStagedFile(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1250,7 +1250,7 @@ func TestStageMixedStatusFile(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1291,7 +1291,7 @@ func TestStageFileNotInStatusPane(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0 // Not status pane
+	m.view.FocusedPane = 0 // Not status pane
 	m.setStatusFiles([]StatusFile{
 		{Filename: "file1.go", Status: " M", IsUntracked: false},
 	})
@@ -1308,7 +1308,7 @@ func TestStageDirectoryAllUnstaged(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 	m.filteredWts = []*models.WorktreeInfo{
 		{Path: cfg.WorktreeDir, Branch: "feature"},
@@ -1354,7 +1354,7 @@ func TestStageDirectoryAllStaged(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 	m.filteredWts = []*models.WorktreeInfo{
 		{Path: cfg.WorktreeDir, Branch: "feature"},
@@ -1396,7 +1396,7 @@ func TestStageDirectoryMixed(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 	m.filteredWts = []*models.WorktreeInfo{
 		{Path: cfg.WorktreeDir, Branch: "feature"},
@@ -1603,7 +1603,7 @@ func TestStatusFileEnterNoFilesDoesNothing(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusFiles = nil
 
 	_, cmd := m.handleEnterKey()
@@ -1618,7 +1618,7 @@ func TestBuildStatusContentParsesFiles(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 
 	// Simulated git status --porcelain=v2 output
@@ -1661,7 +1661,7 @@ func TestBuildStatusContentCleanTree(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 	m.statusFiles = []StatusFile{{Filename: "old.go", Status: ".M"}}
 	m.statusFileIndex = 5
@@ -1685,7 +1685,7 @@ func TestSearchStatusSelectsMatch(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 	// Note: tree sorts alphabetically, so README.md (R) comes before app.go (a)
 	m.setStatusFiles([]StatusFile{
@@ -1717,7 +1717,7 @@ func TestRenderStatusFilesHighlighting(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 	m.setStatusFiles([]StatusFile{
 		{Filename: "file1.go", Status: ".M", IsUntracked: false},
@@ -1755,7 +1755,7 @@ func TestRenderStatusFilesIconsDisabled(t *testing.T) {
 	cfg.WorktreeDir = t.TempDir()
 	cfg.IconSet = "none"
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 	m.setStatusFiles([]StatusFile{
 		{Filename: "file1.go", Status: ".M", IsUntracked: false},
@@ -1775,7 +1775,7 @@ func TestStatusTreeIndexClamping(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 
 	// Set index out of range before parsing
@@ -1808,10 +1808,10 @@ func TestMouseScrollNavigatesFiles(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
-	m.windowWidth = 100
-	m.windowHeight = 30
+	m.view.WindowWidth = 100
+	m.view.WindowHeight = 30
 
 	m.setStatusFiles([]StatusFile{
 		{Filename: "file1.go", Status: ".M", IsUntracked: false},
@@ -2053,10 +2053,10 @@ func TestFlattenStatusTreeDepth(t *testing.T) {
 func TestDirectoryToggleUpdatesFlat(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
-	m.windowWidth = 100
-	m.windowHeight = 30
+	m.view.WindowWidth = 100
+	m.view.WindowHeight = 30
 
 	m.setStatusFiles([]StatusFile{
 		{Filename: "dir/file1.go", Status: ".M"},
@@ -2090,7 +2090,7 @@ func TestEscClearsWorktreeFilter(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0
+	m.view.FocusedPane = 0
 	m.filterQuery = testFilterQuery
 	m.worktrees = []*models.WorktreeInfo{
 		{Path: filepath.Join(cfg.WorktreeDir, "test-wt"), Branch: testFeat},
@@ -2113,7 +2113,7 @@ func TestEscClearsStatusFilter(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusFilterQuery = testFilterQuery
 
 	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyEsc})
@@ -2132,7 +2132,7 @@ func TestEscClearsLogFilter(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 2
+	m.view.FocusedPane = 2
 	m.logFilterQuery = testFilterQuery
 
 	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyEsc})
@@ -2151,7 +2151,7 @@ func TestEscDoesNothingWhenNoFilter(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0
+	m.view.FocusedPane = 0
 	m.filterQuery = ""
 
 	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyEsc})
@@ -2212,10 +2212,10 @@ func TestZoomPaneToggle(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0
+	m.view.FocusedPane = 0
 
-	if m.zoomedPane != -1 {
-		t.Fatalf("expected zoomedPane to start at -1, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to start at -1, got %d", m.view.ZoomedPane)
 	}
 
 	// Press = to zoom pane 0
@@ -2226,8 +2226,8 @@ func TestZoomPaneToggle(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.zoomedPane != 0 {
-		t.Fatalf("expected zoomedPane to be 0 after zoom, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != 0 {
+		t.Fatalf("expected zoomedPane to be 0 after zoom, got %d", m.view.ZoomedPane)
 	}
 
 	// Press = again to unzoom
@@ -2238,8 +2238,8 @@ func TestZoomPaneToggle(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.zoomedPane != -1 {
-		t.Fatalf("expected zoomedPane to be -1 after unzoom, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after unzoom, got %d", m.view.ZoomedPane)
 	}
 }
 
@@ -2248,8 +2248,8 @@ func TestZoomPaneExitsOnPaneKeys(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0
-	m.zoomedPane = 0
+	m.view.FocusedPane = 0
+	m.view.ZoomedPane = 0
 
 	// Press 2 to switch to pane 2 and exit zoom
 	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
@@ -2259,11 +2259,11 @@ func TestZoomPaneExitsOnPaneKeys(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.zoomedPane != -1 {
-		t.Fatalf("expected zoomedPane to be -1 after pressing 2, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after pressing 2, got %d", m.view.ZoomedPane)
 	}
-	if m.focusedPane != 1 {
-		t.Fatalf("expected focusedPane to be 1, got %d", m.focusedPane)
+	if m.view.FocusedPane != 1 {
+		t.Fatalf("expected focusedPane to be 1, got %d", m.view.FocusedPane)
 	}
 }
 
@@ -2272,8 +2272,8 @@ func TestZoomPaneExitsOnTabKey(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0
-	m.zoomedPane = 0
+	m.view.FocusedPane = 0
+	m.view.ZoomedPane = 0
 
 	// Press tab to cycle panes and exit zoom
 	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyTab})
@@ -2283,11 +2283,11 @@ func TestZoomPaneExitsOnTabKey(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.zoomedPane != -1 {
-		t.Fatalf("expected zoomedPane to be -1 after pressing tab, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after pressing tab, got %d", m.view.ZoomedPane)
 	}
-	if m.focusedPane != 1 {
-		t.Fatalf("expected focusedPane to be 1 after tab, got %d", m.focusedPane)
+	if m.view.FocusedPane != 1 {
+		t.Fatalf("expected focusedPane to be 1 after tab, got %d", m.view.FocusedPane)
 	}
 }
 
@@ -2296,8 +2296,8 @@ func TestZoomPaneExitsOnBracketKey(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
-	m.zoomedPane = 1
+	m.view.FocusedPane = 1
+	m.view.ZoomedPane = 1
 
 	// Press [ to cycle back and exit zoom
 	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'['}})
@@ -2307,11 +2307,11 @@ func TestZoomPaneExitsOnBracketKey(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.zoomedPane != -1 {
-		t.Fatalf("expected zoomedPane to be -1 after pressing [, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after pressing [, got %d", m.view.ZoomedPane)
 	}
-	if m.focusedPane != 0 {
-		t.Fatalf("expected focusedPane to be 0 after [, got %d", m.focusedPane)
+	if m.view.FocusedPane != 0 {
+		t.Fatalf("expected focusedPane to be 0 after [, got %d", m.view.FocusedPane)
 	}
 }
 
@@ -2320,8 +2320,8 @@ func TestPaneKey1ToggleZoom(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0
-	m.zoomedPane = -1
+	m.view.FocusedPane = 0
+	m.view.ZoomedPane = -1
 
 	// Press 1 while on pane 0, not zoomed - should zoom
 	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
@@ -2331,11 +2331,11 @@ func TestPaneKey1ToggleZoom(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.focusedPane != 0 {
-		t.Fatalf("expected focusedPane to remain 0, got %d", m.focusedPane)
+	if m.view.FocusedPane != 0 {
+		t.Fatalf("expected focusedPane to remain 0, got %d", m.view.FocusedPane)
 	}
-	if m.zoomedPane != 0 {
-		t.Fatalf("expected zoomedPane to be 0 after toggle, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != 0 {
+		t.Fatalf("expected zoomedPane to be 0 after toggle, got %d", m.view.ZoomedPane)
 	}
 
 	// Press 1 again while on pane 0, already zoomed - should unzoom
@@ -2346,11 +2346,11 @@ func TestPaneKey1ToggleZoom(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.focusedPane != 0 {
-		t.Fatalf("expected focusedPane to remain 0, got %d", m.focusedPane)
+	if m.view.FocusedPane != 0 {
+		t.Fatalf("expected focusedPane to remain 0, got %d", m.view.FocusedPane)
 	}
-	if m.zoomedPane != -1 {
-		t.Fatalf("expected zoomedPane to be -1 after unzoom, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after unzoom, got %d", m.view.ZoomedPane)
 	}
 }
 
@@ -2359,8 +2359,8 @@ func TestPaneKey2ToggleZoom(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
-	m.zoomedPane = -1
+	m.view.FocusedPane = 1
+	m.view.ZoomedPane = -1
 
 	// Press 2 while on pane 1, not zoomed - should zoom
 	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
@@ -2370,11 +2370,11 @@ func TestPaneKey2ToggleZoom(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.focusedPane != 1 {
-		t.Fatalf("expected focusedPane to remain 1, got %d", m.focusedPane)
+	if m.view.FocusedPane != 1 {
+		t.Fatalf("expected focusedPane to remain 1, got %d", m.view.FocusedPane)
 	}
-	if m.zoomedPane != 1 {
-		t.Fatalf("expected zoomedPane to be 1 after toggle, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != 1 {
+		t.Fatalf("expected zoomedPane to be 1 after toggle, got %d", m.view.ZoomedPane)
 	}
 
 	// Press 2 again while on pane 1, already zoomed - should unzoom
@@ -2385,11 +2385,11 @@ func TestPaneKey2ToggleZoom(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.focusedPane != 1 {
-		t.Fatalf("expected focusedPane to remain 1, got %d", m.focusedPane)
+	if m.view.FocusedPane != 1 {
+		t.Fatalf("expected focusedPane to remain 1, got %d", m.view.FocusedPane)
 	}
-	if m.zoomedPane != -1 {
-		t.Fatalf("expected zoomedPane to be -1 after unzoom, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after unzoom, got %d", m.view.ZoomedPane)
 	}
 }
 
@@ -2398,8 +2398,8 @@ func TestPaneKey3ToggleZoom(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 2
-	m.zoomedPane = -1
+	m.view.FocusedPane = 2
+	m.view.ZoomedPane = -1
 
 	// Press 3 while on pane 2, not zoomed - should zoom
 	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
@@ -2409,11 +2409,11 @@ func TestPaneKey3ToggleZoom(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.focusedPane != 2 {
-		t.Fatalf("expected focusedPane to remain 2, got %d", m.focusedPane)
+	if m.view.FocusedPane != 2 {
+		t.Fatalf("expected focusedPane to remain 2, got %d", m.view.FocusedPane)
 	}
-	if m.zoomedPane != 2 {
-		t.Fatalf("expected zoomedPane to be 2 after toggle, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != 2 {
+		t.Fatalf("expected zoomedPane to be 2 after toggle, got %d", m.view.ZoomedPane)
 	}
 
 	// Press 3 again while on pane 2, already zoomed - should unzoom
@@ -2424,11 +2424,11 @@ func TestPaneKey3ToggleZoom(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.focusedPane != 2 {
-		t.Fatalf("expected focusedPane to remain 2, got %d", m.focusedPane)
+	if m.view.FocusedPane != 2 {
+		t.Fatalf("expected focusedPane to remain 2, got %d", m.view.FocusedPane)
 	}
-	if m.zoomedPane != -1 {
-		t.Fatalf("expected zoomedPane to be -1 after unzoom, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after unzoom, got %d", m.view.ZoomedPane)
 	}
 }
 
@@ -2437,8 +2437,8 @@ func TestPaneKeyCrossPaneSwitching(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0
-	m.zoomedPane = 0
+	m.view.FocusedPane = 0
+	m.view.ZoomedPane = 0
 
 	// Press 2 while on pane 0 (zoomed) - should switch to pane 1 and exit zoom
 	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
@@ -2448,11 +2448,11 @@ func TestPaneKeyCrossPaneSwitching(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.focusedPane != 1 {
-		t.Fatalf("expected focusedPane to be 1, got %d", m.focusedPane)
+	if m.view.FocusedPane != 1 {
+		t.Fatalf("expected focusedPane to be 1, got %d", m.view.FocusedPane)
 	}
-	if m.zoomedPane != -1 {
-		t.Fatalf("expected zoomedPane to be -1 after switching panes, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to be -1 after switching panes, got %d", m.view.ZoomedPane)
 	}
 
 	// Now press 3 while on pane 1 (not zoomed) - should switch to pane 2 and remain unzoomed
@@ -2463,11 +2463,11 @@ func TestPaneKeyCrossPaneSwitching(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.focusedPane != 2 {
-		t.Fatalf("expected focusedPane to be 2, got %d", m.focusedPane)
+	if m.view.FocusedPane != 2 {
+		t.Fatalf("expected focusedPane to be 2, got %d", m.view.FocusedPane)
 	}
-	if m.zoomedPane != -1 {
-		t.Fatalf("expected zoomedPane to remain -1, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to remain -1, got %d", m.view.ZoomedPane)
 	}
 
 	// Press 1 while on pane 2 (not zoomed) - should switch to pane 0
@@ -2478,11 +2478,11 @@ func TestPaneKeyCrossPaneSwitching(t *testing.T) {
 	}
 	m = updatedModel
 
-	if m.focusedPane != 0 {
-		t.Fatalf("expected focusedPane to be 0, got %d", m.focusedPane)
+	if m.view.FocusedPane != 0 {
+		t.Fatalf("expected focusedPane to be 0, got %d", m.view.FocusedPane)
 	}
-	if m.zoomedPane != -1 {
-		t.Fatalf("expected zoomedPane to remain -1, got %d", m.zoomedPane)
+	if m.view.ZoomedPane != -1 {
+		t.Fatalf("expected zoomedPane to remain -1, got %d", m.view.ZoomedPane)
 	}
 }
 
@@ -3127,7 +3127,7 @@ func TestPRDataResetSyncsRowsAndColumns(t *testing.T) {
 func TestClearSearchQuery(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.searchTarget = searchTargetWorktrees
+	m.view.SearchTarget = searchTargetWorktrees
 	m.setSearchQuery(searchTargetWorktrees, "test query")
 	m.filterInput.SetValue("test")
 
@@ -3146,7 +3146,7 @@ func TestRestoreFocusAfterSearch(t *testing.T) {
 	m := NewModel(cfg, "")
 
 	t.Run("restore focus to worktrees", func(t *testing.T) {
-		m.searchTarget = searchTargetWorktrees
+		m.view.SearchTarget = searchTargetWorktrees
 		m.restoreFocusAfterSearch()
 		if !m.worktreeTable.Focused() {
 			t.Error("expected worktreeTable to be focused")
@@ -3154,7 +3154,7 @@ func TestRestoreFocusAfterSearch(t *testing.T) {
 	})
 
 	t.Run("restore focus to log", func(t *testing.T) {
-		m.searchTarget = searchTargetLog
+		m.view.SearchTarget = searchTargetLog
 		m.restoreFocusAfterSearch()
 		if !m.logTable.Focused() {
 			t.Error("expected logTable to be focused")
@@ -3167,7 +3167,7 @@ func TestRestoreFocusAfterFilter(t *testing.T) {
 	m := NewModel(cfg, "")
 
 	t.Run("restore focus to worktrees", func(t *testing.T) {
-		m.filterTarget = filterTargetWorktrees
+		m.view.FilterTarget = filterTargetWorktrees
 		m.restoreFocusAfterFilter()
 		if !m.worktreeTable.Focused() {
 			t.Error("expected worktreeTable to be focused")
@@ -3175,7 +3175,7 @@ func TestRestoreFocusAfterFilter(t *testing.T) {
 	})
 
 	t.Run("restore focus to log", func(t *testing.T) {
-		m.filterTarget = filterTargetLog
+		m.view.FilterTarget = filterTargetLog
 		m.restoreFocusAfterFilter()
 		if !m.logTable.Focused() {
 			t.Error("expected logTable to be focused")
@@ -3188,7 +3188,7 @@ func TestHandleGotoTop(t *testing.T) {
 	m := NewModel(cfg, "")
 
 	t.Run("goto top on worktree pane", func(t *testing.T) {
-		m.focusedPane = 0
+		m.view.FocusedPane = 0
 		m.worktrees = []*models.WorktreeInfo{
 			{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "branch1"},
 			{Path: filepath.Join(cfg.WorktreeDir, "wt2"), Branch: "branch2"},
@@ -3211,7 +3211,7 @@ func TestHandleGotoTop(t *testing.T) {
 	})
 
 	t.Run("goto top on status pane", func(t *testing.T) {
-		m.focusedPane = 1
+		m.view.FocusedPane = 1
 		m.statusTreeFlat = []*StatusTreeNode{
 			{Path: "file1.txt", File: &StatusFile{Filename: "file1.txt"}},
 			{Path: "dir1", Children: []*StatusTreeNode{}},
@@ -3228,7 +3228,7 @@ func TestHandleGotoTop(t *testing.T) {
 	})
 
 	t.Run("goto top on log pane", func(t *testing.T) {
-		m.focusedPane = 2
+		m.view.FocusedPane = 2
 		m.logEntries = []commitLogEntry{
 			{sha: "abc123", message: "commit 1"},
 			{sha: "def456", message: "commit 2"},
@@ -3251,7 +3251,7 @@ func TestHandleGotoBottom(t *testing.T) {
 	m := NewModel(cfg, "")
 
 	t.Run("goto bottom on worktree pane", func(t *testing.T) {
-		m.focusedPane = 0
+		m.view.FocusedPane = 0
 		m.worktreeTable.SetCursor(0)
 		m.filteredWts = []*models.WorktreeInfo{
 			{Path: "wt1", Branch: "branch1"},
@@ -3270,7 +3270,7 @@ func TestHandleGotoBottom(t *testing.T) {
 	})
 
 	t.Run("goto bottom on status pane", func(t *testing.T) {
-		m.focusedPane = 1
+		m.view.FocusedPane = 1
 		m.statusTreeFlat = []*StatusTreeNode{
 			{Path: "file1.txt", File: &StatusFile{Filename: "file1.txt"}},
 			{Path: "dir1", Children: []*StatusTreeNode{}},
@@ -3287,7 +3287,7 @@ func TestHandleGotoBottom(t *testing.T) {
 	})
 
 	t.Run("goto bottom on log pane", func(t *testing.T) {
-		m.focusedPane = 2
+		m.view.FocusedPane = 2
 		m.logTable.SetCursor(0)
 		m.logEntries = []commitLogEntry{
 			{sha: "abc123", message: "commit 1"},
@@ -3309,7 +3309,7 @@ func TestHandleGotoBottom(t *testing.T) {
 func TestHandleNextFolder(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 
 	t.Run("empty status tree", func(t *testing.T) {
 		m.statusTreeFlat = []*StatusTreeNode{}
@@ -3356,7 +3356,7 @@ func TestHandleNextFolder(t *testing.T) {
 func TestHandlePrevFolder(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 
 	t.Run("empty status tree", func(t *testing.T) {
 		m.statusTreeFlat = []*StatusTreeNode{}
@@ -3405,7 +3405,7 @@ func TestCICheckNavigationDown(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.selectedIndex = 0
 	m.filteredWts = []*models.WorktreeInfo{
 		{Path: testWorktreePath, Branch: "feat"},
@@ -3452,7 +3452,7 @@ func TestCICheckNavigationUp(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.selectedIndex = 0
 	m.filteredWts = []*models.WorktreeInfo{
 		{Path: testWorktreePath, Branch: "feat"},
@@ -3501,7 +3501,7 @@ func TestCICheckEnterOpensURL(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.selectedIndex = 0
 	m.filteredWts = []*models.WorktreeInfo{
 		{Path: testWorktreePath, Branch: "feat"},
@@ -3557,7 +3557,7 @@ func TestCICheckCtrlVShowsLogs(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.selectedIndex = 0
 	m.filteredWts = []*models.WorktreeInfo{
 		{Path: testWorktreePath, Branch: "feat"},
@@ -3635,7 +3635,7 @@ func TestCICheckSelectionResetOnPaneSwitch(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.selectedIndex = 0
 	m.filteredWts = []*models.WorktreeInfo{
 		{Path: testWorktreePath, Branch: "feat"},
@@ -3662,7 +3662,7 @@ func TestCICheckSelectionResetWhenUnavailable(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.selectedIndex = 0
 	m.filteredWts = []*models.WorktreeInfo{
 		{Path: testWorktreePath, Branch: "feat"},
@@ -3697,7 +3697,7 @@ func TestCICheckNavigationWithNoChecks(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 1
+	m.view.FocusedPane = 1
 	m.statusViewport = viewport.New(40, 10)
 	m.selectedIndex = 0
 	m.filteredWts = []*models.WorktreeInfo{

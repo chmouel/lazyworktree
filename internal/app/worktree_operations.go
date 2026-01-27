@@ -632,8 +632,8 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 		"Prune Merged Worktrees",
 		"Filter...",
 		"No merged worktrees found.",
-		m.windowWidth,
-		m.windowHeight,
+		m.view.WindowWidth,
+		m.view.WindowHeight,
 		m.theme,
 	)
 

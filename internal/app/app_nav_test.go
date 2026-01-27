@@ -150,8 +150,8 @@ func TestRenderPaneTitleWithFilter(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.theme = theme.Dracula()
 	m.filterQuery = testNavFilterQuery // Activate filter for pane 0
-	m.showingFilter = false
-	m.showingSearch = false
+	m.view.ShowingFilter = false
+	m.view.ShowingSearch = false
 
 	title := m.renderPaneTitle(1, "Worktrees", true, 100)
 
@@ -172,7 +172,7 @@ func TestRenderPaneTitleWithZoom(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.theme = theme.Dracula()
-	m.zoomedPane = 0 // Zoom pane 0
+	m.view.ZoomedPane = 0 // Zoom pane 0
 
 	title := m.renderPaneTitle(1, "Worktrees", true, 100)
 
@@ -194,9 +194,9 @@ func TestRenderPaneTitleWithFilterAndZoom(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.theme = theme.Dracula()
 	m.filterQuery = testNavFilterQuery // Activate filter for pane 0
-	m.showingFilter = false
-	m.showingSearch = false
-	m.zoomedPane = 0 // Zoom pane 0
+	m.view.ShowingFilter = false
+	m.view.ShowingSearch = false
+	m.view.ZoomedPane = 0 // Zoom pane 0
 
 	title := m.renderPaneTitle(1, "Worktrees", true, 100)
 
@@ -215,7 +215,7 @@ func TestRenderPaneTitleNoZoomWhenDifferentPane(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.theme = theme.Dracula()
-	m.zoomedPane = 1 // Zoom pane 1 (status)
+	m.view.ZoomedPane = 1 // Zoom pane 1 (status)
 
 	// Render title for pane 0 (worktrees)
 	title := m.renderPaneTitle(1, "Worktrees", true, 100)
@@ -232,7 +232,7 @@ func TestRenderPaneTitleUsesAccentFg(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.theme = theme.CleanLight()
-	m.zoomedPane = 0
+	m.view.ZoomedPane = 0
 
 	title := m.renderPaneTitle(1, "Worktrees", true, 100)
 
@@ -244,8 +244,8 @@ func TestRenderPaneTitleUsesAccentFg(t *testing.T) {
 
 	// Test with filter too
 	m.filterQuery = "test"
-	m.showingFilter = false
-	m.showingSearch = false
+	m.view.ShowingFilter = false
+	m.view.ShowingSearch = false
 
 	title = m.renderPaneTitle(1, "Worktrees", true, 100)
 
@@ -257,9 +257,9 @@ func TestRenderPaneTitleUsesAccentFg(t *testing.T) {
 func TestRenderZoomedLeftPane(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 100
-	m.windowHeight = 40
-	m.zoomedPane = 0
+	m.view.WindowWidth = 100
+	m.view.WindowHeight = 40
+	m.view.ZoomedPane = 0
 
 	// Set up worktree table
 	m.worktrees = []*models.WorktreeInfo{
@@ -288,9 +288,9 @@ func TestRenderZoomedLeftPane(t *testing.T) {
 func TestRenderZoomedRightTopPane(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 100
-	m.windowHeight = 40
-	m.zoomedPane = 1
+	m.view.WindowWidth = 100
+	m.view.WindowHeight = 40
+	m.view.ZoomedPane = 1
 
 	m.infoContent = "Test info"
 	m.statusContent = "Test status content"
@@ -315,9 +315,9 @@ func TestRenderZoomedRightTopPane(t *testing.T) {
 func TestRenderZoomedRightBottomPane(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 100
-	m.windowHeight = 40
-	m.zoomedPane = 2
+	m.view.WindowWidth = 100
+	m.view.WindowHeight = 40
+	m.view.ZoomedPane = 2
 
 	m.logEntries = []commitLogEntry{
 		{sha: "abc123", message: "commit 1"},
@@ -330,7 +330,7 @@ func TestRenderZoomedRightBottomPane(t *testing.T) {
 	layout := layoutDims{
 		rightWidth:      80,
 		rightInnerWidth: 78,
-		bodyHeight:     30,
+		bodyHeight:      30,
 	}
 
 	result := m.renderZoomedRightBottomPane(layout)

@@ -40,8 +40,8 @@ func TestIntegrationOpenPRsErrors(t *testing.T) {
 func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	missingBranch := &models.PRInfo{Number: 1, Title: "Add feature"}
 	updated, _ := m.Update(openPRsLoadedMsg{prs: []*models.PRInfo{missingBranch}})

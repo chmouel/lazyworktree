@@ -75,8 +75,8 @@ func (m *Model) openCICheckSelection() tea.Cmd {
 		labelWithIcon(UIIconCICheck, "Select CI Check", m.config.IconsEnabled()),
 		"Filter checks...",
 		"No CI checks found.",
-		m.windowWidth,
-		m.windowHeight,
+		m.view.WindowWidth,
+		m.view.WindowHeight,
 		"",
 		m.theme,
 	)

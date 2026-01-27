@@ -381,11 +381,11 @@ func (m *Model) runCommandsWithTrust(cmds []string, cwd string, env map[string]s
 
 	// TOFU: prompt user
 	if trustPath != "" {
-		m.pendingCommands = cmds
-		m.pendingCmdEnv = env
-		m.pendingCmdCwd = cwd
-		m.pendingAfter = after
-		m.pendingTrust = trustPath
+		m.pending.Commands = cmds
+		m.pending.CommandEnv = env
+		m.pending.CommandCwd = cwd
+		m.pending.After = after
+		m.pending.TrustPath = trustPath
 		m.trustScreen = NewTrustScreen(trustPath, cmds, m.theme)
 		m.currentScreen = screenTrust
 	}
@@ -409,11 +409,11 @@ func (m *Model) runCommands(cmds []string, cwd string, env map[string]string, af
 }
 
 func (m *Model) clearPendingTrust() {
-	m.pendingCommands = nil
-	m.pendingCmdEnv = nil
-	m.pendingCmdCwd = ""
-	m.pendingAfter = nil
-	m.pendingTrust = ""
+	m.pending.Commands = nil
+	m.pending.CommandEnv = nil
+	m.pending.CommandCwd = ""
+	m.pending.After = nil
+	m.pending.TrustPath = ""
 	m.trustScreen = nil
 }
 

@@ -53,7 +53,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 	// Context-aware hints based on focused pane
 	var hints []string
 
-	switch m.focusedPane {
+	switch m.view.FocusedPane {
 	case 2: // Log pane
 		if len(m.logEntries) > 0 {
 			hints = []string{
@@ -161,7 +161,7 @@ func (m *Model) renderPaneTitle(index int, title string, focused bool, width int
 
 	filterIndicator := ""
 	paneIdx := index - 1 // index is 1-based, panes are 0-based
-	if !m.showingFilter && !m.showingSearch && m.hasActiveFilterForPane(paneIdx) {
+	if !m.view.ShowingFilter && !m.view.ShowingSearch && m.hasActiveFilterForPane(paneIdx) {
 		filteredStyle := lipgloss.NewStyle().Foreground(m.theme.WarnFg).Italic(true)
 		keyStyle := lipgloss.NewStyle().
 			Foreground(m.theme.AccentFg).
@@ -176,7 +176,7 @@ func (m *Model) renderPaneTitle(index int, title string, focused bool, width int
 	}
 
 	zoomIndicator := ""
-	if m.zoomedPane == paneIdx {
+	if m.view.ZoomedPane == paneIdx {
 		zoomedStyle := lipgloss.NewStyle().Foreground(m.theme.Accent).Italic(true)
 		keyStyle := lipgloss.NewStyle().
 			Foreground(m.theme.AccentFg).

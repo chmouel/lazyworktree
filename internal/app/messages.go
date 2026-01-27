@@ -299,7 +299,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 	}
 
 	// Show PR selection screen
-	m.prSelectionScreen = NewPRSelectionScreen(msg.prs, m.windowWidth, m.windowHeight, m.theme, m.config.IconsEnabled())
+	m.prSelectionScreen = NewPRSelectionScreen(msg.prs, m.view.WindowWidth, m.view.WindowHeight, m.theme, m.config.IconsEnabled())
 	m.prSelectionSubmit = func(pr *models.PRInfo) tea.Cmd {
 		// Get AI-generated title (if configured)
 		generatedTitle := ""
@@ -479,7 +479,7 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 	}
 
 	// Show issue selection screen
-	m.issueSelectionScreen = NewIssueSelectionScreen(msg.issues, m.windowWidth, m.windowHeight, m.theme, m.config.IconsEnabled())
+	m.issueSelectionScreen = NewIssueSelectionScreen(msg.issues, m.view.WindowWidth, m.view.WindowHeight, m.theme, m.config.IconsEnabled())
 	m.issueSelectionSubmit = func(issue *models.IssueInfo) tea.Cmd {
 		// Show base branch selection
 		defaultBase := m.git.GetMainBranch(m.ctx)

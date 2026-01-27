@@ -509,8 +509,8 @@ func withCwd(t *testing.T, dir string) {
 func TestShowBaseSelection(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	cmd := m.showBaseSelection(mainWorktreeName)
 	if cmd == nil {
@@ -532,8 +532,8 @@ func TestShowBaseSelection(t *testing.T) {
 func TestShowBaseSelectionFromPROption(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	cmd := m.showBaseSelection(mainWorktreeName)
 	if cmd == nil {
@@ -601,8 +601,8 @@ func TestShowBranchSelection(t *testing.T) {
 
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	selected := ""
 	cmd := m.showBranchSelection("Pick", "Filter...", "None", repo.branch, func(branch string) tea.Cmd {
@@ -643,8 +643,8 @@ func TestShowCommitSelection(t *testing.T) {
 
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	cmd := m.showCommitSelection(repo.branch)
 	if cmd == nil {
@@ -679,8 +679,8 @@ func TestShowCommitSelectionShowsInfoOnBranchNameScriptError(t *testing.T) {
 		BranchNameScript: "false",
 	}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	cmd := m.showCommitSelection(repo.branch)
 	if cmd == nil {
@@ -855,8 +855,8 @@ func TestShowBaseBranchForCustomCreateMenu(t *testing.T) {
 
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	menu := &config.CustomCreateMenu{
 		Label:       "Test Menu",
@@ -877,10 +877,10 @@ func TestShowBaseBranchForCustomCreateMenu(t *testing.T) {
 	if len(m.listScreen.items) > 0 {
 		m.listSubmit(m.listScreen.items[0])
 		// After branch selection, pendingCustomBaseRef and pendingCustomMenu should be set
-		if m.pendingCustomBaseRef == "" {
+		if m.pending.CustomBaseRef == "" {
 			t.Error("expected pendingCustomBaseRef to be set")
 		}
-		if m.pendingCustomMenu == nil {
+		if m.pending.CustomMenu == nil {
 			t.Error("expected pendingCustomMenu to be set")
 		}
 	}
@@ -1072,8 +1072,8 @@ func TestShowCheckoutOrCreatePrompt(t *testing.T) {
 
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	// Show the checkout/create prompt for an existing local branch
 	cmd := m.showCheckoutOrCreatePrompt(repo.branch)
@@ -1129,8 +1129,8 @@ func TestShowWorktreeNameForExistingBranch(t *testing.T) {
 	worktreeDir := t.TempDir()
 	cfg := &config.AppConfig{WorktreeDir: worktreeDir}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	// Show the worktree name input for an existing branch
 	cmd := m.showWorktreeNameForExistingBranch(featureBranch)
@@ -1216,8 +1216,8 @@ func TestBranchSelectionWithLocalBranch(t *testing.T) {
 
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	// Show base selection and select branch-list
 	m.showBaseSelection(repo.branch)
@@ -1273,8 +1273,8 @@ func TestBranchSelectionWithSlashLocalBranch(t *testing.T) {
 
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 
 	// Show base selection and select branch-list
 	m.showBaseSelection(repo.branch)
@@ -1321,8 +1321,8 @@ func TestBranchSelectionSkipsCheckoutForCheckedOutBranch(t *testing.T) {
 
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.windowWidth = 120
-	m.windowHeight = 40
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
 	m.worktrees = []*models.WorktreeInfo{
 		{Path: repo.dir, Branch: repo.branch},
 	}

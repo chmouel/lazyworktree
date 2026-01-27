@@ -63,7 +63,7 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.currentScreen {
 	case screenHelp:
 		if m.helpScreen == nil {
-			m.helpScreen = NewHelpScreen(m.windowWidth, m.windowHeight, m.config.CustomCommands, m.theme, m.config.IconsEnabled())
+			m.helpScreen = NewHelpScreen(m.view.WindowWidth, m.view.WindowHeight, m.config.CustomCommands, m.theme, m.config.IconsEnabled())
 		}
 		keyStr := msg.String()
 		if keyStr == keyQ || isEscKey(keyStr) {
@@ -421,15 +421,15 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		keyStr := msg.String()
 		switch {
 		case keyStr == "t" || keyStr == "T":
-			if m.pendingTrust != "" {
-				_ = m.trustManager.TrustFile(m.pendingTrust)
+			if m.pending.TrustPath != "" {
+				_ = m.trustManager.TrustFile(m.pending.TrustPath)
 			}
-			cmd := m.runCommands(m.pendingCommands, m.pendingCmdCwd, m.pendingCmdEnv, m.pendingAfter)
+			cmd := m.runCommands(m.pending.Commands, m.pending.CommandCwd, m.pending.CommandEnv, m.pending.After)
 			m.clearPendingTrust()
 			m.currentScreen = screenNone
 			return m, cmd
 		case keyStr == "b" || keyStr == "B":
-			after := m.pendingAfter
+			after := m.pending.After
 			m.clearPendingTrust()
 			m.currentScreen = screenNone
 			if after != nil {
@@ -651,7 +651,7 @@ func (m *Model) showCommandPalette() tea.Cmd {
 		}
 	}
 
-	m.paletteScreen = NewCommandPaletteScreen(items, m.windowWidth, m.windowHeight, m.theme)
+	m.paletteScreen = NewCommandPaletteScreen(items, m.view.WindowWidth, m.view.WindowHeight, m.theme)
 	m.paletteSubmit = func(action string) tea.Cmd {
 		m.debugf("palette action: %s", action)
 
@@ -780,15 +780,15 @@ func (m *Model) showCommandPalette() tea.Cmd {
 
 		// Navigation & View
 		case "zoom-toggle":
-			if m.zoomedPane >= 0 {
-				m.zoomedPane = -1
+			if m.view.ZoomedPane >= 0 {
+				m.view.ZoomedPane = -1
 			} else {
-				m.zoomedPane = m.focusedPane
+				m.view.ZoomedPane = m.view.FocusedPane
 			}
 			return nil
 		case "filter":
 			target := filterTargetWorktrees
-			switch m.focusedPane {
+			switch m.view.FocusedPane {
 			case 1:
 				target = filterTargetStatus
 			case 2:
@@ -797,7 +797,7 @@ func (m *Model) showCommandPalette() tea.Cmd {
 			return m.startFilter(target)
 		case "search":
 			target := searchTargetWorktrees
-			switch m.focusedPane {
+			switch m.view.FocusedPane {
 			case 1:
 				target = searchTargetStatus
 			case 2:
@@ -805,18 +805,18 @@ func (m *Model) showCommandPalette() tea.Cmd {
 			}
 			return m.startSearch(target)
 		case "focus-worktrees":
-			m.zoomedPane = -1
-			m.focusedPane = 0
+			m.view.ZoomedPane = -1
+			m.view.FocusedPane = 0
 			m.worktreeTable.Focus()
 			return nil
 		case "focus-status":
-			m.zoomedPane = -1
-			m.focusedPane = 1
+			m.view.ZoomedPane = -1
+			m.view.FocusedPane = 1
 			m.rebuildStatusContentWithHighlight()
 			return nil
 		case "focus-log":
-			m.zoomedPane = -1
-			m.focusedPane = 2
+			m.view.ZoomedPane = -1
+			m.view.FocusedPane = 2
 			m.logTable.Focus()
 			return nil
 		case "sort-cycle":
@@ -845,7 +845,7 @@ func (m *Model) showThemeSelection() tea.Cmd {
 	for _, t := range themes {
 		items = append(items, selectionItem{id: t, label: t})
 	}
-	m.listScreen = NewListSelectionScreen(items, labelWithIcon(UIIconThemeSelect, "Select Theme", m.config.IconsEnabled()), "Filter themes...", "", m.windowWidth, m.windowHeight, m.originalTheme, m.theme)
+	m.listScreen = NewListSelectionScreen(items, labelWithIcon(UIIconThemeSelect, "Select Theme", m.config.IconsEnabled()), "Filter themes...", "", m.view.WindowWidth, m.view.WindowHeight, m.originalTheme, m.theme)
 	m.listScreen.onCursorChange = func(item selectionItem) {
 		m.UpdateTheme(item.id)
 	}
@@ -870,6 +870,7 @@ func (m *Model) showThemeSelection() tea.Cmd {
 	return textinput.Blink
 }
 
+// UpdateTheme refreshes UI styles for the selected theme.
 func (m *Model) UpdateTheme(themeName string) {
 	thm := theme.GetThemeWithCustoms(themeName, config.CustomThemesToThemeDataMap(m.config.CustomThemes))
 	m.theme = thm
@@ -988,7 +989,7 @@ func (m *Model) customFooterHints() []string {
 
 func (m *Model) showCherryPick() tea.Cmd {
 	// Validate: log pane must be focused
-	if m.focusedPane != 2 {
+	if m.view.FocusedPane != 2 {
 		return nil
 	}
 
@@ -1041,7 +1042,7 @@ func (m *Model) showCherryPick() tea.Cmd {
 
 	// Show worktree selection screen
 	title := fmt.Sprintf("Cherry-pick %s to worktree", selectedCommit.sha)
-	m.listScreen = NewListSelectionScreen(items, title, filterWorktreesPlaceholder, "No worktrees found.", m.windowWidth, m.windowHeight, "", m.theme)
+	m.listScreen = NewListSelectionScreen(items, title, filterWorktreesPlaceholder, "No worktrees found.", m.view.WindowWidth, m.view.WindowHeight, "", m.theme)
 	m.listSubmit = func(item selectionItem) tea.Cmd {
 		// Find target worktree by path
 		var targetWorktree *models.WorktreeInfo

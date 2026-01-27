@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/git"
 	log "github.com/chmouel/lazyworktree/internal/log"
@@ -242,22 +243,6 @@ const (
 	sortModeLastSwitched = 2 // Sort by last UI access time
 )
 
-type searchTarget int
-
-const (
-	searchTargetWorktrees searchTarget = iota
-	searchTargetStatus
-	searchTargetLog
-)
-
-type filterTarget int
-
-const (
-	filterTargetWorktrees filterTarget = iota
-	filterTargetStatus
-	filterTargetLog
-)
-
 // Model represents the main application model
 type Model struct {
 	// Configuration
@@ -309,14 +294,7 @@ type Model struct {
 	spinner                   spinner.Model
 	loading                   bool
 	loadingOperation          string // Tracks what operation is loading (push, sync, etc.)
-	showingFilter             bool
-	filterTarget              filterTarget
-	showingSearch             bool
-	searchTarget              searchTarget
-	focusedPane               int // 0=table, 1=status, 2=log
-	zoomedPane                int // -1 = no zoom, 0/1/2 = which pane is zoomed
-	windowWidth               int
-	windowHeight              int
+	view                      *state.ViewState
 	infoContent               string
 	statusContent             string
 	statusFiles               []StatusFile // parsed list of files from git status (kept for compatibility)
@@ -381,16 +359,9 @@ type Model struct {
 	loadingScreen *LoadingScreen
 
 	// Trust / repo commands
-	repoConfig              *config.RepoConfig
-	repoConfigPath          string
-	pendingCommands         []string
-	pendingCmdEnv           map[string]string
-	pendingCmdCwd           string
-	pendingAfter            func() tea.Msg
-	pendingTrust            string
-	pendingCustomBranchName string                   // Branch name from custom create command
-	pendingCustomBaseRef    string                   // Base ref for custom create (selected before running command)
-	pendingCustomMenu       *config.CustomCreateMenu // Menu item for custom create
+	repoConfig     *config.RepoConfig
+	repoConfigPath string
+	pending        *state.PendingState
 
 	// Log cache for commit detail viewer
 	logEntries    []commitLogEntry
@@ -535,8 +506,6 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 		filteredWts:     []*models.WorktreeInfo{},
 		sortMode:        sortMode,
 		filterQuery:     initialFilter,
-		filterTarget:    filterTargetWorktrees,
-		searchTarget:    searchTargetWorktrees,
 		cache:           make(map[string]any),
 		divergenceCache: make(map[string]string),
 		notifiedErrors:  make(map[string]bool),
@@ -546,28 +515,33 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 		trustManager:    trustManager,
 		ctx:             ctx,
 		cancel:          cancel,
-		focusedPane:     0,
-		zoomedPane:      -1,
-		infoContent:     errNoWorktreeSelected,
-		statusContent:   "Loading...",
-		spinner:         sp,
-		loading:         true,
-		ciCheckIndex:    -1,
-		commandRunner:   exec.Command,
-		execProcess:     tea.ExecProcess,
+		view: &state.ViewState{
+			FilterTarget: state.FilterTargetWorktrees,
+			SearchTarget: state.SearchTargetWorktrees,
+			FocusedPane:  0,
+			ZoomedPane:   -1,
+		},
+		infoContent:   errNoWorktreeSelected,
+		statusContent: "Loading...",
+		spinner:       sp,
+		loading:       true,
+		ciCheckIndex:  -1,
+		commandRunner: exec.Command,
+		execProcess:   tea.ExecProcess,
 		startCommand: func(cmd *exec.Cmd) error {
 			return cmd.Start()
 		},
+		pending: &state.PendingState{},
 	}
 
 	if initialFilter != "" {
-		m.showingFilter = true
+		m.view.ShowingFilter = true
 	}
-	if cfg.SearchAutoSelect && !m.showingFilter {
-		m.showingFilter = true
+	if cfg.SearchAutoSelect && !m.view.ShowingFilter {
+		m.view.ShowingFilter = true
 	}
-	if m.showingFilter {
-		m.setFilterTarget(filterTargetWorktrees)
+	if m.view.ShowingFilter {
+		m.setFilterTarget(state.FilterTargetWorktrees)
 		m.filterInput.Focus()
 	}
 
@@ -584,7 +558,7 @@ func (m *Model) Init() tea.Cmd {
 		m.refreshWorktrees(),
 		m.spinner.Tick,
 	}
-	if m.showingFilter {
+	if m.view.ShowingFilter {
 		cmds = append(cmds, textinput.Blink)
 	}
 	return tea.Batch(cmds...)
@@ -612,7 +586,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case tea.KeyMsg:
-		m.debugf("key: %s screen=%s focus=%d filter=%t", msg.String(), screenName(m.currentScreen), m.focusedPane, m.showingFilter)
+		m.debugf("key: %s screen=%s focus=%d filter=%t", msg.String(), screenName(m.currentScreen), m.view.FocusedPane, m.view.ShowingFilter)
 		if m.currentScreen != screenNone {
 			return m.handleScreenKey(msg)
 		}
@@ -692,11 +666,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		// Store the branch name and show branch name input with the selected base ref
-		m.pendingCustomBranchName = msg.branchName
-		return m, m.showBranchNameInput(m.pendingCustomBaseRef, msg.branchName)
+		m.pending.CustomBranchName = msg.branchName
+		return m, m.showBranchNameInput(m.pending.CustomBaseRef, msg.branchName)
 
 	case customPostCommandPendingMsg:
-		if m.pendingCustomMenu == nil || m.pendingCustomMenu.PostCommand == "" {
+		if m.pending.CustomMenu == nil || m.pending.CustomMenu.PostCommand == "" {
 			// No post-command, just reload
 			worktrees, err := m.git.GetWorktrees(m.ctx)
 			return m, func() tea.Msg {
@@ -704,14 +678,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		menu := m.pendingCustomMenu
+		menu := m.pending.CustomMenu
 		cmd := menu.PostCommand
 		interactive := menu.PostInteractive
 
 		// Clear the pending menu
-		m.pendingCustomMenu = nil
-		m.pendingCustomBaseRef = ""
-		m.pendingCustomBranchName = ""
+		m.pending.CustomMenu = nil
+		m.pending.CustomBaseRef = ""
+		m.pending.CustomBranchName = ""
 
 		// Run the post-command
 		if interactive {
@@ -921,8 +895,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msg.worktreePath,
 			msg.files,
 			msg.meta,
-			m.windowWidth,
-			m.windowHeight,
+			m.view.WindowWidth,
+			m.view.WindowHeight,
 			m.theme,
 			m.config.IconsEnabled(),
 		)

@@ -369,8 +369,8 @@ func TestRunCommandsWithTrustTofu(t *testing.T) {
 	if m.currentScreen != screenTrust {
 		t.Fatalf("expected trust screen, got %v", m.currentScreen)
 	}
-	if m.trustScreen == nil || len(m.pendingCommands) != 1 {
-		t.Fatalf("expected pending commands to be set, got %v", m.pendingCommands)
+	if m.trustScreen == nil || len(m.pending.Commands) != 1 {
+		t.Fatalf("expected pending commands to be set, got %v", m.pending.Commands)
 	}
 }
 
@@ -379,16 +379,16 @@ func TestClearPendingTrust(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.pendingCommands = []string{"cmd"}
-	m.pendingCmdEnv = map[string]string{"A": "1"}
-	m.pendingCmdCwd = "/tmp"
-	m.pendingAfter = func() tea.Msg { return nil }
-	m.pendingTrust = "/tmp/.wt.yaml"
+	m.pending.Commands = []string{"cmd"}
+	m.pending.CommandEnv = map[string]string{"A": "1"}
+	m.pending.CommandCwd = "/tmp"
+	m.pending.After = func() tea.Msg { return nil }
+	m.pending.TrustPath = "/tmp/.wt.yaml"
 	m.trustScreen = NewTrustScreen("/tmp/.wt.yaml", []string{"cmd"}, m.theme)
 
 	m.clearPendingTrust()
 
-	if m.pendingCommands != nil || m.pendingCmdEnv != nil || m.pendingCmdCwd != "" || m.pendingAfter != nil || m.pendingTrust != "" || m.trustScreen != nil {
+	if m.pending.Commands != nil || m.pending.CommandEnv != nil || m.pending.CommandCwd != "" || m.pending.After != nil || m.pending.TrustPath != "" || m.trustScreen != nil {
 		t.Fatal("expected pending trust state to be cleared")
 	}
 }

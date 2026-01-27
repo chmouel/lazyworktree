@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
@@ -403,8 +404,8 @@ func TestRenderFooterIncludesCustomHelpHints(t *testing.T) {
 		},
 	}
 	m := NewModel(cfg, "")
-	m.windowWidth = 200
-	m.windowHeight = 50
+	m.view.WindowWidth = 200
+	m.view.WindowHeight = 50
 	layout := m.computeLayout()
 	footer := m.renderFooter(layout)
 
@@ -499,8 +500,10 @@ func TestCommandPaletteMRUDeduplication(t *testing.T) {
 			{ID: "create", Timestamp: time.Now().Unix() - 100, Count: 3},
 			{ID: "diff", Timestamp: time.Now().Unix() - 200, Count: 2},
 		},
-		windowWidth:  100,
-		windowHeight: 50,
+		view: &state.ViewState{
+			WindowWidth:  100,
+			WindowHeight: 50,
+		},
 	}
 
 	cmd := m.showCommandPalette()
@@ -580,8 +583,10 @@ func TestCommandPaletteMRUDisabled(t *testing.T) {
 		paletteHistory: []commandPaletteUsage{
 			{ID: "refresh", Timestamp: time.Now().Unix(), Count: 5},
 		},
-		windowWidth:  100,
-		windowHeight: 50,
+		view: &state.ViewState{
+			WindowWidth:  100,
+			WindowHeight: 50,
+		},
 	}
 
 	cmd := m.showCommandPalette()
@@ -618,8 +623,10 @@ func TestCommandPaletteMRUEmptyHistory(t *testing.T) {
 			PaletteMRULimit: 5,
 		},
 		paletteHistory: []commandPaletteUsage{},
-		windowWidth:    100,
-		windowHeight:   50,
+		view: &state.ViewState{
+			WindowWidth:  100,
+			WindowHeight: 50,
+		},
 	}
 
 	cmd := m.showCommandPalette()
@@ -666,7 +673,7 @@ func TestShowCherryPickNotInLogPane(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 0 // Not in log pane
+	m.view.FocusedPane = 0 // Not in log pane
 
 	cmd := m.showCherryPick()
 	if cmd != nil {
@@ -679,7 +686,7 @@ func TestShowCherryPickEmptyLogEntries(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 2 // Log pane
+	m.view.FocusedPane = 2 // Log pane
 	m.logEntries = []commitLogEntry{}
 
 	cmd := m.showCherryPick()
@@ -693,7 +700,7 @@ func TestShowCherryPickNoOtherWorktrees(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 2 // Log pane
+	m.view.FocusedPane = 2 // Log pane
 	m.logEntries = []commitLogEntry{
 		{sha: "abc1234", message: "Test commit"},
 	}
@@ -717,7 +724,7 @@ func TestShowCherryPickCreatesListSelection(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 2 // Log pane
+	m.view.FocusedPane = 2 // Log pane
 	m.logEntries = []commitLogEntry{
 		{sha: "abc1234", message: "Test commit"},
 	}
@@ -749,7 +756,7 @@ func TestShowCherryPickExcludesSourceWorktree(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 2
+	m.view.FocusedPane = 2
 	m.logEntries = []commitLogEntry{
 		{sha: "abc1234", message: "Test commit"},
 	}
@@ -781,7 +788,7 @@ func TestShowCherryPickMarksDirtyWorktrees(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.focusedPane = 2
+	m.view.FocusedPane = 2
 	m.logEntries = []commitLogEntry{
 		{sha: "abc1234", message: "Test commit"},
 	}

@@ -27,15 +27,15 @@ type layoutDims struct {
 
 // setWindowSize updates the window dimensions and applies the layout.
 func (m *Model) setWindowSize(width, height int) {
-	m.windowWidth = width
-	m.windowHeight = height
+	m.view.WindowWidth = width
+	m.view.WindowHeight = height
 	m.applyLayout(m.computeLayout())
 }
 
 // computeLayout calculates the layout dimensions based on window size and UI state.
 func (m *Model) computeLayout() layoutDims {
-	width := m.windowWidth
-	height := m.windowHeight
+	width := m.view.WindowWidth
+	height := m.view.WindowHeight
 	if width <= 0 {
 		width = 120
 	}
@@ -46,7 +46,7 @@ func (m *Model) computeLayout() layoutDims {
 	headerHeight := 1
 	footerHeight := 1
 	filterHeight := 0
-	if m.showingFilter || m.showingSearch {
+	if m.view.ShowingFilter || m.view.ShowingSearch {
 		filterHeight = 1
 	}
 	gapX := 1
@@ -55,7 +55,7 @@ func (m *Model) computeLayout() layoutDims {
 	bodyHeight := maxInt(height-headerHeight-footerHeight-filterHeight, 8)
 
 	// Handle zoom mode: zoomed pane gets full body area
-	if m.zoomedPane >= 0 {
+	if m.view.ZoomedPane >= 0 {
 		paneFrameX := m.basePaneStyle().GetHorizontalFrameSize()
 		paneFrameY := m.basePaneStyle().GetVerticalFrameSize()
 		fullWidth := width
@@ -84,7 +84,7 @@ func (m *Model) computeLayout() layoutDims {
 	}
 
 	leftRatio := 0.55
-	switch m.focusedPane {
+	switch m.view.FocusedPane {
 	case 0:
 		leftRatio = 0.45
 	case 1, 2:
@@ -115,7 +115,7 @@ func (m *Model) computeLayout() layoutDims {
 	}
 
 	topRatio := 0.70
-	switch m.focusedPane {
+	switch m.view.FocusedPane {
 	case 1: // Status focused → give more height to top pane
 		topRatio = 0.50
 	case 2: // Log focused → give more height to bottom pane

@@ -14,7 +14,7 @@ func (m *Model) View() string {
 	}
 
 	// Wait for window size before rendering full UI
-	if m.windowWidth == 0 || m.windowHeight == 0 {
+	if m.view.WindowWidth == 0 || m.view.WindowHeight == 0 {
 		return "Loading..."
 	}
 
@@ -27,7 +27,7 @@ func (m *Model) View() string {
 	body := m.renderBody(layout)
 
 	// Truncate body to fit, leaving room for header and footer
-	maxBodyLines := m.windowHeight - 2 // 1 for header, 1 for footer
+	maxBodyLines := m.view.WindowHeight - 2 // 1 for header, 1 for footer
 	if layout.filterHeight > 0 {
 		maxBodyLines--
 	}
@@ -74,8 +74,8 @@ func (m *Model) View() string {
 	case screenCommit:
 		if m.commitScreen != nil {
 			// Resize viewport to fit window
-			vpWidth := int(float64(m.windowWidth) * 0.95)
-			vpHeight := int(float64(m.windowHeight) * 0.85)
+			vpWidth := int(float64(m.view.WindowWidth) * 0.95)
+			vpHeight := int(float64(m.view.WindowHeight) * 0.85)
 			if vpWidth < 80 {
 				vpWidth = 80
 			}
@@ -176,18 +176,18 @@ func (m *Model) renderScreen() string {
 			m.welcomeScreen = NewWelcomeScreen(cwd, m.getRepoWorktreeDir(), m.theme)
 		}
 		content := m.welcomeScreen.View()
-		if m.windowWidth > 0 && m.windowHeight > 0 {
-			return lipgloss.Place(m.windowWidth, m.windowHeight, lipgloss.Center, lipgloss.Center, content)
+		if m.view.WindowWidth > 0 && m.view.WindowHeight > 0 {
+			return lipgloss.Place(m.view.WindowWidth, m.view.WindowHeight, lipgloss.Center, lipgloss.Center, content)
 		}
 		return content
 	case screenPalette:
 		if m.paletteScreen != nil {
 			content := m.paletteScreen.View()
-			if m.windowWidth > 0 && m.windowHeight > 0 {
+			if m.view.WindowWidth > 0 && m.view.WindowHeight > 0 {
 				content = lipgloss.NewStyle().MarginTop(3).Render(content)
 				return lipgloss.Place(
-					m.windowWidth,
-					m.windowHeight,
+					m.view.WindowWidth,
+					m.view.WindowHeight,
 					lipgloss.Center,
 					lipgloss.Top,
 					content,
@@ -198,8 +198,8 @@ func (m *Model) renderScreen() string {
 	case screenInput:
 		if m.inputScreen != nil {
 			content := m.inputScreen.View()
-			if m.windowWidth > 0 && m.windowHeight > 0 {
-				return lipgloss.Place(m.windowWidth, m.windowHeight, lipgloss.Center, lipgloss.Center, content)
+			if m.view.WindowWidth > 0 && m.view.WindowHeight > 0 {
+				return lipgloss.Place(m.view.WindowWidth, m.view.WindowHeight, lipgloss.Center, lipgloss.Center, content)
 			}
 			return content
 		}

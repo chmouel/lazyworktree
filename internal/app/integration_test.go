@@ -27,8 +27,8 @@ func TestModelInitialization(t *testing.T) {
 		t.Error("Model config not set correctly")
 	}
 
-	if m.focusedPane != 0 {
-		t.Errorf("Expected focusedPane to be 0, got %d", m.focusedPane)
+	if m.view.FocusedPane != 0 {
+		t.Errorf("Expected focusedPane to be 0, got %d", m.view.FocusedPane)
 	}
 
 	// sortMode is now an int: 0=path, 1=active, 2=switched
@@ -97,7 +97,7 @@ func TestFilterInput(t *testing.T) {
 	}
 	m := NewModel(cfg, "test-filter")
 
-	if !m.showingFilter {
+	if !m.view.ShowingFilter {
 		t.Error("Expected showingFilter to be true when initialized with filter")
 	}
 
@@ -142,7 +142,7 @@ func TestSearchAutoSelectStartsFocused(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 
-	if !m.showingFilter {
+	if !m.view.ShowingFilter {
 		t.Error("Expected showingFilter to be true when search auto-select is enabled")
 	}
 	if !m.filterInput.Focused() {
@@ -259,12 +259,12 @@ func TestWindowResize(t *testing.T) {
 		t.Fatal("Update returned wrong type")
 	}
 
-	if updatedModel.windowWidth != 100 {
-		t.Errorf("Expected windowWidth to be 100, got %d", updatedModel.windowWidth)
+	if updatedModel.view.WindowWidth != 100 {
+		t.Errorf("Expected windowWidth to be 100, got %d", updatedModel.view.WindowWidth)
 	}
 
-	if updatedModel.windowHeight != 30 {
-		t.Errorf("Expected windowHeight to be 30, got %d", updatedModel.windowHeight)
+	if updatedModel.view.WindowHeight != 30 {
+		t.Errorf("Expected windowHeight to be 30, got %d", updatedModel.view.WindowHeight)
 	}
 }
 
@@ -289,12 +289,12 @@ func TestVerySmallTerminalSize(t *testing.T) {
 	}
 
 	// Verify the model was updated
-	if updatedModel.windowWidth != 10 {
-		t.Errorf("Expected windowWidth to be 10, got %d", updatedModel.windowWidth)
+	if updatedModel.view.WindowWidth != 10 {
+		t.Errorf("Expected windowWidth to be 10, got %d", updatedModel.view.WindowWidth)
 	}
 
-	if updatedModel.windowHeight != 5 {
-		t.Errorf("Expected windowHeight to be 5, got %d", updatedModel.windowHeight)
+	if updatedModel.view.WindowHeight != 5 {
+		t.Errorf("Expected windowHeight to be 5, got %d", updatedModel.view.WindowHeight)
 	}
 
 	// Try to render the view - this previously caused slice bounds panic

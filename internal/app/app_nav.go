@@ -15,7 +15,7 @@ import (
 )
 
 func (m *Model) inputLabel() string {
-	if m.showingSearch {
+	if m.view.ShowingSearch {
 		return m.searchLabel()
 	}
 	return m.filterLabel()
@@ -23,7 +23,7 @@ func (m *Model) inputLabel() string {
 
 func (m *Model) searchLabel() string {
 	showIcons := m.config.IconsEnabled()
-	switch m.searchTarget {
+	switch m.view.SearchTarget {
 	case searchTargetStatus:
 		return labelWithIcon(UIIconSearch, "Search Files", showIcons)
 	case searchTargetLog:
@@ -35,7 +35,7 @@ func (m *Model) searchLabel() string {
 
 func (m *Model) filterLabel() string {
 	showIcons := m.config.IconsEnabled()
-	switch m.filterTarget {
+	switch m.view.FilterTarget {
 	case filterTargetStatus:
 		return labelWithIcon(UIIconFilter, "Filter Files", showIcons)
 	case filterTargetLog:
@@ -91,7 +91,7 @@ func (m *Model) hasActiveFilterForPane(paneIndex int) bool {
 }
 
 func (m *Model) setFilterTarget(target filterTarget) {
-	m.filterTarget = target
+	m.view.FilterTarget = target
 	m.filterInput.Placeholder = m.filterPlaceholder(target)
 	m.filterInput.SetValue(m.filterQueryForTarget(target))
 	m.filterInput.CursorEnd()
@@ -131,23 +131,23 @@ func (m *Model) setSearchQuery(target searchTarget, query string) {
 }
 
 func (m *Model) setSearchTarget(target searchTarget) {
-	m.searchTarget = target
+	m.view.SearchTarget = target
 	m.filterInput.Placeholder = m.searchPlaceholder(target)
 	m.filterInput.SetValue(m.searchQueryForTarget(target))
 	m.filterInput.CursorEnd()
 }
 
 func (m *Model) startSearch(target searchTarget) tea.Cmd {
-	m.showingSearch = true
-	m.showingFilter = false
+	m.view.ShowingSearch = true
+	m.view.ShowingFilter = false
 	m.setSearchTarget(target)
 	m.filterInput.Focus()
 	return textinput.Blink
 }
 
 func (m *Model) startFilter(target filterTarget) tea.Cmd {
-	m.showingFilter = true
-	m.showingSearch = false
+	m.view.ShowingFilter = true
+	m.view.ShowingSearch = false
 	m.setFilterTarget(target)
 	m.filterInput.Focus()
 	return textinput.Blink
@@ -441,7 +441,7 @@ func (m *Model) findLogMatchIndex(query string, start int, forward bool) int {
 }
 
 func (m *Model) applySearchQuery(query string) tea.Cmd {
-	switch m.searchTarget {
+	switch m.view.SearchTarget {
 	case searchTargetStatus:
 		if idx := m.findStatusMatchIndex(query, 0, true); idx >= 0 {
 			m.statusTreeIndex = idx
@@ -462,11 +462,11 @@ func (m *Model) applySearchQuery(query string) tea.Cmd {
 }
 
 func (m *Model) advanceSearchMatch(forward bool) tea.Cmd {
-	query := strings.TrimSpace(m.searchQueryForTarget(m.searchTarget))
+	query := strings.TrimSpace(m.searchQueryForTarget(m.view.SearchTarget))
 	if query == "" {
 		return nil
 	}
-	switch m.searchTarget {
+	switch m.view.SearchTarget {
 	case searchTargetStatus:
 		start := m.statusTreeIndex
 		if forward {
