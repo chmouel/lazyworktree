@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/chmouel/lazyworktree/internal/app/commands"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
@@ -557,100 +558,27 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) showCommandPalette() tea.Cmd {
 	m.debugf("open palette")
 	customItems := m.customPaletteItems()
-	items := make([]paletteItem, 0, 40+len(customItems))
+	registry := commands.NewRegistry()
+	m.registerPaletteActions(registry)
 
-	// Build MRU section and track which items are in it
-	mruIDs := make(map[string]bool)
 	m.debugf("palette MRU: enabled=%v, history_len=%d", m.config.PaletteMRU, len(m.paletteHistory))
-	if m.config.PaletteMRU && len(m.paletteHistory) > 0 {
-		mruItems := m.buildMRUPaletteItems()
-		m.debugf("palette MRU: built %d items", len(mruItems))
-		if len(mruItems) > 0 {
-			items = append(items, paletteItem{label: "Recently Used", isSection: true})
-			items = append(items, mruItems...)
-			// Track MRU IDs to exclude from other sections
-			for _, item := range mruItems {
-				if item.id != "" {
-					mruIDs[item.id] = true
-				}
-			}
+	paletteItems := commands.BuildPaletteItems(commands.PaletteOptions{
+		MRUEnabled:  m.config.PaletteMRU,
+		MRULimit:    m.config.PaletteMRULimit,
+		History:     m.paletteHistory,
+		Actions:     registry.Actions(),
+		CustomItems: customItems,
+	})
+
+	mruCount := 0
+	for _, item := range paletteItems {
+		if item.IsMRU {
+			mruCount++
 		}
 	}
+	m.debugf("palette MRU: built %d items", mruCount)
 
-	// Helper to add item only if not in MRU
-	addItem := func(item paletteItem) {
-		if item.id == "" || !mruIDs[item.id] {
-			items = append(items, item)
-		}
-	}
-
-	// Section: Worktree Actions
-	items = append(items, paletteItem{label: "Worktree Actions", isSection: true})
-	addItem(paletteItem{id: "create", label: "Create worktree (c)", description: "Add a new worktree from base branch or PR/MR"})
-	addItem(paletteItem{id: "delete", label: "Delete worktree (D)", description: "Remove worktree and branch"})
-	addItem(paletteItem{id: "rename", label: "Rename worktree (m)", description: "Rename worktree and branch"})
-	addItem(paletteItem{id: "absorb", label: "Absorb worktree (A)", description: "Merge branch into main and remove worktree"})
-	addItem(paletteItem{id: "prune", label: "Prune merged (X)", description: "Remove merged PR worktrees"})
-
-	// Section: Create Shortcuts
-	items = append(items, paletteItem{label: "Create Shortcuts", isSection: true})
-	addItem(paletteItem{id: "create-from-current", label: "Create worktree from current branch", description: "Create from current branch with or without changes"})
-	addItem(paletteItem{id: "create-from-branch", label: "Create worktree from branch/tag", description: "Select a branch, tag, or remote as base"})
-	addItem(paletteItem{id: "create-from-commit", label: "Create worktree from commit", description: "Choose a branch, then select a specific commit"})
-	addItem(paletteItem{id: "create-from-pr", label: "Create worktree from PR/MR", description: "Create from a pull/merge request"})
-	addItem(paletteItem{id: "create-from-issue", label: "Create worktree from issue", description: "Create from a GitHub/GitLab issue"})
-	addItem(paletteItem{id: "create-freeform", label: "Create worktree from ref", description: "Enter a branch, tag, or commit manually"})
-
-	// Section: Git Operations
-	items = append(items, paletteItem{label: "Git Operations", isSection: true})
-	addItem(paletteItem{id: "diff", label: "Show diff (d)", description: "Show diff for current worktree or commit"})
-	addItem(paletteItem{id: "refresh", label: "Refresh (r)", description: "Reload worktrees"})
-	addItem(paletteItem{id: "fetch", label: "Fetch remotes (R)", description: "git fetch --all"})
-	addItem(paletteItem{id: "push", label: "Push to upstream (P)", description: "git push (clean worktree only)"})
-	addItem(paletteItem{id: "sync", label: "Synchronise with upstream (S)", description: "git pull, then git push (clean worktree only)"})
-	addItem(paletteItem{id: "fetch-pr-data", label: "Fetch PR data (p)", description: "Fetch PR/MR status from GitHub/GitLab"})
-	if m.git != nil && m.git.IsGitHub(m.ctx) {
-		addItem(paletteItem{id: "ci-checks", label: "View CI checks (v)", description: "View CI check logs for current worktree"})
-	}
-	addItem(paletteItem{id: "pr", label: "Open PR (o)", description: "Open PR in browser"})
-	addItem(paletteItem{id: "lazygit", label: "Open LazyGit (g)", description: "Open LazyGit in selected worktree"})
-	addItem(paletteItem{id: "run-command", label: "Run command (!)", description: "Run arbitrary command in worktree"})
-
-	// Section: Status Pane
-	items = append(items, paletteItem{label: "Status Pane", isSection: true})
-	addItem(paletteItem{id: "stage-file", label: "Stage/unstage file (s)", description: "Stage or unstage selected file"})
-	addItem(paletteItem{id: "commit-staged", label: "Commit staged (c)", description: "Commit staged changes"})
-	addItem(paletteItem{id: "commit-all", label: "Stage all and commit (C)", description: "Stage all changes and commit"})
-	addItem(paletteItem{id: "edit-file", label: "Edit file (e)", description: "Open selected file in editor"})
-	addItem(paletteItem{id: "delete-file", label: "Delete file (D)", description: "Delete selected file or directory"})
-
-	// Section: Log Pane
-	items = append(items, paletteItem{label: "Log Pane", isSection: true})
-	addItem(paletteItem{id: "cherry-pick", label: "Cherry-pick commit (C)", description: "Cherry-pick commit to another worktree"})
-	addItem(paletteItem{id: "commit-view", label: "Browse commit files", description: "Browse files changed in selected commit"})
-
-	// Section: Navigation
-	items = append(items, paletteItem{label: "Navigation", isSection: true})
-	addItem(paletteItem{id: "zoom-toggle", label: "Toggle zoom (=)", description: "Toggle zoom on focused pane"})
-	addItem(paletteItem{id: "filter", label: "Filter (f)", description: "Filter items in focused pane"})
-	addItem(paletteItem{id: "search", label: "Search (/)", description: "Search items in focused pane"})
-	addItem(paletteItem{id: "focus-worktrees", label: "Focus worktrees (1)", description: "Focus worktree pane"})
-	addItem(paletteItem{id: "focus-status", label: "Focus status (2)", description: "Focus status pane"})
-	addItem(paletteItem{id: "focus-log", label: "Focus log (3)", description: "Focus log pane"})
-	addItem(paletteItem{id: "sort-cycle", label: "Cycle sort (s)", description: "Cycle sort mode (path/active/switched)"})
-
-	// Section: Settings
-	items = append(items, paletteItem{label: "Settings", isSection: true})
-	addItem(paletteItem{id: "theme", label: "Select theme", description: "Change the application theme with live preview"})
-	addItem(paletteItem{id: "help", label: "Help (?)", description: "Show help"})
-
-	// Add custom items (filter out MRU duplicates)
-	for _, item := range customItems {
-		if item.id == "" || !mruIDs[item.id] {
-			items = append(items, item)
-		}
-	}
-
+	items := toPaletteItems(paletteItems)
 	m.paletteScreen = NewCommandPaletteScreen(items, m.view.WindowWidth, m.view.WindowHeight, m.theme)
 	m.paletteSubmit = func(action string) tea.Cmd {
 		m.debugf("palette action: %s", action)
@@ -678,23 +606,21 @@ func (m *Model) showCommandPalette() tea.Cmd {
 		if _, ok := m.config.CustomCommands[action]; ok {
 			return m.executeCustomCommand(action)
 		}
-		switch action {
-		// Worktree Actions
-		case "create":
-			return m.showCreateWorktree()
-		case "delete":
-			return m.showDeleteWorktree()
-		case "rename":
-			return m.showRenameWorktree()
-		case "absorb":
-			return m.showAbsorbWorktree()
-		case "prune":
-			return m.showPruneMerged()
+		return registry.Execute(action)
+	}
+	m.currentScreen = screenPalette
+	return textinput.Blink
+}
 
-		// Create Menu Shortcuts
-		case "create-from-current":
-			return m.showCreateFromCurrent()
-		case "create-from-branch":
+func (m *Model) registerPaletteActions(registry *commands.Registry) {
+	commands.RegisterWorktreeActions(registry, commands.WorktreeHandlers{
+		Create:            m.showCreateWorktree,
+		Delete:            m.showDeleteWorktree,
+		Rename:            m.showRenameWorktree,
+		Absorb:            m.showAbsorbWorktree,
+		Prune:             m.showPruneMerged,
+		CreateFromCurrent: m.showCreateFromCurrent,
+		CreateFromBranch: func() tea.Cmd {
 			defaultBase := m.git.GetMainBranch(m.ctx)
 			return m.showBranchSelection(
 				"Select base branch",
@@ -706,49 +632,39 @@ func (m *Model) showCommandPalette() tea.Cmd {
 					return m.showBranchNameInput(branch, suggestedName)
 				},
 			)
-		case "create-from-commit":
+		},
+		CreateFromCommit: func() tea.Cmd {
 			defaultBase := m.git.GetMainBranch(m.ctx)
 			return m.showCommitSelection(defaultBase)
-		case "create-from-pr":
-			return m.showCreateFromPR()
-		case "create-from-issue":
-			return m.showCreateFromIssue()
-		case "create-freeform":
+		},
+		CreateFromPR:    m.showCreateFromPR,
+		CreateFromIssue: m.showCreateFromIssue,
+		CreateFreeform: func() tea.Cmd {
 			defaultBase := m.git.GetMainBranch(m.ctx)
 			return m.showFreeformBaseInput(defaultBase)
+		},
+	})
 
-		// Git Operations
-		case "diff":
-			return m.showDiff()
-		case "refresh":
-			return m.refreshWorktrees()
-		case "fetch":
-			return m.fetchRemotes()
-		case "push":
-			return m.pushToUpstream()
-		case "sync":
-			return m.syncWithUpstream()
-		case "fetch-pr-data":
-			m.ciCache = make(map[string]*ciCacheEntry)
-			m.prDataLoaded = false
-			m.updateTable()
-			m.updateTableColumns(m.worktreeTable.Width())
-			m.loading = true
-			m.statusContent = "Fetching PR data..."
-			m.loadingScreen = NewLoadingScreen("Fetching PR data...", m.theme, m.config.IconsEnabled())
-			m.currentScreen = screenLoading
-			return m.fetchPRData()
-		case "pr":
-			return m.openPR()
-		case "ci-checks":
+	commands.RegisterGitOperations(registry, commands.GitHandlers{
+		ShowDiff:    m.showDiff,
+		Refresh:     m.refreshWorktrees,
+		Fetch:       m.fetchRemotes,
+		Push:        m.pushToUpstream,
+		Sync:        m.syncWithUpstream,
+		FetchPRData: m.fetchPRDataWithState,
+		ViewCIChecks: func() tea.Cmd {
 			return m.openCICheckSelection()
-		case "lazygit":
-			return m.openLazyGit()
-		case "run-command":
-			return m.showRunCommand()
+		},
+		CIChecksAvailable: func() bool {
+			return m.git != nil && m.git.IsGitHub(m.ctx)
+		},
+		OpenPR:      m.openPR,
+		OpenLazyGit: m.openLazyGit,
+		RunCommand:  m.showRunCommand,
+	})
 
-		// Status Pane Actions
-		case "stage-file":
+	commands.RegisterStatusPaneActions(registry, commands.StatusHandlers{
+		StageFile: func() tea.Cmd {
 			if len(m.statusTreeFlat) > 0 && m.statusTreeIndex >= 0 && m.statusTreeIndex < len(m.statusTreeFlat) {
 				node := m.statusTreeFlat[m.statusTreeIndex]
 				if node.IsDir() {
@@ -757,11 +673,10 @@ func (m *Model) showCommandPalette() tea.Cmd {
 				return m.stageCurrentFile(*node.File)
 			}
 			return nil
-		case "commit-staged":
-			return m.commitStagedChanges()
-		case "commit-all":
-			return m.commitAllChanges()
-		case "edit-file":
+		},
+		CommitStaged: m.commitStagedChanges,
+		CommitAll:    m.commitAllChanges,
+		EditFile: func() tea.Cmd {
 			if len(m.statusTreeFlat) > 0 && m.statusTreeIndex >= 0 && m.statusTreeIndex < len(m.statusTreeFlat) {
 				node := m.statusTreeFlat[m.statusTreeIndex]
 				if !node.IsDir() {
@@ -769,24 +684,25 @@ func (m *Model) showCommandPalette() tea.Cmd {
 				}
 			}
 			return nil
-		case "delete-file":
-			return m.showDeleteFile()
+		},
+		DeleteFile: m.showDeleteFile,
+	})
 
-		// Log Pane Actions
-		case "cherry-pick":
-			return m.showCherryPick()
-		case "commit-view":
-			return m.openCommitView()
+	commands.RegisterLogPaneActions(registry, commands.LogHandlers{
+		CherryPick: m.showCherryPick,
+		CommitView: m.openCommitView,
+	})
 
-		// Navigation & View
-		case "zoom-toggle":
+	commands.RegisterNavigationActions(registry, commands.NavigationHandlers{
+		ToggleZoom: func() tea.Cmd {
 			if m.view.ZoomedPane >= 0 {
 				m.view.ZoomedPane = -1
 			} else {
 				m.view.ZoomedPane = m.view.FocusedPane
 			}
 			return nil
-		case "filter":
+		},
+		Filter: func() tea.Cmd {
 			target := filterTargetWorktrees
 			switch m.view.FocusedPane {
 			case 1:
@@ -795,7 +711,8 @@ func (m *Model) showCommandPalette() tea.Cmd {
 				target = filterTargetLog
 			}
 			return m.startFilter(target)
-		case "search":
+		},
+		Search: func() tea.Cmd {
 			target := searchTargetWorktrees
 			switch m.view.FocusedPane {
 			case 1:
@@ -804,37 +721,68 @@ func (m *Model) showCommandPalette() tea.Cmd {
 				target = searchTargetLog
 			}
 			return m.startSearch(target)
-		case "focus-worktrees":
+		},
+		FocusWorktree: func() tea.Cmd {
 			m.view.ZoomedPane = -1
 			m.view.FocusedPane = 0
 			m.worktreeTable.Focus()
 			return nil
-		case "focus-status":
+		},
+		FocusStatus: func() tea.Cmd {
 			m.view.ZoomedPane = -1
 			m.view.FocusedPane = 1
 			m.rebuildStatusContentWithHighlight()
 			return nil
-		case "focus-log":
+		},
+		FocusLog: func() tea.Cmd {
 			m.view.ZoomedPane = -1
 			m.view.FocusedPane = 2
 			m.logTable.Focus()
 			return nil
-		case "sort-cycle":
+		},
+		SortCycle: func() tea.Cmd {
 			m.sortMode = (m.sortMode + 1) % 3
 			m.updateTable()
 			return nil
+		},
+	})
 
-		// Settings & Help
-		case "theme":
-			return m.showThemeSelection()
-		case "help":
+	commands.RegisterSettingsActions(registry, commands.SettingsHandlers{
+		Theme: m.showThemeSelection,
+		Help: func() tea.Cmd {
 			m.currentScreen = screenHelp
 			return nil
-		}
+		},
+	})
+}
+
+func (m *Model) fetchPRDataWithState() tea.Cmd {
+	m.ciCache = make(map[string]*ciCacheEntry)
+	m.prDataLoaded = false
+	m.updateTable()
+	m.updateTableColumns(m.worktreeTable.Width())
+	m.loading = true
+	m.statusContent = "Fetching PR data..."
+	m.loadingScreen = NewLoadingScreen("Fetching PR data...", m.theme, m.config.IconsEnabled())
+	m.currentScreen = screenLoading
+	return m.fetchPRData()
+}
+
+func toPaletteItems(items []commands.PaletteItem) []paletteItem {
+	if len(items) == 0 {
 		return nil
 	}
-	m.currentScreen = screenPalette
-	return textinput.Blink
+	converted := make([]paletteItem, len(items))
+	for i, item := range items {
+		converted[i] = paletteItem{
+			id:          item.ID,
+			label:       item.Label,
+			description: item.Description,
+			isSection:   item.IsSection,
+			isMRU:       item.IsMRU,
+		}
+	}
+	return converted
 }
 
 func (m *Model) showThemeSelection() tea.Cmd {
@@ -1148,108 +1096,14 @@ func (m *Model) persistLastSelected(path string) {
 	m.recordAccess(path)
 }
 
-func (m *Model) buildMRUPaletteItems() []paletteItem {
-	if !m.config.PaletteMRU || len(m.paletteHistory) == 0 {
-		return nil
-	}
-
-	// Build a lookup map of all available palette items
-	itemMap := make(map[string]paletteItem)
-	customItems := m.customPaletteItems()
-
-	// Add all standard palette items
-	standardItems := []paletteItem{
-		// Worktree Actions
-		{id: "create", label: "Create worktree (c)", description: "Add a new worktree from base branch or PR/MR"},
-		{id: "delete", label: "Delete worktree (D)", description: "Remove worktree and branch"},
-		{id: "rename", label: "Rename worktree (m)", description: "Rename worktree and branch"},
-		{id: "absorb", label: "Absorb worktree (A)", description: "Merge branch into main and remove worktree"},
-		{id: "prune", label: "Prune merged (X)", description: "Remove merged PR worktrees"},
-
-		// Create Shortcuts
-		{id: "create-from-current", label: "Create worktree from current branch", description: "Create from current branch with or without changes"},
-		{id: "create-from-branch", label: "Create worktree from branch/tag", description: "Select a branch, tag, or remote as base"},
-		{id: "create-from-commit", label: "Create worktree from commit", description: "Choose a branch, then select a specific commit"},
-		{id: "create-from-pr", label: "Create worktree from PR/MR", description: "Create from a pull/merge request"},
-		{id: "create-from-issue", label: "Create worktree from issue", description: "Create from a GitHub/GitLab issue"},
-		{id: "create-freeform", label: "Create worktree from ref", description: "Enter a branch, tag, or commit manually"},
-
-		// Git Operations
-		{id: "diff", label: "Show diff (d)", description: "Show diff for current worktree or commit"},
-		{id: "refresh", label: "Refresh (r)", description: "Reload worktrees"},
-		{id: "fetch", label: "Fetch remotes (R)", description: "git fetch --all"},
-		{id: "push", label: "Push to upstream (P)", description: "git push (clean worktree only)"},
-		{id: "sync", label: "Synchronise with upstream (S)", description: "git pull, then git push (clean worktree only)"},
-		{id: "fetch-pr-data", label: "Fetch PR data (p)", description: "Fetch PR/MR status from GitHub/GitLab"},
-		{id: "ci-checks", label: "View CI checks (v)", description: "View CI check logs for current worktree"},
-		{id: "pr", label: "Open PR (o)", description: "Open PR in browser"},
-		{id: "lazygit", label: "Open LazyGit (g)", description: "Open LazyGit in selected worktree"},
-		{id: "run-command", label: "Run command (!)", description: "Run arbitrary command in worktree"},
-
-		// Status Pane
-		{id: "stage-file", label: "Stage/unstage file (s)", description: "Stage or unstage selected file"},
-		{id: "commit-staged", label: "Commit staged (c)", description: "Commit staged changes"},
-		{id: "commit-all", label: "Stage all and commit (C)", description: "Stage all changes and commit"},
-		{id: "edit-file", label: "Edit file (e)", description: "Open selected file in editor"},
-		{id: "delete-file", label: "Delete file (D)", description: "Delete selected file or directory"},
-
-		// Log Pane
-		{id: "cherry-pick", label: "Cherry-pick commit (C)", description: "Cherry-pick commit to another worktree"},
-		{id: "commit-view", label: "Browse commit files", description: "Browse files changed in selected commit"},
-
-		// Navigation
-		{id: "zoom-toggle", label: "Toggle zoom (=)", description: "Toggle zoom on focused pane"},
-		{id: "filter", label: "Filter (f)", description: "Filter items in focused pane"},
-		{id: "search", label: "Search (/)", description: "Search items in focused pane"},
-		{id: "focus-worktrees", label: "Focus worktrees (1)", description: "Focus worktree pane"},
-		{id: "focus-status", label: "Focus status (2)", description: "Focus status pane"},
-		{id: "focus-log", label: "Focus log (3)", description: "Focus log pane"},
-		{id: "sort-cycle", label: "Cycle sort (s)", description: "Cycle sort mode (path/active/switched)"},
-
-		// Settings
-		{id: "theme", label: "Select theme", description: "Change the application theme with live preview"},
-		{id: "help", label: "Help (?)", description: "Show help"},
-	}
-
-	for _, item := range standardItems {
-		if item.id != "" {
-			itemMap[item.id] = item
-		}
-	}
-
-	// Add custom items to the map
-	for _, item := range customItems {
-		if item.id != "" && !item.isSection {
-			itemMap[item.id] = item
-		}
-	}
-
-	// Build MRU list from history
-	mruItems := make([]paletteItem, 0, m.config.PaletteMRULimit)
-	for _, usage := range m.paletteHistory {
-		if len(mruItems) >= m.config.PaletteMRULimit {
-			break
-		}
-
-		// Look up the item details
-		if item, exists := itemMap[usage.ID]; exists {
-			// Mark as MRU and add to list
-			item.isMRU = true
-			mruItems = append(mruItems, item)
-		}
-	}
-
-	return mruItems
-}
-
-func (m *Model) customPaletteItems() []paletteItem {
+func (m *Model) customPaletteItems() []commands.PaletteItem {
 	keys := m.customCommandKeys()
 	if len(keys) == 0 {
 		return nil
 	}
 
 	// Separate commands into categories
-	var regularItems, tmuxItems, zellijItems []paletteItem
+	var regularItems, tmuxItems, zellijItems []commands.PaletteItem
 	for _, key := range keys {
 		cmd := m.config.CustomCommands[key]
 		if cmd == nil {
@@ -1265,10 +1119,10 @@ func (m *Model) customPaletteItems() []paletteItem {
 		case cmd.Tmux != nil:
 			description = tmuxSessionLabel
 		}
-		item := paletteItem{
-			id:          key,
-			label:       label,
-			description: description,
+		item := commands.PaletteItem{
+			ID:          key,
+			Label:       label,
+			Description: description,
 		}
 		switch {
 		case cmd.Tmux != nil:
@@ -1287,41 +1141,41 @@ func (m *Model) customPaletteItems() []paletteItem {
 	hasZellij := len(zellijItems) > 0 && zellijErr == nil
 
 	// Get active tmux sessions
-	var activeTmuxSessions []paletteItem
+	var activeTmuxSessions []commands.PaletteItem
 	if tmuxErr == nil {
 		sessions := m.getTmuxActiveSessions()
 		for _, sessionName := range sessions {
-			activeTmuxSessions = append(activeTmuxSessions, paletteItem{
-				id:          "tmux-attach:" + sessionName,
-				label:       sessionName,
-				description: "active tmux session",
+			activeTmuxSessions = append(activeTmuxSessions, commands.PaletteItem{
+				ID:          "tmux-attach:" + sessionName,
+				Label:       sessionName,
+				Description: "active tmux session",
 			})
 		}
 	}
 
 	// Get active zellij sessions
-	var activeZellijSessions []paletteItem
+	var activeZellijSessions []commands.PaletteItem
 	if zellijErr == nil {
 		sessions := m.getZellijActiveSessions()
 		for _, sessionName := range sessions {
-			activeZellijSessions = append(activeZellijSessions, paletteItem{
-				id:          "zellij-attach:" + sessionName,
-				label:       sessionName,
-				description: "active zellij session",
+			activeZellijSessions = append(activeZellijSessions, commands.PaletteItem{
+				ID:          "zellij-attach:" + sessionName,
+				Label:       sessionName,
+				Description: "active zellij session",
 			})
 		}
 	}
 
 	// Build result with sections
-	var items []paletteItem
+	var items []commands.PaletteItem
 	if len(regularItems) > 0 {
-		items = append(items, paletteItem{label: "Custom Commands", isSection: true})
+		items = append(items, commands.PaletteItem{Label: "Custom Commands", IsSection: true})
 		items = append(items, regularItems...)
 	}
 
 	// Multiplexer section for custom tmux/zellij commands
 	if hasTmux || hasZellij {
-		items = append(items, paletteItem{label: "Multiplexer", isSection: true})
+		items = append(items, commands.PaletteItem{Label: "Multiplexer", IsSection: true})
 		if hasTmux {
 			items = append(items, tmuxItems...)
 		}
@@ -1332,13 +1186,13 @@ func (m *Model) customPaletteItems() []paletteItem {
 
 	// Active Tmux Sessions section (appears after Multiplexer)
 	if len(activeTmuxSessions) > 0 {
-		items = append(items, paletteItem{label: "Active Tmux Sessions", isSection: true})
+		items = append(items, commands.PaletteItem{Label: "Active Tmux Sessions", IsSection: true})
 		items = append(items, activeTmuxSessions...)
 	}
 
 	// Active Zellij Sessions section (appears after Active Tmux Sessions)
 	if len(activeZellijSessions) > 0 {
-		items = append(items, paletteItem{label: "Active Zellij Sessions", isSection: true})
+		items = append(items, commands.PaletteItem{Label: "Active Zellij Sessions", IsSection: true})
 		items = append(items, activeZellijSessions...)
 	}
 
