@@ -6,8 +6,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/chmouel/lazyworktree/internal/config"
+	"github.com/chmouel/lazyworktree/internal/models"
 )
+
+// Pager defines how diffs and content are displayed.
+type Pager interface {
+	Show(content string, env []string, cwd string) tea.Cmd
+	ShowFileDiff(sf models.StatusFile, wt *models.WorktreeInfo) tea.Cmd
+	ShowCommitDiff(sha string, wt *models.WorktreeInfo) tea.Cmd
+}
 
 // PagerCommand determines the pager command to use.
 func PagerCommand(cfg *config.AppConfig) string {

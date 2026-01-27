@@ -18,6 +18,19 @@ type CommandPaletteUsage struct {
 	Count     int    `json:"count"`
 }
 
+// HistoryService persists command and palette history.
+type HistoryService interface {
+	LoadCommands(repoKey string) []string
+	SaveCommands(repoKey string, cmds []string)
+	AddCommand(repoKey string, cmd string)
+	LoadAccessHistory(repoKey string) map[string]int64
+	SaveAccessHistory(repoKey string, history map[string]int64)
+	RecordAccess(repoKey string, path string)
+	LoadPaletteHistory(repoKey string) []CommandPaletteUsage
+	SavePaletteHistory(repoKey string, commands []CommandPaletteUsage)
+	AddPaletteUsage(repoKey string, id string)
+}
+
 // LoadCache loads worktree data from the cache file.
 func LoadCache(repoKey, worktreeDir string) ([]*models.WorktreeInfo, error) {
 	cachePath := filepath.Join(worktreeDir, repoKey, models.CacheFilename)

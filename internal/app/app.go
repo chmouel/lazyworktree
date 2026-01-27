@@ -204,11 +204,7 @@ type commitLogEntry struct {
 }
 
 // StatusFile represents a file entry from git status.
-type StatusFile struct {
-	Filename    string
-	Status      string // XY status code (e.g., ".M", "M.", " ?")
-	IsUntracked bool
-}
+type StatusFile = models.StatusFile
 
 // StatusTreeNode represents a node in the status file tree (directory or file).
 type StatusTreeNode struct {
