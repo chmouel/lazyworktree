@@ -846,16 +846,83 @@ From `renderer.go`:
 
 In `app.go`, replaced `screenName(m.currentScreen)` call with inline check for the two remaining screen states.
 
-### Phase 3: Service Extraction (Future)
+### Phase 3: CI Service Extraction (COMPLETED ✅)
 
-**CI Service** - Extract from `ci.go`:
-- CI cache management
-- CI check fetching
-- CI check sorting
+**Goal:** Extract CI logic from tightly-coupled Model methods into standalone services with clear interfaces.
+
+**Completed:**
+
+#### Part 1: CI Data Service (COMPLETED ✅)
+1. ✅ Created `services/ci_data.go` - CIDataService interface and implementation
+   - `Sort()` - Sorts CI checks with GitHub Actions first
+   - `StatusIcon()` - Returns appropriate CI status icons
+   - `ExtractRunID()`, `ExtractJobID()`, `ExtractRepo()` - URL parsing utilities
+   - Pure functions with zero Model dependencies
+2. ✅ Created `services/ci_data_test.go` - Comprehensive unit tests
+3. ✅ Updated `ci.go` to delegate to service:
+   - `sortCIChecks()` → `ciDataSvc.Sort()`
+   - `extractRunIDFromLink()` → `ciDataSvc.ExtractRunID()`
+   - `extractJobIDFromLink()` → `ciDataSvc.ExtractJobID()`
+   - `extractRepoFromLink()` → `ciDataSvc.ExtractRepo()`
+4. ✅ Deduplication: Removed duplicate URL parsing logic
+
+#### Part 2: CI Cache Interface (COMPLETED ✅)
+1. ✅ Created `services/ci_cache.go` - CICheckCache interface and implementation
+   - Thread-safe cache with `sync.RWMutex`
+   - `Get()`, `Set()`, `Clear()`, `IsFresh()` methods
+   - `DefaultCICacheTTL` constant (30 seconds)
+2. ✅ Created `services/ci_cache_test.go` - Comprehensive unit tests
+3. ✅ Updated Model to use cache interface:
+   - Changed `ciCache` field from `map[string]*ciCacheEntry` to `services.CICheckCache`
+   - Removed `ciCacheEntry` struct from `ci.go` (moved to services)
+   - Updated all cache access to use interface methods
+4. ✅ Updated 7 source files:
+   - `app.go` - Field type change, initialization
+   - `ci.go` - Use `Get()`, `IsFresh()` methods
+   - `messages.go` - Use `Set()` method
+   - `render_panes.go` - Use `Get()` method
+   - `handlers.go` - Use `Clear()` method
+   - `worktree_operations.go` - Use `Clear()` method
+   - `app_screens.go` - Use `Clear()` method
+5. ✅ Updated 7 test files to use interface methods
+
+#### Part 3: CI Fetch Service (COMPLETED ✅)
+1. ✅ Created `services/ci_fetch.go` - CIFetchService and GitCIProvider interfaces
+   - `GitCIProvider` - Interface for git service CI operations (enables mocking)
+   - `CIFetchService` - Creates fetch functions for PR and commit-based CI status
+   - `CIFetchResult` - Result struct for fetch operations
+2. ✅ Created `services/ci_fetch_test.go` - Comprehensive unit tests with mock provider
+3. ✅ Dependency injection pattern established for testability
+
+**Files Created:**
+| File | Lines | Purpose |
+|------|-------|---------|
+| `services/ci_data.go` | 157 | CIDataService interface + implementation |
+| `services/ci_data_test.go` | 359 | Unit tests for CI data operations |
+| `services/ci_cache.go` | 79 | CICheckCache interface + implementation |
+| `services/ci_cache_test.go` | 183 | Unit tests for cache operations |
+| `services/ci_fetch.go` | 72 | CIFetchService + GitCIProvider interfaces |
+| `services/ci_fetch_test.go` | 174 | Unit tests for fetch operations |
+
+**Benefits Achieved:**
+- ✅ Pure functions extracted from Model (easier to test)
+- ✅ Thread-safe cache with proper TTL management
+- ✅ GitCIProvider interface enables mocking in tests
+- ✅ Clear separation of concerns (data, cache, fetch)
+- ✅ All tests pass (`make sanity` ✅)
+- ✅ Race detector clean (`go test -race` ✅)
+
+**Stats:**
+- **Lines added:** ~1,024 (new files)
+- **Files modified:** 14 (7 source, 7 test)
+- **Tests passing:** All (`make sanity` ✅)
+
+### Phase 4: Worktree Operations Service (Future)
 
 **Worktree Operations Service** - Extract from `worktree_operations.go` (864 lines):
 - Create/delete/rename operations
 - Worktree lifecycle management
+- Validation helpers
 
 ### Phase 4: Model Cleanup (Future)
 
@@ -939,8 +1006,8 @@ After each refactoring phase:
 | `screens.go` | ~493 | Reduced (~665 lines removed: CommitFilesScreen + Wave 2G) |
 | `app_screens.go` | ~760 | Simplified (all legacy case blocks removed) |
 | `handlers.go` | 1043 | Updated for screen manager |
-| `ci.go` | 330 | Could become service (Phase 3) |
-| `worktree_operations.go` | 864 | Could become service (Phase 3) |
+| `ci.go` | 434 | Refactored (delegates to services - Phase 3) |
+| `worktree_operations.go` | 864 | Could become service (Phase 4) |
 | `screen/screen.go` | 83 | Core interface and types |
 | `screen/manager.go` | 74 | Manager implementation |
 | `screen/confirm.go` | 143 | ConfirmScreen (migrated to callbacks - Wave 2F) |
@@ -960,6 +1027,12 @@ After each refactoring phase:
 | `screen/pr_select_test.go` | NEW | Tests for PRSelectionScreen |
 | `screen/ui_helpers.go` | NEW | Shared UI helper functions |
 | `screen/manager_test.go` | 195 | Tests |
+| `services/ci_data.go` | 157 | CI data operations (Phase 3) |
+| `services/ci_data_test.go` | 359 | Tests for CI data service |
+| `services/ci_cache.go` | 79 | CI cache interface + impl (Phase 3) |
+| `services/ci_cache_test.go` | 183 | Tests for CI cache |
+| `services/ci_fetch.go` | 72 | CI fetch service interfaces (Phase 3) |
+| `services/ci_fetch_test.go` | 174 | Tests for CI fetch service |
 
 ---
 

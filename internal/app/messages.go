@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -279,10 +278,7 @@ func (m *Model) handlePRDataLoaded(msg prDataLoadedMsg) (tea.Model, tea.Cmd) {
 // handleCIStatusLoaded processes CI status loaded message.
 func (m *Model) handleCIStatusLoaded(msg ciStatusLoadedMsg) (tea.Model, tea.Cmd) {
 	if msg.err == nil && msg.checks != nil {
-		m.ciCache[msg.branch] = &ciCacheEntry{
-			checks:    msg.checks,
-			fetchedAt: time.Now(),
-		}
+		m.ciCache.Set(msg.branch, msg.checks)
 		// Refresh info content to show CI status
 		if m.selectedIndex >= 0 && m.selectedIndex < len(m.filteredWts) {
 			wt := m.filteredWts[m.selectedIndex]

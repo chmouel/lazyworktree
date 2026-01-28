@@ -591,7 +591,6 @@ func TestCIStatusCaching(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.ciCache = make(map[string]*ciCacheEntry)
 
 	// Load CI status for a branch
 	checks := []*models.CICheck{
@@ -603,10 +602,10 @@ func TestCIStatusCaching(t *testing.T) {
 	m = updated.(*Model)
 
 	// Verify it's cached
-	if cached, ok := m.ciCache["main"]; !ok {
+	if cached, _, ok := m.ciCache.Get("main"); !ok {
 		t.Fatal("expected CI status to be cached for 'main' branch")
-	} else if len(cached.checks) != 2 {
-		t.Errorf("expected 2 checks, got %d", len(cached.checks))
+	} else if len(cached) != 2 {
+		t.Errorf("expected 2 checks, got %d", len(cached))
 	}
 
 	// Load different branch and verify first one is still cached
@@ -617,10 +616,10 @@ func TestCIStatusCaching(t *testing.T) {
 	updated, _ = m.handleCIStatusLoaded(msg2)
 	m = updated.(*Model)
 
-	if _, ok := m.ciCache["main"]; !ok {
+	if _, _, ok := m.ciCache.Get("main"); !ok {
 		t.Error("expected 'main' branch to still be cached")
 	}
-	if _, ok := m.ciCache["dev"]; !ok {
+	if _, _, ok := m.ciCache.Get("dev"); !ok {
 		t.Error("expected 'dev' branch to be cached")
 	}
 }
@@ -650,11 +649,11 @@ func TestMultipleErrorHandling(t *testing.T) {
 	}
 
 	// Test CI status error
-	m.ciCache = make(map[string]*ciCacheEntry)
+	m.ciCache.Clear()
 	ciMsg := ciStatusLoadedMsg{branch: "main", checks: nil, err: os.ErrPermission}
 	updated, _ = m.handleCIStatusLoaded(ciMsg)
 	m = updated.(*Model)
-	if _, ok := m.ciCache["main"]; ok {
+	if _, _, ok := m.ciCache.Get("main"); ok {
 		t.Error("expected CI cache to not be updated on error")
 	}
 }

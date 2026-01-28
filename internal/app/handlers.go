@@ -460,7 +460,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "p":
-		m.ciCache = make(map[string]*ciCacheEntry)
+		m.ciCache.Clear()
 		m.prDataLoaded = false
 		// Must update table rows immediately to match the column count change
 		// Otherwise View() -> applyLayout() -> updateTableColumns() will create

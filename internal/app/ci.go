@@ -3,10 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
-	"sort"
 	"strings"
 	"time"
 
@@ -14,14 +12,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
+	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
-type ciCacheEntry struct {
-	checks    []*models.CICheck
-	fetchedAt time.Time
-}
+// ciDataSvc is the package-level CI data service instance.
+var ciDataSvc = services.NewCIDataService()
 
 // openCICheckSelection opens a selection screen for CI checks on the current worktree.
 func (m *Model) openCICheckSelection() tea.Cmd {
@@ -31,14 +28,14 @@ func (m *Model) openCICheckSelection() tea.Cmd {
 	wt := m.filteredWts[m.selectedIndex]
 
 	// Get CI checks from cache
-	cached, ok := m.ciCache[wt.Branch]
-	if !ok || len(cached.checks) == 0 {
+	checks, _, ok := m.ciCache.Get(wt.Branch)
+	if !ok || len(checks) == 0 {
 		m.showInfo("No CI checks available. Press 'p' to fetch PR data first.", nil)
 		return nil
 	}
 
 	// Build selection items from CI checks
-	items := make([]appscreen.SelectionItem, 0, len(cached.checks))
+	items := make([]appscreen.SelectionItem, 0, len(checks))
 
 	// Styled CI status icons (same pattern as render_panes.go)
 	greenStyle := lipgloss.NewStyle().Foreground(m.theme.SuccessFg)
@@ -46,7 +43,7 @@ func (m *Model) openCICheckSelection() tea.Cmd {
 	yellowStyle := lipgloss.NewStyle().Foreground(m.theme.WarnFg)
 	grayStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
 
-	for i, check := range cached.checks {
+	for i, check := range checks {
 		var style lipgloss.Style
 		switch check.Conclusion {
 		case "success":
@@ -71,7 +68,7 @@ func (m *Model) openCICheckSelection() tea.Cmd {
 		})
 	}
 
-	checks := sortCIChecks(cached.checks)
+	checks = sortCIChecks(checks)
 	ciScreen := appscreen.NewListSelectionScreen(
 		items,
 		labelWithIcon(UIIconCICheck, "Select CI Check", m.config.IconsEnabled()),
@@ -195,83 +192,19 @@ func (m *Model) showCICheckLog(check *models.CICheck) tea.Cmd {
 // extractRunIDFromLink extracts the run ID from a GitHub Actions URL.
 // Example URL: https://github.com/owner/repo/actions/runs/12345678/job/98765432
 func extractRunIDFromLink(link string) string {
-	if link == "" {
-		return ""
-	}
-
-	parsed, err := url.Parse(link)
-	if err != nil {
-		return ""
-	}
-
-	// Check if it's a GitHub Actions URL
-	if !strings.Contains(parsed.Host, "github.com") {
-		return ""
-	}
-
-	// Path should contain /actions/runs/<run_id>
-	parts := strings.Split(parsed.Path, "/")
-	for i, part := range parts {
-		if part == "runs" && i+1 < len(parts) {
-			return parts[i+1]
-		}
-	}
-
-	return ""
+	return ciDataSvc.ExtractRunID(link)
 }
 
 // extractJobIDFromLink extracts the job ID from a GitHub Actions URL.
 // Example URL: https://github.com/owner/repo/actions/runs/12345678/job/98765432 -> 98765432
 func extractJobIDFromLink(link string) string {
-	if link == "" {
-		return ""
-	}
-
-	parsed, err := url.Parse(link)
-	if err != nil {
-		return ""
-	}
-
-	// Check if it's a GitHub Actions URL
-	if !strings.Contains(parsed.Host, "github.com") {
-		return ""
-	}
-
-	// Path should contain /job/<job_id>
-	parts := strings.Split(parsed.Path, "/")
-	for i, part := range parts {
-		if part == "job" && i+1 < len(parts) {
-			return parts[i+1]
-		}
-	}
-
-	return ""
+	return ciDataSvc.ExtractJobID(link)
 }
 
 // extractRepoFromLink extracts the owner/repo from a GitHub Actions URL.
 // Example URL: https://github.com/owner/repo/actions/runs/12345678 -> owner/repo
 func extractRepoFromLink(link string) string {
-	if link == "" {
-		return ""
-	}
-
-	parsed, err := url.Parse(link)
-	if err != nil {
-		return ""
-	}
-
-	// Check if it's a GitHub URL
-	if !strings.Contains(parsed.Host, "github.com") {
-		return ""
-	}
-
-	// Path should be /owner/repo/...
-	parts := strings.Split(strings.TrimPrefix(parsed.Path, "/"), "/")
-	if len(parts) >= 2 {
-		return parts[0] + "/" + parts[1]
-	}
-
-	return ""
+	return ciDataSvc.ExtractRepo(link)
 }
 
 // rerunCICheck restarts a CI job and returns the run URL.
@@ -329,28 +262,17 @@ func (m *Model) getCIChecksForCurrentWorktree() ([]*models.CICheck, bool) {
 		return nil, false
 	}
 	wt := m.filteredWts[m.selectedIndex]
-	cached, ok := m.ciCache[wt.Branch]
-	if !ok || len(cached.checks) == 0 {
+	checks, _, ok := m.ciCache.Get(wt.Branch)
+	if !ok || len(checks) == 0 {
 		return nil, false
 	}
-	return sortCIChecks(cached.checks), true
+	return sortCIChecks(checks), true
 }
 
 // sortCIChecks sorts CI checks so that GitHub Actions jobs appear first,
 // followed by non-GitHub Actions checks (e.g., Tekton, external status checks).
 func sortCIChecks(checks []*models.CICheck) []*models.CICheck {
-	sorted := make([]*models.CICheck, len(checks))
-	copy(sorted, checks)
-	sort.SliceStable(sorted, func(i, j int) bool {
-		// GitHub Actions links contain "/actions/"
-		iIsGHA := strings.Contains(sorted[i].Link, "/actions/")
-		jIsGHA := strings.Contains(sorted[j].Link, "/actions/")
-		if iIsGHA != jIsGHA {
-			return iIsGHA // GitHub Actions first
-		}
-		return false // Preserve original order within each group
-	})
-	return sorted
+	return ciDataSvc.Sort(checks)
 }
 
 func (m *Model) fetchCIStatus(prNumber int, branch string) tea.Cmd {
@@ -384,10 +306,8 @@ func (m *Model) maybeFetchCIStatus() tea.Cmd {
 	wt := m.filteredWts[m.selectedIndex]
 
 	// Check cache - skip if fresh (within ciCacheTTL)
-	if cached, ok := m.ciCache[wt.Branch]; ok {
-		if time.Since(cached.fetchedAt) < ciCacheTTL {
-			return nil
-		}
+	if m.ciCache.IsFresh(wt.Branch, ciCacheTTL) {
+		return nil
 	}
 
 	// If we have an OPEN PR, use PR-based CI fetch

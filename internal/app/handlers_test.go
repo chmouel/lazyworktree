@@ -517,8 +517,8 @@ func TestHandleCIStatusLoadedUpdatesCache(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected no command")
 	}
-	if entry, ok := m.ciCache["feature"]; !ok || len(entry.checks) != 1 {
-		t.Fatalf("expected CI cache to be updated, got %v", entry)
+	if checks, _, ok := m.ciCache.Get("feature"); !ok || len(checks) != 1 {
+		t.Fatalf("expected CI cache to be updated, got %v", checks)
 	}
 	if !strings.Contains(m.infoContent, "CI Checks:") {
 		t.Fatalf("expected info content to include CI checks, got %q", m.infoContent)
@@ -2687,7 +2687,6 @@ func TestHandlePRDataLoadedError(t *testing.T) {
 func TestHandleCIStatusLoadedSuccess(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.ciCache = make(map[string]*ciCacheEntry)
 
 	checks := []*models.CICheck{
 		{Name: "build", Conclusion: "success"},
@@ -2697,7 +2696,7 @@ func TestHandleCIStatusLoadedSuccess(t *testing.T) {
 	updated, _ := m.handleCIStatusLoaded(msg)
 	updatedModel := updated.(*Model)
 
-	if _, ok := updatedModel.ciCache["main"]; !ok {
+	if _, _, ok := updatedModel.ciCache.Get("main"); !ok {
 		t.Error("expected CI status to be cached")
 	}
 }
@@ -2705,13 +2704,12 @@ func TestHandleCIStatusLoadedSuccess(t *testing.T) {
 func TestHandleCIStatusLoadedError(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.ciCache = make(map[string]*ciCacheEntry)
 
 	msg := ciStatusLoadedMsg{branch: "main", checks: nil, err: os.ErrPermission}
 	updated, _ := m.handleCIStatusLoaded(msg)
 	updatedModel := updated.(*Model)
 
-	if _, ok := updatedModel.ciCache["main"]; ok {
+	if _, _, ok := updatedModel.ciCache.Get("main"); ok {
 		t.Error("expected CI status not to be cached on error")
 	}
 }
@@ -3103,7 +3101,7 @@ func TestPRDataResetSyncsRowsAndColumns(t *testing.T) {
 	}
 
 	// Now simulate pressing 'p' to refetch - this should reset to 3 columns
-	m.ciCache = make(map[string]*ciCacheEntry)
+	m.ciCache.Clear()
 	m.prDataLoaded = false
 	m.updateTable()
 	m.updateTableColumns(m.worktreeTable.Width())
@@ -3413,7 +3411,7 @@ func TestCICheckNavigationDown(t *testing.T) {
 		{Name: "test", Conclusion: "failure", Link: "https://github.com/owner/repo/actions/runs/456"},
 		{Name: "lint", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/789"},
 	}
-	m.ciCache["feat"] = &ciCacheEntry{checks: checks}
+	m.ciCache.Set("feat", checks)
 
 	// Start navigating CI checks
 	m.ciCheckIndex = 0
@@ -3460,7 +3458,7 @@ func TestCICheckNavigationUp(t *testing.T) {
 		{Name: "test", Conclusion: "failure", Link: "https://github.com/owner/repo/actions/runs/456"},
 		{Name: "lint", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/789"},
 	}
-	m.ciCache["feat"] = &ciCacheEntry{checks: checks}
+	m.ciCache.Set("feat", checks)
 
 	// Set up file tree
 	m.setStatusFiles([]StatusFile{
@@ -3508,7 +3506,7 @@ func TestCICheckEnterOpensURL(t *testing.T) {
 	checks := []*models.CICheck{
 		{Name: "build", Conclusion: "success", Link: checkURL},
 	}
-	m.ciCache["feat"] = &ciCacheEntry{checks: checks}
+	m.ciCache.Set("feat", checks)
 	m.ciCheckIndex = 0
 
 	// Capture command
@@ -3564,7 +3562,7 @@ func TestCICheckCtrlVShowsLogs(t *testing.T) {
 	checks := []*models.CICheck{
 		{Name: "build", Conclusion: "success", Link: checkURL},
 	}
-	m.ciCache["feat"] = &ciCacheEntry{checks: checks}
+	m.ciCache.Set("feat", checks)
 	m.ciCheckIndex = 0
 
 	// Capture command
@@ -3613,7 +3611,7 @@ func TestCICheckSelectionResetOnWorktreeChange(t *testing.T) {
 	checks := []*models.CICheck{
 		{Name: "build", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/123"},
 	}
-	m.ciCache["feat"] = &ciCacheEntry{checks: checks}
+	m.ciCache.Set("feat", checks)
 	m.ciCheckIndex = 0
 
 	// Change worktree selection
@@ -3641,7 +3639,7 @@ func TestCICheckSelectionResetOnPaneSwitch(t *testing.T) {
 	checks := []*models.CICheck{
 		{Name: "build", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/123"},
 	}
-	m.ciCache["feat"] = &ciCacheEntry{checks: checks}
+	m.ciCache.Set("feat", checks)
 	m.ciCheckIndex = 0
 
 	// Switch to pane 0
@@ -3668,7 +3666,7 @@ func TestCICheckSelectionResetWhenUnavailable(t *testing.T) {
 	checks := []*models.CICheck{
 		{Name: "build", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/123"},
 	}
-	m.ciCache["feat"] = &ciCacheEntry{checks: checks}
+	m.ciCache.Set("feat", checks)
 	m.ciCheckIndex = 5 // Out of bounds
 
 	// Navigate - should reset invalid index
@@ -3678,7 +3676,7 @@ func TestCICheckSelectionResetWhenUnavailable(t *testing.T) {
 	}
 
 	// Clear CI cache
-	m.ciCache = make(map[string]*ciCacheEntry)
+	m.ciCache.Clear()
 	m.ciCheckIndex = 0
 
 	// Navigate - should reset when no CI checks available

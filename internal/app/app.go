@@ -16,6 +16,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/chmouel/lazyworktree/internal/app/screen"
+	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/git"
@@ -292,7 +293,7 @@ type Model struct {
 	cache           map[string]any
 	divergenceCache map[string]string
 	notifiedErrors  map[string]bool
-	ciCache         map[string]*ciCacheEntry // branch -> CI checks cache
+	ciCache         services.CICheckCache // branch -> CI checks cache
 	detailsCache    map[string]*detailsCacheEntry
 	detailsCacheMu  sync.RWMutex
 	worktreesLoaded bool
@@ -485,7 +486,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 		cache:           make(map[string]any),
 		divergenceCache: make(map[string]string),
 		notifiedErrors:  make(map[string]bool),
-		ciCache:         make(map[string]*ciCacheEntry),
+		ciCache:         services.NewCICheckCache(),
 		detailsCache:    make(map[string]*detailsCacheEntry),
 		accessHistory:   make(map[string]int64),
 		trustManager:    trustManager,

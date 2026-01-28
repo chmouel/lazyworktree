@@ -566,7 +566,7 @@ func (m *Model) showPruneMerged() tea.Cmd {
 	}
 
 	m.checkMergedAfterPRRefresh = true
-	m.ciCache = make(map[string]*ciCacheEntry)
+	m.ciCache.Clear()
 	m.prDataLoaded = false
 	m.updateTable()
 	m.updateTableColumns(m.worktreeTable.Width())

@@ -271,7 +271,7 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 }
 
 func (m *Model) fetchPRDataWithState() tea.Cmd {
-	m.ciCache = make(map[string]*ciCacheEntry)
+	m.ciCache.Clear()
 	m.prDataLoaded = false
 	m.updateTable()
 	m.updateTableColumns(m.worktreeTable.Width())

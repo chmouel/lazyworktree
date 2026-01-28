@@ -259,7 +259,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 	}
 
 	// CI status from cache (shown for all branches with cached checks, not just PRs)
-	if cached, ok := m.ciCache[wt.Branch]; ok && len(cached.checks) > 0 {
+	if cachedChecks, _, ok := m.ciCache.Get(wt.Branch); ok && len(cachedChecks) > 0 {
 		infoLines = append(infoLines, "") // blank line before CI
 		infoLines = append(infoLines, labelStyle.Render("CI Checks:"))
 
@@ -272,7 +272,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 			Background(m.theme.Accent).
 			Bold(true)
 
-		checks := sortCIChecks(cached.checks)
+		checks := sortCIChecks(cachedChecks)
 		for i, check := range checks {
 			symbol := getCIStatusIcon(check.Conclusion, false, m.config.IconsEnabled())
 			isSelected := m.view.FocusedPane == 1 && m.ciCheckIndex >= 0 && i == m.ciCheckIndex

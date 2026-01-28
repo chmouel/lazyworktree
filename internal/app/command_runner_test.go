@@ -788,12 +788,10 @@ func TestOpenCICheckSelectionWithChecks(t *testing.T) {
 	m.setWindowSize(120, 40)
 
 	// Add CI checks to cache
-	m.ciCache["feat"] = &ciCacheEntry{
-		checks: []*models.CICheck{
-			{Name: "build", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/123"},
-			{Name: "test", Conclusion: "failure", Link: "https://tekton.dev/runs/456"},
-		},
-	}
+	m.ciCache.Set("feat", []*models.CICheck{
+		{Name: "build", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/123"},
+		{Name: "test", Conclusion: "failure", Link: "https://tekton.dev/runs/456"},
+	})
 
 	cmd := m.openCICheckSelection()
 	if cmd == nil {
@@ -821,14 +819,12 @@ func TestCICheckSelectionColouredIcons(t *testing.T) {
 	m.selectedIndex = 0
 	m.setWindowSize(120, 40)
 
-	m.ciCache["feat"] = &ciCacheEntry{
-		checks: []*models.CICheck{
-			{Name: "build", Conclusion: "success"},
-			{Name: "test", Conclusion: "failure"},
-			{Name: "lint", Conclusion: "skipped"},
-			{Name: "deploy", Conclusion: "pending"},
-		},
-	}
+	m.ciCache.Set("feat", []*models.CICheck{
+		{Name: "build", Conclusion: "success"},
+		{Name: "test", Conclusion: "failure"},
+		{Name: "lint", Conclusion: "skipped"},
+		{Name: "deploy", Conclusion: "pending"},
+	})
 
 	m.openCICheckSelection()
 
@@ -959,7 +955,7 @@ func TestOpenCICheckSelectionStoresChecks(t *testing.T) {
 		{Name: "build", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/123/job/456"},
 		{Name: "test", Conclusion: "failure", Link: "https://github.com/owner/repo/actions/runs/123/job/789"},
 	}
-	m.ciCache["feat"] = &ciCacheEntry{checks: checks}
+	m.ciCache.Set("feat", checks)
 
 	m.openCICheckSelection()
 

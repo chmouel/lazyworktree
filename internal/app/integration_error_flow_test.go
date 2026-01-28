@@ -144,7 +144,7 @@ func TestIntegrationPRAndCIErrorPaths(t *testing.T) {
 	if m.infoContent != "before" {
 		t.Fatalf("expected infoContent to remain unchanged, got %q", m.infoContent)
 	}
-	if _, ok := m.ciCache[featureBranch]; ok {
+	if _, _, ok := m.ciCache.Get(featureBranch); ok {
 		t.Fatal("expected CI cache to remain empty on error")
 	}
 }
