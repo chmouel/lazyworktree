@@ -537,6 +537,49 @@ func TestShowBaseSelection(t *testing.T) {
 	}
 }
 
+func TestHandleScreenKeyKeepsNewScreenOnSelection(t *testing.T) {
+	repo := initTestRepo(t)
+	withCwd(t, repo.dir)
+
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.view.WindowWidth = 120
+	m.view.WindowHeight = 40
+
+	cmd := m.showBaseSelection(repo.branch)
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatal("expected list screen to be active")
+	}
+
+	baseScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	idx := -1
+	for i, item := range baseScreen.Items {
+		if item.ID == "branch-list" {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		t.Fatal("expected branch-list option in base selection")
+	}
+	baseScreen.Cursor = idx
+
+	_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if !m.screenManager.IsActive() {
+		t.Fatal("expected a screen to remain active after selection")
+	}
+	if m.screenManager.Current() == baseScreen {
+		t.Fatal("expected selection to open a new screen")
+	}
+	if m.screenManager.StackDepth() == 0 {
+		t.Fatal("expected previous screen to remain on the stack")
+	}
+}
+
 func TestShowBaseSelectionFromPROption(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")

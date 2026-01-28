@@ -49,9 +49,13 @@ func (m *Model) showInfo(message string, action tea.Cmd) {
 func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// New path: delegate to screen manager for migrated screens
 	if m.screenManager.IsActive() {
-		scr, cmd := m.screenManager.Current().Update(msg)
+		current := m.screenManager.Current()
+		scr, cmd := current.Update(msg)
 		if scr == nil {
-			m.screenManager.Pop()
+			// Only pop if the current screen hasn't already changed.
+			if m.screenManager.Current() == current {
+				m.screenManager.Pop()
+			}
 		} else {
 			m.screenManager.Set(scr)
 		}
