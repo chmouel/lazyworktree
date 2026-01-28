@@ -300,12 +300,77 @@ m.screenManager.Push(listScreen)
 - **Files updated:** 12 (source + test files)
 - **Tests passing:** All (`make sanity` ✅)
 
-### Remaining Screens (Wave 2D-F):
+### Wave 2D: CommandPaletteScreen Migration (COMPLETED ✅)
+
+**Goal:** Migrate CommandPaletteScreen from legacy pattern to screen manager with callback-based action execution.
+
+**Completed:**
+1. ✅ Created `screen/palette.go` (317 lines) implementing Screen interface
+2. ✅ Migrated single usage site `showCommandPalette()` (app_screens.go:259-315)
+3. ✅ Changed pattern: `paletteSubmit func(action) Cmd` → `OnSelect func(action) Cmd` callbacks
+4. ✅ Removed legacy fields from Model:
+   - `paletteScreen *CommandPaletteScreen`
+   - `paletteSubmit func(string) tea.Cmd`
+5. ✅ Removed legacy code from screens.go (~260 lines):
+   - `type CommandPaletteScreen struct`
+   - `type paletteItem struct`
+   - All associated methods (NewCommandPaletteScreen, Init, Update, View, etc.)
+6. ✅ Removed `screenPalette` constant from screenType enum
+7. ✅ Removed helper functions from helpers.go (filterPaletteItems, paletteMatchScore)
+8. ✅ Removed legacy case blocks:
+   - `case screenPalette` in app_screens.go (keyboard handling)
+   - Theme update code for `m.paletteScreen`
+   - Legacy escape key handling
+9. ✅ Updated 16 tests across 4 test files:
+   - app_screens_test.go (9 tests updated, 3 obsolete tests removed)
+   - screens_test.go (6 obsolete tests removed, 1 rendering test updated)
+   - integration_flow_test.go (2 tests updated)
+   - integration_test.go (1 test updated)
+   - helpers_test.go (5 obsolete tests removed)
+10. ✅ Added `appscreen` import alias to integration test files
+
+**Features preserved:**
+- Section navigation (cursor skips non-selectable section headers)
+- MRU (Most Recently Used) tracking with deduplication
+- Fuzzy filtering with live updates
+- Tmux/Zellij session integration
+- Custom command execution
+- Action registry integration
+
+**Pattern established:**
+```go
+// Creating command palette
+items := make([]appscreen.PaletteItem, len(paletteItems))
+for i, src := range paletteItems {
+    items[i] = appscreen.PaletteItem{
+        ID:          src.ID,
+        Label:       src.Label,
+        Description: src.Description,
+        IsSection:   src.IsSection,
+        IsMRU:       src.IsMRU,
+    }
+}
+paletteScreen := appscreen.NewCommandPaletteScreen(items, width, height, theme)
+paletteScreen.OnSelect = func(action string) tea.Cmd {
+    m.addToPaletteHistory(action)  // CRITICAL for MRU tracking
+    // ... handle action types (tmux-attach, zellij-attach, custom, registry)
+}
+paletteScreen.OnCancel = func() tea.Cmd { return nil }
+m.screenManager.Push(paletteScreen)
+```
+
+**Stats:**
+- **Commit:** `85e5ed9` - "refactor: Migrate CommandPaletteScreen to screen manager"
+- **Lines removed:** ~417 (net reduction after adding new implementation)
+- **Files modified:** 12 (1 new, 11 changed)
+- **Tests updated:** 16 functions
+- **Tests passing:** All (`make sanity` ✅)
+
+### Remaining Screens (Wave 2E-F):
 
 | Screen | Complexity | Status | Notes |
 |--------|-----------|--------|-------|
 | HelpScreen | Medium | Pending | |
-| CommandPaletteScreen | Medium | Pending | |
 | CommitFilesScreen | High (tree-based) | Pending | |
 | ConfirmScreen | Low (uses channels) | Pending | Already in screen/ package |
 | InfoScreen | Low (uses channels) | Pending | Already in screen/ package |
@@ -429,11 +494,11 @@ internal/app/
 
 **Wave 3: Complex Screens**
 
-| Screen | New File | Lines | Callbacks |
-|--------|----------|-------|-----------|
-| CommandPaletteScreen | `screen/palette.go` | ~350 | `OnSelect func(string) tea.Cmd` |
-| HelpScreen | `screen/help.go` | ~460 | None |
-| InputScreen | `screen/input.go` | ~400+ | `OnSubmit func(string, bool) (tea.Cmd, bool)` |
+| Screen | New File | Lines | Callbacks | Status |
+|--------|----------|-------|-----------|--------|
+| CommandPaletteScreen | `screen/palette.go` | 317 | `OnSelect func(string) tea.Cmd` | ✅ Complete |
+| HelpScreen | `screen/help.go` | ~460 | None | Pending |
+| InputScreen | `screen/input.go` | ~400+ | `OnSubmit func(string, bool) (tea.Cmd, bool)` | ✅ Complete |
 
 **Wave 4: Tree-Based Screen**
 
