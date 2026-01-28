@@ -150,14 +150,6 @@ func (m *Model) renderScreen() string {
 			}
 			return content
 		}
-	case screenInput:
-		if m.inputScreen != nil {
-			content := m.inputScreen.View()
-			if m.view.WindowWidth > 0 && m.view.WindowHeight > 0 {
-				return lipgloss.Place(m.view.WindowWidth, m.view.WindowHeight, lipgloss.Center, lipgloss.Center, content)
-			}
-			return content
-		}
 	}
 	return ""
 }

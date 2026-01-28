@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -86,13 +88,11 @@ func TestPushToUpstreamPromptsForUpstream(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected input command to be returned")
 	}
-	if m.currentScreen != screenInput {
-		t.Fatalf("expected screenInput, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
+		t.Fatalf("expected input screen, got %v", m.screenManager.Type())
 	}
-	if m.inputScreen == nil {
-		t.Fatal("expected inputScreen to be set")
-	}
-	if got := m.inputScreen.input.Value(); got != testUpstreamRef {
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
+	if got := inputScr.Input.Value(); got != testUpstreamRef {
 		t.Fatalf("expected default upstream %q, got %q", testUpstreamRef, got)
 	}
 
@@ -104,10 +104,7 @@ func TestPushToUpstreamPromptsForUpstream(t *testing.T) {
 		return exec.Command("printf", "")
 	}
 
-	pushCmd, closeInput := m.inputSubmit(testUpstreamRef, false)
-	if !closeInput {
-		t.Fatal("expected input to close after submit")
-	}
+	pushCmd := inputScr.OnSubmit(testUpstreamRef, false)
 	if pushCmd == nil {
 		t.Fatal("expected push command to be returned")
 	}
@@ -191,19 +188,17 @@ func TestPushToUpstreamRejectsOtherBranch(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected input command to be returned")
 	}
-	if m.currentScreen != screenInput {
-		t.Fatalf("expected screenInput, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
+		t.Fatalf("expected input screen, got %v", m.screenManager.Type())
 	}
 
-	pushCmd, closeInput := m.inputSubmit(testOtherBranch, false)
-	if closeInput {
-		t.Fatal("expected input to remain open on invalid branch")
-	}
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
+	pushCmd := inputScr.OnSubmit(testOtherBranch, false)
 	if pushCmd != nil {
 		t.Fatal("expected no command on invalid branch")
 	}
-	if m.inputScreen == nil || !strings.Contains(m.inputScreen.errorMsg, "Upstream branch must match") {
-		t.Fatalf("expected validation error, got %q", m.inputScreen.errorMsg)
+	if !strings.Contains(inputScr.ErrorMsg, "Upstream branch must match") {
+		t.Fatalf("expected validation error, got %q", inputScr.ErrorMsg)
 	}
 }
 
@@ -319,13 +314,11 @@ func TestSyncWithUpstreamPromptsForUpstream(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected input command to be returned")
 	}
-	if m.currentScreen != screenInput {
-		t.Fatalf("expected screenInput, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
+		t.Fatalf("expected input screen, got %v", m.screenManager.Type())
 	}
-	if m.inputScreen == nil {
-		t.Fatal("expected inputScreen to be set")
-	}
-	if got := m.inputScreen.input.Value(); got != testUpstreamRef {
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
+	if got := inputScr.Input.Value(); got != testUpstreamRef {
 		t.Fatalf("expected default upstream %q, got %q", testUpstreamRef, got)
 	}
 
@@ -339,10 +332,7 @@ func TestSyncWithUpstreamPromptsForUpstream(t *testing.T) {
 		return exec.Command("printf", "")
 	}
 
-	syncCmd, closeInput := m.inputSubmit(testUpstreamRef, false)
-	if !closeInput {
-		t.Fatal("expected input to close after submit")
-	}
+	syncCmd := inputScr.OnSubmit(testUpstreamRef, false)
 	if syncCmd == nil {
 		t.Fatal("expected sync command to be returned")
 	}

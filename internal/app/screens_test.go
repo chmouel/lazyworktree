@@ -823,52 +823,6 @@ func TestInfoScreenInit(t *testing.T) {
 	}
 }
 
-func TestInputScreenInit(t *testing.T) {
-	thm := theme.Dracula()
-	screen := NewInputScreen("Prompt", "placeholder", "default", thm, true)
-	cmd := screen.Init()
-	if cmd == nil {
-		t.Error("expected Init to return textinput.Blink command")
-	}
-}
-
-func TestInputScreenUpdate(t *testing.T) {
-	thm := theme.Dracula()
-	screen := NewInputScreen("Prompt", "placeholder", "default", thm, true)
-	screen.Init()
-
-	// Test Enter key submits value
-	screen.input.SetValue("test value")
-	_, cmd := screen.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
-		t.Error("expected command on Enter")
-	}
-	select {
-	case result := <-screen.result:
-		if result != "test value" {
-			t.Errorf("expected result 'test value', got %q", result)
-		}
-	default:
-		t.Error("expected result to be sent")
-	}
-
-	// Test Esc cancels
-	screen2 := NewInputScreen("Prompt", "placeholder", "default", thm, true)
-	screen2.Init()
-	_, cmd2 := screen2.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if cmd2 == nil {
-		t.Error("expected command on Esc")
-	}
-	select {
-	case result := <-screen2.result:
-		if result != "" {
-			t.Errorf("expected empty result on cancel, got %q", result)
-		}
-	default:
-		t.Error("expected result to be sent")
-	}
-}
-
 func TestHelpScreenInit(t *testing.T) {
 	thm := theme.Dracula()
 	screen := NewHelpScreen(40, 20, nil, thm, true)

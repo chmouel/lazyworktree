@@ -272,8 +272,6 @@ type Model struct {
 	currentScreen             screenType
 	currentDetailsPath        string
 	helpScreen                *HelpScreen
-	inputScreen               *InputScreen
-	inputSubmit               func(string, bool) (tea.Cmd, bool)
 	paletteScreen             *CommandPaletteScreen
 	paletteSubmit             func(string) tea.Cmd
 	spinner                   spinner.Model
@@ -303,10 +301,11 @@ type Model struct {
 	worktreesLoaded bool
 
 	// Create from current state
-	createFromCurrentDiff       string // Cached diff for AI script
-	createFromCurrentRandomName string // Random branch name
-	createFromCurrentAIName     string // AI-generated name (cached)
-	createFromCurrentBranch     string // Current branch name
+	createFromCurrentDiff        string              // Cached diff for AI script
+	createFromCurrentRandomName  string              // Random branch name
+	createFromCurrentAIName      string              // AI-generated name (cached)
+	createFromCurrentBranch      string              // Current branch name
+	createFromCurrentInputScreen *screen.InputScreen // Reference for checkbox toggle handling
 
 	// Services
 	trustManager *security.TrustManager
@@ -726,9 +725,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.createFromCurrentAIName = suggestedName
 
 		// Update input field if checkbox is still checked
-		if m.inputScreen != nil && m.inputScreen.checkboxChecked {
-			m.inputScreen.input.SetValue(suggestedName)
-			m.inputScreen.input.CursorEnd()
+		if m.createFromCurrentInputScreen != nil && m.createFromCurrentInputScreen.CheckboxChecked {
+			m.createFromCurrentInputScreen.Input.SetValue(suggestedName)
+			m.createFromCurrentInputScreen.Input.CursorEnd()
 		}
 
 		return m, nil

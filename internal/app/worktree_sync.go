@@ -8,6 +8,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
 
@@ -188,21 +190,28 @@ func (m *Model) updateFromBase(wt *models.WorktreeInfo) tea.Cmd {
 func (m *Model) showUpstreamInput(wt *models.WorktreeInfo, onSubmit func(remote, branch string) tea.Cmd) tea.Cmd {
 	defaultUpstream := fmt.Sprintf("origin/%s", wt.Branch)
 	prompt := fmt.Sprintf("Set upstream for '%s' (remote/branch)", wt.Branch)
-	m.inputScreen = NewInputScreen(prompt, defaultUpstream, defaultUpstream, m.theme, m.config.IconsEnabled())
-	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
+
+	inputScr := appscreen.NewInputScreen(prompt, defaultUpstream, defaultUpstream, m.theme, m.config.IconsEnabled())
+
+	inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
 		remote, branch, ok := parseUpstreamRef(value)
 		if !ok {
-			m.inputScreen.errorMsg = "Please provide upstream as remote/branch."
-			return nil, false
+			inputScr.ErrorMsg = "Please provide upstream as remote/branch."
+			return nil
 		}
 		if branch != wt.Branch {
-			m.inputScreen.errorMsg = fmt.Sprintf("Upstream branch must match %q.", wt.Branch)
-			return nil, false
+			inputScr.ErrorMsg = fmt.Sprintf("Upstream branch must match %q.", wt.Branch)
+			return nil
 		}
-		m.inputScreen.errorMsg = ""
-		return onSubmit(remote, branch), true
+		inputScr.ErrorMsg = ""
+		return onSubmit(remote, branch)
 	}
-	m.currentScreen = screenInput
+
+	inputScr.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(inputScr)
 	return textinput.Blink
 }
 

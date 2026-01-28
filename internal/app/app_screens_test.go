@@ -98,8 +98,9 @@ func TestAIBranchNameSanitization(t *testing.T) {
 			}
 
 			// Setup input screen
-			m.inputScreen = NewInputScreen("test", "placeholder", "initial", m.theme, m.config.IconsEnabled())
-			m.inputScreen.SetCheckbox("Include changes", true)
+			inputScr := appscreen.NewInputScreen("test", "placeholder", "initial", m.theme, m.config.IconsEnabled())
+			inputScr.SetCheckbox("Include changes", true)
+			m.createFromCurrentInputScreen = inputScr
 
 			// Handle the AI name generation
 			updated, _ := m.Update(msg)
@@ -141,13 +142,17 @@ func TestCacheCleanupOnSubmit(t *testing.T) {
 
 	m.handleCreateFromCurrentReady(msg)
 
-	if m.inputSubmit == nil {
-		t.Fatal("inputSubmit callback should be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
+		t.Fatal("input screen should be active")
+	}
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
+	if inputScr.OnSubmit == nil {
+		t.Fatal("OnSubmit callback should be set")
 	}
 
-	// Call inputSubmit (which should clear cache)
+	// Call OnSubmit (which should clear cache)
 	// Note: This will fail validation because branch doesn't exist in git, but cache should still be cleared
-	m.inputSubmit("new-branch-test", false)
+	inputScr.OnSubmit("new-branch-test", false)
 
 	// Verify cache is cleared
 	if m.createFromCurrentDiff != "" {
@@ -174,13 +179,14 @@ func TestShowBranchNameInputUsesDefaultName(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("showBranchNameInput returned nil command")
 	}
-	if m.currentScreen != screenInput {
-		t.Fatalf("expected currentScreen screenInput, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
+		t.Fatalf("expected input screen active, got type %v", m.screenManager.Type())
 	}
-	if m.inputScreen == nil {
-		t.Fatal("inputScreen should be initialized")
+	inputScr, ok := m.screenManager.Current().(*appscreen.InputScreen)
+	if !ok {
+		t.Fatal("expected InputScreen")
 	}
-	got := m.inputScreen.input.Value()
+	got := inputScr.Input.Value()
 	if !strings.HasPrefix(got, mainWorktreeName) {
 		t.Fatalf("expected default input value to start with %q, got %q", mainWorktreeName, got)
 	}
@@ -885,11 +891,12 @@ func TestRenderScreenVariants(t *testing.T) {
 		t.Fatal("expected diff screen to render")
 	}
 
-	m.inputScreen = NewInputScreen("Prompt", "Placeholder", "value", m.theme, m.config.IconsEnabled())
-	m.currentScreen = screenInput
+	inputScr := appscreen.NewInputScreen("Prompt", "Placeholder", "value", m.theme, m.config.IconsEnabled())
+	m.screenManager.Push(inputScr)
 	if out = m.renderScreen(); out == "" {
 		t.Fatal("expected input screen to render")
 	}
+	m.screenManager.Pop()
 
 	listScreen := appscreen.NewListSelectionScreen([]appscreen.SelectionItem{{ID: "a", Label: "A"}}, "Select", "", "", 120, 40, "", m.theme)
 	m.screenManager.Push(listScreen)

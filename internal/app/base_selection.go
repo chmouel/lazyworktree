@@ -155,21 +155,28 @@ func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 
 func (m *Model) showFreeformBaseInput(defaultBase string) tea.Cmd {
 	m.clearListSelection()
-	m.inputScreen = NewInputScreen("Base ref", defaultBase, defaultBase, m.theme, m.config.IconsEnabled())
-	m.inputSubmit = func(baseVal string, checked bool) (tea.Cmd, bool) {
+
+	inputScr := appscreen.NewInputScreen("Base ref", defaultBase, defaultBase, m.theme, m.config.IconsEnabled())
+
+	inputScr.OnSubmit = func(baseVal string, _ bool) tea.Cmd {
 		baseRef := strings.TrimSpace(baseVal)
 		if baseRef == "" {
-			m.inputScreen.errorMsg = "Base ref cannot be empty."
-			return nil, false
+			inputScr.ErrorMsg = "Base ref cannot be empty."
+			return nil
 		}
 		if !m.baseRefExists(baseRef) {
-			m.inputScreen.errorMsg = "Base ref not found."
-			return nil, false
+			inputScr.ErrorMsg = "Base ref not found."
+			return nil
 		}
-		m.inputScreen.errorMsg = ""
-		return m.showBranchNameInput(baseRef, ""), false
+		inputScr.ErrorMsg = ""
+		return m.showBranchNameInput(baseRef, "")
 	}
-	m.currentScreen = screenInput
+
+	inputScr.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(inputScr)
 	return textinput.Blink
 }
 
@@ -315,33 +322,40 @@ func (m *Model) showBranchNameInput(baseRef, defaultName string) tea.Cmd {
 	if suggested != "" {
 		suggested = m.suggestBranchName(suggested)
 	}
-	m.inputScreen = NewInputScreen("Create worktree: branch name", "feature/my-branch", suggested, m.theme, m.config.IconsEnabled())
-	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
+
+	inputScr := appscreen.NewInputScreen("Create worktree: branch name", "feature/my-branch", suggested, m.theme, m.config.IconsEnabled())
+
+	inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
 		newBranch := strings.TrimSpace(value)
 		newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 		if newBranch == "" {
-			m.inputScreen.errorMsg = errBranchEmpty
-			return nil, false
+			inputScr.ErrorMsg = errBranchEmpty
+			return nil
 		}
 
 		targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
 		if errMsg := m.validateNewWorktreeTarget(newBranch, targetPath); errMsg != "" {
-			m.inputScreen.errorMsg = errMsg
-			return nil, false
+			inputScr.ErrorMsg = errMsg
+			return nil
 		}
 
-		// Show loading screen immediately (before returning from inputSubmit)
+		// Show loading screen immediately
 		if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
-			return func() tea.Msg { return errMsg{err: err} }, true
+			return func() tea.Msg { return errMsg{err: err} }
 		}
 		m.loading = true
 		m.statusContent = fmt.Sprintf("Creating worktree from %s...", baseRef)
 		m.loadingScreen = NewLoadingScreen(m.statusContent, m.theme, m.config.IconsEnabled())
 		m.currentScreen = screenLoading
 
-		return m.createWorktreeFromBaseAsync(newBranch, targetPath, baseRef), true
+		return m.createWorktreeFromBaseAsync(newBranch, targetPath, baseRef)
 	}
-	m.currentScreen = screenInput
+
+	inputScr.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(inputScr)
 	return textinput.Blink
 }
 
@@ -496,7 +510,7 @@ func (m *Model) showWorktreeNameForExistingBranch(branchName string) tea.Cmd {
 
 	suggested := branchName + "-wt"
 
-	m.inputScreen = NewInputScreen(
+	inputScr := appscreen.NewInputScreen(
 		fmt.Sprintf("Worktree name for existing branch %q", branchName),
 		"my-worktree",
 		suggested,
@@ -504,33 +518,37 @@ func (m *Model) showWorktreeNameForExistingBranch(branchName string) tea.Cmd {
 		m.config.IconsEnabled(),
 	)
 
-	m.inputSubmit = func(value string, _ bool) (tea.Cmd, bool) {
+	inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
 		worktreeName := strings.TrimSpace(value)
 		worktreeName = sanitizeBranchNameFromTitle(worktreeName, "")
 		if worktreeName == "" {
-			m.inputScreen.errorMsg = errBranchEmpty
-			return nil, false
+			inputScr.ErrorMsg = errBranchEmpty
+			return nil
 		}
 
 		targetPath := filepath.Join(m.getRepoWorktreeDir(), worktreeName)
 		if errMsg := m.validateNewWorktreeTarget(worktreeName, targetPath); errMsg != "" {
-			m.inputScreen.errorMsg = errMsg
-			return nil, false
+			inputScr.ErrorMsg = errMsg
+			return nil
 		}
 
 		// Show loading screen immediately
 		if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
-			return func() tea.Msg { return errMsg{err: err} }, true
+			return func() tea.Msg { return errMsg{err: err} }
 		}
 		m.loading = true
 		m.statusContent = fmt.Sprintf("Checking out %s...", branchName)
 		m.loadingScreen = NewLoadingScreen(m.statusContent, m.theme, m.config.IconsEnabled())
 		m.currentScreen = screenLoading
 
-		return m.checkoutExistingBranchAsync(worktreeName, targetPath, branchName), true
+		return m.checkoutExistingBranchAsync(worktreeName, targetPath, branchName)
 	}
 
-	m.currentScreen = screenInput
+	inputScr.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(inputScr)
 	return textinput.Blink
 }
 

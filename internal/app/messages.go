@@ -354,36 +354,37 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 
 		if scriptErr != "" {
 			m.showInfo(scriptErr, func() tea.Msg {
-				m.inputScreen = NewInputScreen(
+				inputScr := screen.NewInputScreen(
 					fmt.Sprintf("Create worktree from PR #%d (branch: %s)", pr.Number, pr.Branch),
 					"Worktree name",
 					suggested,
 					m.theme,
 					m.config.IconsEnabled(),
 				)
-				m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
+
+				inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
 					newBranch := strings.TrimSpace(value)
 					newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 					if newBranch == "" {
-						m.inputScreen.errorMsg = errBranchEmpty
-						return nil, false
+						inputScr.ErrorMsg = errBranchEmpty
+						return nil
 					}
 
 					targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
 					if errMsg := m.validateNewWorktreeTarget(newBranch, targetPath); errMsg != "" {
-						m.inputScreen.errorMsg = errMsg
-						return nil, false
+						inputScr.ErrorMsg = errMsg
+						return nil
 					}
 
 					// Validate that PR has a branch
 					if pr.Branch == "" {
-						m.inputScreen.errorMsg = errPRBranchMissing
-						return nil, false
+						inputScr.ErrorMsg = errPRBranchMissing
+						return nil
 					}
 
-					m.inputScreen.errorMsg = ""
+					inputScr.ErrorMsg = ""
 					if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
-						return func() tea.Msg { return errMsg{err: err} }, true
+						return func() tea.Msg { return errMsg{err: err} }
 					}
 
 					// Create worktree from PR branch (can take time, so do it async with a loading pulse)
@@ -408,45 +409,51 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 							targetPath: targetPath,
 							err:        nil,
 						}
-					}, true
+					}
 				}
-				m.currentScreen = screenInput
+
+				inputScr.OnCancel = func() tea.Cmd {
+					return nil
+				}
+
+				m.screenManager.Push(inputScr)
 				return nil
 			})
 			return nil
 		}
 
 		// Show input screen with generated name
-		m.inputScreen = NewInputScreen(
+		inputScr := screen.NewInputScreen(
 			fmt.Sprintf("Create worktree from PR #%d (branch: %s)", pr.Number, pr.Branch),
 			"Worktree name",
 			suggested,
 			m.theme,
 			m.config.IconsEnabled(),
 		)
-		m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
+
+		inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
 			newBranch := strings.TrimSpace(value)
 			newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 			if newBranch == "" {
-				m.inputScreen.errorMsg = errBranchEmpty
-				return nil, false
+				inputScr.ErrorMsg = errBranchEmpty
+				return nil
 			}
 
 			targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
 			if errMsg := m.validateNewWorktreeTarget(newBranch, targetPath); errMsg != "" {
-				m.inputScreen.errorMsg = errMsg
-				return nil, false
+				inputScr.ErrorMsg = errMsg
+				return nil
 			}
 
 			// Validate that PR has a branch
 			if pr.Branch == "" {
-				m.inputScreen.errorMsg = errPRBranchMissing
-				return nil, false
+				inputScr.ErrorMsg = errPRBranchMissing
+				return nil
 			}
 
-			m.inputScreen.errorMsg = ""
+			inputScr.ErrorMsg = ""
 			if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
-				return func() tea.Msg { return errMsg{err: err} }, true
+				return func() tea.Msg { return errMsg{err: err} }
 			}
 
 			// Create worktree from PR branch (can take time, so do it async with a loading pulse)
@@ -466,9 +473,14 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 					}
 				}
 				return createFromPRResultMsg{prNumber: pr.Number, branch: pr.Branch, targetPath: targetPath}
-			}, true
+			}
 		}
-		m.currentScreen = screenInput
+
+		inputScr.OnCancel = func() tea.Cmd {
+			return nil
+		}
+
+		m.screenManager.Push(inputScr)
 		return textinput.Blink
 	}
 	prScr.OnCancel = func() tea.Cmd {
@@ -548,30 +560,31 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 					return nil
 				}
 
-				m.inputScreen = NewInputScreen(
+				inputScr := screen.NewInputScreen(
 					fmt.Sprintf("Create worktree from issue #%d", issue.Number),
 					"Worktree name",
 					suggested,
 					m.theme,
 					m.config.IconsEnabled(),
 				)
-				m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
+
+				inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
 					newBranch := strings.TrimSpace(value)
 					newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 					if newBranch == "" {
-						m.inputScreen.errorMsg = errBranchEmpty
-						return nil, false
+						inputScr.ErrorMsg = errBranchEmpty
+						return nil
 					}
 
 					targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
 					if errMsg := m.validateNewWorktreeTarget(newBranch, targetPath); errMsg != "" {
-						m.inputScreen.errorMsg = errMsg
-						return nil, false
+						inputScr.ErrorMsg = errMsg
+						return nil
 					}
 
-					m.inputScreen.errorMsg = ""
+					inputScr.ErrorMsg = ""
 					if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
-						return func() tea.Msg { return errMsg{err: err} }, true
+						return func() tea.Msg { return errMsg{err: err} }
 					}
 
 					// Create worktree from base branch (can take time, so do it async with a loading pulse)
@@ -596,8 +609,14 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 							}
 						}
 						return createFromIssueResultMsg{issueNumber: issue.Number, branch: newBranch, targetPath: targetPath}
-					}, true
+					}
 				}
+
+				inputScr.OnCancel = func() tea.Cmd {
+					return nil
+				}
+
+				m.screenManager.Push(inputScr)
 				return textinput.Blink
 			},
 		)

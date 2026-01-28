@@ -87,14 +87,15 @@ func TestHandleCreateFromCurrentReadyCheckboxVisibility(t *testing.T) {
 			}
 			m.handleCreateFromCurrentReady(msg)
 
-			if m.inputScreen == nil {
+			if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
 				t.Fatalf("input screen should be initialized")
 			}
-			if m.inputScreen.checkboxEnabled != tt.expectCheckbox {
-				t.Fatalf("expected checkbox enabled=%v, got %v", tt.expectCheckbox, m.inputScreen.checkboxEnabled)
+			inputScr := m.screenManager.Current().(*appscreen.InputScreen)
+			if inputScr.CheckboxEnabled != tt.expectCheckbox {
+				t.Fatalf("expected checkbox enabled=%v, got %v", tt.expectCheckbox, inputScr.CheckboxEnabled)
 			}
-			if tt.expectCheckbox && m.inputScreen.checkboxChecked != tt.expectChecked {
-				t.Fatalf("expected checkbox checked=%v, got %v", tt.expectChecked, m.inputScreen.checkboxChecked)
+			if tt.expectCheckbox && inputScr.CheckboxChecked != tt.expectChecked {
+				t.Fatalf("expected checkbox checked=%v, got %v", tt.expectChecked, inputScr.CheckboxChecked)
 			}
 		})
 	}
@@ -119,12 +120,13 @@ func TestHandleCreateFromCurrentUsesRandomNameByDefault(t *testing.T) {
 
 	m.handleCreateFromCurrentReady(msg)
 
-	if m.inputScreen == nil {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
 		t.Fatal("input screen should be initialized")
 	}
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
 
 	// Should use random name, not AI-generated
-	got := m.inputScreen.input.Value()
+	got := inputScr.Input.Value()
 	if got != testRandomName {
 		t.Errorf("expected random name %q, got %q", testRandomName, got)
 	}
@@ -157,12 +159,13 @@ func TestHandleCheckboxToggleWithAIScript(t *testing.T) {
 	m.createFromCurrentBranch = mainWorktreeName
 	m.createFromCurrentAIName = ""
 
-	m.inputScreen = NewInputScreen("test", "placeholder", testRandomName, m.theme, m.config.IconsEnabled())
-	m.inputScreen.SetCheckbox("Include changes", false)
-	m.inputScreen.checkboxFocused = true // Simulate tab to checkbox
+	inputScr := appscreen.NewInputScreen("test", "placeholder", testRandomName, m.theme, m.config.IconsEnabled())
+	inputScr.SetCheckbox("Include changes", false)
+	inputScr.CheckboxFocused = true // Simulate tab to checkbox
 
 	// Simulate checking the checkbox
-	m.inputScreen.checkboxChecked = true
+	inputScr.CheckboxChecked = true
+	m.createFromCurrentInputScreen = inputScr
 
 	// Call handleCheckboxToggle
 	cmd := m.handleCheckboxToggle()
@@ -193,7 +196,7 @@ func TestHandleCheckboxToggleWithAIScript(t *testing.T) {
 		}
 
 		// Input should be updated to AI name
-		got := m.inputScreen.input.Value()
+		got := m.createFromCurrentInputScreen.Input.Value()
 		if got == testRandomName {
 			t.Error("expected input to be updated from random name to AI name")
 		}
@@ -218,11 +221,12 @@ func TestHandleCheckboxToggleBackToUnchecked(t *testing.T) {
 	m.createFromCurrentBranch = mainWorktreeName
 	m.createFromCurrentAIName = "ai-name-cached"
 
-	m.inputScreen = NewInputScreen("test", "placeholder", "ai-name-cached", m.theme, m.config.IconsEnabled())
-	m.inputScreen.SetCheckbox("Include changes", true) // Start checked
+	inputScr := appscreen.NewInputScreen("test", "placeholder", "ai-name-cached", m.theme, m.config.IconsEnabled())
+	inputScr.SetCheckbox("Include changes", true) // Start checked
+	m.createFromCurrentInputScreen = inputScr
 
 	// Uncheck the checkbox
-	m.inputScreen.checkboxChecked = false
+	inputScr.CheckboxChecked = false
 
 	// Call handleCheckboxToggle
 	cmd := m.handleCheckboxToggle()
@@ -231,7 +235,7 @@ func TestHandleCheckboxToggleBackToUnchecked(t *testing.T) {
 	}
 
 	// Input should be restored to random name
-	got := m.inputScreen.input.Value()
+	got := inputScr.Input.Value()
 	if got != testRandomName {
 		t.Errorf("expected input to be restored to random name %q, got %q", testRandomName, got)
 	}
@@ -250,11 +254,12 @@ func TestHandleCheckboxToggleUsesCachedAIName(t *testing.T) {
 	m.createFromCurrentBranch = mainWorktreeName
 	m.createFromCurrentAIName = "cached-ai-name"
 
-	m.inputScreen = NewInputScreen("test", "placeholder", testRandomName, m.theme, m.config.IconsEnabled())
-	m.inputScreen.SetCheckbox("Include changes", false)
+	inputScr := appscreen.NewInputScreen("test", "placeholder", testRandomName, m.theme, m.config.IconsEnabled())
+	inputScr.SetCheckbox("Include changes", false)
+	m.createFromCurrentInputScreen = inputScr
 
 	// Check the checkbox (should use cached AI name, not run script again)
-	m.inputScreen.checkboxChecked = true
+	inputScr.CheckboxChecked = true
 
 	// Call handleCheckboxToggle
 	cmd := m.handleCheckboxToggle()
@@ -263,7 +268,7 @@ func TestHandleCheckboxToggleUsesCachedAIName(t *testing.T) {
 	}
 
 	// Input should be updated to cached AI name
-	got := m.inputScreen.input.Value()
+	got := inputScr.Input.Value()
 	if got != "cached-ai-name" {
 		t.Errorf("expected cached AI name 'cached-ai-name', got %q", got)
 	}
@@ -280,11 +285,12 @@ func TestHandleCheckboxToggleNoScriptConfigured(t *testing.T) {
 	m.createFromCurrentRandomName = testRandomName
 	m.createFromCurrentBranch = mainWorktreeName
 
-	m.inputScreen = NewInputScreen("test", "placeholder", testRandomName, m.theme, m.config.IconsEnabled())
-	m.inputScreen.SetCheckbox("Include changes", false)
+	inputScr := appscreen.NewInputScreen("test", "placeholder", testRandomName, m.theme, m.config.IconsEnabled())
+	inputScr.SetCheckbox("Include changes", false)
+	m.createFromCurrentInputScreen = inputScr
 
 	// Check the checkbox
-	m.inputScreen.checkboxChecked = true
+	inputScr.CheckboxChecked = true
 
 	// Call handleCheckboxToggle
 	cmd := m.handleCheckboxToggle()
@@ -293,7 +299,7 @@ func TestHandleCheckboxToggleNoScriptConfigured(t *testing.T) {
 	}
 
 	// Input should remain unchanged (random name)
-	got := m.inputScreen.input.Value()
+	got := inputScr.Input.Value()
 	if got != testRandomName {
 		t.Errorf("expected random name to remain %q, got %q", testRandomName, got)
 	}
@@ -324,21 +330,18 @@ func TestCreateFromChangesReadyMsg(t *testing.T) {
 	}
 
 	// Check that input screen was set up
-	if m.inputScreen == nil {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
 		t.Fatal("inputScreen should be initialized")
 	}
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
 
-	if m.inputScreen.prompt != "Create worktree from changes: branch name" {
-		t.Errorf("Expected prompt 'Create worktree from changes: branch name', got %q", m.inputScreen.prompt)
+	if inputScr.Prompt != "Create worktree from changes: branch name" {
+		t.Errorf("Expected prompt 'Create worktree from changes: branch name', got %q", inputScr.Prompt)
 	}
 
 	// Check default value
-	if m.inputScreen.value != "main-changes" {
-		t.Errorf("Expected default value 'main-changes', got %q", m.inputScreen.value)
-	}
-
-	if m.currentScreen != screenInput {
-		t.Errorf("Expected currentScreen to be screenInput, got %v", m.currentScreen)
+	if inputScr.Value != "main-changes" {
+		t.Errorf("Expected default value 'main-changes', got %q", inputScr.Value)
 	}
 }
 
@@ -586,7 +589,7 @@ func TestShowRenameWorktree(t *testing.T) {
 	if cmd := m.showRenameWorktree(); cmd == nil {
 		t.Fatal("expected input screen command")
 	}
-	if m.inputScreen == nil || m.currentScreen != screenInput {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
 		t.Fatal("expected input screen to be set")
 	}
 }

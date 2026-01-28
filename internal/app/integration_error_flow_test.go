@@ -65,14 +65,13 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 		m = updated.(*Model)
 	}
 
-	if m.currentScreen != screenInput || m.inputScreen == nil {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != screen.TypeInput {
 		t.Fatal("expected input screen for PR selection")
 	}
-	if _, ok := m.inputSubmit("pr1-add-feature", false); ok {
-		t.Fatal("expected missing branch validation to fail")
-	}
-	if m.inputScreen.errorMsg != errPRBranchMissing {
-		t.Fatalf("unexpected error: %q", m.inputScreen.errorMsg)
+	inputScr := m.screenManager.Current().(*screen.InputScreen)
+	inputScr.OnSubmit("pr1-add-feature", false)
+	if inputScr.ErrorMsg != errPRBranchMissing {
+		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
 	}
 
 	withBranch := &models.PRInfo{Number: 2, Title: "Add tests", Branch: featureBranch}
@@ -89,11 +88,10 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 		m = updated.(*Model)
 	}
 
-	if _, ok := m.inputSubmit(duplicateBranch, false); ok {
-		t.Fatal("expected duplicate branch to be rejected")
-	}
-	if !strings.Contains(m.inputScreen.errorMsg, "already exists") {
-		t.Fatalf("unexpected error: %q", m.inputScreen.errorMsg)
+	inputScr = m.screenManager.Current().(*screen.InputScreen)
+	inputScr.OnSubmit(duplicateBranch, false)
+	if !strings.Contains(inputScr.ErrorMsg, "already exists") {
+		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
 	}
 
 	existsBranch := "exists"
@@ -112,11 +110,10 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 		m = updated.(*Model)
 	}
 
-	if _, ok := m.inputSubmit(existsBranch, false); ok {
-		t.Fatal("expected existing path to be rejected")
-	}
-	if !strings.Contains(m.inputScreen.errorMsg, "Path already exists") {
-		t.Fatalf("unexpected error: %q", m.inputScreen.errorMsg)
+	inputScr = m.screenManager.Current().(*screen.InputScreen)
+	inputScr.OnSubmit(existsBranch, false)
+	if !strings.Contains(inputScr.ErrorMsg, "Path already exists") {
+		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
 	}
 }
 

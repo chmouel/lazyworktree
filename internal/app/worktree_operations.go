@@ -141,20 +141,21 @@ func (m *Model) showCreateWorktreeFromChanges() tea.Cmd {
 // showCreateFromChangesInput shows the input screen for creating a worktree from changes.
 func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranch, defaultName string) tea.Cmd {
 	// Show input screen for worktree name
-	m.inputScreen = NewInputScreen("Create worktree from changes: branch name", "feature/my-branch", defaultName, m.theme, m.config.IconsEnabled())
-	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
+	inputScr := appscreen.NewInputScreen("Create worktree from changes: branch name", "feature/my-branch", defaultName, m.theme, m.config.IconsEnabled())
+
+	inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
 		newBranch := strings.TrimSpace(value)
 		newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 		if newBranch == "" {
-			m.inputScreen.errorMsg = errBranchEmpty
-			return nil, false
+			inputScr.ErrorMsg = errBranchEmpty
+			return nil
 		}
 
 		// Prevent duplicates - check if branch already exists in worktrees
 		for _, existingWt := range m.worktrees {
 			if existingWt.Branch == newBranch {
-				m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
-				return nil, false
+				inputScr.ErrorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
+				return nil
 			}
 		}
 
@@ -162,20 +163,20 @@ func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranc
 		branchRef := m.git.RunGit(m.ctx, []string{"git", "show-ref", fmt.Sprintf("refs/heads/%s", newBranch)}, "", []int{0, 1}, true, true)
 		if branchRef != "" {
 			// Branch exists
-			m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
-			return nil, false
+			inputScr.ErrorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
+			return nil
 		}
 
 		// Check if worktree path already exists
 		targetPath := filepath.Join(m.getWorktreeDir(), newBranch)
 		if _, err := os.Stat(targetPath); err == nil {
-			m.inputScreen.errorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
-			return nil, false
+			inputScr.ErrorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
+			return nil
 		}
 
-		m.inputScreen.errorMsg = ""
+		inputScr.ErrorMsg = ""
 		if err := os.MkdirAll(m.getWorktreeDir(), 0o750); err != nil {
-			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }, true
+			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }
 		}
 
 		// Stash changes with descriptive message
@@ -186,7 +187,7 @@ func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranc
 			wt.Path,
 			"Failed to create stash for moving changes",
 		) {
-			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create stash for moving changes")} }, true
+			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create stash for moving changes")} }
 		}
 
 		// Get the stash ref
@@ -194,7 +195,7 @@ func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranc
 		if stashRef == "" || !strings.HasPrefix(stashRef, "stash@{") {
 			// Try to restore stash if we can't get the ref
 			m.git.RunCommandChecked(m.ctx, []string{"git", "stash", "pop"}, wt.Path, "Failed to restore stash")
-			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to get stash reference")} }, true
+			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to get stash reference")} }
 		}
 
 		// Create the new worktree from current branch
@@ -206,7 +207,7 @@ func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranc
 		) {
 			// If worktree creation fails, try to restore the stash
 			m.git.RunCommandChecked(m.ctx, []string{"git", "stash", "pop"}, wt.Path, "Failed to restore stash")
-			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree %s", newBranch)} }, true
+			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree %s", newBranch)} }
 		}
 
 		// Apply stash to the new worktree
@@ -219,7 +220,7 @@ func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranc
 			// If stash apply fails, clean up the worktree and try to restore stash to original location
 			m.git.RunCommandChecked(m.ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", "Failed to remove worktree")
 			m.git.RunCommandChecked(m.ctx, []string{"git", "stash", "pop"}, wt.Path, "Failed to restore stash")
-			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to apply stash to new worktree")} }, true
+			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to apply stash to new worktree")} }
 		}
 
 		// Drop the stash from the original location
@@ -235,9 +236,14 @@ func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranc
 				err:       err,
 			}
 		}
-		return m.runCommandsWithTrust(initCmds, targetPath, env, after), true
+		return m.runCommandsWithTrust(initCmds, targetPath, env, after)
 	}
-	m.currentScreen = screenInput
+
+	inputScr.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(inputScr)
 	return textinput.Blink
 }
 
@@ -259,17 +265,19 @@ func (m *Model) generateAIBranchName() tea.Cmd {
 
 // handleCheckboxToggle handles checkbox toggling in the create from current flow.
 func (m *Model) handleCheckboxToggle() tea.Cmd {
-	if m.createFromCurrentDiff == "" {
+	if m.createFromCurrentDiff == "" || m.createFromCurrentInputScreen == nil {
 		// Not in "create from current" flow, ignore
 		return nil
 	}
 
-	if m.inputScreen.checkboxChecked {
+	inputScr := m.createFromCurrentInputScreen
+
+	if inputScr.CheckboxChecked {
 		// Checkbox was checked: switch to AI name
 		if m.createFromCurrentAIName != "" {
 			// Use cached AI name
-			m.inputScreen.input.SetValue(m.createFromCurrentAIName)
-			m.inputScreen.input.CursorEnd()
+			inputScr.Input.SetValue(m.createFromCurrentAIName)
+			inputScr.Input.CursorEnd()
 			return nil
 		}
 
@@ -283,8 +291,8 @@ func (m *Model) handleCheckboxToggle() tea.Cmd {
 	}
 
 	// Checkbox was unchecked: restore random name
-	m.inputScreen.input.SetValue(m.createFromCurrentRandomName)
-	m.inputScreen.input.CursorEnd()
+	inputScr.Input.SetValue(m.createFromCurrentRandomName)
+	inputScr.Input.CursorEnd()
 	return nil
 }
 
@@ -302,41 +310,44 @@ func (m *Model) handleCreateFromCurrentReady(msg createFromCurrentReadyMsg) tea.
 	m.createFromCurrentAIName = "" // Reset cached AI name
 
 	// Show input screen with random name
-	m.inputScreen = NewInputScreen("Create from current: branch name", "feature/my-branch", msg.defaultBranchName, m.theme, m.config.IconsEnabled())
+	inputScr := appscreen.NewInputScreen("Create from current: branch name", "feature/my-branch", msg.defaultBranchName, m.theme, m.config.IconsEnabled())
 	if msg.hasChanges {
-		m.inputScreen.SetCheckbox("Include current file changes", false)
+		inputScr.SetCheckbox("Include current file changes", false)
 	}
+
+	// Store reference for checkbox toggle handling
+	m.createFromCurrentInputScreen = inputScr
 
 	// Capture context for closure
 	wt := msg.currentWorktree
 	currentBranch := msg.currentBranch
 	hasChanges := msg.hasChanges
 
-	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
+	inputScr.OnSubmit = func(value string, checked bool) tea.Cmd {
 		newBranch := strings.TrimSpace(value)
 		newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 		if newBranch == "" {
-			m.inputScreen.errorMsg = errBranchEmpty
-			return nil, false
+			inputScr.ErrorMsg = errBranchEmpty
+			return nil
 		}
 
 		// Validate branch doesn't exist
 		if m.branchExistsInWorktrees(newBranch) {
-			m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
-			return nil, false
+			inputScr.ErrorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
+			return nil
 		}
 
 		// Check if branch exists in git
 		branchRef := m.git.RunGit(m.ctx, []string{"git", "show-ref", fmt.Sprintf("refs/heads/%s", newBranch)}, "", []int{0, 1}, true, true)
 		if branchRef != "" {
-			m.inputScreen.errorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
-			return nil, false
+			inputScr.ErrorMsg = fmt.Sprintf("Branch %q already exists.", newBranch)
+			return nil
 		}
 
 		targetPath := filepath.Join(m.getWorktreeDir(), newBranch)
 		if m.worktreePathExists(targetPath) {
-			m.inputScreen.errorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
-			return nil, false
+			inputScr.ErrorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
+			return nil
 		}
 
 		// Clear cached state
@@ -344,20 +355,34 @@ func (m *Model) handleCreateFromCurrentReady(msg createFromCurrentReadyMsg) tea.
 		m.createFromCurrentRandomName = ""
 		m.createFromCurrentAIName = ""
 		m.createFromCurrentBranch = ""
+		m.createFromCurrentInputScreen = nil
 
 		// Set pending selection so the new worktree is selected after creation
 		m.pendingSelectWorktreePath = targetPath
 
-		includeChanges := m.inputScreen.checkboxChecked
 		// Only attempt to move changes if checkbox is checked AND there are actual changes
 		// This prevents accidentally applying an unrelated existing stash when workspace is clean
-		if includeChanges && hasChanges {
-			return m.executeCreateWithChanges(wt, currentBranch, newBranch, targetPath), true
+		if checked && hasChanges {
+			return m.executeCreateWithChanges(wt, currentBranch, newBranch, targetPath)
 		}
-		return m.executeCreateWithoutChanges(currentBranch, newBranch, targetPath), true
+		return m.executeCreateWithoutChanges(currentBranch, newBranch, targetPath)
 	}
 
-	m.currentScreen = screenInput
+	inputScr.OnCancel = func() tea.Cmd {
+		// Clear cached state on cancel
+		m.createFromCurrentDiff = ""
+		m.createFromCurrentRandomName = ""
+		m.createFromCurrentAIName = ""
+		m.createFromCurrentBranch = ""
+		m.createFromCurrentInputScreen = nil
+		return nil
+	}
+
+	inputScr.OnCheckboxToggle = func(checked bool) tea.Cmd {
+		return m.handleCheckboxToggle()
+	}
+
+	m.screenManager.Push(inputScr)
 	return textinput.Blink
 }
 
@@ -488,27 +513,28 @@ func (m *Model) showRenameWorktree() tea.Cmd {
 	}
 
 	prompt := fmt.Sprintf("Enter new name for '%s'", wt.Branch)
-	m.inputScreen = NewInputScreen(prompt, "New branch name", wt.Branch, m.theme, m.config.IconsEnabled())
-	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
+	inputScr := appscreen.NewInputScreen(prompt, "New branch name", wt.Branch, m.theme, m.config.IconsEnabled())
+
+	inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
 		newBranch := strings.TrimSpace(value)
 		newBranch = sanitizeBranchNameFromTitle(newBranch, "")
 		if newBranch == "" {
-			m.inputScreen.errorMsg = "Name cannot be empty."
-			return nil, false
+			inputScr.ErrorMsg = "Name cannot be empty."
+			return nil
 		}
 		if newBranch == wt.Branch {
-			m.inputScreen.errorMsg = "Name must be different from the current branch."
-			return nil, false
+			inputScr.ErrorMsg = "Name must be different from the current branch."
+			return nil
 		}
 
 		parentDir := filepath.Dir(wt.Path)
 		newPath := filepath.Join(parentDir, newBranch)
 		if _, err := os.Stat(newPath); err == nil {
-			m.inputScreen.errorMsg = fmt.Sprintf("Destination already exists: %s", newPath)
-			return nil, false
+			inputScr.ErrorMsg = fmt.Sprintf("Destination already exists: %s", newPath)
+			return nil
 		}
 
-		m.inputScreen.errorMsg = ""
+		inputScr.ErrorMsg = ""
 		oldPath := wt.Path
 		oldBranch := wt.Branch
 
@@ -522,9 +548,14 @@ func (m *Model) showRenameWorktree() tea.Cmd {
 				worktrees: worktrees,
 				err:       err,
 			}
-		}, true
+		}
 	}
-	m.currentScreen = screenInput
+
+	inputScr.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(inputScr)
 	return textinput.Blink
 }
 

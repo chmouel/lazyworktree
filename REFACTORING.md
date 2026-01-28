@@ -144,6 +144,11 @@ Created `internal/app/commands/`:
    - `issueSelectionSubmit func(*models.IssueInfo) tea.Cmd` removed from Model
    - `checklistScreen *ChecklistScreen` removed from Model
    - `checklistSubmit func([]ChecklistItem) tea.Cmd` removed from Model
+   - `listScreen *ListSelectionScreen` removed from Model
+   - `listSubmit func(selectionItem) tea.Cmd` removed from Model
+   - `listScreenCIChecks []*models.CICheck` removed from Model
+   - `inputScreen *InputScreen` removed from Model (Wave 2C)
+   - `inputSubmit func(string, bool) (tea.Cmd, bool)` removed from Model (Wave 2C)
 
 5. **New screen files**:
    - `screen/welcome.go` - with `OnRefresh` and `OnQuit` callbacks
@@ -152,7 +157,8 @@ Created `internal/app/commands/`:
    - `screen/pr_select.go` - with `OnSelect` and `OnCancel` callbacks
    - `screen/issue_select.go` - with `OnSelect` and `OnCancel` callbacks
    - `screen/checklist.go` - with `OnSubmit` and `OnCancel` callbacks, multi-select with checkboxes
-   - `screen/list_select.go` - with `OnSelect`, `OnEnter`, `OnCtrlV`, `OnCtrlR` callbacks (partially migrated)
+   - `screen/list_select.go` - with `OnSelect`, `OnEnter`, `OnCtrlV`, `OnCtrlR`, `OnCursorChange` callbacks
+   - `screen/input.go` - with `OnSubmit`, `OnCancel`, `OnCheckboxToggle`, `Validate` callbacks, history navigation (Wave 2C)
 
 6. **Test updates**:
    - Updated tests to use `screenManager.IsActive()` and `screenManager.Type()` instead of legacy `currentScreen` field
@@ -242,14 +248,64 @@ m.screenManager.Push(listScreen)
 - **Tests passing:** All (`make sanity` ✅)
 - **Coverage:** ListSelectionScreen now 100% migrated
 
-### Remaining Screens (Wave 2C-F):
+### Wave 2C: InputScreen Migration (COMPLETED ✅)
+
+**Goal:** Migrate InputScreen from legacy pattern to screen manager with callback-based validation.
+
+**New file created:**
+- `screen/input.go` - InputScreen with callback-based pattern (~200 lines)
+
+**Key design changes:**
+- Legacy pattern: `inputSubmit func(value string, checked bool) (tea.Cmd, bool)` where bool indicates close
+- New pattern: `OnSubmit func(value string, checked bool) tea.Cmd` with `ErrorMsg` field for validation
+- Screen stays open if `ErrorMsg` is set after `OnSubmit` is called
+
+**Migrated 11 usage sites:**
+
+| # | File | Function | Features |
+|---|------|----------|----------|
+| 1 | base_selection.go | showFreeformBaseInput | Validation |
+| 2 | base_selection.go | showBranchNameInput | Validation |
+| 3 | base_selection.go | showWorktreeNameForExistingBranch | Validation |
+| 4 | worktree_sync.go | showUpstreamInput | Validation |
+| 5 | messages.go | PR input (in showInfo callback) | Validation |
+| 6 | messages.go | PR input (direct) | Validation |
+| 7 | messages.go | Issue input | Validation |
+| 8 | worktree_operations.go | showCreateFromChangesInput | Validation |
+| 9 | worktree_operations.go | handleCreateFromCurrentReady | Checkbox + AI name toggle |
+| 10 | worktree_operations.go | showRenameWorktree | Validation |
+| 11 | app_screens.go | showRunCommand | History navigation |
+
+**Removed legacy code:**
+- `InputScreen` struct from `screens.go` (24 lines)
+- `NewInputScreen`, `SetValidation`, `SetFuzzyFinder`, `SetHistory`, `Init`, `Update`, `View` methods (~254 lines)
+- `SetCheckbox` method (7 lines)
+- `inputScreen` and `inputSubmit` fields from Model
+- `case screenInput:` blocks from `app_screens.go` and `renderer.go`
+- Legacy tests `TestInputScreenInit` and `TestInputScreenUpdate` from `screens_test.go`
+
+**Test files updated:**
+- `app_screens_test.go` (2 tests)
+- `integration_error_flow_test.go` (3 test sections)
+- `base_selection_test.go` (multiple tests - in previous session)
+- `worktree_operations_test.go` (multiple tests - in previous session)
+- `worktree_sync_test.go` (multiple tests - in previous session)
+
+**Special handling:**
+- Added `createFromCurrentInputScreen *screen.InputScreen` field to Model for checkbox toggle callback
+- Updated `aiBranchNameGeneratedMsg` handler to use `createFromCurrentInputScreen`
+
+**Stats:**
+- **Lines removed:** ~285 (legacy struct + methods + case blocks)
+- **Files updated:** 12 (source + test files)
+- **Tests passing:** All (`make sanity` ✅)
+
+### Remaining Screens (Wave 2D-F):
 
 | Screen | Complexity | Status | Notes |
 |--------|-----------|--------|-------|
-| ListSelectionScreen | High (CI check handling) | ⚠️ Partial | CI checks migrated, theme/base/cherry-pick remain |
 | HelpScreen | Medium | Pending | |
 | CommandPaletteScreen | Medium | Pending | |
-| InputScreen | High (history, checkbox, validation) | Pending | |
 | CommitFilesScreen | High (tree-based) | Pending | |
 | ConfirmScreen | Low (uses channels) | Pending | Already in screen/ package |
 | InfoScreen | Low (uses channels) | Pending | Already in screen/ package |
@@ -549,9 +605,9 @@ After each refactoring phase:
 
 | File | Lines | Status |
 |------|-------|--------|
-| `app.go` | 935 | Refactored (screenManager added, legacy fields removed) |
-| `screens.go` | 3524 | Needs splitting (Phase 2) |
-| `app_screens.go` | 1150 | Partially simplified (3 screens migrated) |
+| `app.go` | ~940 | Refactored (screenManager added, createFromCurrentInputScreen added) |
+| `screens.go` | ~3240 | Reduced (~285 lines removed for InputScreen) |
+| `app_screens.go` | ~1060 | Simplified (InputScreen case block removed) |
 | `handlers.go` | 1043 | Updated for screen manager |
 | `ci.go` | 330 | Could become service (Phase 3) |
 | `worktree_operations.go` | 864 | Could become service (Phase 3) |
@@ -566,7 +622,8 @@ After each refactoring phase:
 | `screen/pr_select.go` | 316 | PRSelectionScreen migrated |
 | `screen/issue_select.go` | 269 | IssueSelectionScreen migrated |
 | `screen/checklist.go` | 327 | ChecklistScreen migrated |
-| `screen/list_select.go` | 305 | ListSelectionScreen (partial) |
+| `screen/list_select.go` | 305 | ListSelectionScreen migrated |
+| `screen/input.go` | ~200 | InputScreen migrated (NEW) |
 | `screen/pr_select_test.go` | NEW | Tests for PRSelectionScreen |
 | `screen/ui_helpers.go` | NEW | Shared UI helper functions |
 | `screen/manager_test.go` | 195 | Tests |

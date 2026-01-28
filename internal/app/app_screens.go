@@ -252,94 +252,6 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		}
-	case screenInput:
-		if m.inputScreen == nil {
-			m.currentScreen = screenNone
-			return m, nil
-		}
-
-		keyStr := msg.String()
-		if isEscKey(keyStr) {
-			// Clear cached state on exit
-			m.createFromCurrentDiff = ""
-			m.createFromCurrentRandomName = ""
-			m.createFromCurrentAIName = ""
-			m.createFromCurrentBranch = ""
-
-			m.inputScreen = nil
-			m.inputSubmit = nil
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		if keyStr == keyEnter {
-			if m.inputScreen.validate != nil {
-				if errMsg := strings.TrimSpace(m.inputScreen.validate(m.inputScreen.input.Value())); errMsg != "" {
-					m.inputScreen.errorMsg = errMsg
-					return m, nil
-				}
-				m.inputScreen.errorMsg = ""
-			}
-			if m.inputSubmit != nil {
-				cmd, closeCmd := m.inputSubmit(m.inputScreen.input.Value(), m.inputScreen.checkboxChecked)
-				if closeCmd {
-					m.inputScreen = nil
-					m.inputSubmit = nil
-					if m.currentScreen == screenInput {
-						m.currentScreen = screenNone
-					}
-				}
-				return m, cmd
-			}
-		}
-
-		// Handle history navigation with up/down arrows
-		if len(m.inputScreen.history) > 0 {
-			switch keyStr {
-			case "up":
-				// Go to previous command in history (older)
-				if m.inputScreen.historyIndex == -1 {
-					m.inputScreen.originalInput = m.inputScreen.input.Value()
-					m.inputScreen.historyIndex = 0
-				} else if m.inputScreen.historyIndex < len(m.inputScreen.history)-1 {
-					m.inputScreen.historyIndex++
-				}
-				if m.inputScreen.historyIndex >= 0 && m.inputScreen.historyIndex < len(m.inputScreen.history) {
-					m.inputScreen.input.SetValue(m.inputScreen.history[m.inputScreen.historyIndex])
-					m.inputScreen.input.CursorEnd()
-				}
-				return m, nil
-			case "down":
-				// Go to next command in history (newer)
-				if m.inputScreen.historyIndex > 0 {
-					m.inputScreen.historyIndex--
-					m.inputScreen.input.SetValue(m.inputScreen.history[m.inputScreen.historyIndex])
-					m.inputScreen.input.CursorEnd()
-				} else if m.inputScreen.historyIndex == 0 {
-					m.inputScreen.historyIndex = -1
-					m.inputScreen.input.SetValue(m.inputScreen.originalInput)
-					m.inputScreen.input.CursorEnd()
-				}
-				return m, nil
-			}
-		}
-
-		// Reset history browsing when user types
-		if msg.Type == tea.KeyRunes || msg.Type == tea.KeyBackspace || msg.Type == tea.KeyDelete {
-			m.inputScreen.historyIndex = -1
-		}
-
-		// Store previous checkbox state before update
-		prevCheckboxState := m.inputScreen.checkboxChecked
-
-		var cmd tea.Cmd
-		_, cmd = m.inputScreen.Update(msg)
-
-		// Detect checkbox state change
-		if m.inputScreen.checkboxEnabled && prevCheckboxState != m.inputScreen.checkboxChecked {
-			return m, tea.Batch(cmd, m.handleCheckboxToggle())
-		}
-
-		return m, cmd
 	}
 	return m, nil
 }
@@ -665,8 +577,10 @@ func (m *Model) UpdateTheme(themeName string) {
 	if m.loadingScreen != nil {
 		m.loadingScreen.thm = thm
 	}
-	if m.inputScreen != nil {
-		m.inputScreen.thm = thm
+	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypeInput {
+		if inputScreen, ok := m.screenManager.Current().(*appscreen.InputScreen); ok {
+			inputScreen.Thm = thm
+		}
 	}
 	if m.paletteScreen != nil {
 		m.paletteScreen.thm = thm
@@ -701,8 +615,7 @@ func (m *Model) showRunCommand() tea.Cmd {
 		return nil
 	}
 
-	m.currentScreen = screenInput
-	m.inputScreen = NewInputScreen(
+	inputScr := appscreen.NewInputScreen(
 		"Run command in worktree",
 		"e.g., make test, npm install, etc.",
 		"",
@@ -711,17 +624,24 @@ func (m *Model) showRunCommand() tea.Cmd {
 	)
 	// Enable bash-style history navigation with up/down arrows
 	// Always set history, even if empty - it will populate as commands are added
-	m.inputScreen.SetHistory(m.commandHistory)
-	m.inputSubmit = func(value string, checked bool) (tea.Cmd, bool) {
+	inputScr.SetHistory(m.commandHistory)
+
+	inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
 		cmdStr := strings.TrimSpace(value)
 		if cmdStr == "" {
-			return nil, true // Close without running
+			return nil // Close without running
 		}
 		// Add command to history
 		m.addToCommandHistory(cmdStr)
-		return m.executeArbitraryCommand(cmdStr), true
+		return m.executeArbitraryCommand(cmdStr)
 	}
-	return nil
+
+	inputScr.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(inputScr)
+	return textinput.Blink
 }
 
 func (m *Model) customFooterHints() []string {

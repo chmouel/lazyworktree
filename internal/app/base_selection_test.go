@@ -526,11 +526,14 @@ func TestShowBaseSelection(t *testing.T) {
 		t.Fatal("expected OnSelect callback to be set")
 	}
 	listScreen.OnSelect(appscreen.SelectionItem{ID: "freeform"})
-	if m.inputScreen == nil || m.currentScreen != screenInput {
-		t.Fatal("expected input screen to be active")
+
+	// Input screen should now be pushed to screen manager
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
+		t.Fatalf("expected input screen to be active, got type %v", m.screenManager.Type())
 	}
-	if m.inputScreen.prompt != "Base ref" {
-		t.Fatalf("expected base ref prompt, got %q", m.inputScreen.prompt)
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
+	if inputScr.Prompt != "Base ref" {
+		t.Fatalf("expected base ref prompt, got %q", inputScr.Prompt)
 	}
 }
 
@@ -580,25 +583,32 @@ func TestShowFreeformBaseInputValidation(t *testing.T) {
 	m := NewModel(cfg, "")
 
 	m.showFreeformBaseInput(repo.branch)
-	if _, ok := m.inputSubmit(" ", false); ok {
-		t.Fatal("expected empty base ref to be rejected")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
+		t.Fatal("expected input screen to be active")
 	}
-	if m.inputScreen.errorMsg != "Base ref cannot be empty." {
-		t.Fatalf("unexpected error: %q", m.inputScreen.errorMsg)
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
+
+	// Test empty base ref validation
+	inputScr.OnSubmit(" ", false)
+	if inputScr.ErrorMsg != "Base ref cannot be empty." {
+		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
 	}
 
-	if _, ok := m.inputSubmit("missing-ref", false); ok {
-		t.Fatal("expected invalid base ref to be rejected")
-	}
-	if m.inputScreen.errorMsg != "Base ref not found." {
-		t.Fatalf("unexpected error: %q", m.inputScreen.errorMsg)
+	// Test invalid base ref validation
+	inputScr.OnSubmit("missing-ref", false)
+	if inputScr.ErrorMsg != "Base ref not found." {
+		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
 	}
 
-	if _, ok := m.inputSubmit(repo.branch, false); ok {
-		t.Fatal("expected base ref flow to keep screen open")
+	// Test valid base ref - should push branch name input
+	inputScr.OnSubmit(repo.branch, false)
+	// A new input screen should be pushed for branch name
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
+		t.Fatal("expected branch name input screen to be shown")
 	}
-	if m.inputScreen == nil || m.inputScreen.prompt != "Create worktree: branch name" {
-		t.Fatal("expected branch name input to be shown")
+	branchInputScr := m.screenManager.Current().(*appscreen.InputScreen)
+	if branchInputScr.Prompt != "Create worktree: branch name" {
+		t.Fatalf("expected branch name prompt, got %q", branchInputScr.Prompt)
 	}
 }
 
@@ -679,12 +689,16 @@ func TestShowCommitSelection(t *testing.T) {
 	}
 
 	listScreen.OnSelect(item)
-	if m.inputScreen == nil || m.inputScreen.prompt != "Create worktree: branch name" {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
 		t.Fatal("expected branch name input to be shown")
+	}
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
+	if inputScr.Prompt != "Create worktree: branch name" {
+		t.Fatalf("expected branch name prompt, got %q", inputScr.Prompt)
 	}
 
 	expected := sanitizeBranchNameFromTitle(repo.commit.subject, repo.commit.shortHash)
-	if got := m.inputScreen.input.Value(); got != expected {
+	if got := inputScr.Input.Value(); got != expected {
 		t.Fatalf("expected branch name %q, got %q", expected, got)
 	}
 }
@@ -734,11 +748,8 @@ func TestShowCommitSelectionShowsInfoOnBranchNameScriptError(t *testing.T) {
 		_ = action()
 	}
 
-	if m.currentScreen != screenInput {
-		t.Fatalf("expected input screen, got %v", m.currentScreen)
-	}
-	if m.inputScreen == nil {
-		t.Fatal("expected input screen to be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
+		t.Fatalf("expected input screen, got %v", m.screenManager.Type())
 	}
 }
 
@@ -751,26 +762,29 @@ func TestShowBranchNameInputValidation(t *testing.T) {
 	m.worktrees = []*models.WorktreeInfo{{Branch: "demo"}}
 
 	m.showBranchNameInput(repo.branch, "demo")
-	if got := m.inputScreen.input.Value(); got != "demo-1" {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
+		t.Fatal("expected input screen to be active")
+	}
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
+
+	if got := inputScr.Input.Value(); got != "demo-1" {
 		t.Fatalf("expected suggested branch name, got %q", got)
 	}
 
-	if _, ok := m.inputSubmit("demo", false); ok {
-		t.Fatal("expected duplicate branch to be rejected")
-	}
-	if !strings.Contains(m.inputScreen.errorMsg, "already exists") {
-		t.Fatalf("unexpected error: %q", m.inputScreen.errorMsg)
+	// Test duplicate branch validation
+	inputScr.OnSubmit("demo", false)
+	if !strings.Contains(inputScr.ErrorMsg, "already exists") {
+		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
 	}
 
+	// Test existing path validation
 	pathBranch := "path-branch"
 	if err := os.MkdirAll(filepath.Join(m.getRepoWorktreeDir(), pathBranch), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if _, ok := m.inputSubmit(pathBranch, false); ok {
-		t.Fatal("expected existing path to be rejected")
-	}
-	if !strings.Contains(m.inputScreen.errorMsg, "Path already exists") {
-		t.Fatalf("unexpected error: %q", m.inputScreen.errorMsg)
+	inputScr.OnSubmit(pathBranch, false)
+	if !strings.Contains(inputScr.ErrorMsg, "Path already exists") {
+		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
 	}
 }
 
@@ -1137,11 +1151,12 @@ func TestShowCheckoutOrCreatePrompt(t *testing.T) {
 	}
 
 	listScreen.OnSelect(appscreen.SelectionItem{ID: "create"})
-	if m.inputScreen == nil || m.currentScreen != screenInput {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
 		t.Fatal("expected input screen for branch name")
 	}
-	if m.inputScreen.prompt != "Create worktree: branch name" {
-		t.Fatalf("expected branch name prompt, got %q", m.inputScreen.prompt)
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
+	if inputScr.Prompt != "Create worktree: branch name" {
+		t.Fatalf("expected branch name prompt, got %q", inputScr.Prompt)
 	}
 }
 
@@ -1160,19 +1175,20 @@ func TestShowWorktreeNameForExistingBranch(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if m.inputScreen == nil || m.currentScreen != screenInput {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
 		t.Fatal("expected input screen to be active")
 	}
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
 
 	// Verify suggested name format
 	expected := featureBranch + "-wt"
-	if got := m.inputScreen.input.Value(); got != expected {
+	if got := inputScr.Input.Value(); got != expected {
 		t.Fatalf("expected suggested name %q, got %q", expected, got)
 	}
 
 	// Verify prompt mentions existing branch
-	if !strings.Contains(m.inputScreen.prompt, featureBranch) {
-		t.Fatalf("expected prompt to mention branch name, got %q", m.inputScreen.prompt)
+	if !strings.Contains(inputScr.Prompt, featureBranch) {
+		t.Fatalf("expected prompt to mention branch name, got %q", inputScr.Prompt)
 	}
 
 	// Test path conflict validation - create the target path first
@@ -1180,11 +1196,9 @@ func TestShowWorktreeNameForExistingBranch(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(m.getRepoWorktreeDir(), pathBranch), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if _, ok := m.inputSubmit(pathBranch, false); ok {
-		t.Fatal("expected existing path to be rejected")
-	}
-	if !strings.Contains(m.inputScreen.errorMsg, "Path already exists") {
-		t.Fatalf("unexpected error: %q", m.inputScreen.errorMsg)
+	inputScr.OnSubmit(pathBranch, false)
+	if !strings.Contains(inputScr.ErrorMsg, "Path already exists") {
+		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
 	}
 }
 
@@ -1370,10 +1384,11 @@ func TestBranchSelectionSkipsCheckoutForCheckedOutBranch(t *testing.T) {
 	}
 
 	listScreen.OnSelect(*mainItem)
-	if m.inputScreen == nil || m.currentScreen != screenInput {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
 		t.Fatal("expected input screen for branch name")
 	}
-	if m.inputScreen.prompt != "Create worktree: branch name" {
-		t.Fatalf("expected branch name prompt, got %q", m.inputScreen.prompt)
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
+	if inputScr.Prompt != "Create worktree: branch name" {
+		t.Fatalf("expected branch name prompt, got %q", inputScr.Prompt)
 	}
 }
