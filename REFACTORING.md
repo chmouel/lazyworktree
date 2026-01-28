@@ -98,7 +98,7 @@ Created `internal/app/commands/`:
 
 ---
 
-## Phase 2: Migrate Complex Screens (IN PROGRESS)
+## Phase 2: Migrate Complex Screens (NEAR COMPLETE)
 
 **Goal:** Migrate screens to `screen.Manager`, reducing `handleScreenKey` from ~494 lines incrementally.
 
@@ -403,7 +403,7 @@ m.screenManager.Push(helpScreen)
 - **Files modified:** 11 (1 new, 10 changed)
 - **Tests passing:** All (`make sanity` ✅)
 
-### Wave 2F: ConfirmScreen and InfoScreen Migration (95% COMPLETE - Main Code ✅, Tests 🚧)
+### Wave 2F: ConfirmScreen and InfoScreen Migration (COMPLETED ✅)
 
 **Goal:** Migrate ConfirmScreen and InfoScreen from ResultChan pattern to callback pattern, completing the simple screen migrations.
 
@@ -437,6 +437,7 @@ m.screenManager.Push(helpScreen)
    - `worktree_sync_test.go` - Uses screen manager checks
    - `worktree_operations_test.go` - Uses screen manager checks
    - `app_git_test.go` - Uses screen manager checks
+   - `handlers_test.go` - Uses screen manager checks
 
 **Pattern established:**
 ```go
@@ -453,7 +454,7 @@ confirmScreen.OnCancel = func() tea.Cmd { /* ... */ }
 m.screenManager.Push(confirmScreen)
 ```
 
-#### InfoScreen Migration (Main Code 100% ✅, Tests 92% 🚧)
+#### InfoScreen Migration (100% Complete ✅)
 1. ✅ Updated `screen/info.go` - Converted from `ResultChan` to callback
    - Removed `ResultChan chan bool` field
    - Added `OnClose func() tea.Cmd` callback
@@ -474,9 +475,20 @@ m.screenManager.Push(confirmScreen)
 6. ✅ Removed legacy case blocks:
    - `case screenInfo` in `app_screens.go` (17 lines removed)
    - `case screenInfo` in `renderer.go` (4 lines removed)
-7. 🚧 **Test updates (1 of 13 complete):**
-   - ✅ `app_diff_test.go` - All 3 tests updated
-   - ⏸️ **Remaining 12 test files** (see handoff doc at `/tmp/wave2f-handoff.md`)
+7. ✅ **All test files updated:**
+   - `screens_test.go` - Uses `appscreen.NewConfirmScreen*` with capitalized fields
+   - `pr_worktree_test.go` - Uses screen manager checks
+   - `app_screens_test.go` - Uses screen manager and `m.View()` for rendering
+   - `worktree_sync_test.go` - Uses screen manager checks
+   - `app_external_test.go` - Uses screen manager checks
+   - `app_git_test.go` - Uses screen manager checks
+   - `handlers_test.go` - Uses screen manager checks
+   - `integration_error_flow_test.go` - Uses screen manager checks
+   - `integration_flow_test.go` - Uses screen manager checks
+   - `integration_test.go` - Uses screen manager checks
+   - `worktree_operations_test.go` - Uses screen manager checks
+   - `base_selection_test.go` - Uses screen manager checks
+   - `command_runner_test.go` - Uses screen manager checks
 
 **Helper pattern (preferred):**
 ```go
@@ -491,15 +503,23 @@ func (m *Model) showInfo(message string, action tea.Cmd) {
 }
 ```
 
+**Migration pattern for tests:**
+```go
+// Old pattern
+if m.currentScreen != screenInfo { ... }
+if m.infoScreen == nil { ... }
+msg := m.infoScreen.message
+
+// New pattern
+if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo { ... }
+infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+msg := infoScr.Message  // Capitalized field
+```
+
 **Stats:**
 - **Lines removed:** ~332 (legacy code + case blocks for both screens)
-- **Files modified:** 15 (1 test file complete, 12 test files remain)
-- **Main code builds:** ✅ Successfully
-- **Tests passing:** 🚧 Waiting for test updates (12 files remain)
-
-**Remaining work:**
-- Update 12 test files to use screen manager pattern (pattern documented in `/tmp/wave2f-handoff.md`)
-- Estimated effort: 1-2 hours (mechanical updates)
+- **Files modified:** 15 (source + test files)
+- **Tests passing:** ✅ All tests pass (`make sanity` ✅)
 
 #### CommitFilesScreen (Deferred)
 
