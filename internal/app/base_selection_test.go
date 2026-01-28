@@ -10,6 +10,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -516,11 +517,15 @@ func TestShowBaseSelection(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if m.listScreen == nil || m.currentScreen != screenListSelect {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
 		t.Fatal("expected list screen to be active")
 	}
 
-	m.listSubmit(selectionItem{id: "freeform"})
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if listScreen.OnSelect == nil {
+		t.Fatal("expected OnSelect callback to be set")
+	}
+	listScreen.OnSelect(appscreen.SelectionItem{ID: "freeform"})
 	if m.inputScreen == nil || m.currentScreen != screenInput {
 		t.Fatal("expected input screen to be active")
 	}
@@ -539,17 +544,19 @@ func TestShowBaseSelectionFromPROption(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if m.listScreen == nil || m.currentScreen != screenListSelect {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
 		t.Fatal("expected list screen to be active")
 	}
 
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+
 	// Verify the from-pr option exists
 	found := false
-	for _, item := range m.listScreen.items {
-		if item.id == "from-pr" {
+	for _, item := range listScreen.Items {
+		if item.ID == "from-pr" {
 			found = true
-			if item.label != "Create from PR/MR" {
-				t.Fatalf("expected label 'Create from PR/MR', got %q", item.label)
+			if item.Label != "Create from PR/MR" {
+				t.Fatalf("expected label 'Create from PR/MR', got %q", item.Label)
 			}
 			break
 		}
@@ -559,7 +566,7 @@ func TestShowBaseSelectionFromPROption(t *testing.T) {
 	}
 
 	// Verify selecting from-pr returns a command (the async PR fetch)
-	resultCmd := m.listSubmit(selectionItem{id: "from-pr"})
+	resultCmd := listScreen.OnSelect(appscreen.SelectionItem{ID: "from-pr"})
 	if resultCmd == nil {
 		t.Fatal("expected command from from-pr selection")
 	}
@@ -613,16 +620,22 @@ func TestShowBranchSelection(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if m.listScreen == nil || len(m.listScreen.items) == 0 {
+
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatal("expected list screen to be active")
+	}
+
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if len(listScreen.Items) == 0 {
 		t.Fatal("expected branch list to be populated")
 	}
-	if m.listScreen.items[0].id != repo.branch {
-		t.Fatalf("expected preferred branch first, got %q", m.listScreen.items[0].id)
+	if listScreen.Items[0].ID != repo.branch {
+		t.Fatalf("expected preferred branch first, got %q", listScreen.Items[0].ID)
 	}
 
 	remoteFound := false
-	for _, item := range m.listScreen.items {
-		if item.description == "remote" {
+	for _, item := range listScreen.Items {
+		if item.Description == "remote" {
 			remoteFound = true
 			break
 		}
@@ -631,7 +644,7 @@ func TestShowBranchSelection(t *testing.T) {
 		t.Fatal("expected a remote branch entry")
 	}
 
-	m.listSubmit(m.listScreen.items[0])
+	listScreen.OnSelect(listScreen.Items[0])
 	if selected != repo.branch {
 		t.Fatalf("expected %q to be selected, got %q", repo.branch, selected)
 	}
@@ -650,16 +663,22 @@ func TestShowCommitSelection(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if m.listScreen == nil || len(m.listScreen.items) == 0 {
+
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatal("expected list screen to be active")
+	}
+
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if len(listScreen.Items) == 0 {
 		t.Fatal("expected commit list to be populated")
 	}
 
-	item := m.listScreen.items[0]
-	if item.description == "" {
+	item := listScreen.Items[0]
+	if item.Description == "" {
 		t.Fatal("expected commit item to include date")
 	}
 
-	m.listSubmit(item)
+	listScreen.OnSelect(item)
 	if m.inputScreen == nil || m.inputScreen.prompt != "Create worktree: branch name" {
 		t.Fatal("expected branch name input to be shown")
 	}
@@ -686,20 +705,29 @@ func TestShowCommitSelectionShowsInfoOnBranchNameScriptError(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if m.listScreen == nil || len(m.listScreen.items) == 0 {
+
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatal("expected list screen to be active")
+	}
+
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if len(listScreen.Items) == 0 {
 		t.Fatal("expected commit list to be populated")
 	}
 
-	item := m.listScreen.items[0]
-	if cmd := m.listSubmit(item); cmd != nil {
+	item := listScreen.Items[0]
+	if cmd := listScreen.OnSelect(item); cmd != nil {
 		t.Fatal("expected nil command on script error")
 	}
+
 	if m.currentScreen != screenInfo {
 		t.Fatalf("expected info screen, got %v", m.currentScreen)
 	}
 	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "Branch name script error") {
 		t.Fatalf("expected branch name script error modal, got %#v", m.infoScreen)
 	}
+
+	m.screenManager.Pop()
 
 	_, action := m.handleScreenKey(tea.KeyMsg{Type: tea.KeyEnter})
 	if action != nil {
@@ -817,14 +845,8 @@ func TestCreateWorktreeFromBase(t *testing.T) {
 func TestClearListSelection(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.listScreen = &ListSelectionScreen{}
-	m.listSubmit = func(selectionItem) tea.Cmd { return nil }
-	m.currentScreen = screenListSelect
 
 	m.clearListSelection()
-	if m.listScreen != nil || m.listSubmit != nil {
-		t.Fatal("expected list selection to be cleared")
-	}
 	if m.currentScreen != screenNone {
 		t.Fatalf("expected screenNone, got %v", m.currentScreen)
 	}
@@ -869,14 +891,15 @@ func TestShowBaseBranchForCustomCreateMenu(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if m.listScreen == nil {
+
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
 		t.Fatal("expected list screen to be set")
 	}
 
-	// Simulate selecting a branch
-	if len(m.listScreen.items) > 0 {
-		m.listSubmit(m.listScreen.items[0])
-		// After branch selection, pendingCustomBaseRef and pendingCustomMenu should be set
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+
+	if len(listScreen.Items) > 0 {
+		listScreen.OnSelect(listScreen.Items[0])
 		if m.pending.CustomBaseRef == "" {
 			t.Error("expected pendingCustomBaseRef to be set")
 		}
@@ -1075,33 +1098,34 @@ func TestShowCheckoutOrCreatePrompt(t *testing.T) {
 	m.view.WindowWidth = 120
 	m.view.WindowHeight = 40
 
-	// Show the checkout/create prompt for an existing local branch
 	cmd := m.showCheckoutOrCreatePrompt(repo.branch)
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if m.listScreen == nil || m.currentScreen != screenListSelect {
+
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
 		t.Fatal("expected list screen to be active")
 	}
 
-	// Verify we have the checkout and create options
-	if len(m.listScreen.items) != 2 {
-		t.Fatalf("expected 2 options, got %d", len(m.listScreen.items))
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+
+	if len(listScreen.Items) != 2 {
+		t.Fatalf("expected 2 options, got %d", len(listScreen.Items))
 	}
 
 	checkoutFound := false
 	createFound := false
-	for _, item := range m.listScreen.items {
-		if item.id == "checkout" {
+	for _, item := range listScreen.Items {
+		if item.ID == "checkout" {
 			checkoutFound = true
-			if item.label != "Checkout existing branch" {
-				t.Fatalf("expected label 'Checkout existing branch', got %q", item.label)
+			if item.Label != "Checkout existing branch" {
+				t.Fatalf("expected label 'Checkout existing branch', got %q", item.Label)
 			}
 		}
-		if item.id == "create" {
+		if item.ID == "create" {
 			createFound = true
-			if item.label != "Create new branch" {
-				t.Fatalf("expected label 'Create new branch', got %q", item.label)
+			if item.Label != "Create new branch" {
+				t.Fatalf("expected label 'Create new branch', got %q", item.Label)
 			}
 		}
 	}
@@ -1112,8 +1136,7 @@ func TestShowCheckoutOrCreatePrompt(t *testing.T) {
 		t.Fatal("expected 'create' option in prompt")
 	}
 
-	// Test selecting "create" leads to branch name input
-	m.listSubmit(selectionItem{id: "create"})
+	listScreen.OnSelect(appscreen.SelectionItem{ID: "create"})
 	if m.inputScreen == nil || m.currentScreen != screenInput {
 		t.Fatal("expected input screen for branch name")
 	}
@@ -1219,25 +1242,24 @@ func TestBranchSelectionWithLocalBranch(t *testing.T) {
 	m.view.WindowWidth = 120
 	m.view.WindowHeight = 40
 
-	// Show base selection and select branch-list
 	m.showBaseSelection(repo.branch)
 
-	// Trigger branch-list selection
-	cmd := m.listSubmit(selectionItem{id: "branch-list"})
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	cmd := listScreen.OnSelect(appscreen.SelectionItem{ID: "branch-list"})
 	if cmd == nil {
 		t.Fatal("expected command from branch-list selection")
 	}
 
-	// Now we should have a branch selection screen
-	if m.listScreen == nil {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
 		t.Fatal("expected branch list screen")
 	}
 
-	// Find and select the feature branch (a local branch)
-	var featureItem *selectionItem
-	for i := range m.listScreen.items {
-		if m.listScreen.items[i].id == featureBranch {
-			featureItem = &m.listScreen.items[i]
+	listScreen = m.screenManager.Current().(*appscreen.ListSelectionScreen)
+
+	var featureItem *appscreen.SelectionItem
+	for i := range listScreen.Items {
+		if listScreen.Items[i].ID == featureBranch {
+			featureItem = &listScreen.Items[i]
 			break
 		}
 	}
@@ -1245,16 +1267,15 @@ func TestBranchSelectionWithLocalBranch(t *testing.T) {
 		t.Fatalf("expected to find %s in branch list", featureBranch)
 	}
 
-	// Selecting a local branch should show the checkout/create prompt
-	m.listSubmit(*featureItem)
-	if m.listScreen == nil || m.currentScreen != screenListSelect {
+	listScreen.OnSelect(*featureItem)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
 		t.Fatal("expected checkout/create prompt screen")
 	}
 
-	// Verify it's the checkout/create prompt by checking for the checkout option
+	listScreen = m.screenManager.Current().(*appscreen.ListSelectionScreen)
 	checkoutFound := false
-	for _, item := range m.listScreen.items {
-		if item.id == "checkout" {
+	for _, item := range listScreen.Items {
+		if item.ID == "checkout" {
 			checkoutFound = true
 			break
 		}
@@ -1276,20 +1297,20 @@ func TestBranchSelectionWithSlashLocalBranch(t *testing.T) {
 	m.view.WindowWidth = 120
 	m.view.WindowHeight = 40
 
-	// Show base selection and select branch-list
 	m.showBaseSelection(repo.branch)
 
-	// Trigger branch-list selection
-	cmd := m.listSubmit(selectionItem{id: "branch-list"})
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	cmd := listScreen.OnSelect(appscreen.SelectionItem{ID: "branch-list"})
 	if cmd == nil {
 		t.Fatal("expected command from branch-list selection")
 	}
 
-	// Find and select the slash branch (a local branch)
-	var slashItem *selectionItem
-	for i := range m.listScreen.items {
-		if m.listScreen.items[i].id == branchWithSlash {
-			slashItem = &m.listScreen.items[i]
+	listScreen = m.screenManager.Current().(*appscreen.ListSelectionScreen)
+
+	var slashItem *appscreen.SelectionItem
+	for i := range listScreen.Items {
+		if listScreen.Items[i].ID == branchWithSlash {
+			slashItem = &listScreen.Items[i]
 			break
 		}
 	}
@@ -1297,15 +1318,15 @@ func TestBranchSelectionWithSlashLocalBranch(t *testing.T) {
 		t.Fatalf("expected to find %s in branch list", branchWithSlash)
 	}
 
-	// Selecting a local branch should show the checkout/create prompt
-	m.listSubmit(*slashItem)
-	if m.listScreen == nil || m.currentScreen != screenListSelect {
+	listScreen.OnSelect(*slashItem)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
 		t.Fatal("expected checkout/create prompt screen")
 	}
 
+	listScreen = m.screenManager.Current().(*appscreen.ListSelectionScreen)
 	checkoutFound := false
-	for _, item := range m.listScreen.items {
-		if item.id == "checkout" {
+	for _, item := range listScreen.Items {
+		if item.ID == "checkout" {
 			checkoutFound = true
 			break
 		}
@@ -1327,18 +1348,20 @@ func TestBranchSelectionSkipsCheckoutForCheckedOutBranch(t *testing.T) {
 		{Path: repo.dir, Branch: repo.branch},
 	}
 
-	// Show base selection and select branch-list
 	m.showBaseSelection(repo.branch)
 
-	cmd := m.listSubmit(selectionItem{id: "branch-list"})
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	cmd := listScreen.OnSelect(appscreen.SelectionItem{ID: "branch-list"})
 	if cmd == nil {
 		t.Fatal("expected command from branch-list selection")
 	}
 
-	var mainItem *selectionItem
-	for i := range m.listScreen.items {
-		if m.listScreen.items[i].id == repo.branch {
-			mainItem = &m.listScreen.items[i]
+	listScreen = m.screenManager.Current().(*appscreen.ListSelectionScreen)
+
+	var mainItem *appscreen.SelectionItem
+	for i := range listScreen.Items {
+		if listScreen.Items[i].ID == repo.branch {
+			mainItem = &listScreen.Items[i]
 			break
 		}
 	}
@@ -1346,8 +1369,7 @@ func TestBranchSelectionSkipsCheckoutForCheckedOutBranch(t *testing.T) {
 		t.Fatalf("expected to find %s in branch list", repo.branch)
 	}
 
-	// Selecting a branch already checked out should go straight to create input
-	m.listSubmit(*mainItem)
+	listScreen.OnSelect(*mainItem)
 	if m.inputScreen == nil || m.currentScreen != screenInput {
 		t.Fatal("expected input screen for branch name")
 	}

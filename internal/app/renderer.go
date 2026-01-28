@@ -77,10 +77,6 @@ func (m *Model) View() string {
 			return m.overlayPopup(baseView, m.paletteScreen.View(), 3)
 		}
 	// PRSelect and IssueSelect now handled by screen manager
-	case screenListSelect:
-		if m.listScreen != nil {
-			return m.overlayPopup(baseView, m.listScreen.View(), 2)
-		}
 	case screenCommitFiles:
 		if m.commitFilesScreen != nil {
 			return m.overlayPopup(baseView, m.commitFilesScreen.View(), 2)
@@ -161,10 +157,6 @@ func (m *Model) renderScreen() string {
 				return lipgloss.Place(m.view.WindowWidth, m.view.WindowHeight, lipgloss.Center, lipgloss.Center, content)
 			}
 			return content
-		}
-	case screenListSelect:
-		if m.listScreen != nil {
-			return m.listScreen.View()
 		}
 	}
 	return ""

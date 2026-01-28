@@ -13,6 +13,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
@@ -78,12 +79,31 @@ func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 
 	title := "Select base for new worktree"
 
-	m.listScreen = NewListSelectionScreen(items, title, "Filter options...", "No base options available.", m.view.WindowWidth, m.view.WindowHeight, "", m.theme)
-	m.listSubmit = func(item selectionItem) tea.Cmd {
+	screenItems := make([]appscreen.SelectionItem, len(items))
+	for i, item := range items {
+		screenItems[i] = appscreen.SelectionItem{
+			ID:          item.id,
+			Label:       item.label,
+			Description: item.description,
+		}
+	}
+
+	listScreen := appscreen.NewListSelectionScreen(
+		screenItems,
+		title,
+		"Filter options...",
+		"No base options available.",
+		m.view.WindowWidth,
+		m.view.WindowHeight,
+		"",
+		m.theme,
+	)
+
+	listScreen.OnSelect = func(item appscreen.SelectionItem) tea.Cmd {
 		switch {
-		case item.id == "from-current":
+		case item.ID == "from-current":
 			return m.showCreateFromCurrent()
-		case item.id == "branch-list":
+		case item.ID == "branch-list":
 			return m.showBranchSelection(
 				"Select base branch",
 				"Filter branches...",
@@ -96,25 +116,23 @@ func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 						if m.branchCheckedOutInWorktree(branch) {
 							return m.showBranchNameInput(branch, branch)
 						}
-						// Show checkout vs create prompt for local branches
 						return m.showCheckoutOrCreatePrompt(branch)
 					}
 
-					// For remote branches/tags, use existing flow
 					suggestedName := stripRemotePrefix(branch)
 					return m.showBranchNameInput(branch, suggestedName)
 				},
 			)
-		case item.id == "commit-list":
+		case item.ID == "commit-list":
 			return m.showCommitSelection(defaultBase)
-		case item.id == "freeform":
+		case item.ID == "freeform":
 			return m.showFreeformBaseInput(defaultBase)
-		case item.id == "from-pr":
+		case item.ID == "from-pr":
 			return m.showCreateFromPR()
-		case item.id == "from-issue":
+		case item.ID == "from-issue":
 			return m.showCreateFromIssue()
-		case strings.HasPrefix(item.id, "custom-"):
-			idxStr := strings.TrimPrefix(item.id, "custom-")
+		case strings.HasPrefix(item.ID, "custom-"):
+			idxStr := strings.TrimPrefix(item.ID, "custom-")
 			var idx int
 			if _, err := fmt.Sscanf(idxStr, "%d", &idx); err == nil {
 				if idx >= 0 && idx < len(m.config.CustomCreateMenus) {
@@ -127,7 +145,11 @@ func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 		}
 	}
 
-	m.currentScreen = screenListSelect
+	listScreen.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(listScreen)
 	return textinput.Blink
 }
 
@@ -153,11 +175,36 @@ func (m *Model) showFreeformBaseInput(defaultBase string) tea.Cmd {
 
 func (m *Model) showBranchSelection(title, placeholder, noResults, preferred string, onSelect func(string) tea.Cmd) tea.Cmd {
 	items := m.branchSelectionItems(preferred)
-	m.listScreen = NewListSelectionScreen(items, title, placeholder, noResults, m.view.WindowWidth, m.view.WindowHeight, preferred, m.theme)
-	m.listSubmit = func(item selectionItem) tea.Cmd {
-		return onSelect(item.id)
+
+	screenItems := make([]appscreen.SelectionItem, len(items))
+	for i, item := range items {
+		screenItems[i] = appscreen.SelectionItem{
+			ID:          item.id,
+			Label:       item.label,
+			Description: item.description,
+		}
 	}
-	m.currentScreen = screenListSelect
+
+	listScreen := appscreen.NewListSelectionScreen(
+		screenItems,
+		title,
+		placeholder,
+		noResults,
+		m.view.WindowWidth,
+		m.view.WindowHeight,
+		preferred,
+		m.theme,
+	)
+
+	listScreen.OnSelect = func(item appscreen.SelectionItem) tea.Cmd {
+		return onSelect(item.ID)
+	}
+
+	listScreen.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(listScreen)
 	return textinput.Blink
 }
 
@@ -192,17 +239,35 @@ func (m *Model) showCommitSelection(baseBranch string) tea.Cmd {
 	title := fmt.Sprintf("Select commit from %q", baseBranch)
 	noResults := fmt.Sprintf("No commits found on %s.", baseBranch)
 
-	m.listScreen = NewListSelectionScreen(items, title, "Filter commits...", noResults, m.view.WindowWidth, m.view.WindowHeight, "", m.theme)
-	m.listSubmit = func(item selectionItem) tea.Cmd {
-		m.clearListSelection()
-		commit, ok := commitLookup[item.id]
+	screenItems := make([]appscreen.SelectionItem, len(items))
+	for i, item := range items {
+		screenItems[i] = appscreen.SelectionItem{
+			ID:          item.id,
+			Label:       item.label,
+			Description: item.description,
+		}
+	}
+
+	listScreen := appscreen.NewListSelectionScreen(
+		screenItems,
+		title,
+		"Filter commits...",
+		noResults,
+		m.view.WindowWidth,
+		m.view.WindowHeight,
+		"",
+		m.theme,
+	)
+
+	listScreen.OnSelect = func(item appscreen.SelectionItem) tea.Cmd {
+		commit, ok := commitLookup[item.ID]
 		if !ok {
-			commit = commitOption{fullHash: item.id}
+			commit = commitOption{fullHash: item.ID}
 		}
 
 		var commitMessage string
 		if strings.TrimSpace(m.config.BranchNameScript) != "" {
-			commitMessage = m.commitLog(item.id)
+			commitMessage = m.commitLog(item.ID)
 		}
 
 		defaultName := ""
@@ -225,7 +290,7 @@ func (m *Model) showCommitSelection(baseBranch string) tea.Cmd {
 
 		if scriptErr != "" {
 			m.showInfo(scriptErr, func() tea.Msg {
-				cmd := m.showBranchNameInput(item.id, defaultName)
+				cmd := m.showBranchNameInput(item.ID, defaultName)
 				if cmd != nil {
 					return cmd()
 				}
@@ -233,9 +298,14 @@ func (m *Model) showCommitSelection(baseBranch string) tea.Cmd {
 			})
 			return nil
 		}
-		return m.showBranchNameInput(item.id, defaultName)
+		return m.showBranchNameInput(item.ID, defaultName)
 	}
-	m.currentScreen = screenListSelect
+
+	listScreen.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(listScreen)
 	return textinput.Blink
 }
 
@@ -384,18 +454,38 @@ func (m *Model) showCheckoutOrCreatePrompt(branch string) tea.Cmd {
 		{id: "create", label: "Create new branch", description: "Create new branch based on this one"},
 	}
 
-	m.listScreen = NewListSelectionScreen(items,
-		fmt.Sprintf("Branch %q exists locally", branch),
-		"Filter...", "No options.", m.view.WindowWidth, m.view.WindowHeight, "", m.theme)
+	screenItems := make([]appscreen.SelectionItem, len(items))
+	for i, item := range items {
+		screenItems[i] = appscreen.SelectionItem{
+			ID:          item.id,
+			Label:       item.label,
+			Description: item.description,
+		}
+	}
 
-	m.listSubmit = func(item selectionItem) tea.Cmd {
-		if item.id == "checkout" {
+	listScreen := appscreen.NewListSelectionScreen(
+		screenItems,
+		fmt.Sprintf("Branch %q exists locally", branch),
+		"Filter...",
+		"No options.",
+		m.view.WindowWidth,
+		m.view.WindowHeight,
+		"",
+		m.theme,
+	)
+
+	listScreen.OnSelect = func(item appscreen.SelectionItem) tea.Cmd {
+		if item.ID == "checkout" {
 			return m.showWorktreeNameForExistingBranch(branch)
 		}
 		return m.showBranchNameInput(branch, branch)
 	}
 
-	m.currentScreen = screenListSelect
+	listScreen.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(listScreen)
 	return textinput.Blink
 }
 
@@ -554,12 +644,6 @@ func (m *Model) createWorktreeFromBase(newBranch, targetPath, baseRef string) te
 }
 
 func (m *Model) clearListSelection() {
-	m.listScreen = nil
-	m.listSubmit = nil
-	m.listScreenCIChecks = nil
-	if m.currentScreen == screenListSelect {
-		m.currentScreen = screenNone
-	}
 }
 
 func (m *Model) branchSelectionItems(preferred string) []selectionItem {

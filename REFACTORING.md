@@ -181,7 +181,68 @@ Created `internal/app/commands/`:
      - Commit selection (base_selection.go:195-238)
    - Legacy fields (`listScreen`, `listSubmit`, `listScreenCIChecks`) remain for these usage sites
 
-### Remaining Screens (Wave 2B-4):
+### Wave 2B: Complete ListSelectionScreen Migration (COMPLETED ✅)
+
+**Goal:** Finish migrating all ListSelectionScreen usage sites to screen manager.
+
+**Completed:**
+1. ✅ Theme selection (`app_screens.go:643-685`) - uses `OnCursorChange` for live preview
+2. ✅ Cherry-pick target selection (`app_screens.go:867-918`) - converts worktree list to items
+3. ✅ Base selection screens (`base_selection.go`):
+   - `showBaseSelection()` (lines 36-149)
+   - `showBranchSelection()` (lines 176-208)
+   - `showCommitSelection()` (lines 218-305)
+   - `showCheckoutOrCreatePrompt()` (lines 451-488)
+4. ✅ Removed legacy fields from Model:
+   - `listScreen *ListSelectionScreen`
+   - `listSubmit func(selectionItem) tea.Cmd`
+   - `listScreenCIChecks []*models.CICheck`
+5. ✅ Removed legacy case blocks:
+   - `case screenListSelect` in `app_screens.go` (65 lines removed)
+   - `case screenListSelect` in `renderer.go` (6 lines removed)
+   - Theme update code for `m.listScreen` removed
+6. ✅ Removed `screenListSelect` constant from `screens.go`
+7. ✅ Updated all tests to use screen manager pattern:
+   - `app_screens_test.go` (3 tests)
+   - `base_selection_test.go` (12 tests)
+   - `command_runner_test.go` (4 tests)
+   - `worktree_operations_test.go` (1 test)
+
+**Pattern established:**
+```go
+// Creating a list selection screen
+items := make([]appscreen.SelectionItem, len(data))
+for i, d := range data {
+    items[i] = appscreen.SelectionItem{
+        ID:          d.id,
+        Label:       d.label,
+        Description: d.desc,
+    }
+}
+listScreen := appscreen.NewListSelectionScreen(items, title, placeholder, noResults, width, height, initialID, theme)
+listScreen.OnSelect = func(item appscreen.SelectionItem) tea.Cmd {
+    // Handle selection
+    return someCommand(item.ID)
+}
+listScreen.OnCancel = func() tea.Cmd {
+    return nil
+}
+m.screenManager.Push(listScreen)
+```
+
+**Special callbacks supported:**
+- `OnCursorChange(SelectionItem)` - For live preview (e.g., theme selection)
+- `OnEnter(SelectionItem) tea.Cmd` - Override default selection behavior (e.g., CI checks)
+- `OnCtrlV(SelectionItem) tea.Cmd` - View logs (CI checks)
+- `OnCtrlR(SelectionItem) tea.Cmd` - Restart job (CI checks)
+
+**Stats:**
+- **Lines removed:** ~140 (legacy code + case blocks)
+- **Files updated:** 10 (source + test files)
+- **Tests passing:** All (`make sanity` ✅)
+- **Coverage:** ListSelectionScreen now 100% migrated
+
+### Remaining Screens (Wave 2C-F):
 
 | Screen | Complexity | Status | Notes |
 |--------|-----------|--------|-------|

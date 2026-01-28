@@ -31,7 +31,6 @@ const (
 	screenDiff
 	screenPRSelect
 	screenIssueSelect
-	screenListSelect
 	screenLoading
 	screenCommitFiles
 	screenChecklist

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
@@ -791,11 +792,11 @@ func TestOpenCICheckSelectionWithChecks(t *testing.T) {
 		t.Fatal("expected command to be returned")
 	}
 
-	// Should have opened the list selection screen
-	if m.currentScreen != screenListSelect {
-		t.Fatalf("expected screenListSelect, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected list screen to be active")
 	}
-	if m.listScreen == nil {
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if listScreen == nil {
 		t.Fatal("expected listScreen to be set")
 	}
 }
@@ -823,19 +824,18 @@ func TestCICheckSelectionColouredIcons(t *testing.T) {
 
 	m.openCICheckSelection()
 
-	if m.listScreen == nil {
-		t.Fatal("expected listScreen to be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatal("expected list screen to be active")
 	}
-	if len(m.listScreen.items) != 4 {
-		t.Fatalf("expected 4 items, got %d", len(m.listScreen.items))
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if len(listScreen.Items) != 4 {
+		t.Fatalf("expected 4 items, got %d", len(listScreen.Items))
 	}
 
-	// Verify each label contains the check name (icon styling is applied
-	// but ANSI codes are stripped in non-TTY test environment)
 	expectedNames := []string{"build", "test", "lint", "deploy"}
-	for i, item := range m.listScreen.items {
-		if !strings.Contains(item.label, expectedNames[i]) {
-			t.Errorf("expected label to contain %q, got %q", expectedNames[i], item.label)
+	for i, item := range listScreen.Items {
+		if !strings.Contains(item.Label, expectedNames[i]) {
+			t.Errorf("expected label to contain %q, got %q", expectedNames[i], item.Label)
 		}
 	}
 }
@@ -955,15 +955,18 @@ func TestOpenCICheckSelectionStoresChecks(t *testing.T) {
 
 	m.openCICheckSelection()
 
-	// Verify listScreenCIChecks is set
-	if m.listScreenCIChecks == nil {
-		t.Fatal("expected listScreenCIChecks to be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatal("expected list screen to be active")
 	}
-	if len(m.listScreenCIChecks) != 2 {
-		t.Fatalf("expected 2 checks, got %d", len(m.listScreenCIChecks))
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if len(listScreen.Items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(listScreen.Items))
 	}
-	if m.listScreenCIChecks[0].Name != "build" {
-		t.Errorf("expected first check to be 'build', got %q", m.listScreenCIChecks[0].Name)
+	if listScreen.Items[0].ID != "0" {
+		t.Errorf("expected first item ID to be '0' (index), got %q", listScreen.Items[0].ID)
+	}
+	if !strings.Contains(listScreen.Items[0].Label, "build") {
+		t.Errorf("expected first item label to contain 'build', got %q", listScreen.Items[0].Label)
 	}
 }
 
@@ -972,18 +975,10 @@ func TestClearListSelectionClearsCIChecks(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.listScreenCIChecks = []*models.CICheck{
-		{Name: "build"},
-	}
-	m.listScreen = &ListSelectionScreen{}
-	m.currentScreen = screenListSelect
 
 	m.clearListSelection()
 
-	if m.listScreenCIChecks != nil {
-		t.Error("expected listScreenCIChecks to be nil after clearListSelection")
-	}
-	if m.listScreen != nil {
-		t.Error("expected listScreen to be nil after clearListSelection")
+	if m.currentScreen != screenNone {
+		t.Fatalf("expected screenNone, got %v", m.currentScreen)
 	}
 }

@@ -114,72 +114,6 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 	// PRSelection and IssueSelection now handled by screen manager
-	case screenListSelect:
-		if m.listScreen == nil {
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		keyStr := msg.String()
-		if isEscKey(keyStr) {
-			if m.originalTheme != "" {
-				m.UpdateTheme(m.originalTheme)
-				m.originalTheme = ""
-			}
-			m.listScreen = nil
-			m.listSubmit = nil
-			m.listScreenCIChecks = nil
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		// Enter: Open CI job URL in browser (only when viewing CI checks)
-		if keyStr == keyEnter && m.listScreenCIChecks != nil {
-			if item, ok := m.listScreen.Selected(); ok {
-				var idx int
-				if _, err := fmt.Sscanf(item.id, "%d", &idx); err == nil && idx >= 0 && idx < len(m.listScreenCIChecks) {
-					check := m.listScreenCIChecks[idx]
-					return m, m.openURLInBrowser(check.Link)
-				}
-			}
-			return m, nil
-		}
-		// Ctrl+V: View CI check logs in pager (only when viewing CI checks)
-		if keyStr == "ctrl+v" && m.listScreenCIChecks != nil {
-			if item, ok := m.listScreen.Selected(); ok {
-				var idx int
-				if _, err := fmt.Sscanf(item.id, "%d", &idx); err == nil && idx >= 0 && idx < len(m.listScreenCIChecks) {
-					check := m.listScreenCIChecks[idx]
-					return m, m.showCICheckLog(check)
-				}
-			}
-			return m, nil
-		}
-		// Ctrl+R: Restart CI job (only when viewing CI checks)
-		if keyStr == "ctrl+r" && m.listScreenCIChecks != nil {
-			if item, ok := m.listScreen.Selected(); ok {
-				var idx int
-				if _, err := fmt.Sscanf(item.id, "%d", &idx); err == nil && idx >= 0 && idx < len(m.listScreenCIChecks) {
-					check := m.listScreenCIChecks[idx]
-					cmd := m.rerunCICheck(check)
-					if cmd != nil {
-						return m, cmd
-					}
-				}
-			}
-			return m, nil
-		}
-		if keyStr == keyEnter {
-			if m.listSubmit != nil {
-				if item, ok := m.listScreen.Selected(); ok {
-					cmd := m.listSubmit(item)
-					return m, cmd
-				}
-			}
-		}
-		ls, cmd := m.listScreen.Update(msg)
-		if updated, ok := ls.(*ListSelectionScreen); ok {
-			m.listScreen = updated
-		}
-		return m, cmd
 	case screenCommitFiles:
 		if m.commitFilesScreen == nil {
 			m.currentScreen = screenNone
@@ -644,22 +578,30 @@ func (m *Model) showThemeSelection() tea.Cmd {
 	m.originalTheme = m.config.Theme
 	themes := theme.AvailableThemesWithCustoms(config.CustomThemesToThemeDataMap(m.config.CustomThemes))
 	sort.Strings(themes)
-	items := make([]selectionItem, 0, len(themes))
+	items := make([]appscreen.SelectionItem, 0, len(themes))
 	for _, t := range themes {
-		items = append(items, selectionItem{id: t, label: t})
+		items = append(items, appscreen.SelectionItem{ID: t, Label: t})
 	}
-	m.listScreen = NewListSelectionScreen(items, labelWithIcon(UIIconThemeSelect, "Select Theme", m.config.IconsEnabled()), "Filter themes...", "", m.view.WindowWidth, m.view.WindowHeight, m.originalTheme, m.theme)
-	m.listScreen.onCursorChange = func(item selectionItem) {
-		m.UpdateTheme(item.id)
-	}
-	m.listSubmit = func(item selectionItem) tea.Cmd {
-		m.listScreen = nil
-		m.listSubmit = nil
 
-		// Ask for confirmation before saving to config
-		m.confirmScreen = NewConfirmScreen(fmt.Sprintf("Save theme '%s' to config file?", item.id), m.theme)
+	listScreen := appscreen.NewListSelectionScreen(
+		items,
+		labelWithIcon(UIIconThemeSelect, "Select Theme", m.config.IconsEnabled()),
+		"Filter themes...",
+		"",
+		m.view.WindowWidth,
+		m.view.WindowHeight,
+		m.originalTheme,
+		m.theme,
+	)
+
+	listScreen.OnCursorChange = func(item appscreen.SelectionItem) {
+		m.UpdateTheme(item.ID)
+	}
+
+	listScreen.OnSelect = func(item appscreen.SelectionItem) tea.Cmd {
+		m.confirmScreen = NewConfirmScreen(fmt.Sprintf("Save theme '%s' to config file?", item.ID), m.theme)
 		m.confirmAction = func() tea.Cmd {
-			m.config.Theme = item.id
+			m.config.Theme = item.ID
 			if err := config.SaveConfig(m.config); err != nil {
 				m.debugf("failed to save config: %v", err)
 			}
@@ -669,7 +611,17 @@ func (m *Model) showThemeSelection() tea.Cmd {
 		m.currentScreen = screenConfirm
 		return nil
 	}
-	m.currentScreen = screenListSelect
+
+	listScreen.OnCancel = func() tea.Cmd {
+		// Restore original theme on cancel
+		if m.originalTheme != "" {
+			m.UpdateTheme(m.originalTheme)
+			m.originalTheme = ""
+		}
+		return nil
+	}
+
+	m.screenManager.Push(listScreen)
 	return textinput.Blink
 }
 
@@ -733,9 +685,6 @@ func (m *Model) UpdateTheme(themeName string) {
 		if checkScreen, ok := m.screenManager.Current().(*appscreen.ChecklistScreen); ok {
 			checkScreen.Thm = thm
 		}
-	}
-	if m.listScreen != nil {
-		m.listScreen.thm = thm
 	}
 	if m.commitFilesScreen != nil {
 		m.commitFilesScreen.thm = thm
@@ -846,20 +795,36 @@ func (m *Model) showCherryPick() tea.Cmd {
 		})
 	}
 
-	// Check if no other worktrees available
 	if len(items) == 0 {
 		m.showInfo("No other worktrees available for cherry-pick.", nil)
 		return nil
 	}
 
-	// Show worktree selection screen
+	screenItems := make([]appscreen.SelectionItem, len(items))
+	for i, item := range items {
+		screenItems[i] = appscreen.SelectionItem{
+			ID:          item.id,
+			Label:       item.label,
+			Description: item.description,
+		}
+	}
+
 	title := fmt.Sprintf("Cherry-pick %s to worktree", selectedCommit.sha)
-	m.listScreen = NewListSelectionScreen(items, title, filterWorktreesPlaceholder, "No worktrees found.", m.view.WindowWidth, m.view.WindowHeight, "", m.theme)
-	m.listSubmit = func(item selectionItem) tea.Cmd {
-		// Find target worktree by path
+	listScreen := appscreen.NewListSelectionScreen(
+		screenItems,
+		title,
+		filterWorktreesPlaceholder,
+		"No worktrees found.",
+		m.view.WindowWidth,
+		m.view.WindowHeight,
+		"",
+		m.theme,
+	)
+
+	listScreen.OnSelect = func(item appscreen.SelectionItem) tea.Cmd {
 		var targetWorktree *models.WorktreeInfo
 		for _, wt := range m.worktrees {
-			if wt.Path == item.id {
+			if wt.Path == item.ID {
 				targetWorktree = wt
 				break
 			}
@@ -871,16 +836,14 @@ func (m *Model) showCherryPick() tea.Cmd {
 			}
 		}
 
-		// Clear list selection
-		m.listScreen = nil
-		m.listSubmit = nil
-		m.currentScreen = screenNone
-
-		// Execute cherry-pick
 		return m.executeCherryPick(selectedCommit.sha, targetWorktree)
 	}
 
-	m.currentScreen = screenListSelect
+	listScreen.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(listScreen)
 	return textinput.Blink
 }
 

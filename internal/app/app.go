@@ -276,9 +276,6 @@ type Model struct {
 	inputSubmit               func(string, bool) (tea.Cmd, bool)
 	paletteScreen             *CommandPaletteScreen
 	paletteSubmit             func(string) tea.Cmd
-	listScreen                *ListSelectionScreen
-	listSubmit                func(selectionItem) tea.Cmd
-	listScreenCIChecks        []*models.CICheck // CI checks for the current list selection
 	spinner                   spinner.Model
 	loading                   bool
 	loadingOperation          string // Tracks what operation is loading (push, sync, etc.)
@@ -579,7 +576,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		m.debugf("key: %s screen=%s focus=%d filter=%t", msg.String(), screenName(m.currentScreen), m.view.FocusedPane, m.view.ShowingFilter)
-		if m.currentScreen != screenNone {
+		if m.currentScreen != screenNone || m.screenManager.IsActive() {
 			return m.handleScreenKey(msg)
 		}
 		return m.handleKeyMsg(msg)
@@ -899,7 +896,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.loadingOperation = ""
 		if m.currentScreen == screenLoading {
-			m.currentScreen = screenListSelect
+			m.currentScreen = screenNone
 			m.loadingScreen = nil
 		}
 		if msg.err != nil {

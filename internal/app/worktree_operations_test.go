@@ -40,23 +40,22 @@ func TestShowCreateWorktreeStartsWithBasePicker(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("showCreateWorktree returned nil command")
 	}
-	if m.currentScreen != screenListSelect {
-		t.Fatalf("expected currentScreen screenListSelect, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected list screen to be active")
 	}
-	if m.listScreen == nil {
-		t.Fatal("listScreen should be initialized")
+
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if listScreen.Title != "Select base for new worktree" {
+		t.Fatalf("unexpected list title: %q", listScreen.Title)
 	}
-	if m.listScreen.title != "Select base for new worktree" {
-		t.Fatalf("unexpected list title: %q", m.listScreen.title)
+	if len(listScreen.Items) != 6 {
+		t.Fatalf("expected 6 base options, got %d", len(listScreen.Items))
 	}
-	if len(m.listScreen.items) != 6 {
-		t.Fatalf("expected 6 base options, got %d", len(m.listScreen.items))
+	if listScreen.Items[0].ID != "from-current" {
+		t.Fatalf("expected first option from-current, got %q", listScreen.Items[0].ID)
 	}
-	if m.listScreen.items[0].id != "from-current" {
-		t.Fatalf("expected first option from-current, got %q", m.listScreen.items[0].id)
-	}
-	if m.listScreen.items[1].id != "branch-list" {
-		t.Fatalf("expected second option branch-list, got %q", m.listScreen.items[1].id)
+	if listScreen.Items[1].ID != "branch-list" {
+		t.Fatalf("expected second option branch-list, got %q", listScreen.Items[1].ID)
 	}
 }
 

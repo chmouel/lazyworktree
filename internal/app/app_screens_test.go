@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chmouel/lazyworktree/internal/app/screen"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -448,23 +448,28 @@ func TestShowThemeSelection(t *testing.T) {
 		t.Fatal("showThemeSelection returned nil command")
 	}
 
-	if m.currentScreen != screenListSelect {
-		t.Fatalf("expected screenListSelect, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() {
+		t.Fatal("expected screen manager to have active screen")
 	}
 
-	if m.listScreen == nil {
+	if m.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected list selection screen, got %v", m.screenManager.Type())
+	}
+
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if listScreen == nil {
 		t.Fatal("listScreen should be initialized")
 	}
 
 	expectedTitle := labelWithIcon(UIIconThemeSelect, "Select Theme", m.config.IconsEnabled())
-	if m.listScreen.title != expectedTitle {
-		t.Fatalf("expected title %q, got %q", expectedTitle, m.listScreen.title)
+	if listScreen.Title != expectedTitle {
+		t.Fatalf("expected title %q, got %q", expectedTitle, listScreen.Title)
 	}
 
 	// Verify all themes are present
 	available := theme.AvailableThemes()
-	if len(m.listScreen.items) != len(available) {
-		t.Fatalf("expected %d themes in list, got %d", len(available), len(m.listScreen.items))
+	if len(listScreen.Items) != len(available) {
+		t.Fatalf("expected %d themes in list, got %d", len(available), len(listScreen.Items))
 	}
 }
 
@@ -737,18 +742,22 @@ func TestShowCherryPickCreatesListSelection(t *testing.T) {
 	m.selectedIndex = 0
 
 	m.showCherryPick()
-	if m.currentScreen != screenListSelect {
-		t.Errorf("Expected screenListSelect, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() {
+		t.Error("Expected screen manager to have active screen")
 	}
-	if m.listScreen == nil {
+	if m.screenManager.Type() != appscreen.TypeListSelect {
+		t.Errorf("Expected list selection screen, got %v", m.screenManager.Type())
+	}
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if listScreen == nil {
 		t.Fatal("Expected listScreen to be set")
 	}
-	if !strings.Contains(m.listScreen.title, "Cherry-pick") {
-		t.Errorf("Expected cherry-pick in title, got: %s", m.listScreen.title)
+	if !strings.Contains(listScreen.Title, "Cherry-pick") {
+		t.Errorf("Expected cherry-pick in title, got: %s", listScreen.Title)
 	}
 	// Should exclude source worktree
-	if len(m.listScreen.items) != 1 {
-		t.Errorf("Expected 1 target worktree (excluding source), got %d", len(m.listScreen.items))
+	if len(listScreen.Items) != 1 {
+		t.Errorf("Expected 1 target worktree (excluding source), got %d", len(listScreen.Items))
 	}
 }
 
@@ -771,14 +780,15 @@ func TestShowCherryPickExcludesSourceWorktree(t *testing.T) {
 
 	m.showCherryPick()
 
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
 	// Should have 2 items (main + feature2, excluding feature1)
-	if len(m.listScreen.items) != 2 {
-		t.Errorf("Expected 2 target worktrees, got %d", len(m.listScreen.items))
+	if len(listScreen.Items) != 2 {
+		t.Errorf("Expected 2 target worktrees, got %d", len(listScreen.Items))
 	}
 
 	// Verify feature1 is not in the list
-	for _, item := range m.listScreen.items {
-		if item.id == "/path/to/feature1" {
+	for _, item := range listScreen.Items {
+		if item.ID == "/path/to/feature1" {
 			t.Error("Source worktree should be excluded from selection list")
 		}
 	}
@@ -802,11 +812,12 @@ func TestShowCherryPickMarksDirtyWorktrees(t *testing.T) {
 
 	m.showCherryPick()
 
+	listScreen := m.screenManager.Current().(*appscreen.ListSelectionScreen)
 	// Find the dirty worktree item
-	var dirtyItem *selectionItem
-	for _, item := range m.listScreen.items {
-		if item.id == "/path/to/dirty" {
-			dirtyItem = &item
+	var dirtyItem *appscreen.SelectionItem
+	for i := range listScreen.Items {
+		if listScreen.Items[i].ID == "/path/to/dirty" {
+			dirtyItem = &listScreen.Items[i]
 			break
 		}
 	}
@@ -815,8 +826,8 @@ func TestShowCherryPickMarksDirtyWorktrees(t *testing.T) {
 		t.Fatal("Expected dirty worktree in selection list")
 	}
 
-	if !strings.Contains(dirtyItem.description, "(has changes)") {
-		t.Errorf("Expected '(has changes)' marker in description, got: %s", dirtyItem.description)
+	if !strings.Contains(dirtyItem.Description, "(has changes)") {
+		t.Errorf("Expected '(has changes)' marker in description, got: %s", dirtyItem.Description)
 	}
 }
 
@@ -828,7 +839,7 @@ func TestRenderScreenVariants(t *testing.T) {
 	m.setWindowSize(120, 40)
 
 	// CommitScreen is now managed by screenManager
-	commitScr := screen.NewCommitScreen(screen.CommitMeta{SHA: "abc123"}, "stat", "diff", false, m.theme)
+	commitScr := appscreen.NewCommitScreen(appscreen.CommitMeta{SHA: "abc123"}, "stat", "diff", false, m.theme)
 	m.screenManager.Push(commitScr)
 	out := m.View()
 	if out == "" {
@@ -849,7 +860,7 @@ func TestRenderScreenVariants(t *testing.T) {
 	}
 
 	// TrustScreen is now managed by screenManager
-	trustScr := screen.NewTrustScreen("/tmp/.wt.yaml", []string{"cmd"}, m.theme)
+	trustScr := appscreen.NewTrustScreen("/tmp/.wt.yaml", []string{"cmd"}, m.theme)
 	m.screenManager.Push(trustScr)
 	if out = m.View(); out == "" {
 		t.Fatal("expected trust screen to render")
@@ -857,7 +868,7 @@ func TestRenderScreenVariants(t *testing.T) {
 	m.screenManager.Pop()
 
 	// WelcomeScreen is now managed by screenManager
-	welcomeScr := screen.NewWelcomeScreen("/tmp", "/tmp/wt", m.theme)
+	welcomeScr := appscreen.NewWelcomeScreen("/tmp", "/tmp/wt", m.theme)
 	m.screenManager.Push(welcomeScr)
 	if out = m.View(); out == "" {
 		t.Fatal("expected welcome screen to render")
@@ -880,8 +891,8 @@ func TestRenderScreenVariants(t *testing.T) {
 		t.Fatal("expected input screen to render")
 	}
 
-	m.listScreen = NewListSelectionScreen([]selectionItem{{id: "a", label: "A"}}, "Select", "", "", 120, 40, "", m.theme)
-	m.currentScreen = screenListSelect
+	listScreen := appscreen.NewListSelectionScreen([]appscreen.SelectionItem{{ID: "a", Label: "A"}}, "Select", "", "", 120, 40, "", m.theme)
+	m.screenManager.Push(listScreen)
 	if out = m.renderScreen(); out == "" {
 		t.Fatal("expected list selection screen to render")
 	}
