@@ -34,8 +34,8 @@ linters:
           severity: warning
     goconst:
       find-duplicates: true
-      min-len: 5
-      min-occurrences: 5
+      min-len: 10
+      min-occurrences: 10
     gocritic:
       enabled-tags:
         - diagnostic
