@@ -494,9 +494,9 @@ func (m *Model) showDeleteWorktree() tea.Cmd {
 	if wt.IsMain {
 		return nil
 	}
-	m.confirmScreen = NewConfirmScreen(fmt.Sprintf("Delete worktree?\n\nPath: %s\nBranch: %s", wt.Path, wt.Branch), m.theme)
-	m.confirmAction = m.deleteWorktreeOnlyCmd(wt)
-	m.currentScreen = screenConfirm
+	confirmScreen := appscreen.NewConfirmScreen(fmt.Sprintf("Delete worktree?\n\nPath: %s\nBranch: %s", wt.Path, wt.Branch), m.theme)
+	confirmScreen.OnConfirm = m.deleteWorktreeOnlyCmd(wt)
+	m.screenManager.Push(confirmScreen)
 	return nil
 }
 
@@ -732,8 +732,7 @@ func (m *Model) showAbsorbWorktree() tea.Cmd {
 	}
 	wt := m.filteredWts[m.selectedIndex]
 	if wt.IsMain {
-		m.infoScreen = NewInfoScreen("Cannot absorb the main worktree.", m.theme)
-		m.currentScreen = screenInfo
+		m.showInfo("Cannot absorb the main worktree.", nil)
 		return nil
 	}
 
@@ -741,11 +740,7 @@ func (m *Model) showAbsorbWorktree() tea.Cmd {
 
 	// Prevent absorbing if the selected worktree is on the main branch
 	if wt.Branch == mainBranch {
-		m.infoScreen = NewInfoScreen(
-			fmt.Sprintf("Cannot absorb: worktree is on the main branch (%s).", mainBranch),
-			m.theme,
-		)
-		m.currentScreen = screenInfo
+		m.showInfo(fmt.Sprintf("Cannot absorb: worktree is on the main branch (%s).", mainBranch), nil)
 		return nil
 	}
 
@@ -758,18 +753,13 @@ func (m *Model) showAbsorbWorktree() tea.Cmd {
 		}
 	}
 	if mainWorktree == nil {
-		m.infoScreen = NewInfoScreen("Cannot find main worktree.", m.theme)
-		m.currentScreen = screenInfo
+		m.showInfo("Cannot find main worktree.", nil)
 		return nil
 	}
 
 	// Check if main worktree has uncommitted changes
 	if mainWorktree.Dirty {
-		m.infoScreen = NewInfoScreen(
-			fmt.Sprintf("Cannot absorb: main worktree has uncommitted changes.\n\nCommit or stash changes in:\n%s", mainWorktree.Path),
-			m.theme,
-		)
-		m.currentScreen = screenInfo
+		m.showInfo(fmt.Sprintf("Cannot absorb: main worktree has uncommitted changes.\n\nCommit or stash changes in:\n%s", mainWorktree.Path), nil)
 		return nil
 	}
 
@@ -779,8 +769,8 @@ func (m *Model) showAbsorbWorktree() tea.Cmd {
 		mergeMethod = mergeMethodRebase
 	}
 
-	m.confirmScreen = NewConfirmScreen(fmt.Sprintf("Absorb worktree into %s (%s)?\n\nPath: %s\nBranch: %s -> %s", mainBranch, mergeMethod, wt.Path, wt.Branch, mainBranch), m.theme)
-	m.confirmAction = func() tea.Cmd {
+	confirmScreen := appscreen.NewConfirmScreen(fmt.Sprintf("Absorb worktree into %s (%s)?\n\nPath: %s\nBranch: %s -> %s", mainBranch, mergeMethod, wt.Path, wt.Branch, mainBranch), m.theme)
+	confirmScreen.OnConfirm = func() tea.Cmd {
 		return func() tea.Msg {
 			if mergeMethod == mergeMethodRebase {
 				// Rebase: first rebase the feature branch onto main, then fast-forward main
@@ -814,7 +804,7 @@ func (m *Model) showAbsorbWorktree() tea.Cmd {
 			}
 		}
 	}
-	m.currentScreen = screenConfirm
+	m.screenManager.Push(confirmScreen)
 	return nil
 }
 

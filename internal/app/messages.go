@@ -169,8 +169,7 @@ func (m *Model) handlePruneResult(msg pruneResultMsg) (tea.Model, tea.Cmd) {
 // handleAbsorbResult processes absorb merge result message.
 func (m *Model) handleAbsorbResult(msg absorbMergeResultMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.infoScreen = NewInfoScreen(fmt.Sprintf("Absorb failed\n\n%s", msg.err.Error()), m.theme)
-		m.currentScreen = screenInfo
+		m.showInfo(fmt.Sprintf("Absorb failed\n\n%s", msg.err.Error()), nil)
 		return m, nil
 	}
 	cmd := m.deleteWorktreeCmd(&models.WorktreeInfo{Path: msg.path, Branch: msg.branch})

@@ -403,13 +403,115 @@ m.screenManager.Push(helpScreen)
 - **Files modified:** 11 (1 new, 10 changed)
 - **Tests passing:** All (`make sanity` ✅)
 
-### Remaining Screens (Wave 2F):
+### Wave 2F: ConfirmScreen and InfoScreen Migration (95% COMPLETE - Main Code ✅, Tests 🚧)
+
+**Goal:** Migrate ConfirmScreen and InfoScreen from ResultChan pattern to callback pattern, completing the simple screen migrations.
+
+**Completed:**
+
+#### ConfirmScreen Migration (100% Complete ✅)
+1. ✅ Updated `screen/confirm.go` - Converted from `ResultChan` to callbacks
+   - Removed `ResultChan chan bool` field
+   - Added `OnConfirm func() tea.Cmd` callback
+   - Added `OnCancel func() tea.Cmd` callback
+   - Updated `Update()` method to invoke callbacks instead of channel sends
+2. ✅ Migrated 7 usage sites to screen manager with callbacks:
+   - `worktree_sync.go:128` - Sync choice confirmation (uses both OnConfirm and OnCancel)
+   - `worktree_operations.go:497` - Delete worktree confirmation
+   - `worktree_operations.go:782` - Absorb worktree confirmation
+   - `app_screens.go:473` - Theme save confirmation
+   - `app_git.go:91-95` - File deletion confirmation
+   - `app.go:596` - Branch deletion confirmation
+3. ✅ Removed legacy code from `screens.go`:
+   - Removed `ConfirmScreen` struct and all methods (~160 lines)
+   - Removed `screenConfirm` constant
+4. ✅ Removed legacy Model fields:
+   - `confirmScreen *ConfirmScreen`
+   - `confirmAction func() tea.Cmd`
+   - `confirmCancel func() tea.Cmd`
+5. ✅ Removed legacy case blocks:
+   - `case screenConfirm` in `app_screens.go` (40 lines removed)
+   - `case screenConfirm` in `renderer.go` (4 lines removed)
+6. ✅ Updated tests:
+   - `screen/manager_test.go` - Tests callback invocation instead of channels
+   - `worktree_sync_test.go` - Uses screen manager checks
+   - `worktree_operations_test.go` - Uses screen manager checks
+   - `app_git_test.go` - Uses screen manager checks
+
+**Pattern established:**
+```go
+// Old pattern (channel-based)
+m.confirmScreen = NewConfirmScreen(message, m.theme)
+m.confirmAction = func() tea.Cmd { /* ... */ }
+m.confirmCancel = func() tea.Cmd { /* ... */ }
+m.currentScreen = screenConfirm
+
+// New pattern (callback-based with screen manager)
+confirmScreen := appscreen.NewConfirmScreen(message, m.theme)
+confirmScreen.OnConfirm = func() tea.Cmd { /* ... */ }
+confirmScreen.OnCancel = func() tea.Cmd { /* ... */ }
+m.screenManager.Push(confirmScreen)
+```
+
+#### InfoScreen Migration (Main Code 100% ✅, Tests 92% 🚧)
+1. ✅ Updated `screen/info.go` - Converted from `ResultChan` to callback
+   - Removed `ResultChan chan bool` field
+   - Added `OnClose func() tea.Cmd` callback
+   - Updated `Update()` method to invoke callback instead of channel send
+2. ✅ Updated `showInfo()` helper in `app_screens.go`:
+   - Now uses screen manager internally
+   - All existing call sites work without changes
+3. ✅ Converted 7 direct InfoScreen instantiations to use helper:
+   - `app.go:766, 774` - Tmux/Zellij session info
+   - `messages.go:172` - Absorb failure message
+   - `worktree_operations.go:735, 744, 761, 768` - Error messages
+4. ✅ Removed legacy code from `screens.go`:
+   - Removed `InfoScreen` struct and all methods (~155 lines)
+   - Removed `screenInfo` constant
+5. ✅ Removed legacy Model fields:
+   - `infoScreen *InfoScreen`
+   - `infoAction tea.Cmd`
+6. ✅ Removed legacy case blocks:
+   - `case screenInfo` in `app_screens.go` (17 lines removed)
+   - `case screenInfo` in `renderer.go` (4 lines removed)
+7. 🚧 **Test updates (1 of 13 complete):**
+   - ✅ `app_diff_test.go` - All 3 tests updated
+   - ⏸️ **Remaining 12 test files** (see handoff doc at `/tmp/wave2f-handoff.md`)
+
+**Helper pattern (preferred):**
+```go
+// All code should use the helper (no direct instantiation)
+m.showInfo(message, actionCmd)
+
+// Helper internally does:
+func (m *Model) showInfo(message string, action tea.Cmd) {
+    infoScreen := appscreen.NewInfoScreen(message, m.theme)
+    infoScreen.OnClose = func() tea.Cmd { return action }
+    m.screenManager.Push(infoScreen)
+}
+```
+
+**Stats:**
+- **Lines removed:** ~332 (legacy code + case blocks for both screens)
+- **Files modified:** 15 (1 test file complete, 12 test files remain)
+- **Main code builds:** ✅ Successfully
+- **Tests passing:** 🚧 Waiting for test updates (12 files remain)
+
+**Remaining work:**
+- Update 12 test files to use screen manager pattern (pattern documented in `/tmp/wave2f-handoff.md`)
+- Estimated effort: 1-2 hours (mechanical updates)
+
+#### CommitFilesScreen (Deferred)
 
 | Screen | Complexity | Status | Notes |
 |--------|-----------|--------|-------|
-| CommitFilesScreen | High (tree-based) | Pending | Tree-based file navigation with diff |
-| ConfirmScreen | Low (uses channels) | Pending | Already in screen/ package, needs legacy removal |
-| InfoScreen | Low (uses channels) | Pending | Already in screen/ package, needs legacy removal |
+| CommitFilesScreen | High (tree-based) | Deferred | ~660 lines, tree navigation, requires separate task |
+
+**Benefits achieved:**
+- Consistent callback pattern across all simple screens
+- Eliminated channel select statements (clearer control flow)
+- Better testability with callbacks vs channels
+- Unified screen management system
 
 ### Screen interface:
 ```go
@@ -706,16 +808,16 @@ After each refactoring phase:
 
 | File | Lines | Status |
 |------|-------|--------|
-| `app.go` | ~940 | Refactored (screenManager added, createFromCurrentInputScreen added) |
-| `screens.go` | ~3240 | Reduced (~285 lines removed for InputScreen) |
-| `app_screens.go` | ~1060 | Simplified (InputScreen case block removed) |
+| `app.go` | ~910 | Refactored (confirm/info fields removed, screenManager used) |
+| `screens.go` | ~2753 | Reduced (~487 lines removed: InputScreen + Wave 2F) |
+| `app_screens.go` | ~980 | Simplified (confirm/info case blocks removed) |
 | `handlers.go` | 1043 | Updated for screen manager |
 | `ci.go` | 330 | Could become service (Phase 3) |
 | `worktree_operations.go` | 864 | Could become service (Phase 3) |
 | `screen/screen.go` | 83 | Core interface and types |
 | `screen/manager.go` | 74 | Manager implementation |
-| `screen/confirm.go` | 143 | ConfirmScreen (key constants) |
-| `screen/info.go` | 81 | InfoScreen |
+| `screen/confirm.go` | 143 | ConfirmScreen (migrated to callbacks - Wave 2F) |
+| `screen/info.go` | 81 | InfoScreen (migrated to callbacks - Wave 2F) |
 | `screen/loading.go` | 169 | LoadingScreen |
 | `screen/welcome.go` | 102 | WelcomeScreen migrated |
 | `screen/trust.go` | 114 | TrustScreen migrated |

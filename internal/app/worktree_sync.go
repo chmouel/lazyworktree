@@ -125,17 +125,16 @@ func (m *Model) showSyncChoice(wt *models.WorktreeInfo) tea.Cmd {
 	// Store the worktree for later use in confirm/cancel handlers
 	savedWt := wt
 
-	m.confirmScreen = NewConfirmScreen(
+	confirmScreen := appscreen.NewConfirmScreen(
 		fmt.Sprintf("Branch behind %s\n\nUpdate from base branch?\n(This will merge/rebase latest %s into your branch.\nChoose 'No' for normal sync: pull + push)",
 			wt.PR.BaseBranch, wt.PR.BaseBranch),
 		m.theme,
 	)
-	m.confirmAction = func() tea.Cmd {
+	confirmScreen.OnConfirm = func() tea.Cmd {
 		// User chose YES: update from base
 		return m.updateFromBase(savedWt)
 	}
-	// Store cancel action for normal sync
-	m.confirmCancel = func() tea.Cmd {
+	confirmScreen.OnCancel = func() tea.Cmd {
 		// User chose NO: do normal sync (pull + push)
 		if savedWt.HasUpstream {
 			remote, branch, ok := m.validatedUpstream(savedWt, "synchronise")
@@ -148,7 +147,7 @@ func (m *Model) showSyncChoice(wt *models.WorktreeInfo) tea.Cmd {
 			return m.beginSync(savedWt, []string{remote, branch}, []string{"-u", remote, fmt.Sprintf("HEAD:%s", branch)})
 		})
 	}
-	m.currentScreen = screenConfirm
+	m.screenManager.Push(confirmScreen)
 	return nil
 }
 

@@ -10,17 +10,18 @@ import (
 
 // InfoScreen displays a modal message with an OK button.
 type InfoScreen struct {
-	Message    string
-	ResultChan chan bool
-	Thm        *theme.Theme
+	Message string
+	Thm     *theme.Theme
+
+	// Callback
+	OnClose func() tea.Cmd
 }
 
 // NewInfoScreen creates an informational modal with an OK button.
 func NewInfoScreen(message string, thm *theme.Theme) *InfoScreen {
 	return &InfoScreen{
-		Message:    message,
-		ResultChan: make(chan bool, 1),
-		Thm:        thm,
+		Message: message,
+		Thm:     thm,
 	}
 }
 
@@ -34,7 +35,9 @@ func (s *InfoScreen) Type() Type {
 func (s *InfoScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	switch msg.String() {
 	case keyEnter, keyEsc, keyQ, keyCtrlC:
-		s.ResultChan <- true
+		if s.OnClose != nil {
+			return nil, s.OnClose()
+		}
 		return nil, nil
 	}
 	return s, nil

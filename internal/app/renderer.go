@@ -120,16 +120,7 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 
 // renderScreen renders special screens that don't use overlays.
 func (m *Model) renderScreen() string {
-	switch m.currentScreen {
-	case screenConfirm:
-		if m.confirmScreen != nil {
-			return m.confirmScreen.View()
-		}
-	case screenInfo:
-		if m.infoScreen != nil {
-			return m.infoScreen.View()
-		}
-	}
+	// All screens now use screen manager
 	return ""
 }
 

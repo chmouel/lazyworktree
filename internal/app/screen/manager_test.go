@@ -120,32 +120,32 @@ func TestConfirmScreenUpdate(t *testing.T) {
 
 	// Test 'y' key
 	s = NewConfirmScreen("test", thm)
+	confirmCalled := false
+	s.OnConfirm = func() tea.Cmd {
+		confirmCalled = true
+		return nil
+	}
 	updated, _ = s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
 	if updated != nil {
 		t.Error("expected nil screen after confirm")
 	}
-	select {
-	case result := <-s.ResultChan:
-		if !result {
-			t.Error("expected true result from 'y' key")
-		}
-	default:
-		t.Error("expected result in channel")
+	if !confirmCalled {
+		t.Error("expected OnConfirm to be called for 'y' key")
 	}
 
 	// Test 'n' key
 	s = NewConfirmScreen("test", thm)
+	cancelCalled := false
+	s.OnCancel = func() tea.Cmd {
+		cancelCalled = true
+		return nil
+	}
 	updated, _ = s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
 	if updated != nil {
 		t.Error("expected nil screen after cancel")
 	}
-	select {
-	case result := <-s.ResultChan:
-		if result {
-			t.Error("expected false result from 'n' key")
-		}
-	default:
-		t.Error("expected result in channel")
+	if !cancelCalled {
+		t.Error("expected OnCancel to be called for 'n' key")
 	}
 }
 
@@ -154,17 +154,17 @@ func TestInfoScreenUpdate(t *testing.T) {
 	s := NewInfoScreen("test", thm)
 
 	// Test enter key
+	closeCalled := false
+	s.OnClose = func() tea.Cmd {
+		closeCalled = true
+		return nil
+	}
 	updated, _ := s.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if updated != nil {
 		t.Error("expected nil screen after enter")
 	}
-	select {
-	case result := <-s.ResultChan:
-		if !result {
-			t.Error("expected true result")
-		}
-	default:
-		t.Error("expected result in channel")
+	if !closeCalled {
+		t.Error("expected OnClose to be called")
 	}
 }
 

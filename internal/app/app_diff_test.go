@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -30,14 +31,18 @@ func TestShowDiffNonInteractiveNoDiff(t *testing.T) {
 	}
 
 	// Verify info screen is shown
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected screenInfo, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() {
+		t.Fatal("expected screen manager to be active")
 	}
-	if m.infoScreen == nil {
-		t.Fatal("expected infoScreen to be set")
+	if m.screenManager.Type() != screen.TypeInfo {
+		t.Fatalf("expected info screen, got %v", m.screenManager.Type())
 	}
-	if m.infoScreen.message != testNoDiffMessage {
-		t.Fatalf("expected message %q, got %q", testNoDiffMessage, m.infoScreen.message)
+	infoScreen, ok := m.screenManager.Current().(*screen.InfoScreen)
+	if !ok {
+		t.Fatal("expected InfoScreen in screen manager")
+	}
+	if infoScreen.Message != testNoDiffMessage {
+		t.Fatalf("expected message %q, got %q", testNoDiffMessage, infoScreen.Message)
 	}
 }
 
@@ -59,14 +64,18 @@ func TestShowDiffInteractiveNoDiff(t *testing.T) {
 		t.Fatal("expected no command when there are no changes in interactive mode")
 	}
 
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected screenInfo, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() {
+		t.Fatal("expected screen manager to be active")
 	}
-	if m.infoScreen == nil {
-		t.Fatal("expected infoScreen to be set")
+	if m.screenManager.Type() != screen.TypeInfo {
+		t.Fatalf("expected info screen, got %v", m.screenManager.Type())
 	}
-	if m.infoScreen.message != testNoDiffMessage {
-		t.Fatalf("expected message %q, got %q", testNoDiffMessage, m.infoScreen.message)
+	infoScreen, ok := m.screenManager.Current().(*screen.InfoScreen)
+	if !ok {
+		t.Fatal("expected InfoScreen in screen manager")
+	}
+	if infoScreen.Message != testNoDiffMessage {
+		t.Fatalf("expected message %q, got %q", testNoDiffMessage, infoScreen.Message)
 	}
 }
 
@@ -87,14 +96,18 @@ func TestShowDiffVSCodeNoDiff(t *testing.T) {
 		t.Fatal("expected no command when there are no changes in VSCode mode")
 	}
 
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected screenInfo, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() {
+		t.Fatal("expected screen manager to be active")
 	}
-	if m.infoScreen == nil {
-		t.Fatal("expected infoScreen to be set")
+	if m.screenManager.Type() != screen.TypeInfo {
+		t.Fatalf("expected info screen, got %v", m.screenManager.Type())
 	}
-	if m.infoScreen.message != testNoDiffMessage {
-		t.Fatalf("expected message %q, got %q", testNoDiffMessage, m.infoScreen.message)
+	infoScreen, ok := m.screenManager.Current().(*screen.InfoScreen)
+	if !ok {
+		t.Fatal("expected InfoScreen in screen manager")
+	}
+	if infoScreen.Message != testNoDiffMessage {
+		t.Fatalf("expected message %q, got %q", testNoDiffMessage, infoScreen.Message)
 	}
 }
 

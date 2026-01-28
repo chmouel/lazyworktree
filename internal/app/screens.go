@@ -18,8 +18,6 @@ type screenType int
 
 const (
 	screenNone screenType = iota
-	screenConfirm
-	screenInfo
 	screenInput
 	screenTrust
 	screenWelcome
@@ -77,21 +75,6 @@ var loadingTips = []string{
 	"Generate shell completions with: lazyworktree --completion <shell>.",
 }
 
-// ConfirmScreen displays a modal confirmation prompt with Accept/Cancel buttons.
-type ConfirmScreen struct {
-	message        string
-	result         chan bool
-	selectedButton int // 0 = Confirm, 1 = Cancel
-	thm            *theme.Theme
-}
-
-// InfoScreen displays a modal message with an OK button.
-type InfoScreen struct {
-	message string
-	result  chan bool
-	thm     *theme.Theme
-}
-
 // TrustScreen surfaces trust warnings and records commands for a path.
 type TrustScreen struct {
 	filePath string
@@ -145,35 +128,6 @@ type LoadingScreen struct {
 	showIcons      bool
 }
 
-// NewConfirmScreen creates a confirm screen preloaded with a message.
-func NewConfirmScreen(message string, thm *theme.Theme) *ConfirmScreen {
-	return &ConfirmScreen{
-		message:        message,
-		result:         make(chan bool, 1),
-		selectedButton: 0, // Start with Confirm button focused
-		thm:            thm,
-	}
-}
-
-// NewConfirmScreenWithDefault creates a confirmation modal with a specified default button.
-func NewConfirmScreenWithDefault(message string, defaultButton int, thm *theme.Theme) *ConfirmScreen {
-	return &ConfirmScreen{
-		message:        message,
-		result:         make(chan bool, 1),
-		selectedButton: defaultButton, // Use provided default
-		thm:            thm,
-	}
-}
-
-// NewInfoScreen creates an informational modal with an OK button.
-func NewInfoScreen(message string, thm *theme.Theme) *InfoScreen {
-	return &InfoScreen{
-		message: message,
-		result:  make(chan bool, 1),
-		thm:     thm,
-	}
-}
-
 // NewLoadingScreen creates a loading modal with the given message.
 func NewLoadingScreen(message string, thm *theme.Theme, showIcons bool) *LoadingScreen {
 	// Pick a random tip (cryptographic randomness not needed for UI tips)
@@ -185,163 +139,6 @@ func NewLoadingScreen(message string, thm *theme.Theme, showIcons bool) *Loading
 		thm:       thm,
 		showIcons: showIcons,
 	}
-}
-
-// Init implements the tea.Model Init stage for ConfirmScreen.
-func (s *ConfirmScreen) Init() tea.Cmd {
-	return nil
-}
-
-// Init implements the tea.Model Init stage for InfoScreen.
-func (s *InfoScreen) Init() tea.Cmd {
-	return nil
-}
-
-// Update processes keyboard events for the confirmation dialog.
-func (s *ConfirmScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	keyMsg, ok := msg.(tea.KeyMsg)
-	if !ok {
-		return s, nil
-	}
-	key := keyMsg.String()
-	switch key {
-	case keyTab, "right", "l":
-		s.selectedButton = (s.selectedButton + 1) % 2
-	case keyShiftTab, "left", "h":
-		s.selectedButton = (s.selectedButton - 1 + 2) % 2
-	case "y", "Y":
-		s.result <- true
-		return s, tea.Quit
-	case "n", "N":
-		s.result <- false
-		return s, tea.Quit
-	case keyEnter:
-		if s.selectedButton == 0 {
-			s.result <- true
-		} else {
-			s.result <- false
-		}
-		return s, tea.Quit
-	case keyEsc, keyQ, keyCtrlC:
-		s.result <- false
-		return s, tea.Quit
-	}
-	return s, nil
-}
-
-// Update processes keyboard events for the info dialog.
-func (s *InfoScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	keyMsg, ok := msg.(tea.KeyMsg)
-	if !ok {
-		return s, nil
-	}
-	switch keyMsg.String() {
-	case keyEnter, keyEsc, keyQ, keyCtrlC:
-		s.result <- true
-		return s, tea.Quit
-	}
-	return s, nil
-}
-
-// View renders the confirmation UI box with focused button highlighting.
-func (s *ConfirmScreen) View() string {
-	width := 60
-	height := 11
-
-	// Enhanced confirm modal with rounded border and accent color
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(s.thm.Accent).
-		Padding(1, 2).
-		Width(width).
-		Height(height)
-
-	messageStyle := lipgloss.NewStyle().
-		Width(width-4).
-		Height(height-6).
-		Align(lipgloss.Center, lipgloss.Center).
-		Foreground(s.thm.TextFg)
-
-	// Enhanced button styling with better visual hierarchy
-	// Focused confirm button
-	focusedConfirmStyle := lipgloss.NewStyle().
-		Width((width-6)/2).
-		Align(lipgloss.Center).
-		Padding(0, 2). // More padding for pill effect
-		Foreground(s.thm.AccentFg).
-		Background(s.thm.ErrorFg).
-		Bold(true)
-
-	// Focused cancel button
-	focusedCancelStyle := lipgloss.NewStyle().
-		Width((width-6)/2).
-		Align(lipgloss.Center).
-		Padding(0, 2).
-		Foreground(s.thm.AccentFg).
-		Background(s.thm.Accent).
-		Bold(true)
-
-	unfocusedButtonStyle := lipgloss.NewStyle().
-		Width((width-6)/2).
-		Align(lipgloss.Center).
-		Padding(0, 2).
-		Foreground(s.thm.MutedFg).
-		Background(s.thm.BorderDim)
-
-	var confirmButton, cancelButton string
-	if s.selectedButton == 0 {
-		// Confirm is focused
-		confirmButton = focusedConfirmStyle.Render("[Confirm]")
-		cancelButton = unfocusedButtonStyle.Render("[Cancel]")
-	} else {
-		// Cancel is focused
-		confirmButton = unfocusedButtonStyle.Render("[Confirm]")
-		cancelButton = focusedCancelStyle.Render("[Cancel]")
-	}
-
-	content := fmt.Sprintf("%s\n\n%s  %s",
-		messageStyle.Render(s.message),
-		confirmButton,
-		cancelButton,
-	)
-
-	return boxStyle.Render(content)
-}
-
-// View renders the informational UI box with a single OK button.
-func (s *InfoScreen) View() string {
-	width := 60
-	height := 11
-
-	// Enhanced info modal with rounded border
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(s.thm.Accent).
-		Padding(1, 2).
-		Width(width).
-		Height(height)
-
-	messageStyle := lipgloss.NewStyle().
-		Width(width-4).
-		Height(height-6).
-		Align(lipgloss.Center, lipgloss.Center).
-		Foreground(s.thm.TextFg)
-
-	// Enhanced button with rounded corners effect
-	okStyle := lipgloss.NewStyle().
-		Width(width-6).
-		Align(lipgloss.Center).
-		Padding(0, 2).
-		Foreground(s.thm.AccentFg).
-		Background(s.thm.Accent).
-		Bold(true)
-
-	content := fmt.Sprintf("%s\n\n%s",
-		messageStyle.Render(s.message),
-		okStyle.Render("[OK]"),
-	)
-
-	return boxStyle.Render(content)
 }
 
 // loadingBorderColors returns the color cycle for the pulsing border.

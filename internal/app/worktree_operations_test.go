@@ -433,30 +433,33 @@ func TestShowAbsorbWorktreeCreatesConfirmScreen(t *testing.T) {
 		t.Error("Expected nil command from showAbsorbWorktree")
 	}
 
-	// Verify confirm screen was created
-	if m.confirmScreen == nil {
-		t.Fatal("Expected confirm screen to be created")
+	// Verify confirm screen was created in screen manager
+	if !m.screenManager.IsActive() {
+		t.Fatal("Expected screen manager to be active")
+	}
+	if m.screenManager.Type() != appscreen.TypeConfirm {
+		t.Fatalf("Expected confirm screen, got %v", m.screenManager.Type())
+	}
+
+	confirmScreen, ok := m.screenManager.Current().(*appscreen.ConfirmScreen)
+	if !ok {
+		t.Fatal("Expected confirm screen in screen manager")
 	}
 
 	// Verify confirm action was set
-	if m.confirmAction == nil {
-		t.Fatal("Expected confirm action to be set")
-	}
-
-	// Verify current screen is set to confirm
-	if m.currentScreen != screenConfirm {
-		t.Errorf("Expected currentScreen to be screenConfirm, got %v", m.currentScreen)
+	if confirmScreen.OnConfirm == nil {
+		t.Fatal("Expected OnConfirm to be set")
 	}
 
 	// Verify the confirm message contains the correct information
-	if m.confirmScreen.message == "" {
+	if confirmScreen.Message == "" {
 		t.Error("Expected confirm screen message to be set")
 	}
-	if !strings.Contains(m.confirmScreen.message, "Absorb worktree into main") {
-		t.Errorf("Expected confirm message to mention 'Absorb worktree into main', got %q", m.confirmScreen.message)
+	if !strings.Contains(confirmScreen.Message, "Absorb worktree into main") {
+		t.Errorf("Expected confirm message to mention 'Absorb worktree into main', got %q", confirmScreen.Message)
 	}
-	if !strings.Contains(m.confirmScreen.message, "feature-branch") {
-		t.Errorf("Expected confirm message to mention 'feature-branch', got %q", m.confirmScreen.message)
+	if !strings.Contains(confirmScreen.Message, "feature-branch") {
+		t.Errorf("Expected confirm message to mention 'feature-branch', got %q", confirmScreen.Message)
 	}
 }
 
@@ -551,15 +554,15 @@ func TestShowDeleteWorktree(t *testing.T) {
 	if cmd := m.showDeleteWorktree(); cmd != nil {
 		t.Fatal("expected nil command for main worktree")
 	}
-	if m.confirmScreen != nil {
-		t.Fatal("expected no confirm screen for main worktree")
+	if m.screenManager.IsActive() {
+		t.Fatal("expected no screen for main worktree")
 	}
 
 	m.selectedIndex = 1
 	if cmd := m.showDeleteWorktree(); cmd != nil {
 		t.Fatal("expected nil command for confirm screen")
 	}
-	if m.confirmScreen == nil || m.confirmAction == nil || m.currentScreen != screenConfirm {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeConfirm {
 		t.Fatal("expected confirm screen to be set")
 	}
 }

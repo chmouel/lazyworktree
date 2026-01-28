@@ -83,18 +83,19 @@ func (m *Model) showDeleteFile() tea.Cmd {
 	node := m.statusTreeFlat[m.statusTreeIndex]
 	wt := m.filteredWts[m.selectedIndex]
 
+	var confirmScreen *screen.ConfirmScreen
 	if node.IsDir() {
 		files := node.CollectFiles()
 		if len(files) == 0 {
 			return nil
 		}
-		m.confirmScreen = NewConfirmScreen(fmt.Sprintf("Delete %d file(s) in directory?\n\nDirectory: %s", len(files), node.Path), m.theme)
-		m.confirmAction = m.deleteFilesCmd(wt, files)
+		confirmScreen = screen.NewConfirmScreen(fmt.Sprintf("Delete %d file(s) in directory?\n\nDirectory: %s", len(files), node.Path), m.theme)
+		confirmScreen.OnConfirm = m.deleteFilesCmd(wt, files)
 	} else {
-		m.confirmScreen = NewConfirmScreen(fmt.Sprintf("Delete file?\n\nFile: %s", node.File.Filename), m.theme)
-		m.confirmAction = m.deleteFilesCmd(wt, []*StatusFile{node.File})
+		confirmScreen = screen.NewConfirmScreen(fmt.Sprintf("Delete file?\n\nFile: %s", node.File.Filename), m.theme)
+		confirmScreen.OnConfirm = m.deleteFilesCmd(wt, []*StatusFile{node.File})
 	}
-	m.currentScreen = screenConfirm
+	m.screenManager.Push(confirmScreen)
 	return nil
 }
 

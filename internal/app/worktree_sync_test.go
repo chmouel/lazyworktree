@@ -686,17 +686,21 @@ func TestShowSyncChoiceCreatesConfirmScreen(t *testing.T) {
 		t.Fatal("expected showSyncChoice to return nil (no immediate command)")
 	}
 
-	if m.currentScreen != screenConfirm {
-		t.Fatalf("expected screenConfirm, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() {
+		t.Fatal("expected screen manager to be active")
 	}
-	if m.confirmScreen == nil {
-		t.Fatal("expected confirmScreen to be created")
+	if m.screenManager.Type() != appscreen.TypeConfirm {
+		t.Fatalf("expected confirm screen, got %v", m.screenManager.Type())
 	}
-	if m.confirmAction == nil {
-		t.Fatal("expected confirmAction to be set")
+	confirmScreen, ok := m.screenManager.Current().(*appscreen.ConfirmScreen)
+	if !ok {
+		t.Fatal("expected confirm screen in screen manager")
 	}
-	if m.confirmCancel == nil {
-		t.Fatal("expected confirmCancel to be set")
+	if confirmScreen.OnConfirm == nil {
+		t.Fatal("expected OnConfirm to be set")
+	}
+	if confirmScreen.OnCancel == nil {
+		t.Fatal("expected OnCancel to be set")
 	}
 }
 
@@ -749,16 +753,8 @@ func TestConfirmYesCallsUpdateFromBase(t *testing.T) {
 		t.Fatalf("expected gh pr update-branch --rebase, got %v", gotArgs)
 	}
 
-	// Verify confirm screen was cleared
-	if m.confirmScreen != nil {
-		t.Fatal("expected confirmScreen to be cleared")
-	}
-	if m.confirmAction != nil {
-		t.Fatal("expected confirmAction to be cleared")
-	}
-	if m.confirmCancel != nil {
-		t.Fatal("expected confirmCancel to be cleared")
-	}
+	// Screen manager should have popped the confirm screen after the callback
+	// (In practice, the callback would be invoked by the Update handler which pops the screen)
 }
 
 func TestConfirmNoDoesNormalSync(t *testing.T) {

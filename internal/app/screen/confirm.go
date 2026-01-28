@@ -22,16 +22,18 @@ const (
 // ConfirmScreen displays a modal confirmation prompt with Accept/Cancel buttons.
 type ConfirmScreen struct {
 	Message        string
-	ResultChan     chan bool
 	SelectedButton int // 0 = Confirm, 1 = Cancel
 	Thm            *theme.Theme
+
+	// Callbacks
+	OnConfirm func() tea.Cmd
+	OnCancel  func() tea.Cmd
 }
 
 // NewConfirmScreen creates a confirm screen preloaded with a message.
 func NewConfirmScreen(message string, thm *theme.Theme) *ConfirmScreen {
 	return &ConfirmScreen{
 		Message:        message,
-		ResultChan:     make(chan bool, 1),
 		SelectedButton: 0, // Start with Confirm button focused
 		Thm:            thm,
 	}
@@ -41,7 +43,6 @@ func NewConfirmScreen(message string, thm *theme.Theme) *ConfirmScreen {
 func NewConfirmScreenWithDefault(message string, defaultButton int, thm *theme.Theme) *ConfirmScreen {
 	return &ConfirmScreen{
 		Message:        message,
-		ResultChan:     make(chan bool, 1),
 		SelectedButton: defaultButton,
 		Thm:            thm,
 	}
@@ -62,16 +63,30 @@ func (s *ConfirmScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	case keyShiftTab, "left", "h":
 		s.SelectedButton = (s.SelectedButton - 1 + 2) % 2
 	case "y", "Y":
-		s.ResultChan <- true
+		if s.OnConfirm != nil {
+			return nil, s.OnConfirm()
+		}
 		return nil, nil
 	case "n", "N":
-		s.ResultChan <- false
+		if s.OnCancel != nil {
+			return nil, s.OnCancel()
+		}
 		return nil, nil
 	case keyEnter:
-		s.ResultChan <- s.SelectedButton == 0
+		if s.SelectedButton == 0 {
+			if s.OnConfirm != nil {
+				return nil, s.OnConfirm()
+			}
+		} else {
+			if s.OnCancel != nil {
+				return nil, s.OnCancel()
+			}
+		}
 		return nil, nil
 	case keyEsc, keyQ, keyCtrlC:
-		s.ResultChan <- false
+		if s.OnCancel != nil {
+			return nil, s.OnCancel()
+		}
 		return nil, nil
 	}
 	return s, nil

@@ -23,10 +23,6 @@ func screenName(screen screenType) string {
 	switch screen {
 	case screenNone:
 		return "none"
-	case screenConfirm:
-		return "confirm"
-	case screenInfo:
-		return "info"
 	case screenInput:
 		return "input"
 	case screenTrust:
@@ -39,9 +35,9 @@ func screenName(screen screenType) string {
 }
 
 func (m *Model) showInfo(message string, action tea.Cmd) {
-	m.infoScreen = NewInfoScreen(message, m.theme)
-	m.infoAction = action
-	m.currentScreen = screenInfo
+	infoScreen := appscreen.NewInfoScreen(message, m.theme)
+	infoScreen.OnClose = func() tea.Cmd { return action }
+	m.screenManager.Push(infoScreen)
 }
 
 func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -143,64 +139,6 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.commitFilesScreen = updated
 		}
 		return m, cmd
-	case screenConfirm:
-		if m.confirmScreen != nil {
-			_, cmd := m.confirmScreen.Update(msg)
-			// Check if the confirm screen sent a result
-			select {
-			case confirmed := <-m.confirmScreen.result:
-				if confirmed {
-					// Perform confirmed action (delete, prune, etc.)
-					var actionCmd tea.Cmd
-					if m.confirmAction != nil {
-						actionCmd = m.confirmAction()
-					}
-					m.confirmScreen = nil
-					m.confirmAction = nil
-					m.confirmCancel = nil
-					if m.currentScreen == screenConfirm {
-						m.currentScreen = screenNone
-					}
-					if actionCmd != nil {
-						return m, actionCmd
-					}
-					return m, nil
-				} else {
-					// Action cancelled
-					var cancelCmd tea.Cmd
-					if m.confirmCancel != nil {
-						cancelCmd = m.confirmCancel()
-					}
-					m.confirmScreen = nil
-					m.confirmAction = nil
-					m.confirmCancel = nil
-					m.currentScreen = screenNone
-					if cancelCmd != nil {
-						return m, cancelCmd
-					}
-					return m, nil
-				}
-			default:
-				return m, cmd
-			}
-		}
-	case screenInfo:
-		if m.infoScreen != nil {
-			_, cmd := m.infoScreen.Update(msg)
-			select {
-			case <-m.infoScreen.result:
-				action := m.infoAction
-				m.infoScreen = nil
-				m.infoAction = nil
-				m.currentScreen = screenNone
-				if action != nil {
-					return m, action
-				}
-				return m, nil
-			default:
-				return m, cmd
-			}
-		}
 	}
 	return m, nil
 }
@@ -470,8 +408,8 @@ func (m *Model) showThemeSelection() tea.Cmd {
 	}
 
 	listScreen.OnSelect = func(item appscreen.SelectionItem) tea.Cmd {
-		m.confirmScreen = NewConfirmScreen(fmt.Sprintf("Save theme '%s' to config file?", item.ID), m.theme)
-		m.confirmAction = func() tea.Cmd {
+		confirmScreen := appscreen.NewConfirmScreen(fmt.Sprintf("Save theme '%s' to config file?", item.ID), m.theme)
+		confirmScreen.OnConfirm = func() tea.Cmd {
 			m.config.Theme = item.ID
 			if err := config.SaveConfig(m.config); err != nil {
 				m.debugf("failed to save config: %v", err)
@@ -479,7 +417,7 @@ func (m *Model) showThemeSelection() tea.Cmd {
 			m.originalTheme = ""
 			return nil
 		}
-		m.currentScreen = screenConfirm
+		m.screenManager.Push(confirmScreen)
 		return nil
 	}
 
@@ -524,12 +462,6 @@ func (m *Model) UpdateTheme(themeName string) {
 	m.filterInput.TextStyle = lipgloss.NewStyle().Foreground(thm.TextFg)
 
 	// Update other screens if they exist
-	if m.confirmScreen != nil {
-		m.confirmScreen.thm = thm
-	}
-	if m.infoScreen != nil {
-		m.infoScreen.thm = thm
-	}
 	if m.loadingScreen != nil {
 		m.loadingScreen.thm = thm
 	}

@@ -334,12 +334,7 @@ type Model struct {
 	// Screen manager for modal overlays
 	screenManager *screen.Manager
 
-	// Confirm screen (legacy - to be migrated)
-	confirmScreen *ConfirmScreen
-	confirmAction func() tea.Cmd
-	confirmCancel func() tea.Cmd
-	infoScreen    *InfoScreen
-	infoAction    tea.Cmd
+	// Legacy screens
 	loadingScreen *LoadingScreen
 
 	// Trust / repo commands
@@ -593,13 +588,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Worktree deleted successfully, show branch deletion prompt
-		m.confirmScreen = NewConfirmScreenWithDefault(
+		confirmScreen := screen.NewConfirmScreenWithDefault(
 			fmt.Sprintf("Worktree deleted successfully.\n\nDelete branch '%s'?", msg.branch),
 			0, // Default to Confirm button (Yes)
 			m.theme,
 		)
-		m.confirmAction = m.deleteBranchCmd(msg.branch)
-		m.currentScreen = screenConfirm
+		confirmScreen.OnConfirm = m.deleteBranchCmd(msg.branch)
+		m.screenManager.Push(confirmScreen)
 		return m, nil
 
 	case createFromPRResultMsg:
@@ -768,16 +763,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.attachTmuxSessionCmd(msg.sessionName, msg.insideTmux)
 		}
 		message := buildTmuxInfoMessage(msg.sessionName, msg.insideTmux)
-		m.infoScreen = NewInfoScreen(message, m.theme)
-		m.currentScreen = screenInfo
+		m.showInfo(message, nil)
 		return m, nil
 	case zellijSessionReadyMsg:
 		if msg.attach && !msg.insideZellij {
 			return m, m.attachZellijSessionCmd(msg.sessionName)
 		}
 		message := buildZellijInfoMessage(msg.sessionName)
-		m.infoScreen = NewInfoScreen(message, m.theme)
-		m.currentScreen = screenInfo
+		m.showInfo(message, nil)
 		return m, nil
 
 	case refreshCompleteMsg:
