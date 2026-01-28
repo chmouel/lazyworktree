@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
@@ -627,8 +628,8 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 		return items[i].Label < items[j].Label
 	})
 
-	m.checklistScreen = NewChecklistScreen(
-		items,
+	checkScreen := appscreen.NewChecklistScreen(
+		convertToScreenChecklistItems(items),
 		"Prune Merged Worktrees",
 		"Filter...",
 		"No merged worktrees found.",
@@ -637,7 +638,7 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 		m.theme,
 	)
 
-	m.checklistSubmit = func(selected []ChecklistItem) tea.Cmd {
+	checkScreen.OnSubmit = func(selected []appscreen.ChecklistItem) tea.Cmd {
 		if len(selected) == 0 {
 			return nil
 		}
@@ -684,7 +685,12 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 		// Check trust for repo commands before running
 		return m.runCommandsWithTrust(terminateCmds, "", nil, pruneRoutine)
 	}
-	m.currentScreen = screenChecklist
+
+	checkScreen.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(checkScreen)
 	return textinput.Blink
 }
 
@@ -861,4 +867,17 @@ func shellQuote(input string) string {
 		return "''"
 	}
 	return "'" + strings.ReplaceAll(input, "'", "'\"'\"'") + "'"
+}
+
+func convertToScreenChecklistItems(items []ChecklistItem) []appscreen.ChecklistItem {
+	result := make([]appscreen.ChecklistItem, len(items))
+	for i, item := range items {
+		result[i] = appscreen.ChecklistItem{
+			ID:          item.ID,
+			Label:       item.Label,
+			Description: item.Description,
+			Checked:     item.Checked,
+		}
+	}
+	return result
 }

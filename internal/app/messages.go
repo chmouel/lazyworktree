@@ -490,10 +490,8 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 		return nil
 	}
 
-	// Show issue selection screen
-	m.issueSelectionScreen = NewIssueSelectionScreen(msg.issues, m.view.WindowWidth, m.view.WindowHeight, m.theme, m.config.IconsEnabled())
-	m.issueSelectionSubmit = func(issue *models.IssueInfo) tea.Cmd {
-		// Show base branch selection
+	issueScr := screen.NewIssueSelectionScreen(msg.issues, m.view.WindowWidth, m.view.WindowHeight, m.theme, m.config.IconsEnabled())
+	issueScr.OnSelect = func(issue *models.IssueInfo) tea.Cmd {
 		defaultBase := m.git.GetMainBranch(m.ctx)
 		return m.showBranchSelection(
 			fmt.Sprintf("Select base branch for issue #%d", issue.Number),
@@ -501,7 +499,6 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 			"No branches found.",
 			defaultBase,
 			func(baseBranch string) tea.Cmd {
-				// Get AI-generated title (if configured)
 				generatedTitle := ""
 				scriptErr := ""
 
@@ -511,7 +508,6 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 					if template == "" {
 						template = "issue-{number}-{title}"
 					}
-					// Pass empty string for generatedTitle since we're getting it now
 					suggestedName := utils.GenerateIssueWorktreeName(issue, template, "")
 
 					if aiTitle, err := runBranchNameScript(
@@ -529,7 +525,6 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 					}
 				}
 
-				// Apply template with both original and generated titles
 				template := m.config.IssueBranchNameTemplate
 				if template == "" {
 					template = "issue-{number}-{title}"
@@ -537,7 +532,6 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 
 				defaultName := utils.GenerateIssueWorktreeName(issue, template, generatedTitle)
 
-				// Suggest branch name (check for duplicates)
 				suggested := strings.TrimSpace(defaultName)
 				if suggested != "" {
 					suggested = m.suggestBranchName(suggested)
@@ -554,7 +548,6 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 					return nil
 				}
 
-				// Show input screen with generated name
 				m.inputScreen = NewInputScreen(
 					fmt.Sprintf("Create worktree from issue #%d", issue.Number),
 					"Worktree name",
@@ -605,12 +598,11 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 						return createFromIssueResultMsg{issueNumber: issue.Number, branch: newBranch, targetPath: targetPath}
 					}, true
 				}
-				m.currentScreen = screenInput
 				return textinput.Blink
 			},
 		)
 	}
-	m.currentScreen = screenIssueSelect
+	m.screenManager.Push(issueScr)
 	return textinput.Blink
 }
 

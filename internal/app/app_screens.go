@@ -33,22 +33,8 @@ func screenName(screen screenType) string {
 		return "help"
 	case screenTrust:
 		return "trust"
-	case screenWelcome:
-		return "welcome"
-	case screenCommit:
-		return "commit"
-	case screenPalette:
-		return "palette"
-	case screenPRSelect:
-		return "pr-select"
-	case screenIssueSelect:
-		return "issue-select"
-	case screenListSelect:
-		return "list-select"
 	case screenCommitFiles:
 		return "commit-files"
-	case screenChecklist:
-		return "checklist"
 	default:
 		return "unknown"
 	}
@@ -127,35 +113,7 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.paletteScreen = updated
 		}
 		return m, cmd
-	// PRSelection now handled by screen manager
-	case screenIssueSelect:
-		if m.issueSelectionScreen == nil {
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		keyStr := msg.String()
-		if isEscKey(keyStr) {
-			m.currentScreen = screenNone
-			m.issueSelectionScreen = nil
-			m.issueSelectionSubmit = nil
-			return m, nil
-		}
-		if keyStr == keyEnter {
-			if m.issueSelectionSubmit != nil {
-				if issue, ok := m.issueSelectionScreen.Selected(); ok {
-					cmd := m.issueSelectionSubmit(issue)
-					// Don't set screenNone here - issueSelectionSubmit sets screenInput or screenListSelect
-					m.issueSelectionScreen = nil
-					m.issueSelectionSubmit = nil
-					return m, cmd
-				}
-			}
-		}
-		is, cmd := m.issueSelectionScreen.Update(msg)
-		if updated, ok := is.(*IssueSelectionScreen); ok {
-			m.issueSelectionScreen = updated
-		}
-		return m, cmd
+	// PRSelection and IssueSelection now handled by screen manager
 	case screenListSelect:
 		if m.listScreen == nil {
 			m.currentScreen = screenNone
@@ -220,33 +178,6 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		ls, cmd := m.listScreen.Update(msg)
 		if updated, ok := ls.(*ListSelectionScreen); ok {
 			m.listScreen = updated
-		}
-		return m, cmd
-	case screenChecklist:
-		if m.checklistScreen == nil {
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		keyStr := msg.String()
-		if isEscKey(keyStr) {
-			m.checklistScreen = nil
-			m.checklistSubmit = nil
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		if keyStr == keyEnter {
-			if m.checklistSubmit != nil {
-				selected := m.checklistScreen.SelectedItems()
-				cmd := m.checklistSubmit(selected)
-				m.checklistScreen = nil
-				m.checklistSubmit = nil
-				m.currentScreen = screenNone
-				return m, cmd
-			}
-		}
-		cs, cmd := m.checklistScreen.Update(msg)
-		if updated, ok := cs.(*ChecklistScreen); ok {
-			m.checklistScreen = updated
 		}
 		return m, cmd
 	case screenCommitFiles:
@@ -793,8 +724,15 @@ func (m *Model) UpdateTheme(themeName string) {
 			prScreen.Thm = thm
 		}
 	}
-	if m.issueSelectionScreen != nil {
-		m.issueSelectionScreen.thm = thm
+	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypeIssueSelect {
+		if issueScreen, ok := m.screenManager.Current().(*appscreen.IssueSelectionScreen); ok {
+			issueScreen.Thm = thm
+		}
+	}
+	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypeChecklist {
+		if checkScreen, ok := m.screenManager.Current().(*appscreen.ChecklistScreen); ok {
+			checkScreen.Thm = thm
+		}
 	}
 	if m.listScreen != nil {
 		m.listScreen.thm = thm

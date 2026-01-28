@@ -110,6 +110,14 @@ Created `internal/app/commands/`:
 | TrustScreen | `screen/trust.go` | ✅ Migrated |
 | CommitScreen | `screen/commit.go` | ✅ Migrated |
 | PRSelectionScreen | `screen/pr_select.go` | ✅ Migrated |
+| IssueSelectionScreen | `screen/issue_select.go` | ✅ Migrated |
+
+### Completed Wave 2A Migrations:
+
+| Screen | New File | Status |
+|--------|----------|--------|
+| ChecklistScreen | `screen/checklist.go` | ✅ Migrated |
+| ListSelectionScreen | `screen/list_select.go` | ⚠️ Partially Migrated (CI checks only) |
 
 ### Changes Made:
 
@@ -132,12 +140,19 @@ Created `internal/app/commands/`:
    - `trustScreen *TrustScreen` removed from Model
    - `prSelectionScreen *PRSelectionScreen` removed from Model
    - `prSelectionSubmit func(*models.PRInfo) tea.Cmd` removed from Model
+   - `issueSelectionScreen *IssueSelectionScreen` removed from Model
+   - `issueSelectionSubmit func(*models.IssueInfo) tea.Cmd` removed from Model
+   - `checklistScreen *ChecklistScreen` removed from Model
+   - `checklistSubmit func([]ChecklistItem) tea.Cmd` removed from Model
 
 5. **New screen files**:
    - `screen/welcome.go` - with `OnRefresh` and `OnQuit` callbacks
    - `screen/trust.go` - with `OnTrust`, `OnBlock`, and `OnCancel` callbacks
    - `screen/commit.go` - with `CommitMeta` type and viewport scrolling
    - `screen/pr_select.go` - with `OnSelect` and `OnCancel` callbacks
+   - `screen/issue_select.go` - with `OnSelect` and `OnCancel` callbacks
+   - `screen/checklist.go` - with `OnSubmit` and `OnCancel` callbacks, multi-select with checkboxes
+   - `screen/list_select.go` - with `OnSelect`, `OnEnter`, `OnCtrlV`, `OnCtrlR` callbacks (partially migrated)
 
 6. **Test updates**:
    - Updated tests to use `screenManager.IsActive()` and `screenManager.Type()` instead of legacy `currentScreen` field
@@ -147,22 +162,36 @@ Created `internal/app/commands/`:
    - Tests now directly call screen callbacks instead of legacy methods like `prSelectionSubmit()`
 
 7. **Theme switching**:
-   - Updated theme switching to work with screen manager for PRSelectionScreen
+   - Updated theme switching to work with screen manager for PRSelectionScreen, IssueSelectionScreen, and ChecklistScreen
    - Added alias `appscreen` to avoid naming conflict with `screen` parameter in functions
 
-### Remaining Screens (Wave 2-4):
+8. **ChecklistScreen migration** (Wave 2A):
+   - Migrated prune merged worktrees to use screen manager with callbacks
+   - Removed `case screenChecklist` from `app_screens.go` and `renderer.go`
+   - Added helper function `convertToScreenChecklistItems()` for type conversion
+   - Updated tests to use `screenManager.IsActive()` and `screenManager.Type()`
 
-| Screen | Complexity | Status |
-|--------|-----------|--------|
-| HelpScreen | Medium | Pending |
-| CommandPaletteScreen | Medium | Pending |
-| InputScreen | High (history, checkbox, validation) | Pending |
-| IssueSelectionScreen | Medium | Pending (similar to PRSelectionScreen) |
-| ListSelectionScreen | High (CI check handling) | Pending |
-| ChecklistScreen | Medium | Pending |
-| CommitFilesScreen | High (tree-based) | Pending |
-| ConfirmScreen | Low (uses channels) | Pending |
-| InfoScreen | Low (uses channels) | Pending |
+9. **ListSelectionScreen partial migration** (Wave 2A):
+   - CI checks usage fully migrated to screen manager with special callbacks (`OnEnter`, `OnCtrlV`, `OnCtrlR`)
+   - **Remaining usage sites still use legacy pattern:**
+     - Theme selection (app_screens.go:651-672) - uses `onCursorChange` for live preview
+     - Cherry-pick target selection (app_screens.go:857-883)
+     - Base branch selection (base_selection.go:81-130)
+     - Base selection options (base_selection.go:156-160)
+     - Commit selection (base_selection.go:195-238)
+   - Legacy fields (`listScreen`, `listSubmit`, `listScreenCIChecks`) remain for these usage sites
+
+### Remaining Screens (Wave 2B-4):
+
+| Screen | Complexity | Status | Notes |
+|--------|-----------|--------|-------|
+| ListSelectionScreen | High (CI check handling) | ⚠️ Partial | CI checks migrated, theme/base/cherry-pick remain |
+| HelpScreen | Medium | Pending | |
+| CommandPaletteScreen | Medium | Pending | |
+| InputScreen | High (history, checkbox, validation) | Pending | |
+| CommitFilesScreen | High (tree-based) | Pending | |
+| ConfirmScreen | Low (uses channels) | Pending | Already in screen/ package |
+| InfoScreen | Low (uses channels) | Pending | Already in screen/ package |
 
 ### Screen interface:
 ```go
@@ -474,6 +503,9 @@ After each refactoring phase:
 | `screen/trust.go` | 114 | TrustScreen migrated |
 | `screen/commit.go` | 141 | CommitScreen migrated |
 | `screen/pr_select.go` | 316 | PRSelectionScreen migrated |
+| `screen/issue_select.go` | 269 | IssueSelectionScreen migrated |
+| `screen/checklist.go` | 327 | ChecklistScreen migrated |
+| `screen/list_select.go` | 305 | ListSelectionScreen (partial) |
 | `screen/pr_select_test.go` | NEW | Tests for PRSelectionScreen |
 | `screen/ui_helpers.go` | NEW | Shared UI helper functions |
 | `screen/manager_test.go` | 195 | Tests |

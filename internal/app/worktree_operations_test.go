@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -640,8 +641,9 @@ func TestShowPruneMerged(t *testing.T) {
 	updated, _ = m.Update(msg)
 	m = updated.(*Model)
 
-	if m.checklistScreen == nil || m.checklistSubmit == nil || m.currentScreen != screenChecklist {
-		t.Fatal("expected checklist screen for prune")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeChecklist {
+		t.Fatalf("expected checklist screen for prune, got active=%v type=%v",
+			m.screenManager.IsActive(), m.screenManager.Type())
 	}
 }
 

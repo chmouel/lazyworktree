@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
@@ -37,7 +38,7 @@ func (m *Model) openCICheckSelection() tea.Cmd {
 	}
 
 	// Build selection items from CI checks
-	items := make([]selectionItem, 0, len(cached.checks))
+	items := make([]appscreen.SelectionItem, 0, len(cached.checks))
 
 	// Styled CI status icons (same pattern as render_panes.go)
 	greenStyle := lipgloss.NewStyle().Foreground(m.theme.SuccessFg)
@@ -64,13 +65,14 @@ func (m *Model) openCICheckSelection() tea.Cmd {
 		styledIcon := style.Render(icon)
 		label := fmt.Sprintf("%s %s", styledIcon, check.Name)
 
-		items = append(items, selectionItem{
-			id:    fmt.Sprintf("%d", i),
-			label: label,
+		items = append(items, appscreen.SelectionItem{
+			ID:    fmt.Sprintf("%d", i),
+			Label: label,
 		})
 	}
 
-	m.listScreen = NewListSelectionScreen(
+	checks := sortCIChecks(cached.checks)
+	ciScreen := appscreen.NewListSelectionScreen(
 		items,
 		labelWithIcon(UIIconCICheck, "Select CI Check", m.config.IconsEnabled()),
 		"Filter checks...",
@@ -80,25 +82,37 @@ func (m *Model) openCICheckSelection() tea.Cmd {
 		"",
 		m.theme,
 	)
-	m.listScreen.footerHint = "Enter open • Ctrl+v view logs • Ctrl+r restart"
+	ciScreen.FooterHint = "Enter open • Ctrl+v view logs • Ctrl+r restart"
 
-	// Store checks for later access in submit handler and Ctrl+R rerun
-	checks := sortCIChecks(cached.checks)
-	m.listScreenCIChecks = checks
-	m.listSubmit = func(item selectionItem) tea.Cmd {
-		// Keep the selection screen open - don't clear listScreen/listSubmit/currentScreen
-		// This allows users to view multiple checks without reopening the selection
-
-		// Parse the index from item.id
+	ciScreen.OnEnter = func(item appscreen.SelectionItem) tea.Cmd {
 		var idx int
-		if _, err := fmt.Sscanf(item.id, "%d", &idx); err != nil || idx < 0 || idx >= len(checks) {
+		if _, err := fmt.Sscanf(item.ID, "%d", &idx); err != nil || idx < 0 || idx >= len(checks) {
 			return nil
 		}
+		return m.openURLInBrowser(checks[idx].Link)
+	}
 
+	ciScreen.OnCtrlV = func(item appscreen.SelectionItem) tea.Cmd {
+		var idx int
+		if _, err := fmt.Sscanf(item.ID, "%d", &idx); err != nil || idx < 0 || idx >= len(checks) {
+			return nil
+		}
 		return m.showCICheckLog(checks[idx])
 	}
 
-	m.currentScreen = screenListSelect
+	ciScreen.OnCtrlR = func(item appscreen.SelectionItem) tea.Cmd {
+		var idx int
+		if _, err := fmt.Sscanf(item.ID, "%d", &idx); err != nil || idx < 0 || idx >= len(checks) {
+			return nil
+		}
+		return m.rerunCICheck(checks[idx])
+	}
+
+	ciScreen.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	m.screenManager.Push(ciScreen)
 	return textinput.Blink
 }
 

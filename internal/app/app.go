@@ -276,13 +276,9 @@ type Model struct {
 	inputSubmit               func(string, bool) (tea.Cmd, bool)
 	paletteScreen             *CommandPaletteScreen
 	paletteSubmit             func(string) tea.Cmd
-	issueSelectionScreen      *IssueSelectionScreen
-	issueSelectionSubmit      func(*models.IssueInfo) tea.Cmd
 	listScreen                *ListSelectionScreen
 	listSubmit                func(selectionItem) tea.Cmd
 	listScreenCIChecks        []*models.CICheck // CI checks for the current list selection
-	checklistScreen           *ChecklistScreen
-	checklistSubmit           func([]ChecklistItem) tea.Cmd
 	spinner                   spinner.Model
 	loading                   bool
 	loadingOperation          string // Tracks what operation is loading (push, sync, etc.)

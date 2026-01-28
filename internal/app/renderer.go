@@ -76,42 +76,10 @@ func (m *Model) View() string {
 		if m.paletteScreen != nil {
 			return m.overlayPopup(baseView, m.paletteScreen.View(), 3)
 		}
-	// PRSelect now handled by screen manager
-	case screenIssueSelect:
-		if m.issueSelectionScreen != nil {
-			return m.overlayPopup(baseView, m.issueSelectionScreen.View(), 2)
-		}
+	// PRSelect and IssueSelect now handled by screen manager
 	case screenListSelect:
 		if m.listScreen != nil {
 			return m.overlayPopup(baseView, m.listScreen.View(), 2)
-		}
-	case screenChecklist:
-		if m.checklistScreen != nil {
-			return m.overlayPopup(baseView, m.checklistScreen.View(), 2)
-		}
-	case screenHelp:
-		if m.helpScreen != nil {
-			// Center the help popup
-			// Help screen has fixed/capped size logic in NewHelpScreen/SetSize
-			// We can pass 0,0 to use its internal defaults or a specific size
-			// In SetSize below we'll ensure it has a good "popup" size
-			return m.overlayPopup(baseView, m.helpScreen.View(), 4)
-		}
-	case screenConfirm:
-		if m.confirmScreen != nil {
-			return m.overlayPopup(baseView, m.confirmScreen.View(), 5)
-		}
-	case screenInfo:
-		if m.infoScreen != nil {
-			return m.overlayPopup(baseView, m.infoScreen.View(), 5)
-		}
-	case screenInput:
-		if m.inputScreen != nil {
-			return m.overlayPopup(baseView, m.inputScreen.View(), 5)
-		}
-	case screenLoading:
-		if m.loadingScreen != nil {
-			return m.overlayPopup(baseView, m.loadingScreen.View(), 5)
 		}
 	case screenCommitFiles:
 		if m.commitFilesScreen != nil {
