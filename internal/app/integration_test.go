@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -459,9 +460,9 @@ func TestCommitScreenEscapeKey(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 
-	// Set up the commit screen
-	m.currentScreen = screenCommit
-	m.commitScreen = NewCommitScreen(commitMeta{sha: "abc123"}, "stat", "diff", false, m.theme)
+	// Set up the commit screen via screen manager
+	commitScr := screen.NewCommitScreen(screen.CommitMeta{SHA: "abc123"}, "stat", "diff", false, m.theme)
+	m.screenManager.Push(commitScr)
 
 	// Simulate pressing ESC
 	escMsg := tea.KeyMsg{Type: tea.KeyEsc}
@@ -479,13 +480,9 @@ func TestCommitScreenEscapeKey(t *testing.T) {
 	newModel, _ := m.handleScreenKey(escMsg)
 	updatedModel := newModel.(*Model)
 
-	// Verify the commit screen was closed
-	if updatedModel.currentScreen != screenNone {
-		t.Errorf("Expected currentScreen to be screenNone, got %v", updatedModel.currentScreen)
-	}
-
-	if updatedModel.commitScreen != nil {
-		t.Error("Expected commitScreen to be nil after pressing ESC")
+	// Verify the commit screen was closed via screen manager
+	if updatedModel.screenManager.IsActive() {
+		t.Errorf("Expected screen manager to be inactive, got type %v", updatedModel.screenManager.Type())
 	}
 }
 
@@ -497,9 +494,9 @@ func TestCommitScreenRawEscapeKey(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 
-	// Set up the commit screen
-	m.currentScreen = screenCommit
-	m.commitScreen = NewCommitScreen(commitMeta{sha: "abc123"}, "stat", "diff", false, m.theme)
+	// Set up the commit screen via screen manager
+	commitScr := screen.NewCommitScreen(screen.CommitMeta{SHA: "abc123"}, "stat", "diff", false, m.theme)
+	m.screenManager.Push(commitScr)
 
 	// Simulate pressing ESC as a raw rune (how some terminals send it)
 	rawEscMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{0x1b}}
@@ -512,13 +509,9 @@ func TestCommitScreenRawEscapeKey(t *testing.T) {
 	newModel, _ := m.handleScreenKey(rawEscMsg)
 	updatedModel := newModel.(*Model)
 
-	// Verify the commit screen was closed
-	if updatedModel.currentScreen != screenNone {
-		t.Errorf("Expected currentScreen to be screenNone, got %v", updatedModel.currentScreen)
-	}
-
-	if updatedModel.commitScreen != nil {
-		t.Error("Expected commitScreen to be nil after pressing raw ESC")
+	// Verify the commit screen was closed via screen manager
+	if updatedModel.screenManager.IsActive() {
+		t.Errorf("Expected screen manager to be inactive, got type %v", updatedModel.screenManager.Type())
 	}
 }
 

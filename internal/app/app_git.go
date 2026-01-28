@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	log "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -386,8 +387,28 @@ func (m *Model) runCommandsWithTrust(cmds []string, cwd string, env map[string]s
 		m.pending.CommandCwd = cwd
 		m.pending.After = after
 		m.pending.TrustPath = trustPath
-		m.trustScreen = NewTrustScreen(trustPath, cmds, m.theme)
-		m.currentScreen = screenTrust
+		ts := screen.NewTrustScreen(trustPath, cmds, m.theme)
+		ts.OnTrust = func() tea.Cmd {
+			if m.pending.TrustPath != "" {
+				_ = m.trustManager.TrustFile(m.pending.TrustPath)
+			}
+			cmd := m.runCommands(m.pending.Commands, m.pending.CommandCwd, m.pending.CommandEnv, m.pending.After)
+			m.clearPendingTrust()
+			return cmd
+		}
+		ts.OnBlock = func() tea.Cmd {
+			after := m.pending.After
+			m.clearPendingTrust()
+			if after != nil {
+				return after
+			}
+			return nil
+		}
+		ts.OnCancel = func() tea.Cmd {
+			m.clearPendingTrust()
+			return nil
+		}
+		m.screenManager.Push(ts)
 	}
 	return nil
 }
@@ -414,7 +435,6 @@ func (m *Model) clearPendingTrust() {
 	m.pending.CommandCwd = ""
 	m.pending.After = nil
 	m.pending.TrustPath = ""
-	m.trustScreen = nil
 }
 
 func (m *Model) ensureRepoConfig() {

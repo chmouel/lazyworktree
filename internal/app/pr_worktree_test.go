@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -235,12 +236,8 @@ func TestHandleOpenPRsLoadedAsyncCreation(t *testing.T) {
 	msg := openPRsLoadedMsg{prs: prs}
 	_ = m.handleOpenPRsLoaded(msg)
 
-	// Should show PR selection screen
-	if m.currentScreen != screenPRSelect {
-		t.Fatalf("Expected screenPRSelect, got %v", m.currentScreen)
-	}
-	if m.prSelectionScreen == nil {
-		t.Fatal("Expected prSelectionScreen to be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != screen.TypePRSelect {
+		t.Fatalf("Expected screenPRSelect, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/chmouel/lazyworktree/internal/app/commands"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
@@ -60,6 +61,17 @@ func (m *Model) showInfo(message string, action tea.Cmd) {
 }
 
 func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// New path: delegate to screen manager for migrated screens
+	if m.screenManager.IsActive() {
+		scr, cmd := m.screenManager.Current().Update(msg)
+		if scr == nil {
+			m.screenManager.Pop()
+		} else {
+			m.screenManager.Set(scr)
+		}
+		return m, cmd
+	}
+
 	m.debugf("screen key: %s screen=%s", msg.String(), screenName(m.currentScreen))
 	switch m.currentScreen {
 	case screenHelp:
@@ -115,34 +127,7 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.paletteScreen = updated
 		}
 		return m, cmd
-	case screenPRSelect:
-		if m.prSelectionScreen == nil {
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		keyStr := msg.String()
-		if isEscKey(keyStr) {
-			m.currentScreen = screenNone
-			m.prSelectionScreen = nil
-			m.prSelectionSubmit = nil
-			return m, nil
-		}
-		if keyStr == keyEnter {
-			if m.prSelectionSubmit != nil {
-				if pr, ok := m.prSelectionScreen.Selected(); ok {
-					cmd := m.prSelectionSubmit(pr)
-					// Don't set screenNone here - prSelectionSubmit sets screenInput
-					m.prSelectionScreen = nil
-					m.prSelectionSubmit = nil
-					return m, cmd
-				}
-			}
-		}
-		ps, cmd := m.prSelectionScreen.Update(msg)
-		if updated, ok := ps.(*PRSelectionScreen); ok {
-			m.prSelectionScreen = updated
-		}
-		return m, cmd
+	// PRSelection now handled by screen manager
 	case screenIssueSelect:
 		if m.issueSelectionScreen == nil {
 			m.currentScreen = screenNone
@@ -402,67 +387,6 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		}
-	case screenWelcome:
-		keyStr := msg.String()
-		switch {
-		case keyStr == "r" || keyStr == "R":
-			m.currentScreen = screenNone
-			m.welcomeScreen = nil
-			return m, m.refreshWorktrees()
-		case keyStr == keyQ || keyStr == "Q" || keyStr == "enter" || isEscKey(keyStr):
-			m.quitting = true
-			m.stopGitWatcher()
-			return m, tea.Quit
-		}
-	case screenTrust:
-		if m.trustScreen == nil {
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		keyStr := msg.String()
-		switch {
-		case keyStr == "t" || keyStr == "T":
-			if m.pending.TrustPath != "" {
-				_ = m.trustManager.TrustFile(m.pending.TrustPath)
-			}
-			cmd := m.runCommands(m.pending.Commands, m.pending.CommandCwd, m.pending.CommandEnv, m.pending.After)
-			m.clearPendingTrust()
-			m.currentScreen = screenNone
-			return m, cmd
-		case keyStr == "b" || keyStr == "B":
-			after := m.pending.After
-			m.clearPendingTrust()
-			m.currentScreen = screenNone
-			if after != nil {
-				return m, after
-			}
-			return m, nil
-		case keyStr == "c" || keyStr == "C" || isEscKey(keyStr):
-			m.clearPendingTrust()
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		ts, cmd := m.trustScreen.Update(msg)
-		if updated, ok := ts.(*TrustScreen); ok {
-			m.trustScreen = updated
-		}
-		return m, cmd
-	case screenCommit:
-		if m.commitScreen == nil {
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		keyStr := msg.String()
-		if keyStr == keyQ || isEscKey(keyStr) {
-			m.commitScreen = nil
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		cs, cmd := m.commitScreen.Update(msg)
-		if updated, ok := cs.(*CommitScreen); ok {
-			m.commitScreen = updated
-		}
-		return m, cmd
 	case screenInput:
 		if m.inputScreen == nil {
 			m.currentScreen = screenNone
@@ -864,8 +788,10 @@ func (m *Model) UpdateTheme(themeName string) {
 	if m.paletteScreen != nil {
 		m.paletteScreen.thm = thm
 	}
-	if m.prSelectionScreen != nil {
-		m.prSelectionScreen.thm = thm
+	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypePRSelect {
+		if prScreen, ok := m.screenManager.Current().(*appscreen.PRSelectionScreen); ok {
+			prScreen.Thm = thm
+		}
 	}
 	if m.issueSelectionScreen != nil {
 		m.issueSelectionScreen.thm = thm

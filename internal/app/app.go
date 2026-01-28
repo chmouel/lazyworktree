@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/git"
@@ -271,17 +272,12 @@ type Model struct {
 	currentScreen             screenType
 	currentDetailsPath        string
 	helpScreen                *HelpScreen
-	trustScreen               *TrustScreen
 	inputScreen               *InputScreen
 	inputSubmit               func(string, bool) (tea.Cmd, bool)
-	commitScreen              *CommitScreen
-	welcomeScreen             *WelcomeScreen
 	paletteScreen             *CommandPaletteScreen
 	paletteSubmit             func(string) tea.Cmd
-	prSelectionScreen         *PRSelectionScreen
 	issueSelectionScreen      *IssueSelectionScreen
 	issueSelectionSubmit      func(*models.IssueInfo) tea.Cmd
-	prSelectionSubmit         func(*models.PRInfo) tea.Cmd
 	listScreen                *ListSelectionScreen
 	listSubmit                func(selectionItem) tea.Cmd
 	listScreenCIChecks        []*models.CICheck // CI checks for the current list selection
@@ -346,7 +342,10 @@ type Model struct {
 	// Post-refresh selection (e.g. after creating worktree)
 	pendingSelectWorktreePath string
 
-	// Confirm screen
+	// Screen manager for modal overlays
+	screenManager *screen.Manager
+
+	// Confirm screen (legacy - to be migrated)
 	confirmScreen *ConfirmScreen
 	confirmAction func() tea.Cmd
 	confirmCancel func() tea.Cmd
@@ -527,7 +526,8 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 		startCommand: func(cmd *exec.Cmd) error {
 			return cmd.Start()
 		},
-		pending: &state.PendingState{},
+		pending:       &state.PendingState{},
+		screenManager: screen.NewManager(),
 	}
 
 	if initialFilter != "" {

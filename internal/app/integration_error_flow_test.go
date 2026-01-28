@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -46,11 +47,24 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	missingBranch := &models.PRInfo{Number: 1, Title: "Add feature"}
 	updated, _ := m.Update(openPRsLoadedMsg{prs: []*models.PRInfo{missingBranch}})
 	m = updated.(*Model)
-	if m.currentScreen != screenPRSelect {
-		t.Fatalf("expected PR selection screen, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != screen.TypePRSelect {
+		t.Fatalf("expected PR selection screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 
-	m.prSelectionSubmit(missingBranch)
+	prScreen := m.screenManager.Current().(*screen.PRSelectionScreen)
+	if prScreen == nil {
+		t.Fatal("expected PRSelectionScreen to be set")
+	}
+
+	if prScreen.OnSelect == nil {
+		t.Fatal("expected OnSelect callback to be set")
+	}
+	cmd := prScreen.OnSelect(missingBranch)
+	if cmd != nil {
+		updated, _ = m.Update(cmd())
+		m = updated.(*Model)
+	}
+
 	if m.currentScreen != screenInput || m.inputScreen == nil {
 		t.Fatal("expected input screen for PR selection")
 	}
@@ -65,10 +79,16 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	updated, _ = m.Update(openPRsLoadedMsg{prs: []*models.PRInfo{withBranch}})
 	m = updated.(*Model)
 
-	// Test that duplicate branch names are rejected (user enters a branch name that already exists)
 	duplicateBranch := "my-feature"
 	m.worktrees = []*models.WorktreeInfo{{Branch: duplicateBranch}}
-	m.prSelectionSubmit(withBranch)
+
+	prScreen = m.screenManager.Current().(*screen.PRSelectionScreen)
+	cmd = prScreen.OnSelect(withBranch)
+	if cmd != nil {
+		updated, _ = m.Update(cmd())
+		m = updated.(*Model)
+	}
+
 	if _, ok := m.inputSubmit(duplicateBranch, false); ok {
 		t.Fatal("expected duplicate branch to be rejected")
 	}
@@ -81,7 +101,17 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 	m.worktrees = nil
-	m.prSelectionSubmit(withBranch)
+
+	updated, _ = m.Update(openPRsLoadedMsg{prs: []*models.PRInfo{withBranch}})
+	m = updated.(*Model)
+
+	prScreen = m.screenManager.Current().(*screen.PRSelectionScreen)
+	cmd = prScreen.OnSelect(withBranch)
+	if cmd != nil {
+		updated, _ = m.Update(cmd())
+		m = updated.(*Model)
+	}
+
 	if _, ok := m.inputSubmit(existsBranch, false); ok {
 		t.Fatal("expected existing path to be rejected")
 	}

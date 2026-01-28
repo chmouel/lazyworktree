@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 	log "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/utils"
@@ -89,13 +90,21 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 	m.saveCache()
 	if len(m.worktrees) == 0 {
 		cwd, _ := os.Getwd()
-		m.welcomeScreen = NewWelcomeScreen(cwd, m.getRepoWorktreeDir(), m.theme)
-		m.currentScreen = screenWelcome
+		ws := screen.NewWelcomeScreen(cwd, m.getRepoWorktreeDir(), m.theme)
+		ws.OnRefresh = func() tea.Cmd {
+			return m.refreshWorktrees()
+		}
+		ws.OnQuit = func() tea.Cmd {
+			m.quitting = true
+			m.stopGitWatcher()
+			return tea.Quit
+		}
+		m.screenManager.Push(ws)
 		return m, nil
 	}
-	if m.currentScreen == screenWelcome {
-		m.currentScreen = screenNone
-		m.welcomeScreen = nil
+	// Clear welcome screen if worktrees were found
+	if m.screenManager.Type() == screen.TypeWelcome {
+		m.screenManager.Pop()
 	}
 	cmds := []tea.Cmd{}
 	if m.config.AutoFetchPRs && !m.prDataLoaded {
@@ -299,8 +308,8 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 	}
 
 	// Show PR selection screen
-	m.prSelectionScreen = NewPRSelectionScreen(msg.prs, m.view.WindowWidth, m.view.WindowHeight, m.theme, m.config.IconsEnabled())
-	m.prSelectionSubmit = func(pr *models.PRInfo) tea.Cmd {
+	prScr := screen.NewPRSelectionScreen(msg.prs, m.view.WindowWidth, m.view.WindowHeight, m.theme, m.config.IconsEnabled())
+	prScr.OnSelect = func(pr *models.PRInfo) tea.Cmd {
 		// Get AI-generated title (if configured)
 		generatedTitle := ""
 		scriptErr := ""
@@ -462,7 +471,10 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 		m.currentScreen = screenInput
 		return textinput.Blink
 	}
-	m.currentScreen = screenPRSelect
+	prScr.OnCancel = func() tea.Cmd {
+		return nil
+	}
+	m.screenManager.Push(prScr)
 	return textinput.Blink
 }
 

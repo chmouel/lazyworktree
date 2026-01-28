@@ -1,10 +1,10 @@
 package app
 
 import (
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 )
 
 // View renders the active screen for the Bubble Tea program.
@@ -41,16 +41,42 @@ func (m *Model) View() string {
 
 	baseView := lipgloss.JoinVertical(lipgloss.Left, sections...)
 
-	// Handle Modal Overlays
+	// New path: render screens from screen manager
+	if m.screenManager.IsActive() {
+		scr := m.screenManager.Current()
+		switch scr.Type() {
+		case screen.TypeWelcome, screen.TypeTrust:
+			// Full-screen replacement for welcome/trust screens
+			content := scr.View()
+			if m.view.WindowWidth > 0 && m.view.WindowHeight > 0 {
+				return lipgloss.Place(m.view.WindowWidth, m.view.WindowHeight, lipgloss.Center, lipgloss.Center, content)
+			}
+			return content
+		case screen.TypeCommit:
+			// Resize viewport to fit window
+			if cs, ok := scr.(*screen.CommitScreen); ok {
+				vpWidth := max(80, int(float64(m.view.WindowWidth)*0.95))
+				vpHeight := max(20, int(float64(m.view.WindowHeight)*0.85))
+				cs.Viewport.Width = vpWidth
+				cs.Viewport.Height = vpHeight
+			}
+			return m.overlayPopup(baseView, scr.View(), 2)
+		case screen.TypePRSelect:
+			// PR selection screen with 2-margin popup
+			return m.overlayPopup(baseView, scr.View(), 2)
+		default:
+			// Default: overlay popup
+			return m.overlayPopup(baseView, scr.View(), 3)
+		}
+	}
+
+	// Handle Modal Overlays (legacy path)
 	switch m.currentScreen {
 	case screenPalette:
 		if m.paletteScreen != nil {
 			return m.overlayPopup(baseView, m.paletteScreen.View(), 3)
 		}
-	case screenPRSelect:
-		if m.prSelectionScreen != nil {
-			return m.overlayPopup(baseView, m.prSelectionScreen.View(), 2)
-		}
+	// PRSelect now handled by screen manager
 	case screenIssueSelect:
 		if m.issueSelectionScreen != nil {
 			return m.overlayPopup(baseView, m.issueSelectionScreen.View(), 2)
@@ -70,21 +96,6 @@ func (m *Model) View() string {
 			// We can pass 0,0 to use its internal defaults or a specific size
 			// In SetSize below we'll ensure it has a good "popup" size
 			return m.overlayPopup(baseView, m.helpScreen.View(), 4)
-		}
-	case screenCommit:
-		if m.commitScreen != nil {
-			// Resize viewport to fit window
-			vpWidth := int(float64(m.view.WindowWidth) * 0.95)
-			vpHeight := int(float64(m.view.WindowHeight) * 0.85)
-			if vpWidth < 80 {
-				vpWidth = 80
-			}
-			if vpHeight < 20 {
-				vpHeight = 20
-			}
-			m.commitScreen.viewport.Width = vpWidth
-			m.commitScreen.viewport.Height = vpHeight
-			return m.overlayPopup(baseView, m.commitScreen.View(), 2)
 		}
 	case screenConfirm:
 		if m.confirmScreen != nil {
@@ -152,11 +163,6 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 // renderScreen renders special screens that don't use overlays.
 func (m *Model) renderScreen() string {
 	switch m.currentScreen {
-	case screenCommit:
-		if m.commitScreen == nil {
-			m.commitScreen = NewCommitScreen(commitMeta{}, "", "", m.git.UseGitPager(), m.theme)
-		}
-		return m.commitScreen.View()
 	case screenConfirm:
 		if m.confirmScreen != nil {
 			return m.confirmScreen.View()
@@ -165,21 +171,6 @@ func (m *Model) renderScreen() string {
 		if m.infoScreen != nil {
 			return m.infoScreen.View()
 		}
-	case screenTrust:
-		if m.trustScreen == nil {
-			return ""
-		}
-		return m.trustScreen.View()
-	case screenWelcome:
-		if m.welcomeScreen == nil {
-			cwd, _ := os.Getwd()
-			m.welcomeScreen = NewWelcomeScreen(cwd, m.getRepoWorktreeDir(), m.theme)
-		}
-		content := m.welcomeScreen.View()
-		if m.view.WindowWidth > 0 && m.view.WindowHeight > 0 {
-			return lipgloss.Place(m.view.WindowWidth, m.view.WindowHeight, lipgloss.Center, lipgloss.Center, content)
-		}
-		return content
 	case screenPalette:
 		if m.paletteScreen != nil {
 			content := m.paletteScreen.View()

@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
 
@@ -906,23 +907,25 @@ func (m *Model) handleEnterKey() (tea.Model, tea.Cmd) {
 
 // handleMouse processes mouse events for scrolling and clicking
 func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	// Handle mouse scrolling for specific screens
-	if m.currentScreen == screenCommit && m.commitScreen != nil {
-		if msg.Action == tea.MouseActionPress {
-			switch msg.Button {
-			case tea.MouseButtonWheelUp:
-				m.commitScreen.viewport.ScrollUp(3)
-				return m, nil
-			case tea.MouseButtonWheelDown:
-				m.commitScreen.viewport.ScrollDown(3)
-				return m, nil
+	// Handle mouse scrolling for CommitScreen via screen manager
+	if m.screenManager.Type() == screen.TypeCommit {
+		if cs, ok := m.screenManager.Current().(*screen.CommitScreen); ok {
+			if msg.Action == tea.MouseActionPress {
+				switch msg.Button {
+				case tea.MouseButtonWheelUp:
+					cs.Viewport.ScrollUp(3)
+					return m, nil
+				case tea.MouseButtonWheelDown:
+					cs.Viewport.ScrollDown(3)
+					return m, nil
+				}
 			}
 		}
 		return m, nil
 	}
 
 	// Skip mouse handling when on other modal screens
-	if m.currentScreen != screenNone {
+	if m.screenManager.IsActive() || m.currentScreen != screenNone {
 		return m, nil
 	}
 

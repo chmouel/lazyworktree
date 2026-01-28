@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -74,8 +75,9 @@ func TestHandleOpenPRsLoaded(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command for PR selection")
 	}
-	if m.currentScreen != screenPRSelect || m.prSelectionScreen == nil {
-		t.Fatal("expected PR selection screen")
+	// Check screen manager instead of legacy currentScreen field
+	if !m.screenManager.IsActive() || m.screenManager.Type() != screen.TypePRSelect {
+		t.Fatalf("expected PR selection screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 }
 
@@ -366,10 +368,11 @@ func TestRunCommandsWithTrustTofu(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected no command for trust prompt")
 	}
-	if m.currentScreen != screenTrust {
-		t.Fatalf("expected trust screen, got %v", m.currentScreen)
+	// TrustScreen is now managed by screenManager
+	if !m.screenManager.IsActive() || m.screenManager.Type() != screen.TypeTrust {
+		t.Fatalf("expected trust screen via screenManager, got %v", m.screenManager.Type())
 	}
-	if m.trustScreen == nil || len(m.pending.Commands) != 1 {
+	if len(m.pending.Commands) != 1 {
 		t.Fatalf("expected pending commands to be set, got %v", m.pending.Commands)
 	}
 }
@@ -384,11 +387,12 @@ func TestClearPendingTrust(t *testing.T) {
 	m.pending.CommandCwd = "/tmp"
 	m.pending.After = func() tea.Msg { return nil }
 	m.pending.TrustPath = "/tmp/.wt.yaml"
-	m.trustScreen = NewTrustScreen("/tmp/.wt.yaml", []string{"cmd"}, m.theme)
+	// TrustScreen is now managed by screenManager
+	m.screenManager.Push(screen.NewTrustScreen("/tmp/.wt.yaml", []string{"cmd"}, m.theme))
 
 	m.clearPendingTrust()
 
-	if m.pending.Commands != nil || m.pending.CommandEnv != nil || m.pending.CommandCwd != "" || m.pending.After != nil || m.pending.TrustPath != "" || m.trustScreen != nil {
+	if m.pending.Commands != nil || m.pending.CommandEnv != nil || m.pending.CommandCwd != "" || m.pending.After != nil || m.pending.TrustPath != "" {
 		t.Fatal("expected pending trust state to be cleared")
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -826,11 +827,14 @@ func TestRenderScreenVariants(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
 
-	m.currentScreen = screenCommit
-	out := m.renderScreen()
-	if out == "" || m.commitScreen == nil {
+	// CommitScreen is now managed by screenManager
+	commitScr := screen.NewCommitScreen(screen.CommitMeta{SHA: "abc123"}, "stat", "diff", false, m.theme)
+	m.screenManager.Push(commitScr)
+	out := m.View()
+	if out == "" {
 		t.Fatal("expected commit screen to render")
 	}
+	m.screenManager.Pop()
 
 	m.confirmScreen = NewConfirmScreen("Confirm?", m.theme)
 	m.currentScreen = screenConfirm
@@ -844,17 +848,21 @@ func TestRenderScreenVariants(t *testing.T) {
 		t.Fatal("expected info screen to render")
 	}
 
-	m.trustScreen = NewTrustScreen("/tmp/.wt.yaml", []string{"cmd"}, m.theme)
-	m.currentScreen = screenTrust
-	if out = m.renderScreen(); out == "" {
+	// TrustScreen is now managed by screenManager
+	trustScr := screen.NewTrustScreen("/tmp/.wt.yaml", []string{"cmd"}, m.theme)
+	m.screenManager.Push(trustScr)
+	if out = m.View(); out == "" {
 		t.Fatal("expected trust screen to render")
 	}
+	m.screenManager.Pop()
 
-	m.welcomeScreen = nil
-	m.currentScreen = screenWelcome
-	if out = m.renderScreen(); out == "" {
+	// WelcomeScreen is now managed by screenManager
+	welcomeScr := screen.NewWelcomeScreen("/tmp", "/tmp/wt", m.theme)
+	m.screenManager.Push(welcomeScr)
+	if out = m.View(); out == "" {
 		t.Fatal("expected welcome screen to render")
 	}
+	m.screenManager.Pop()
 
 	m.paletteScreen = NewCommandPaletteScreen([]paletteItem{{id: "help", label: "Help"}}, 100, 40, m.theme)
 	m.currentScreen = screenPalette

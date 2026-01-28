@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -2536,11 +2537,12 @@ func TestHandleWorktreesLoadedEmpty(t *testing.T) {
 	updated, _ := m.handleWorktreesLoaded(msg)
 	updatedModel := updated.(*Model)
 
-	if updatedModel.currentScreen != screenWelcome {
-		t.Errorf("expected welcome screen, got %d", updatedModel.currentScreen)
+	// WelcomeScreen is now managed by screenManager
+	if !updatedModel.screenManager.IsActive() {
+		t.Error("expected screen manager to be active")
 	}
-	if updatedModel.welcomeScreen == nil {
-		t.Error("expected welcome screen to be created")
+	if updatedModel.screenManager.Type() != screen.TypeWelcome {
+		t.Errorf("expected welcome screen type, got %s", updatedModel.screenManager.Type())
 	}
 }
 
