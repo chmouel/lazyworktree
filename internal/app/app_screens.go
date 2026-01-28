@@ -84,36 +84,7 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.helpScreen = updated
 		}
 		return m, cmd
-	case screenPalette:
-		if m.paletteScreen == nil {
-			m.currentScreen = screenNone
-			return m, nil
-		}
-		keyStr := msg.String()
-		if isEscKey(keyStr) {
-			m.currentScreen = screenNone
-			m.paletteScreen = nil
-			return m, nil
-		}
-		if keyStr == keyEnter {
-			if m.paletteSubmit != nil {
-				if action, ok := m.paletteScreen.Selected(); ok {
-					cmd := m.paletteSubmit(action)
-					if m.currentScreen == screenPalette {
-						m.currentScreen = screenNone
-					}
-					m.paletteScreen = nil
-					m.paletteSubmit = nil
-					return m, cmd
-				}
-			}
-		}
-		ps, cmd := m.paletteScreen.Update(msg)
-		if updated, ok := ps.(*CommandPaletteScreen); ok {
-			m.paletteScreen = updated
-		}
-		return m, cmd
-	// PRSelection and IssueSelection now handled by screen manager
+	// PRSelection, IssueSelection, and CommandPalette now handled by screen manager
 	case screenCommitFiles:
 		if m.commitFilesScreen == nil {
 			m.currentScreen = screenNone
@@ -279,19 +250,37 @@ func (m *Model) showCommandPalette() tea.Cmd {
 	}
 	m.debugf("palette MRU: built %d items", mruCount)
 
-	items := toPaletteItems(paletteItems)
-	m.paletteScreen = NewCommandPaletteScreen(items, m.view.WindowWidth, m.view.WindowHeight, m.theme)
-	m.paletteSubmit = func(action string) tea.Cmd {
+	// Convert commands.PaletteItem to appscreen.PaletteItem
+	items := make([]appscreen.PaletteItem, len(paletteItems))
+	for i, item := range paletteItems {
+		items[i] = appscreen.PaletteItem{
+			ID:          item.ID,
+			Label:       item.Label,
+			Description: item.Description,
+			IsSection:   item.IsSection,
+			IsMRU:       item.IsMRU,
+		}
+	}
+
+	// Create screen with callbacks
+	paletteScreen := appscreen.NewCommandPaletteScreen(
+		items,
+		m.view.WindowWidth,
+		m.view.WindowHeight,
+		m.theme,
+	)
+
+	// Set OnSelect callback (preserve all existing logic)
+	paletteScreen.OnSelect = func(action string) tea.Cmd {
 		m.debugf("palette action: %s", action)
 
-		// Track usage for MRU
+		// IMPORTANT: Track usage for MRU
 		m.addToPaletteHistory(action)
 
 		// Handle tmux active session attachment
 		if after, ok := strings.CutPrefix(action, "tmux-attach:"); ok {
 			sessionName := after
 			insideTmux := os.Getenv("TMUX") != ""
-			// Use worktree prefix when attaching (sessions are stored with prefix)
 			fullSessionName := m.config.SessionPrefix + sessionName
 			return m.attachTmuxSessionCmd(fullSessionName, insideTmux)
 		}
@@ -299,17 +288,25 @@ func (m *Model) showCommandPalette() tea.Cmd {
 		// Handle zellij active session attachment
 		if after, ok := strings.CutPrefix(action, "zellij-attach:"); ok {
 			sessionName := after
-			// Use worktree prefix when attaching (sessions are stored with prefix)
 			fullSessionName := m.config.SessionPrefix + sessionName
 			return m.attachZellijSessionCmd(fullSessionName)
 		}
 
+		// Handle custom commands
 		if _, ok := m.config.CustomCommands[action]; ok {
 			return m.executeCustomCommand(action)
 		}
+
+		// Handle registry actions
 		return registry.Execute(action)
 	}
-	m.currentScreen = screenPalette
+
+	paletteScreen.OnCancel = func() tea.Cmd {
+		return nil
+	}
+
+	// Push to screen manager
+	m.screenManager.Push(paletteScreen)
 	return textinput.Blink
 }
 
@@ -469,23 +466,6 @@ func (m *Model) fetchPRDataWithState() tea.Cmd {
 	return m.fetchPRData()
 }
 
-func toPaletteItems(items []commands.PaletteItem) []paletteItem {
-	if len(items) == 0 {
-		return nil
-	}
-	converted := make([]paletteItem, len(items))
-	for i, item := range items {
-		converted[i] = paletteItem{
-			id:          item.ID,
-			label:       item.Label,
-			description: item.Description,
-			isSection:   item.IsSection,
-			isMRU:       item.IsMRU,
-		}
-	}
-	return converted
-}
-
 func (m *Model) showThemeSelection() tea.Cmd {
 	m.originalTheme = m.config.Theme
 	themes := theme.AvailableThemesWithCustoms(config.CustomThemesToThemeDataMap(m.config.CustomThemes))
@@ -581,9 +561,6 @@ func (m *Model) UpdateTheme(themeName string) {
 		if inputScreen, ok := m.screenManager.Current().(*appscreen.InputScreen); ok {
 			inputScreen.Thm = thm
 		}
-	}
-	if m.paletteScreen != nil {
-		m.paletteScreen.thm = thm
 	}
 	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypePRSelect {
 		if prScreen, ok := m.screenManager.Current().(*appscreen.PRSelectionScreen); ok {

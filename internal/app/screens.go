@@ -27,7 +27,6 @@ const (
 	screenTrust
 	screenWelcome
 	screenCommit
-	screenPalette
 	screenDiff
 	screenPRSelect
 	screenIssueSelect
@@ -137,24 +136,6 @@ type CommitScreen struct {
 }
 
 // CommandPaletteScreen lets the user pick a command from a filtered list.
-type CommandPaletteScreen struct {
-	items        []paletteItem
-	filtered     []paletteItem
-	filterInput  textinput.Model
-	cursor       int
-	scrollOffset int
-	width        int
-	height       int
-	thm          *theme.Theme
-}
-
-type paletteItem struct {
-	id          string
-	label       string
-	description string
-	isSection   bool
-	isMRU       bool
-}
 
 type selectionItem struct {
 	id          string
@@ -1047,49 +1028,9 @@ Custom themes: define custom_themes in the configuration file. Without a base th
 	return hs
 }
 
-// NewCommandPaletteScreen builds a palette populated with candidate commands.
-func NewCommandPaletteScreen(items []paletteItem, maxWidth, maxHeight int, thm *theme.Theme) *CommandPaletteScreen {
-	// Calculate palette width: 80% of screen, capped between 60 and 110
-	width := int(float64(maxWidth) * 0.8)
-	width = max(60, min(110, width))
-
-	ti := textinput.New()
-	ti.Placeholder = "Type a command..."
-	ti.CharLimit = 100
-	ti.Prompt = "> "
-	ti.Focus()
-	ti.Width = width - 4 // fits inside box with padding
-
-	// Find first non-section item for initial cursor
-	initialCursor := 0
-	for i, item := range items {
-		if !item.isSection {
-			initialCursor = i
-			break
-		}
-	}
-
-	screen := &CommandPaletteScreen{
-		items:        items,
-		filtered:     items,
-		filterInput:  ti,
-		cursor:       initialCursor,
-		scrollOffset: 0,
-		width:        width,
-		height:       maxHeight,
-		thm:          thm,
-	}
-	return screen
-}
-
 // Init prepares the help screen before it starts handling updates.
 func (s *HelpScreen) Init() tea.Cmd {
 	return nil
-}
-
-// Init configures the palette input before Bubble Tea updates begin.
-func (s *CommandPaletteScreen) Init() tea.Cmd {
-	return textinput.Blink
 }
 
 // Update handles scrolling and search input for the help screen.
@@ -1156,78 +1097,6 @@ func (s *HelpScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	s.viewport, cmd = s.viewport.Update(msg)
 	return s, cmd
-}
-
-// Update handles updates for the command palette
-func (s *CommandPaletteScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	maxVisible := 12
-
-	keyMsg, ok := msg.(tea.KeyMsg)
-	if ok {
-		switch keyMsg.String() {
-		case keyEnter:
-			return s, tea.Quit
-		case keyEsc, keyCtrlC:
-			s.cursor = -1
-			return s, tea.Quit
-		case keyUp:
-			if s.cursor > 0 {
-				s.cursor--
-				// Skip sections when navigating
-				for s.cursor > 0 && s.filtered[s.cursor].isSection {
-					s.cursor--
-				}
-				if s.cursor < s.scrollOffset {
-					s.scrollOffset = s.cursor
-				}
-			}
-			return s, nil
-		case keyDown:
-			if s.cursor < len(s.filtered)-1 {
-				s.cursor++
-				// Skip sections when navigating
-				for s.cursor < len(s.filtered)-1 && s.filtered[s.cursor].isSection {
-					s.cursor++
-				}
-				if s.cursor >= s.scrollOffset+maxVisible {
-					s.scrollOffset = s.cursor - maxVisible + 1
-				}
-			}
-			return s, nil
-		}
-	}
-
-	s.filterInput, cmd = s.filterInput.Update(msg)
-	s.applyFilter()
-	return s, cmd
-}
-
-func (s *CommandPaletteScreen) applyFilter() {
-	s.filtered = filterPaletteItems(s.items, s.filterInput.Value())
-
-	// Reset cursor and scroll offset if list changes
-	if s.cursor >= len(s.filtered) {
-		s.cursor = maxInt(0, len(s.filtered)-1)
-	}
-
-	// Find first non-section item for cursor
-	for s.cursor < len(s.filtered) && s.filtered[s.cursor].isSection {
-		s.cursor++
-	}
-	if s.cursor >= len(s.filtered) {
-		s.cursor = 0
-	}
-
-	s.scrollOffset = 0
-}
-
-// Selected reports the current palette selection if one exists.
-func (s *CommandPaletteScreen) Selected() (string, bool) {
-	if s.cursor < 0 || s.cursor >= len(s.filtered) {
-		return "", false
-	}
-	return s.filtered[s.cursor].id, true
 }
 
 // NewListSelectionScreen builds a list selection screen with 80% of screen size.
@@ -2165,136 +2034,6 @@ func (s *HelpScreen) View() string {
 	)
 
 	return boxStyle.Render(contentBlock)
-}
-
-// View displays the palette items and current filter text.
-func (s *CommandPaletteScreen) View() string {
-	width := s.width
-	if width == 0 {
-		width = 110 // fallback for tests
-	}
-
-	// Calculate maxVisible based on available height
-	// Reserve: 1 input + 1 separator + 1 footer + 2 border = ~5 lines
-	maxVisible := s.height - 5
-	maxVisible = max(5, min(20, maxVisible))
-	if s.height == 0 {
-		maxVisible = 12 // fallback for tests
-	}
-
-	// Enhanced palette modal with rounded border
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(s.thm.Accent).
-		Width(width).
-		Padding(0)
-
-	inputStyle := lipgloss.NewStyle().
-		Padding(0, 1).
-		Width(width - 2).
-		Foreground(s.thm.TextFg)
-
-	itemStyle := lipgloss.NewStyle().
-		Padding(0, 1).
-		Width(width - 2)
-
-	selectedStyle := lipgloss.NewStyle().
-		Padding(0, 1).
-		Width(width - 2).
-		Background(s.thm.Accent).
-		Foreground(s.thm.AccentFg).
-		Bold(true)
-
-	descStyle := lipgloss.NewStyle().
-		Foreground(s.thm.MutedFg)
-
-	selectedDescStyle := lipgloss.NewStyle().
-		Foreground(s.thm.TextFg)
-
-	noResultsStyle := lipgloss.NewStyle().
-		Padding(0, 1).
-		Width(width - 2).
-		Foreground(s.thm.MutedFg).
-		Italic(true)
-
-	// Render Input
-	inputView := inputStyle.Render(s.filterInput.View())
-
-	// Render Items
-	var itemViews []string
-
-	end := s.scrollOffset + maxVisible
-	if end > len(s.filtered) {
-		end = len(s.filtered)
-	}
-	start := s.scrollOffset
-	if start > end {
-		start = end // Should not happen if logic is correct
-	}
-
-	sectionStyle := lipgloss.NewStyle().
-		Padding(0, 1).
-		Width(width - 2).
-		Foreground(s.thm.Accent).
-		Bold(true)
-
-	for i := start; i < end; i++ {
-		it := s.filtered[i]
-
-		// Render section headers differently
-		if it.isSection {
-			itemViews = append(itemViews, sectionStyle.Render("── "+it.label+" ──"))
-			continue
-		}
-
-		// Truncate label if too long
-		label := it.label
-		desc := it.description
-
-		// Pad label to align descriptions somewhat
-		labelPad := 45
-		if len(label) > labelPad {
-			label = label[:labelPad-1] + "…"
-		}
-		paddedLabel := fmt.Sprintf("%-45s", label)
-
-		var line string
-		if i == s.cursor {
-			line = fmt.Sprintf("%s %s", paddedLabel, selectedDescStyle.Render(desc))
-			itemViews = append(itemViews, selectedStyle.Render(line))
-		} else {
-			line = fmt.Sprintf("%s %s", paddedLabel, descStyle.Render(desc))
-			itemViews = append(itemViews, itemStyle.Render(line))
-		}
-	}
-
-	if len(s.filtered) == 0 {
-		itemViews = append(itemViews, noResultsStyle.Render("No commands match your filter."))
-	}
-
-	// Separator
-	separator := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder(), false, false, true, false).
-		BorderForeground(s.thm.BorderDim).
-		Width(width - 2).
-		Render("")
-
-	// Footer
-	footerStyle := lipgloss.NewStyle().
-		Foreground(s.thm.MutedFg).
-		Align(lipgloss.Right).
-		Width(width - 2).
-		PaddingTop(1)
-	footer := footerStyle.Render("esc to close")
-
-	content := lipgloss.JoinVertical(lipgloss.Left,
-		inputView,
-		separator,
-		strings.Join(itemViews, "\n"),
-		footer,
-	)
-
-	return boxStyle.Render(content)
 }
 
 // NewTrustScreen warns the user when a repo config has changed or is untrusted.

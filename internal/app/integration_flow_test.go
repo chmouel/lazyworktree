@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -177,8 +178,13 @@ func TestIntegrationPaletteSelectsCustomCommand(t *testing.T) {
 		_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 	}
 
-	if _, ok := m.paletteScreen.Selected(); !ok {
-		t.Fatal("expected palette selection after filtering")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePalette {
+		t.Fatal("expected palette screen to be active")
+	}
+
+	paletteScreen := m.screenManager.Current().(*appscreen.CommandPaletteScreen)
+	if paletteScreen.Cursor >= len(paletteScreen.Filtered) {
+		t.Fatal("expected valid palette selection after filtering")
 	}
 
 	_, cmd := m.handleScreenKey(tea.KeyMsg{Type: tea.KeyEnter})
@@ -186,8 +192,8 @@ func TestIntegrationPaletteSelectsCustomCommand(t *testing.T) {
 		_ = cmd()
 	}
 
-	if m.currentScreen != screenNone {
-		t.Fatalf("expected palette to close, got %v", m.currentScreen)
+	if m.screenManager.IsActive() {
+		t.Fatalf("expected palette to close, screen manager still active with type %v", m.screenManager.Type())
 	}
 	if !containsCommand(recorder.execs, "bash") {
 		t.Fatalf("expected bash command to be executed, got %+v", recorder.execs)
@@ -371,9 +377,17 @@ func TestIntegrationPaletteSelectsActiveTmuxSession(t *testing.T) {
 	}
 
 	// Verify item is selected
-	if action, ok := m.paletteScreen.Selected(); !ok {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePalette {
+		t.Skip("palette screen not active after filtering")
+	}
+
+	paletteScreen := m.screenManager.Current().(*appscreen.CommandPaletteScreen)
+	if paletteScreen.Cursor >= len(paletteScreen.Filtered) {
 		t.Skip("palette filtering did not select any item (may vary by test environment)")
-	} else if !strings.HasPrefix(action, "tmux-attach:") {
+	}
+
+	action := paletteScreen.Filtered[paletteScreen.Cursor].ID
+	if !strings.HasPrefix(action, "tmux-attach:") {
 		// If it's not a tmux-attach action, that's okay - the filter might have matched something else
 		t.Logf("filtered item is not tmux-attach (got %q), skipping rest of test", action)
 		return
@@ -386,8 +400,8 @@ func TestIntegrationPaletteSelectsActiveTmuxSession(t *testing.T) {
 	}
 
 	// Verify palette is closed
-	if m.currentScreen != screenNone {
-		t.Fatalf("expected palette to close, got %v", m.currentScreen)
+	if m.screenManager.IsActive() {
+		t.Fatalf("expected palette to close, screen manager still active with type %v", m.screenManager.Type())
 	}
 
 	// Verify tmux command was executed

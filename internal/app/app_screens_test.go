@@ -3,50 +3,16 @@ package app
 import (
 	"errors"
 	"os/exec"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
-	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
-
-func TestFilterPaletteItemsEmptyQueryReturnsAll(t *testing.T) {
-	items := []paletteItem{
-		{id: "create", label: "Create worktree", description: "Add a new worktree"},
-		{id: "delete", label: "Delete worktree", description: "Remove worktree"},
-		{id: "help", label: "Help", description: "Show help"},
-	}
-
-	got := filterPaletteItems(items, "")
-	if !reflect.DeepEqual(got, items) {
-		t.Fatalf("expected items to be unchanged, got %#v", got)
-	}
-}
-
-func TestFilterPaletteItemsPrefersLabelMatches(t *testing.T) {
-	items := []paletteItem{
-		{id: "desc", label: "Delete worktree", description: "Create new worktree"},
-		{id: "label", label: "Create worktree", description: "Remove worktree"},
-		{id: "help", label: "Help", description: "Show help"},
-	}
-
-	got := filterPaletteItems(items, "create")
-	if len(got) < 2 {
-		t.Fatalf("expected at least two matches, got %d", len(got))
-	}
-	if got[0].id != "label" {
-		t.Fatalf("expected label match first, got %q", got[0].id)
-	}
-	if got[1].id != "desc" {
-		t.Fatalf("expected description match second, got %q", got[1].id)
-	}
-}
 
 func TestFuzzyScoreLowerMissingChars(t *testing.T) {
 	if _, ok := fuzzyScoreLower("zz", "create worktree"); ok {
@@ -210,20 +176,21 @@ func TestShowCommandPaletteIncludesCustomCommands(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("showCommandPalette returned nil command")
 	}
-	if m.paletteScreen == nil {
-		t.Fatal("paletteScreen should be initialized")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePalette {
+		t.Fatal("expected command palette screen")
 	}
 
-	items := m.paletteScreen.items
+	paletteScreen := m.screenManager.Current().(*appscreen.CommandPaletteScreen)
+	items := paletteScreen.Items
 	found := false
 	for _, item := range items {
-		if item.id == "x" {
+		if item.ID == "x" {
 			found = true
-			if item.label != "Run tests (x)" {
-				t.Errorf("Expected label 'Run tests (x)', got %q", item.label)
+			if item.Label != "Run tests (x)" {
+				t.Errorf("Expected label 'Run tests (x)', got %q", item.Label)
 			}
-			if item.description != "make test" {
-				t.Errorf("Expected description 'make test', got %q", item.description)
+			if item.Description != "make test" {
+				t.Errorf("Expected description 'make test', got %q", item.Description)
 			}
 			break
 		}
@@ -263,20 +230,21 @@ func TestShowCommandPaletteIncludesTmuxCommands(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("showCommandPalette returned nil command")
 	}
-	if m.paletteScreen == nil {
-		t.Fatal("paletteScreen should be initialized")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePalette {
+		t.Fatal("expected command palette screen")
 	}
 
-	items := m.paletteScreen.items
+	paletteScreen := m.screenManager.Current().(*appscreen.CommandPaletteScreen)
+	items := paletteScreen.Items
 	found := false
 	for _, item := range items {
-		if item.id == "t" {
+		if item.ID == "t" {
 			found = true
-			if item.label != "Tmux (t)" {
-				t.Errorf("Expected label 'Tmux (t)', got %q", item.label)
+			if item.Label != "Tmux (t)" {
+				t.Errorf("Expected label 'Tmux (t)', got %q", item.Label)
 			}
-			if item.description != tmuxSessionLabel {
-				t.Errorf("Expected description %q, got %q", tmuxSessionLabel, item.description)
+			if item.Description != tmuxSessionLabel {
+				t.Errorf("Expected description %q, got %q", tmuxSessionLabel, item.Description)
 			}
 			break
 		}
@@ -316,20 +284,21 @@ func TestShowCommandPaletteIncludesZellijCommands(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("showCommandPalette returned nil command")
 	}
-	if m.paletteScreen == nil {
-		t.Fatal("paletteScreen should be initialized")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePalette {
+		t.Fatal("expected command palette screen")
 	}
 
-	items := m.paletteScreen.items
+	paletteScreen := m.screenManager.Current().(*appscreen.CommandPaletteScreen)
+	items := paletteScreen.Items
 	found := false
 	for _, item := range items {
-		if item.id == "Z" {
+		if item.ID == "Z" {
 			found = true
-			if item.label != "Zellij (Z)" {
-				t.Errorf("Expected label 'Zellij (Z)', got %q", item.label)
+			if item.Label != "Zellij (Z)" {
+				t.Errorf("Expected label 'Zellij (Z)', got %q", item.Label)
 			}
-			if item.description != zellijSessionLabel {
-				t.Errorf("Expected description %q, got %q", zellijSessionLabel, item.description)
+			if item.Description != zellijSessionLabel {
+				t.Errorf("Expected description %q, got %q", zellijSessionLabel, item.Description)
 			}
 			break
 		}
@@ -344,9 +313,14 @@ func TestShowCommandPaletteHasSectionHeaders(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.showCommandPalette()
 
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePalette {
+		t.Fatal("expected command palette screen")
+	}
+
+	paletteScreen := m.screenManager.Current().(*appscreen.CommandPaletteScreen)
 	sectionCount := 0
-	for _, item := range m.paletteScreen.items {
-		if item.isSection {
+	for _, item := range paletteScreen.Items {
+		if item.IsSection {
 			sectionCount++
 		}
 	}
@@ -361,11 +335,16 @@ func TestShowCommandPaletteFirstItemIsSection(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.showCommandPalette()
 
-	if !m.paletteScreen.items[0].isSection {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePalette {
+		t.Fatal("expected command palette screen")
+	}
+
+	paletteScreen := m.screenManager.Current().(*appscreen.CommandPaletteScreen)
+	if !paletteScreen.Items[0].IsSection {
 		t.Error("expected first item to be a section header")
 	}
-	if m.paletteScreen.items[0].label != "Worktree Actions" {
-		t.Errorf("expected first section 'Worktree Actions', got %q", m.paletteScreen.items[0].label)
+	if paletteScreen.Items[0].Label != "Worktree Actions" {
+		t.Errorf("expected first section 'Worktree Actions', got %q", paletteScreen.Items[0].Label)
 	}
 }
 
@@ -373,6 +352,10 @@ func TestShowCommandPaletteHasAllActions(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
 	m.showCommandPalette()
+
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePalette {
+		t.Fatal("expected command palette screen")
+	}
 
 	expectedIDs := []string{
 		"create", "delete", "rename", "absorb", "prune",
@@ -385,10 +368,11 @@ func TestShowCommandPaletteHasAllActions(t *testing.T) {
 		"theme", "help",
 	}
 
+	paletteScreen := m.screenManager.Current().(*appscreen.CommandPaletteScreen)
 	itemIDs := make(map[string]bool)
-	for _, item := range m.paletteScreen.items {
-		if !item.isSection {
-			itemIDs[item.id] = true
+	for _, item := range paletteScreen.Items {
+		if !item.IsSection {
+			itemIDs[item.ID] = true
 		}
 	}
 
@@ -502,39 +486,38 @@ func TestRandomBranchName(t *testing.T) {
 }
 
 func TestCommandPaletteMRUDeduplication(t *testing.T) {
-	m := &Model{
-		config: &config.AppConfig{
-			PaletteMRU:      true,
-			PaletteMRULimit: 5,
-		},
-		paletteHistory: []commandPaletteUsage{
-			{ID: "refresh", Timestamp: time.Now().Unix(), Count: 5},
-			{ID: "create", Timestamp: time.Now().Unix() - 100, Count: 3},
-			{ID: "diff", Timestamp: time.Now().Unix() - 200, Count: 2},
-		},
-		view: &state.ViewState{
-			WindowWidth:  100,
-			WindowHeight: 50,
-		},
+	cfg := &config.AppConfig{
+		WorktreeDir:     t.TempDir(),
+		PaletteMRU:      true,
+		PaletteMRULimit: 5,
 	}
+	m := NewModel(cfg, "")
+	m.paletteHistory = []commandPaletteUsage{
+		{ID: "refresh", Timestamp: time.Now().Unix(), Count: 5},
+		{ID: "create", Timestamp: time.Now().Unix() - 100, Count: 3},
+		{ID: "diff", Timestamp: time.Now().Unix() - 200, Count: 2},
+	}
+	m.view.WindowWidth = 100
+	m.view.WindowHeight = 50
 
 	cmd := m.showCommandPalette()
 	if cmd == nil {
 		t.Errorf("showCommandPalette should not return nil, got %v", cmd)
 	}
 
-	if m.paletteScreen == nil {
-		t.Fatal("paletteScreen should be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePalette {
+		t.Fatal("expected command palette screen")
 	}
 
-	items := m.paletteScreen.items
+	paletteScreen := m.screenManager.Current().(*appscreen.CommandPaletteScreen)
+	items := paletteScreen.Items
 
 	// Check that MRU section exists and is first
 	if len(items) == 0 {
 		t.Fatal("palette should have items")
 	}
 
-	if !items[0].isSection || items[0].label != mruSectionLabel {
+	if !items[0].IsSection || items[0].Label != mruSectionLabel {
 		t.Errorf("first item should be 'Recently Used' section, got %+v", items[0])
 	}
 
@@ -545,8 +528,8 @@ func TestCommandPaletteMRUDeduplication(t *testing.T) {
 	inMRUSection := false
 
 	for i, item := range items {
-		if item.isSection {
-			if item.label == mruSectionLabel {
+		if item.IsSection {
+			if item.Label == mruSectionLabel {
 				inMRUSection = true
 			} else {
 				inMRUSection = false
@@ -554,19 +537,19 @@ func TestCommandPaletteMRUDeduplication(t *testing.T) {
 			continue
 		}
 
-		if item.id == testCommandRefresh {
+		if item.ID == testCommandRefresh {
 			refreshCount++
 			if !inMRUSection {
 				t.Errorf("'refresh' found outside MRU section at index %d", i)
 			}
 		}
-		if item.id == testCommandCreate {
+		if item.ID == testCommandCreate {
 			createCount++
 			if !inMRUSection {
 				t.Errorf("'create' found outside MRU section at index %d", i)
 			}
 		}
-		if item.id == "diff" {
+		if item.ID == "diff" {
 			diffCount++
 			if !inMRUSection {
 				t.Errorf("'diff' found outside MRU section at index %d", i)
@@ -587,30 +570,33 @@ func TestCommandPaletteMRUDeduplication(t *testing.T) {
 }
 
 func TestCommandPaletteMRUDisabled(t *testing.T) {
-	m := &Model{
-		config: &config.AppConfig{
-			PaletteMRU:      false,
-			PaletteMRULimit: 5,
-		},
-		paletteHistory: []commandPaletteUsage{
-			{ID: "refresh", Timestamp: time.Now().Unix(), Count: 5},
-		},
-		view: &state.ViewState{
-			WindowWidth:  100,
-			WindowHeight: 50,
-		},
+	cfg := &config.AppConfig{
+		WorktreeDir:     t.TempDir(),
+		PaletteMRU:      false,
+		PaletteMRULimit: 5,
 	}
+	m := NewModel(cfg, "")
+	m.paletteHistory = []commandPaletteUsage{
+		{ID: "refresh", Timestamp: time.Now().Unix(), Count: 5},
+	}
+	m.view.WindowWidth = 100
+	m.view.WindowHeight = 50
 
 	cmd := m.showCommandPalette()
 	if cmd == nil {
 		t.Errorf("showCommandPalette should not return nil, got %v", cmd)
 	}
 
-	items := m.paletteScreen.items
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePalette {
+		t.Fatal("expected command palette screen")
+	}
+
+	paletteScreen := m.screenManager.Current().(*appscreen.CommandPaletteScreen)
+	items := paletteScreen.Items
 
 	// Should NOT have MRU section when disabled
 	for _, item := range items {
-		if item.isSection && item.label == mruSectionLabel {
+		if item.IsSection && item.Label == mruSectionLabel {
 			t.Error("MRU section should not appear when palette_mru is false")
 		}
 	}
@@ -618,7 +604,7 @@ func TestCommandPaletteMRUDisabled(t *testing.T) {
 	// Items should appear in their original sections
 	refreshCount := 0
 	for _, item := range items {
-		if item.id == testCommandRefresh {
+		if item.ID == testCommandRefresh {
 			refreshCount++
 		}
 	}
@@ -629,54 +615,33 @@ func TestCommandPaletteMRUDisabled(t *testing.T) {
 }
 
 func TestCommandPaletteMRUEmptyHistory(t *testing.T) {
-	m := &Model{
-		config: &config.AppConfig{
-			PaletteMRU:      true,
-			PaletteMRULimit: 5,
-		},
-		paletteHistory: []commandPaletteUsage{},
-		view: &state.ViewState{
-			WindowWidth:  100,
-			WindowHeight: 50,
-		},
+	cfg := &config.AppConfig{
+		WorktreeDir:     t.TempDir(),
+		PaletteMRU:      true,
+		PaletteMRULimit: 5,
 	}
+	m := NewModel(cfg, "")
+	m.paletteHistory = []commandPaletteUsage{}
+	m.view.WindowWidth = 100
+	m.view.WindowHeight = 50
 
 	cmd := m.showCommandPalette()
 	if cmd == nil {
 		t.Errorf("showCommandPalette should not return nil, got %v", cmd)
 	}
 
-	items := m.paletteScreen.items
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePalette {
+		t.Fatal("expected command palette screen")
+	}
+
+	paletteScreen := m.screenManager.Current().(*appscreen.CommandPaletteScreen)
+	items := paletteScreen.Items
 
 	// Should NOT have MRU section when history is empty
 	for _, item := range items {
-		if item.isSection && item.label == mruSectionLabel {
+		if item.IsSection && item.Label == mruSectionLabel {
 			t.Error("MRU section should not appear when history is empty")
 		}
-	}
-}
-
-func TestFilterPaletteItemsSkipsMRU(t *testing.T) {
-	items := []paletteItem{
-		{label: mruSectionLabel, isSection: true},
-		{id: "refresh", label: "Refresh (r)", description: "Reload worktrees", isMRU: true},
-		{label: "Git Operations", isSection: true},
-		{id: "refresh", label: "Refresh (r)", description: "Reload worktrees"},
-		{id: "diff", label: "Show diff (d)", description: "Show diff"},
-	}
-
-	filtered := filterPaletteItems(items, "ref")
-
-	// Should skip MRU items and sections during filtering
-	if len(filtered) != 1 {
-		t.Errorf("expected 1 filtered item (refresh from Git Operations), got %d", len(filtered))
-		for i, item := range filtered {
-			t.Logf("  [%d] id=%s label=%s isMRU=%v isSection=%v", i, item.id, item.label, item.isMRU, item.isSection)
-		}
-	}
-
-	if len(filtered) > 0 && filtered[0].isMRU {
-		t.Error("filtered item should not be marked as MRU")
 	}
 }
 
@@ -881,11 +846,13 @@ func TestRenderScreenVariants(t *testing.T) {
 	}
 	m.screenManager.Pop()
 
-	m.paletteScreen = NewCommandPaletteScreen([]paletteItem{{id: "help", label: "Help"}}, 100, 40, m.theme)
-	m.currentScreen = screenPalette
+	paletteItems := []appscreen.PaletteItem{{ID: "help", Label: "Help"}}
+	paletteScr := appscreen.NewCommandPaletteScreen(paletteItems, 100, 40, m.theme)
+	m.screenManager.Push(paletteScr)
 	if out = m.renderScreen(); out == "" {
 		t.Fatal("expected palette screen to render")
 	}
+	m.screenManager.Pop()
 
 	if out = m.renderScreen(); out == "" {
 		t.Fatal("expected diff screen to render")

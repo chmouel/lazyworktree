@@ -64,6 +64,8 @@ func (m *Model) View() string {
 		case screen.TypePRSelect:
 			// PR selection screen with 2-margin popup
 			return m.overlayPopup(baseView, scr.View(), 2)
+		case screen.TypePalette:
+			return m.overlayPopup(baseView, scr.View(), 3)
 		default:
 			// Default: overlay popup
 			return m.overlayPopup(baseView, scr.View(), 3)
@@ -71,16 +73,8 @@ func (m *Model) View() string {
 	}
 
 	// Handle Modal Overlays (legacy path)
-	switch m.currentScreen {
-	case screenPalette:
-		if m.paletteScreen != nil {
-			return m.overlayPopup(baseView, m.paletteScreen.View(), 3)
-		}
-	// PRSelect and IssueSelect now handled by screen manager
-	case screenCommitFiles:
-		if m.commitFilesScreen != nil {
-			return m.overlayPopup(baseView, m.commitFilesScreen.View(), 2)
-		}
+	if m.currentScreen == screenCommitFiles && m.commitFilesScreen != nil {
+		return m.overlayPopup(baseView, m.commitFilesScreen.View(), 2)
 	}
 
 	if m.currentScreen != screenNone {
@@ -134,21 +128,6 @@ func (m *Model) renderScreen() string {
 	case screenInfo:
 		if m.infoScreen != nil {
 			return m.infoScreen.View()
-		}
-	case screenPalette:
-		if m.paletteScreen != nil {
-			content := m.paletteScreen.View()
-			if m.view.WindowWidth > 0 && m.view.WindowHeight > 0 {
-				content = lipgloss.NewStyle().MarginTop(3).Render(content)
-				return lipgloss.Place(
-					m.view.WindowWidth,
-					m.view.WindowHeight,
-					lipgloss.Center,
-					lipgloss.Top,
-					content,
-				)
-			}
-			return content
 		}
 	}
 	return ""

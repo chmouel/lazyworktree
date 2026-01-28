@@ -560,11 +560,6 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case keyEsc, keyEscRaw:
-		if m.currentScreen == screenPalette {
-			m.currentScreen = screenNone
-			m.paletteScreen = nil
-			return m, nil
-		}
 		if m.hasActiveFilterForPane(m.view.FocusedPane) {
 			return m.clearCurrentPaneFilter()
 		}

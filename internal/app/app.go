@@ -272,8 +272,6 @@ type Model struct {
 	currentScreen             screenType
 	currentDetailsPath        string
 	helpScreen                *HelpScreen
-	paletteScreen             *CommandPaletteScreen
-	paletteSubmit             func(string) tea.Cmd
 	spinner                   spinner.Model
 	loading                   bool
 	loadingOperation          string // Tracks what operation is loading (push, sync, etc.)

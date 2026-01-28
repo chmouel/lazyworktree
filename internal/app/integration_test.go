@@ -8,7 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
-	"github.com/chmouel/lazyworktree/internal/app/screen"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -337,7 +337,7 @@ func TestCommandPalette(t *testing.T) {
 		t.Fatal("Final model is not *Model type")
 	}
 
-	if m.currentScreen == screenPalette {
+	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypePalette {
 		t.Error("Command palette should be closed after pressing escape")
 	}
 }
@@ -461,7 +461,7 @@ func TestCommitScreenEscapeKey(t *testing.T) {
 	m := NewModel(cfg, "")
 
 	// Set up the commit screen via screen manager
-	commitScr := screen.NewCommitScreen(screen.CommitMeta{SHA: "abc123"}, "stat", "diff", false, m.theme)
+	commitScr := appscreen.NewCommitScreen(appscreen.CommitMeta{SHA: "abc123"}, "stat", "diff", false, m.theme)
 	m.screenManager.Push(commitScr)
 
 	// Simulate pressing ESC
@@ -495,7 +495,7 @@ func TestCommitScreenRawEscapeKey(t *testing.T) {
 	m := NewModel(cfg, "")
 
 	// Set up the commit screen via screen manager
-	commitScr := screen.NewCommitScreen(screen.CommitMeta{SHA: "abc123"}, "stat", "diff", false, m.theme)
+	commitScr := appscreen.NewCommitScreen(appscreen.CommitMeta{SHA: "abc123"}, "stat", "diff", false, m.theme)
 	m.screenManager.Push(commitScr)
 
 	// Simulate pressing ESC as a raw rune (how some terminals send it)
