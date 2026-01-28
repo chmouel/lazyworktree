@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chmouel/lazyworktree/internal/app/screen"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -95,17 +95,15 @@ func TestCreateFromPRResultMsgError(t *testing.T) {
 	}
 
 	// Should show info screen with error message
-	if m.currentScreen != screenInfo {
-		t.Fatalf("Expected screenInfo to be shown, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("Expected info screen to be shown, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil {
-		t.Fatal("Expected infoScreen to be set")
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Failed to create worktree from PR/MR #456") {
+		t.Errorf("Expected error message about PR #456, got %q", infoScr.Message)
 	}
-	if !strings.Contains(m.infoScreen.message, "Failed to create worktree from PR/MR #456") {
-		t.Errorf("Expected error message about PR #456, got %q", m.infoScreen.message)
-	}
-	if !strings.Contains(m.infoScreen.message, "failed to checkout branch") {
-		t.Errorf("Expected error details in message, got %q", m.infoScreen.message)
+	if !strings.Contains(infoScr.Message, "failed to checkout branch") {
+		t.Errorf("Expected error details in message, got %q", infoScr.Message)
 	}
 }
 
@@ -236,7 +234,7 @@ func TestHandleOpenPRsLoadedAsyncCreation(t *testing.T) {
 	msg := openPRsLoadedMsg{prs: prs}
 	_ = m.handleOpenPRsLoaded(msg)
 
-	if !m.screenManager.IsActive() || m.screenManager.Type() != screen.TypePRSelect {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePRSelect {
 		t.Fatalf("Expected screenPRSelect, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 }

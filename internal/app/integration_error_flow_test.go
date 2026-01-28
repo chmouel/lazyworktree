@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chmouel/lazyworktree/internal/app/screen"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -18,23 +18,24 @@ func TestIntegrationOpenPRsErrors(t *testing.T) {
 
 	updated, _ := m.Update(openPRsLoadedMsg{err: errors.New("boom")})
 	m = updated.(*Model)
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "Failed to fetch PRs") {
-		t.Fatalf("expected fetch error modal, got %#v", m.infoScreen)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Failed to fetch PRs") {
+		t.Fatalf("expected fetch error modal, got %q", infoScr.Message)
 	}
 
-	m.currentScreen = screenNone
-	m.infoScreen = nil
+	m.screenManager.Pop()
 
 	updated, _ = m.Update(openPRsLoadedMsg{prs: []*models.PRInfo{}})
 	m = updated.(*Model)
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "No open PRs") {
-		t.Fatalf("unexpected info modal: %#v", m.infoScreen)
+	infoScr2 := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr2.Message, "No open PRs") {
+		t.Fatalf("unexpected info modal: %q", infoScr2.Message)
 	}
 }
 
@@ -47,11 +48,11 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	missingBranch := &models.PRInfo{Number: 1, Title: "Add feature"}
 	updated, _ := m.Update(openPRsLoadedMsg{prs: []*models.PRInfo{missingBranch}})
 	m = updated.(*Model)
-	if !m.screenManager.IsActive() || m.screenManager.Type() != screen.TypePRSelect {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePRSelect {
 		t.Fatalf("expected PR selection screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 
-	prScreen := m.screenManager.Current().(*screen.PRSelectionScreen)
+	prScreen := m.screenManager.Current().(*appscreen.PRSelectionScreen)
 	if prScreen == nil {
 		t.Fatal("expected PRSelectionScreen to be set")
 	}
@@ -65,10 +66,10 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 		m = updated.(*Model)
 	}
 
-	if !m.screenManager.IsActive() || m.screenManager.Type() != screen.TypeInput {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
 		t.Fatal("expected input screen for PR selection")
 	}
-	inputScr := m.screenManager.Current().(*screen.InputScreen)
+	inputScr := m.screenManager.Current().(*appscreen.InputScreen)
 	inputScr.OnSubmit("pr1-add-feature", false)
 	if inputScr.ErrorMsg != errPRBranchMissing {
 		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
@@ -81,14 +82,14 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	duplicateBranch := "my-feature"
 	m.worktrees = []*models.WorktreeInfo{{Branch: duplicateBranch}}
 
-	prScreen = m.screenManager.Current().(*screen.PRSelectionScreen)
+	prScreen = m.screenManager.Current().(*appscreen.PRSelectionScreen)
 	cmd = prScreen.OnSelect(withBranch)
 	if cmd != nil {
 		updated, _ = m.Update(cmd())
 		m = updated.(*Model)
 	}
 
-	inputScr = m.screenManager.Current().(*screen.InputScreen)
+	inputScr = m.screenManager.Current().(*appscreen.InputScreen)
 	inputScr.OnSubmit(duplicateBranch, false)
 	if !strings.Contains(inputScr.ErrorMsg, "already exists") {
 		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
@@ -103,14 +104,14 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	updated, _ = m.Update(openPRsLoadedMsg{prs: []*models.PRInfo{withBranch}})
 	m = updated.(*Model)
 
-	prScreen = m.screenManager.Current().(*screen.PRSelectionScreen)
+	prScreen = m.screenManager.Current().(*appscreen.PRSelectionScreen)
 	cmd = prScreen.OnSelect(withBranch)
 	if cmd != nil {
 		updated, _ = m.Update(cmd())
 		m = updated.(*Model)
 	}
 
-	inputScr = m.screenManager.Current().(*screen.InputScreen)
+	inputScr = m.screenManager.Current().(*appscreen.InputScreen)
 	inputScr.OnSubmit(existsBranch, false)
 	if !strings.Contains(inputScr.ErrorMsg, "Path already exists") {
 		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)

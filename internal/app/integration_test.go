@@ -636,12 +636,12 @@ func TestMultipleErrorHandling(t *testing.T) {
 	loadMsg := worktreesLoadedMsg{worktrees: nil, err: os.ErrPermission}
 	updated, _ := m.handleWorktreesLoaded(loadMsg)
 	m = updated.(*Model)
-	if m.infoScreen == nil {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
 		t.Error("expected error to show info screen")
 	}
 
 	// Test PR data error
-	m.infoScreen = nil
+	m.screenManager.Pop()
 	prMsg := prDataLoadedMsg{prMap: nil, worktreePRs: nil, err: os.ErrPermission}
 	updated, _ = m.handlePRDataLoaded(prMsg)
 	m = updated.(*Model)

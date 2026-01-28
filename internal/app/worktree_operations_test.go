@@ -22,11 +22,12 @@ func TestShowCreateWorktreeFromChangesNoSelection(t *testing.T) {
 	if cmd != nil {
 		t.Error("Expected nil command when no worktree is selected")
 	}
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, errNoWorktreeSelected) {
-		t.Fatalf("expected info modal with %q, got %#v", errNoWorktreeSelected, m.infoScreen)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, errNoWorktreeSelected) {
+		t.Fatalf("expected info modal with %q, got %q", errNoWorktreeSelected, infoScr.Message)
 	}
 }
 
@@ -368,11 +369,12 @@ func TestCreateFromChangesReadyMsgShowsInfoOnBranchNameScriptError(t *testing.T)
 	if cmd != nil {
 		t.Fatal("expected no command when showing info screen")
 	}
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "Branch name script error") {
-		t.Fatalf("expected branch name script error modal, got %#v", m.infoScreen)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Branch name script error") {
+		t.Fatalf("expected branch name script error modal, got %q", infoScr.Message)
 	}
 }
 
@@ -406,11 +408,8 @@ func TestShowAbsorbWorktreeOnMainWorktree(t *testing.T) {
 	if cmd != nil {
 		t.Error("Expected nil command when trying to absorb main worktree")
 	}
-	if m.currentScreen != screenInfo {
-		t.Error("Expected screenInfo to be shown for error")
-	}
-	if m.infoScreen == nil {
-		t.Error("Expected infoScreen to be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Errorf("Expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 }
 
@@ -480,11 +479,8 @@ func TestShowAbsorbWorktreeNoMainWorktree(t *testing.T) {
 	if cmd != nil {
 		t.Error("Expected nil command when no main worktree exists")
 	}
-	if m.currentScreen != screenInfo {
-		t.Error("Expected screenInfo to be shown for error")
-	}
-	if m.infoScreen == nil {
-		t.Error("Expected infoScreen to be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Errorf("Expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 }
 
@@ -506,11 +502,8 @@ func TestShowAbsorbWorktreeOnMainBranch(t *testing.T) {
 	if cmd != nil {
 		t.Error("Expected nil command when worktree is on main branch")
 	}
-	if m.currentScreen != screenInfo {
-		t.Error("Expected screenInfo to be shown for error")
-	}
-	if m.infoScreen == nil {
-		t.Error("Expected infoScreen to be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Errorf("Expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 }
 
@@ -532,11 +525,8 @@ func TestShowAbsorbWorktreeDirtyMainWorktree(t *testing.T) {
 	if cmd != nil {
 		t.Error("Expected nil command when main worktree is dirty")
 	}
-	if m.currentScreen != screenInfo {
-		t.Error("Expected screenInfo to be shown for error")
-	}
-	if m.infoScreen == nil {
-		t.Error("Expected infoScreen to be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Errorf("Expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 }
 
@@ -581,12 +571,14 @@ func TestShowRenameWorktree(t *testing.T) {
 	if cmd := m.showRenameWorktree(); cmd != nil {
 		t.Fatal("expected nil command for main worktree")
 	}
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "Cannot rename") {
-		t.Fatalf("expected rename warning modal, got %#v", m.infoScreen)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Cannot rename") {
+		t.Fatalf("expected rename warning modal, got %q", infoScr.Message)
 	}
+	m.screenManager.Pop()
 
 	m.selectedIndex = 1
 	if cmd := m.showRenameWorktree(); cmd == nil {
@@ -623,11 +615,12 @@ func TestShowPruneMerged(t *testing.T) {
 	updated, _ := m.Update(msg)
 	m = updated.(*Model)
 
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || m.infoScreen.message != "No merged worktrees to prune." {
-		t.Fatalf("unexpected info modal: %#v", m.infoScreen)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if infoScr.Message != "No merged worktrees to prune." {
+		t.Fatalf("unexpected info modal: %q", infoScr.Message)
 	}
 
 	// Reset and test with a merged PR

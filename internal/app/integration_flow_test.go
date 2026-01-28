@@ -480,14 +480,12 @@ func TestIntegrationDiffViewerModesWithNoChanges(t *testing.T) {
 			m = updated.(*Model)
 
 			// Verify info screen is shown
-			if m.currentScreen != screenInfo {
-				t.Fatalf("expected screenInfo, got %v", m.currentScreen)
+			if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+				t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 			}
-			if m.infoScreen == nil {
-				t.Fatal("expected infoScreen to be set")
-			}
-			if m.infoScreen.message != testNoDiffMessage {
-				t.Fatalf("expected message 'No diff to show.', got %q", m.infoScreen.message)
+			infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+			if infoScr.Message != testNoDiffMessage {
+				t.Fatalf("expected message 'No diff to show.', got %q", infoScr.Message)
 			}
 
 			// Verify no command was executed
@@ -602,7 +600,7 @@ func TestIntegrationDiffViewerModesWithChanges(t *testing.T) {
 			}
 
 			// Verify no info screen is shown
-			if m.currentScreen == screenInfo {
+			if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypeInfo {
 				t.Fatal("expected no info screen when there are changes")
 			}
 		})

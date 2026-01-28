@@ -689,8 +689,12 @@ func TestShowCICheckLogEmptyLinkShowsInfo(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected nil command for empty link")
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "No link available") {
-		t.Fatalf("expected info message about no link, got %v", m.infoScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
+	}
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "No link available") {
+		t.Fatalf("expected info message about no link, got %q", infoScr.Message)
 	}
 }
 
@@ -760,8 +764,12 @@ func TestOpenCICheckSelectionNoChecks(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected nil command when no CI checks available")
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "No CI checks available") {
-		t.Fatalf("expected info message about no CI checks, got %v", m.infoScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
+	}
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "No CI checks available") {
+		t.Fatalf("expected info message about no CI checks, got %q", infoScr.Message)
 	}
 }
 

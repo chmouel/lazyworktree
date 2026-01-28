@@ -57,9 +57,8 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	m.debugf("screen key: %s screen=%s", msg.String(), screenName(m.currentScreen))
-	switch m.currentScreen {
 	// PRSelection, IssueSelection, and CommandPalette now handled by screen manager
-	case screenCommitFiles:
+	if m.currentScreen == screenCommitFiles {
 		if m.commitFilesScreen == nil {
 			m.currentScreen = screenNone
 			return m, nil

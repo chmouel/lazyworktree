@@ -9,7 +9,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/chmouel/lazyworktree/internal/app/screen"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -50,25 +50,28 @@ func TestHandleOpenPRsLoaded(t *testing.T) {
 	if cmd := m.handleOpenPRsLoaded(openPRsLoadedMsg{err: fmt.Errorf("fail")}); cmd != nil {
 		t.Fatal("expected no command on error")
 	}
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "Failed to fetch PRs") {
-		t.Fatalf("unexpected info modal: %#v", m.infoScreen)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Failed to fetch PRs") {
+		t.Fatalf("unexpected info modal: %q", infoScr.Message)
 	}
 
-	m.currentScreen = screenNone
-	m.infoScreen = nil
+	m.screenManager.Pop()
 
 	if cmd := m.handleOpenPRsLoaded(openPRsLoadedMsg{prs: []*models.PRInfo{}}); cmd != nil {
 		t.Fatal("expected no command on empty list")
 	}
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || m.infoScreen.message != "No open PRs/MRs found." {
-		t.Fatalf("unexpected info modal: %#v", m.infoScreen)
+	infoScr2 := m.screenManager.Current().(*appscreen.InfoScreen)
+	if infoScr2.Message != "No open PRs/MRs found." {
+		t.Fatalf("unexpected info modal: %q", infoScr2.Message)
 	}
+
+	m.screenManager.Pop()
 
 	prs := []*models.PRInfo{{Number: 1, Title: "Test", Branch: featureBranch}}
 	cmd := m.handleOpenPRsLoaded(openPRsLoadedMsg{prs: prs})
@@ -76,7 +79,7 @@ func TestHandleOpenPRsLoaded(t *testing.T) {
 		t.Fatal("expected command for PR selection")
 	}
 	// Check screen manager instead of legacy currentScreen field
-	if !m.screenManager.IsActive() || m.screenManager.Type() != screen.TypePRSelect {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePRSelect {
 		t.Fatalf("expected PR selection screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 }
@@ -174,16 +177,12 @@ func TestHandleAbsorbResult(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected no command on error")
 	}
-	if m.currentScreen != screenInfo {
-		t.Fatal("expected screenInfo to be shown for error")
-	}
-	if m.infoScreen == nil {
-		t.Fatal("expected infoScreen to be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 
 	// Reset for next test
-	m.currentScreen = screenNone
-	m.infoScreen = nil
+	m.screenManager.Pop()
 
 	_, cmd = m.handleAbsorbResult(absorbMergeResultMsg{path: "/tmp/wt", branch: featureBranch})
 	if cmd == nil {
@@ -211,10 +210,10 @@ func TestWorktreeDeletedMsg(t *testing.T) {
 		if cmd != nil {
 			t.Fatal("expected nil command")
 		}
-		if !m.screenManager.IsActive() || m.screenManager.Type() != screen.TypeConfirm {
+		if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeConfirm {
 			t.Fatal("expected confirm screen to be active")
 		}
-		confirmScreen, ok := m.screenManager.Current().(*screen.ConfirmScreen)
+		confirmScreen, ok := m.screenManager.Current().(*appscreen.ConfirmScreen)
 		if !ok {
 			t.Fatal("expected confirm screen in screen manager")
 		}
@@ -277,20 +276,17 @@ func TestHandleCherryPickResultSuccess(t *testing.T) {
 		t.Error("Expected nil command from handleCherryPickResult")
 	}
 
-	if m.currentScreen != screenInfo {
-		t.Error("Expected screenInfo to be shown")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Errorf("Expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 
-	if m.infoScreen == nil {
-		t.Fatal("Expected infoScreen to be set")
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Cherry-pick successful") {
+		t.Errorf("Expected success message, got: %s", infoScr.Message)
 	}
 
-	if !strings.Contains(m.infoScreen.message, "Cherry-pick successful") {
-		t.Errorf("Expected success message, got: %s", m.infoScreen.message)
-	}
-
-	if !strings.Contains(m.infoScreen.message, "abc1234") {
-		t.Errorf("Expected commit SHA in message, got: %s", m.infoScreen.message)
+	if !strings.Contains(infoScr.Message, "abc1234") {
+		t.Errorf("Expected commit SHA in message, got: %s", infoScr.Message)
 	}
 }
 
@@ -314,20 +310,17 @@ func TestHandleCherryPickResultError(t *testing.T) {
 		t.Error("Expected nil command from handleCherryPickResult")
 	}
 
-	if m.currentScreen != screenInfo {
-		t.Error("Expected screenInfo to be shown")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Errorf("Expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 
-	if m.infoScreen == nil {
-		t.Fatal("Expected infoScreen to be set")
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Cherry-pick failed") {
+		t.Errorf("Expected failure message, got: %s", infoScr.Message)
 	}
 
-	if !strings.Contains(m.infoScreen.message, "Cherry-pick failed") {
-		t.Errorf("Expected failure message, got: %s", m.infoScreen.message)
-	}
-
-	if !strings.Contains(m.infoScreen.message, "conflicts occurred") {
-		t.Errorf("Expected conflict error in message, got: %s", m.infoScreen.message)
+	if !strings.Contains(infoScr.Message, "conflicts occurred") {
+		t.Errorf("Expected conflict error in message, got: %s", infoScr.Message)
 	}
 }
 
@@ -370,7 +363,7 @@ func TestRunCommandsWithTrustTofu(t *testing.T) {
 		t.Fatal("expected no command for trust prompt")
 	}
 	// TrustScreen is now managed by screenManager
-	if !m.screenManager.IsActive() || m.screenManager.Type() != screen.TypeTrust {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeTrust {
 		t.Fatalf("expected trust screen via screenManager, got %v", m.screenManager.Type())
 	}
 	if len(m.pending.Commands) != 1 {
@@ -389,7 +382,7 @@ func TestClearPendingTrust(t *testing.T) {
 	m.pending.After = func() tea.Msg { return nil }
 	m.pending.TrustPath = "/tmp/.wt.yaml"
 	// TrustScreen is now managed by screenManager
-	m.screenManager.Push(screen.NewTrustScreen("/tmp/.wt.yaml", []string{"cmd"}, m.theme))
+	m.screenManager.Push(appscreen.NewTrustScreen("/tmp/.wt.yaml", []string{"cmd"}, m.theme))
 
 	m.clearPendingTrust()
 

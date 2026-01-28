@@ -777,22 +777,18 @@ func TestShowCommitSelectionShowsInfoOnBranchNameScriptError(t *testing.T) {
 		t.Fatal("expected nil command on script error")
 	}
 
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "Branch name script error") {
-		t.Fatalf("expected branch name script error modal, got %#v", m.infoScreen)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Branch name script error") {
+		t.Fatalf("expected branch name script error modal, got %q", infoScr.Message)
 	}
 
+	// After dismissing the info screen, we should be back at the list selection
 	m.screenManager.Pop()
-
-	_, action := m.handleScreenKey(tea.KeyMsg{Type: tea.KeyEnter})
-	if action != nil {
-		_ = action()
-	}
-
-	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInput {
-		t.Fatalf("expected input screen, got %v", m.screenManager.Type())
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected list screen after dismissing error, got %v", m.screenManager.Type())
 	}
 }
 

@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/chmouel/lazyworktree/internal/app/screen"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -1132,11 +1132,8 @@ func TestCommitStagedChangesNoStagedFiles(t *testing.T) {
 	}
 
 	// Should show info screen with message
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected screenInfo, got %v", m.currentScreen)
-	}
-	if m.infoScreen == nil {
-		t.Fatal("expected infoScreen to be set")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 }
 
@@ -1487,7 +1484,7 @@ func TestShowDeleteFileNoSelection(t *testing.T) {
 	if cmd := m.showDeleteFile(); cmd != nil {
 		t.Fatal("expected nil command when no worktree selected")
 	}
-	if m.confirmScreen != nil {
+	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypeConfirm {
 		t.Fatal("expected no confirm screen when no selection")
 	}
 }
@@ -1507,7 +1504,7 @@ func TestShowDeleteFileNoFiles(t *testing.T) {
 	if cmd := m.showDeleteFile(); cmd != nil {
 		t.Fatal("expected nil command when no files in tree")
 	}
-	if m.confirmScreen != nil {
+	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypeConfirm {
 		t.Fatal("expected no confirm screen when no files")
 	}
 }
@@ -1532,7 +1529,7 @@ func TestShowDeleteFileSingleFile(t *testing.T) {
 	if cmd := m.showDeleteFile(); cmd != nil {
 		t.Fatal("expected nil command for confirm screen setup")
 	}
-	if m.confirmScreen == nil || m.confirmAction == nil || m.currentScreen != screenConfirm {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeConfirm {
 		t.Fatal("expected confirm screen to be set for file deletion")
 	}
 }
@@ -1567,7 +1564,7 @@ func TestShowDeleteFileDirectory(t *testing.T) {
 	if cmd := m.showDeleteFile(); cmd != nil {
 		t.Fatal("expected nil command for confirm screen setup")
 	}
-	if m.confirmScreen == nil || m.confirmAction == nil || m.currentScreen != screenConfirm {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeConfirm {
 		t.Fatal("expected confirm screen to be set for directory deletion")
 	}
 }
@@ -1593,7 +1590,7 @@ func TestShowDeleteFileEmptyDirectory(t *testing.T) {
 	if cmd := m.showDeleteFile(); cmd != nil {
 		t.Fatal("expected nil command for empty directory")
 	}
-	if m.confirmScreen != nil {
+	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypeConfirm {
 		t.Fatal("expected no confirm screen for empty directory")
 	}
 }
@@ -2524,7 +2521,7 @@ func TestHandleWorktreesLoadedError(t *testing.T) {
 	if !updatedModel.worktreesLoaded {
 		t.Error("expected worktreesLoaded to be true even with error")
 	}
-	if updatedModel.infoScreen == nil {
+	if !updatedModel.screenManager.IsActive() || updatedModel.screenManager.Type() != appscreen.TypeInfo {
 		t.Error("expected info screen to be shown on error")
 	}
 }
@@ -2541,7 +2538,7 @@ func TestHandleWorktreesLoadedEmpty(t *testing.T) {
 	if !updatedModel.screenManager.IsActive() {
 		t.Error("expected screen manager to be active")
 	}
-	if updatedModel.screenManager.Type() != screen.TypeWelcome {
+	if updatedModel.screenManager.Type() != appscreen.TypeWelcome {
 		t.Errorf("expected welcome screen type, got %s", updatedModel.screenManager.Type())
 	}
 }
@@ -2643,11 +2640,8 @@ func TestHandleAbsorbResultError(t *testing.T) {
 	updated, _ := m.handleAbsorbResult(msg)
 	updatedModel := updated.(*Model)
 
-	if updatedModel.currentScreen != screenInfo {
-		t.Errorf("expected info screen, got %d", updatedModel.currentScreen)
-	}
-	if updatedModel.infoScreen == nil {
-		t.Error("expected info screen to be shown")
+	if !updatedModel.screenManager.IsActive() || updatedModel.screenManager.Type() != appscreen.TypeInfo {
+		t.Errorf("expected info screen, got active=%v type=%v", updatedModel.screenManager.IsActive(), updatedModel.screenManager.Type())
 	}
 }
 
@@ -2729,7 +2723,7 @@ func TestHandleOpenPRsLoadedEmpty(t *testing.T) {
 	msg := openPRsLoadedMsg{prs: []*models.PRInfo{}, err: nil}
 	cmd := m.handleOpenPRsLoaded(msg)
 
-	if m.infoScreen == nil {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
 		t.Error("expected info screen to be shown for empty PRs")
 	}
 	if cmd != nil {
@@ -2744,7 +2738,7 @@ func TestHandleOpenPRsLoadedError(t *testing.T) {
 	msg := openPRsLoadedMsg{prs: nil, err: os.ErrPermission}
 	cmd := m.handleOpenPRsLoaded(msg)
 
-	if m.infoScreen == nil {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
 		t.Error("expected info screen to be shown on error")
 	}
 	if cmd != nil {
@@ -2759,7 +2753,7 @@ func TestHandleOpenIssuesLoadedEmpty(t *testing.T) {
 	msg := openIssuesLoadedMsg{issues: []*models.IssueInfo{}, err: nil}
 	cmd := m.handleOpenIssuesLoaded(msg)
 
-	if m.infoScreen == nil {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
 		t.Error("expected info screen to be shown for empty issues")
 	}
 	if cmd != nil {
@@ -2774,7 +2768,7 @@ func TestHandleOpenIssuesLoadedError(t *testing.T) {
 	msg := openIssuesLoadedMsg{issues: nil, err: os.ErrPermission}
 	cmd := m.handleOpenIssuesLoaded(msg)
 
-	if m.infoScreen == nil {
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
 		t.Error("expected info screen to be shown on error")
 	}
 	if cmd != nil {

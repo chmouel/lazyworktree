@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
@@ -355,26 +356,26 @@ func TestNewConfirmScreenWithDefault(t *testing.T) {
 	thm := theme.Dracula()
 
 	t.Run("default button 0 (Confirm)", func(t *testing.T) {
-		screen := NewConfirmScreenWithDefault("Test message", 0, thm)
-		if screen.selectedButton != 0 {
-			t.Fatalf("expected default button to be 0, got %d", screen.selectedButton)
+		screen := appscreen.NewConfirmScreenWithDefault("Test message", 0, thm)
+		if screen.SelectedButton != 0 {
+			t.Fatalf("expected default button to be 0, got %d", screen.SelectedButton)
 		}
-		if screen.message != "Test message" {
-			t.Fatalf("expected message 'Test message', got %s", screen.message)
+		if screen.Message != "Test message" {
+			t.Fatalf("expected message 'Test message', got %s", screen.Message)
 		}
 	})
 
 	t.Run("default button 1 (Cancel)", func(t *testing.T) {
-		screen := NewConfirmScreenWithDefault("Test message", 1, thm)
-		if screen.selectedButton != 1 {
-			t.Fatalf("expected default button to be 1, got %d", screen.selectedButton)
+		screen := appscreen.NewConfirmScreenWithDefault("Test message", 1, thm)
+		if screen.SelectedButton != 1 {
+			t.Fatalf("expected default button to be 1, got %d", screen.SelectedButton)
 		}
 	})
 
 	t.Run("regular NewConfirmScreen defaults to 0", func(t *testing.T) {
-		screen := NewConfirmScreen("Test message", thm)
-		if screen.selectedButton != 0 {
-			t.Fatalf("expected NewConfirmScreen default button to be 0, got %d", screen.selectedButton)
+		screen := appscreen.NewConfirmScreen("Test message", thm)
+		if screen.SelectedButton != 0 {
+			t.Fatalf("expected NewConfirmScreen default button to be 0, got %d", screen.SelectedButton)
 		}
 	})
 }

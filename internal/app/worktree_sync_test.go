@@ -157,14 +157,12 @@ func TestPushToUpstreamBlocksWithLocalChanges(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected no command when local changes exist")
 	}
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected screenInfo, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil {
-		t.Fatal("expected infoScreen to be set")
-	}
-	if !strings.Contains(m.infoScreen.message, "Cannot push") {
-		t.Fatalf("unexpected info message: %q", m.infoScreen.message)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Cannot push") {
+		t.Fatalf("unexpected info message: %q", infoScr.Message)
 	}
 }
 
@@ -222,11 +220,12 @@ func TestPushToUpstreamRejectsConfiguredOtherBranch(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected no command when upstream is for another branch")
 	}
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected screenInfo, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "does not match current branch") {
-		t.Fatalf("unexpected info message: %q", m.infoScreen.message)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "does not match current branch") {
+		t.Fatalf("unexpected info message: %q", infoScr.Message)
 	}
 }
 
@@ -389,14 +388,12 @@ func TestSyncWithUpstreamBlocksWithLocalChanges(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected no command when local changes exist")
 	}
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected screenInfo, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil {
-		t.Fatal("expected infoScreen to be set")
-	}
-	if !strings.Contains(m.infoScreen.message, "Cannot synchronise") {
-		t.Fatalf("unexpected info message: %q", m.infoScreen.message)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Cannot synchronise") {
+		t.Fatalf("unexpected info message: %q", infoScr.Message)
 	}
 }
 
@@ -421,11 +418,12 @@ func TestSyncWithUpstreamRejectsConfiguredOtherBranch(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected no command when upstream is for another branch")
 	}
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected screenInfo, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "does not match current branch") {
-		t.Fatalf("unexpected info message: %q", m.infoScreen.message)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "does not match current branch") {
+		t.Fatalf("unexpected info message: %q", infoScr.Message)
 	}
 }
 
@@ -737,8 +735,7 @@ func TestConfirmYesCallsUpdateFromBase(t *testing.T) {
 	}
 
 	// Simulate user pressing YES (y key)
-	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
-	m = newModel.(*Model)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
 
 	if cmd == nil {
 		t.Fatal("expected command to be returned from confirmAction")

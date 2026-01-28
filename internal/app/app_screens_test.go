@@ -688,11 +688,12 @@ func TestShowCherryPickNoOtherWorktrees(t *testing.T) {
 	m.selectedIndex = 0
 
 	m.showCherryPick()
-	if m.currentScreen != screenInfo {
-		t.Error("Expected screenInfo to be shown")
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Error("Expected info screen to be shown")
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "No other worktrees available") {
-		t.Errorf("Expected info message about no worktrees, got: %v", m.infoScreen)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "No other worktrees available") {
+		t.Errorf("Expected info message about no worktrees, got: %v", infoScr.Message)
 	}
 }
 
@@ -818,17 +819,19 @@ func TestRenderScreenVariants(t *testing.T) {
 	}
 	m.screenManager.Pop()
 
-	m.confirmScreen = NewConfirmScreen("Confirm?", m.theme)
-	m.currentScreen = screenConfirm
-	if out = m.renderScreen(); out == "" {
+	confirmScr := appscreen.NewConfirmScreen("Confirm?", m.theme)
+	m.screenManager.Push(confirmScr)
+	if out = m.View(); out == "" {
 		t.Fatal("expected confirm screen to render")
 	}
+	m.screenManager.Pop()
 
-	m.infoScreen = NewInfoScreen("Info", m.theme)
-	m.currentScreen = screenInfo
-	if out = m.renderScreen(); out == "" {
+	infoScr := appscreen.NewInfoScreen("Info", m.theme)
+	m.screenManager.Push(infoScr)
+	if out = m.View(); out == "" {
 		t.Fatal("expected info screen to render")
 	}
+	m.screenManager.Pop()
 
 	// TrustScreen is now managed by screenManager
 	trustScr := appscreen.NewTrustScreen("/tmp/.wt.yaml", []string{"cmd"}, m.theme)
@@ -849,25 +852,26 @@ func TestRenderScreenVariants(t *testing.T) {
 	paletteItems := []appscreen.PaletteItem{{ID: "help", Label: "Help"}}
 	paletteScr := appscreen.NewCommandPaletteScreen(paletteItems, 100, 40, m.theme)
 	m.screenManager.Push(paletteScr)
-	if out = m.renderScreen(); out == "" {
+	if out = m.View(); out == "" {
 		t.Fatal("expected palette screen to render")
 	}
 	m.screenManager.Pop()
 
-	if out = m.renderScreen(); out == "" {
-		t.Fatal("expected diff screen to render")
+	// No active screen should still render something
+	if out = m.View(); out == "" {
+		t.Fatal("expected view to render something")
 	}
 
 	inputScr := appscreen.NewInputScreen("Prompt", "Placeholder", "value", m.theme, m.config.IconsEnabled())
 	m.screenManager.Push(inputScr)
-	if out = m.renderScreen(); out == "" {
+	if out = m.View(); out == "" {
 		t.Fatal("expected input screen to render")
 	}
 	m.screenManager.Pop()
 
 	listScreen := appscreen.NewListSelectionScreen([]appscreen.SelectionItem{{ID: "a", Label: "A"}}, "Select", "", "", 120, 40, "", m.theme)
 	m.screenManager.Push(listScreen)
-	if out = m.renderScreen(); out == "" {
+	if out = m.View(); out == "" {
 		t.Fatal("expected list selection screen to render")
 	}
 }
@@ -878,10 +882,11 @@ func TestErrMsgShowsInfo(t *testing.T) {
 
 	_, _ = m.Update(errMsg{err: errors.New("boom")})
 
-	if m.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", m.currentScreen)
+	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
-	if m.infoScreen == nil || !strings.Contains(m.infoScreen.message, "boom") {
-		t.Fatalf("expected info modal to include error, got %#v", m.infoScreen)
+	infoScr := m.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "boom") {
+		t.Fatalf("expected info modal to include error, got %q", infoScr.Message)
 	}
 }

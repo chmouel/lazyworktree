@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -138,17 +139,15 @@ func TestTmuxSessionReadyShowsInfoWhenNotAttaching(t *testing.T) {
 
 	updated, cmd := m.Update(tmuxSessionReadyMsg{sessionName: "wt_test", attach: false, insideTmux: false})
 	model := updated.(*Model)
-	if model.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", model.currentScreen)
+	if !model.screenManager.IsActive() || model.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", model.screenManager.IsActive(), model.screenManager.Type())
 	}
-	if model.infoScreen == nil {
-		t.Fatal("expected info screen to be created")
-	}
+	infoScr := model.screenManager.Current().(*appscreen.InfoScreen)
 	if cmd != nil {
 		t.Fatal("expected no command when not attaching")
 	}
-	if !strings.Contains(model.infoScreen.message, "tmux attach-session -t 'wt_test'") {
-		t.Errorf("expected attach message, got %q", model.infoScreen.message)
+	if !strings.Contains(infoScr.Message, "tmux attach-session -t 'wt_test'") {
+		t.Errorf("expected attach message, got %q", infoScr.Message)
 	}
 }
 
@@ -178,17 +177,15 @@ func TestZellijSessionReadyShowsInfoWhenInsideZellij(t *testing.T) {
 
 	updated, cmd := m.Update(zellijSessionReadyMsg{sessionName: "wt_test", attach: true, insideZellij: true})
 	model := updated.(*Model)
-	if model.currentScreen != screenInfo {
-		t.Fatalf("expected info screen, got %v", model.currentScreen)
+	if !model.screenManager.IsActive() || model.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", model.screenManager.IsActive(), model.screenManager.Type())
 	}
-	if model.infoScreen == nil {
-		t.Fatal("expected info screen to be created")
-	}
+	infoScr := model.screenManager.Current().(*appscreen.InfoScreen)
 	if cmd != nil {
 		t.Fatal("expected no command when inside zellij")
 	}
-	if !strings.Contains(model.infoScreen.message, "zellij attach 'wt_test'") {
-		t.Errorf("expected attach message, got %q", model.infoScreen.message)
+	if !strings.Contains(infoScr.Message, "zellij attach 'wt_test'") {
+		t.Errorf("expected attach message, got %q", infoScr.Message)
 	}
 }
 
