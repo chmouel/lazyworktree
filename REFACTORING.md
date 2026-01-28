@@ -6,7 +6,7 @@ This document tracks the ongoing refactoring of the lazyworktree codebase.
 
 **Branch:** `refactor`
 **Base:** `main`
-**Commits:** 5 completed + Phase 1 in progress
+**Commits:** 5 completed + Phase 2 complete (all screens migrated)
 
 ---
 
@@ -98,7 +98,7 @@ Created `internal/app/commands/`:
 
 ---
 
-## Phase 2: Migrate Complex Screens (NEAR COMPLETE)
+## Phase 2: Migrate Complex Screens (COMPLETE ✅)
 
 **Goal:** Migrate screens to `screen.Manager`, reducing `handleScreenKey` from ~494 lines incrementally.
 
@@ -521,11 +521,71 @@ msg := infoScr.Message  // Capitalized field
 - **Files modified:** 15 (source + test files)
 - **Tests passing:** ✅ All tests pass (`make sanity` ✅)
 
-#### CommitFilesScreen (Deferred)
+### Wave 2G: CommitFilesScreen Migration (COMPLETED ✅)
 
-| Screen | Complexity | Status | Notes |
-|--------|-----------|--------|-------|
-| CommitFilesScreen | High (tree-based) | Deferred | ~660 lines, tree navigation, requires separate task |
+**Goal:** Migrate CommitFilesScreen from legacy pattern to screen manager with callback-based file/diff actions.
+
+**Completed:**
+1. ✅ Created `screen/commit_files.go` (~737 lines) implementing Screen interface
+2. ✅ Migrated single usage site `app.go:862-882` (commitFilesLoadedMsg handler)
+3. ✅ Added callbacks: `OnShowFileDiff`, `OnShowCommitDiff`, `OnClose`
+4. ✅ Added `SetIconProviderFunc()` for devicon integration via `screen_icon_bridge.go`
+5. ✅ Removed legacy fields from Model:
+   - `commitFilesScreen *CommitFilesScreen`
+6. ✅ Removed legacy code from `screens.go`:
+   - `CommitFileTreeNode` struct
+   - `CommitFilesScreen` struct
+   - All associated methods and tree-building functions (~665 lines)
+7. ✅ Removed `screenCommitFiles` constant from screenType enum
+8. ✅ Removed legacy case blocks:
+   - `if m.currentScreen == screenCommitFiles` in `app_screens.go` (~80 lines)
+   - Legacy rendering path in `renderer.go`
+9. ✅ Updated theme switching to use screen manager for CommitFilesScreen
+10. ✅ Removed unused `arrowUp`, `arrowDown`, `arrowPair` functions from `devicons.go`
+11. ✅ Updated tests in `screens_test.go` to use `appscreen.NewCommitFilesScreen`
+12. ✅ All tests passing (`make sanity` ✅)
+
+**Features preserved:**
+- Tree-based file navigation with directory collapsing
+- File path compression for single-child directories
+- Filter and search functionality with live updates
+- File icons via devicon provider
+- Change type indicators ([+], [-], [~], [R], [C])
+- Commit metadata display (SHA, author, date, subject)
+- Keyboard navigation (j/k, g/G, Ctrl+D/U)
+
+**Pattern established:**
+```go
+// Converting commitMeta to screen.CommitMeta
+screenMeta := screen.CommitMeta{
+    SHA:     msg.meta.sha,
+    Author:  msg.meta.author,
+    Email:   msg.meta.email,
+    Date:    msg.meta.date,
+    Subject: msg.meta.subject,
+}
+commitFilesScr := screen.NewCommitFilesScreen(sha, wtPath, files, screenMeta, width, height, theme, showIcons)
+commitFilesScr.OnShowFileDiff = func(filename string) tea.Cmd {
+    return m.showCommitFileDiff(sha, filename, wtPath)
+}
+commitFilesScr.OnShowCommitDiff = func() tea.Cmd {
+    for _, w := range m.filteredWts {
+        if w.Path == wtPath {
+            return m.showCommitDiff(sha, w)
+        }
+    }
+    return nil
+}
+commitFilesScr.OnClose = func() tea.Cmd { return nil }
+m.screenManager.Push(commitFilesScr)
+```
+
+**Stats:**
+- **Lines removed:** ~845 (legacy code + case blocks + unused functions)
+- **Lines added:** ~834 (new commit_files.go + test updates)
+- **Net reduction:** ~11 lines
+- **Files modified:** 7 (1 new, 6 changed)
+- **Tests passing:** All (`make sanity` ✅)
 
 **Benefits achieved:**
 - Consistent callback pattern across all simple screens
@@ -583,10 +643,10 @@ internal/app/
 ├── app_git.go                # Git/PR operations
 ├── app_helpers.go            # Service wrappers
 ├── app_nav.go                # Navigation helpers
-├── app_screens.go            # Screen key handling
+├── app_screens.go            # Screen key handling (~740 lines)
 ├── app_status.go             # Status pane
 ├── handlers.go               # Main key handling
-├── screens.go                # Screen definitions (3524 lines - to be reduced)
+├── screens.go                # Legacy screen definitions (~485 lines)
 ├── ci.go                     # CI check logic
 ├── worktree_operations.go    # Worktree CRUD
 ├── worktree_sync.go          # Worktree synchronization
@@ -598,13 +658,26 @@ internal/app/
 ├── handlers/
 │   └── diff.go               # DiffRouter
 │
-├── screen/                   # NEW - Screen manager package
+├── screen/                   # Screen manager package (all screens migrated)
 │   ├── screen.go             # Screen interface and Type enum
 │   ├── manager.go            # Manager implementation
 │   ├── manager_test.go       # Tests
+│   ├── checklist.go          # ChecklistScreen
+│   ├── commit.go             # CommitScreen
+│   ├── commit_files.go       # CommitFilesScreen
 │   ├── confirm.go            # ConfirmScreen
+│   ├── help.go               # HelpScreen
 │   ├── info.go               # InfoScreen
-│   └── loading.go            # LoadingScreen
+│   ├── input.go              # InputScreen
+│   ├── issue_select.go       # IssueSelectionScreen
+│   ├── list_select.go        # ListSelectionScreen
+│   ├── loading.go            # LoadingScreen
+│   ├── palette.go            # CommandPaletteScreen
+│   ├── pr_select.go          # PRSelectionScreen
+│   ├── pr_select_test.go     # Tests
+│   ├── trust.go              # TrustScreen
+│   ├── ui_helpers.go         # Shared UI helpers
+│   └── welcome.go            # WelcomeScreen
 │
 ├── services/
 │   ├── environment.go        # Environment utilities
@@ -658,11 +731,11 @@ internal/app/
 | HelpScreen | `screen/help.go` | ~460 | None | Pending |
 | InputScreen | `screen/input.go` | ~400+ | `OnSubmit func(string, bool) (tea.Cmd, bool)` | ✅ Complete |
 
-**Wave 4: Tree-Based Screen**
+**Wave 4: Tree-Based Screen** (COMPLETED ✅)
 
-| Screen | New File | Lines | Callbacks |
-|--------|----------|-------|-----------|
-| CommitFilesScreen | `screen/commit_files.go` | ~400 | Action callbacks for diff/navigation |
+| Screen | New File | Lines | Callbacks | Status |
+|--------|----------|-------|-----------|--------|
+| CommitFilesScreen | `screen/commit_files.go` | 737 | `OnShowFileDiff`, `OnShowCommitDiff`, `OnClose` | ✅ Complete |
 
 #### Implementation Strategy
 
@@ -724,20 +797,54 @@ func (s *ExampleScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 func (s *ExampleScreen) View() string { /* ... */ }
 ```
 
-#### Target State
+#### Target State (ACHIEVED ✅)
 
 ```go
 func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
     if !m.screenManager.IsActive() {
         return m, nil
     }
-    screen, cmd := m.screenManager.Current().Update(msg)
-    if screen == nil {
-        m.screenManager.Pop()
+    current := m.screenManager.Current()
+    scr, cmd := current.Update(msg)
+    if scr == nil {
+        if m.screenManager.Current() == current {
+            m.screenManager.Pop()
+        }
+    } else {
+        m.screenManager.Set(scr)
     }
     return m, cmd
 }
 ```
+
+### Phase 2 Final Cleanup (COMPLETED ✅)
+
+With all screens migrated to the screen manager, the following cleanup was performed:
+
+#### Removed Obsolete Screen Type Constants
+
+From `screens.go`, removed 8 unused constants:
+- `screenInput`, `screenTrust`, `screenWelcome`, `screenCommit`
+- `screenDiff`, `screenPRSelect`, `screenIssueSelect`, `screenChecklist`
+
+Only `screenNone` and `screenLoading` remain (loading screen uses legacy pattern for spinner animation).
+
+#### Simplified `handleScreenKey`
+
+Removed legacy path and debug logging, reducing from 20 lines to 15 lines:
+- Removed `screenName()` helper function (no longer needed)
+- Removed dead code path that logged and returned nil
+- Function now only handles screen manager delegation
+
+#### Removed Dead Rendering Code
+
+From `renderer.go`:
+- Removed `renderScreen()` function (returned empty string)
+- Removed conditional check for `currentScreen != screenNone`
+
+#### Updated Debug Logging
+
+In `app.go`, replaced `screenName(m.currentScreen)` call with inline check for the two remaining screen states.
 
 ### Phase 3: Service Extraction (Future)
 
@@ -828,9 +935,9 @@ After each refactoring phase:
 
 | File | Lines | Status |
 |------|-------|--------|
-| `app.go` | ~910 | Refactored (confirm/info fields removed, screenManager used) |
-| `screens.go` | ~2753 | Reduced (~487 lines removed: InputScreen + Wave 2F) |
-| `app_screens.go` | ~980 | Simplified (confirm/info case blocks removed) |
+| `app.go` | ~907 | Refactored (all legacy screen fields removed, screenManager used) |
+| `screens.go` | ~493 | Reduced (~665 lines removed: CommitFilesScreen + Wave 2G) |
+| `app_screens.go` | ~760 | Simplified (all legacy case blocks removed) |
 | `handlers.go` | 1043 | Updated for screen manager |
 | `ci.go` | 330 | Could become service (Phase 3) |
 | `worktree_operations.go` | 864 | Could become service (Phase 3) |
@@ -846,8 +953,10 @@ After each refactoring phase:
 | `screen/issue_select.go` | 269 | IssueSelectionScreen migrated |
 | `screen/checklist.go` | 327 | ChecklistScreen migrated |
 | `screen/list_select.go` | 305 | ListSelectionScreen migrated |
-| `screen/input.go` | ~200 | InputScreen migrated (NEW) |
-| `screen/help.go` | 513 | HelpScreen migrated (NEW) |
+| `screen/input.go` | ~200 | InputScreen migrated |
+| `screen/help.go` | 513 | HelpScreen migrated |
+| `screen/palette.go` | 317 | CommandPaletteScreen migrated |
+| `screen/commit_files.go` | 737 | CommitFilesScreen migrated (NEW - Wave 2G) |
 | `screen/pr_select_test.go` | NEW | Tests for PRSelectionScreen |
 | `screen/ui_helpers.go` | NEW | Shared UI helper functions |
 | `screen/manager_test.go` | 195 | Tests |

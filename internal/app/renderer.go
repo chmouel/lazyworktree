@@ -72,15 +72,6 @@ func (m *Model) View() string {
 		}
 	}
 
-	// Handle Modal Overlays (legacy path)
-	if m.currentScreen == screenCommitFiles && m.commitFilesScreen != nil {
-		return m.overlayPopup(baseView, m.commitFilesScreen.View(), 2)
-	}
-
-	if m.currentScreen != screenNone {
-		return m.renderScreen()
-	}
-
 	return baseView
 }
 
@@ -116,12 +107,6 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 	}
 
 	return strings.Join(baseLines, "\n")
-}
-
-// renderScreen renders special screens that don't use overlays.
-func (m *Model) renderScreen() string {
-	// All screens now use screen manager
-	return ""
 }
 
 // truncateToHeight ensures output doesn't exceed maxLines.

@@ -90,17 +90,17 @@ func TestNewCommitFilesScreen(t *testing.T) {
 		{Filename: "cmd/main.go", ChangeType: "M"},
 		{Filename: "internal/app.go", ChangeType: "A"},
 	}
-	meta := commitMeta{sha: "123456"}
+	meta := appscreen.CommitMeta{SHA: "123456"}
 	thm := theme.Dracula()
-	screen := NewCommitFilesScreen("123456", "/tmp", files, meta, 100, 40, thm, false)
+	screen := appscreen.NewCommitFilesScreen("123456", "/tmp", files, meta, 100, 40, thm, false)
 
-	if screen.commitSHA != "123456" {
-		t.Errorf("expected sha 123456, got %s", screen.commitSHA)
+	if screen.CommitSHA != "123456" {
+		t.Errorf("expected sha 123456, got %s", screen.CommitSHA)
 	}
-	if len(screen.files) != 2 {
-		t.Errorf("expected 2 files, got %d", len(screen.files))
+	if len(screen.Files) != 2 {
+		t.Errorf("expected 2 files, got %d", len(screen.Files))
 	}
-	if screen.tree == nil {
+	if screen.Tree == nil {
 		t.Fatal("expected tree to be built")
 	}
 }
@@ -111,7 +111,7 @@ func TestBuildCommitFileTree(t *testing.T) {
 		{Filename: "a/d.go", ChangeType: "A"},
 		{Filename: "e.go", ChangeType: "D"},
 	}
-	tree := buildCommitFileTree(files)
+	tree := appscreen.BuildCommitFileTree(files)
 
 	// Root children should be "a" and "e.go"
 	if len(tree.Children) != 2 {
@@ -124,8 +124,8 @@ func TestSortCommitFileTree(t *testing.T) {
 		{Filename: "b.go", ChangeType: "M"},
 		{Filename: "a/c.go", ChangeType: "M"},
 	}
-	tree := buildCommitFileTree(files)
-	sortCommitFileTree(tree)
+	tree := appscreen.BuildCommitFileTree(files)
+	appscreen.SortCommitFileTree(tree)
 
 	// "a" (dir) should come before "b.go" (file)
 	if tree.Children[0].Path != "a" {
@@ -140,11 +140,11 @@ func TestCompressCommitFileTree(t *testing.T) {
 	files := []models.CommitFile{
 		{Filename: "a/b/c/d.go", ChangeType: "M"},
 	}
-	tree := buildCommitFileTree(files)
+	tree := appscreen.BuildCommitFileTree(files)
 	// tree is Root -> a -> b -> c -> d.go
 	// We want to test compression logic on child 'a'
 	nodeA := tree.Children[0]
-	compressCommitFileTree(nodeA)
+	appscreen.CompressCommitFileTree(nodeA)
 
 	if len(nodeA.Children) != 1 {
 		t.Fatalf("expected 1 child for a, got %d", len(nodeA.Children))
@@ -162,23 +162,23 @@ func TestCommitFilesScreen_FlatRebuild(t *testing.T) {
 		{Filename: "dir/file.go", ChangeType: "M"},
 	}
 	thm := theme.Dracula()
-	screen := NewCommitFilesScreen("123", "", files, commitMeta{}, 100, 40, thm, false)
+	screen := appscreen.NewCommitFilesScreen("123", "", files, appscreen.CommitMeta{}, 100, 40, thm, false)
 
 	// With NewCommitFilesScreen not compressing root, we expect [dir, file.go]
-	if len(screen.treeFlat) != 2 {
-		t.Errorf("expected 2 items in flat list, got %d", len(screen.treeFlat))
+	if len(screen.TreeFlat) != 2 {
+		t.Errorf("expected 2 items in flat list, got %d", len(screen.TreeFlat))
 	}
 
 	// Collapse "dir"
 	screen.ToggleCollapse("dir")
 	// flat: [dir]
-	if len(screen.treeFlat) != 1 {
-		t.Errorf("expected 1 item in flat list after collapse, got %d", len(screen.treeFlat))
+	if len(screen.TreeFlat) != 1 {
+		t.Errorf("expected 1 item in flat list after collapse, got %d", len(screen.TreeFlat))
 	}
 
 	screen.ToggleCollapse("dir")
-	if len(screen.treeFlat) != 2 {
-		t.Errorf("expected 2 items in flat list after expand, got %d", len(screen.treeFlat))
+	if len(screen.TreeFlat) != 2 {
+		t.Errorf("expected 2 items in flat list after expand, got %d", len(screen.TreeFlat))
 	}
 }
 
@@ -188,22 +188,22 @@ func TestCommitFilesScreen_ApplyFilter(t *testing.T) {
 		{Filename: "bar.go", ChangeType: "M"},
 	}
 	thm := theme.Dracula()
-	screen := NewCommitFilesScreen("123", "", files, commitMeta{}, 100, 40, thm, false)
+	screen := appscreen.NewCommitFilesScreen("123", "", files, appscreen.CommitMeta{}, 100, 40, thm, false)
 
-	screen.filterQuery = "foo"
-	screen.applyFilter()
+	screen.FilterQuery = "foo"
+	screen.ApplyFilter()
 
-	if len(screen.treeFlat) != 1 {
-		t.Errorf("expected 1 item after filter, got %d", len(screen.treeFlat))
+	if len(screen.TreeFlat) != 1 {
+		t.Errorf("expected 1 item after filter, got %d", len(screen.TreeFlat))
 	}
-	if screen.treeFlat[0].Path != "foo.go" {
-		t.Errorf("expected 'foo.go', got %s", screen.treeFlat[0].Path)
+	if screen.TreeFlat[0].Path != "foo.go" {
+		t.Errorf("expected 'foo.go', got %s", screen.TreeFlat[0].Path)
 	}
 
-	screen.filterQuery = ""
-	screen.applyFilter()
-	if len(screen.treeFlat) != 2 {
-		t.Errorf("expected 2 items after clearing filter, got %d", len(screen.treeFlat))
+	screen.FilterQuery = ""
+	screen.ApplyFilter()
+	if len(screen.TreeFlat) != 2 {
+		t.Errorf("expected 2 items after clearing filter, got %d", len(screen.TreeFlat))
 	}
 }
 
@@ -214,20 +214,20 @@ func TestCommitFilesScreen_SearchNext(t *testing.T) {
 		{Filename: "c.go", ChangeType: "M"},
 	}
 	thm := theme.Dracula()
-	screen := NewCommitFilesScreen("123", "", files, commitMeta{}, 100, 40, thm, false)
+	screen := appscreen.NewCommitFilesScreen("123", "", files, appscreen.CommitMeta{}, 100, 40, thm, false)
 
-	screen.searchQuery = "b.go"
-	screen.cursor = 0 // on a.go
-	screen.searchNext(true)
+	screen.SearchQuery = "b.go"
+	screen.Cursor = 0 // on a.go
+	screen.SearchNext(true)
 
-	if screen.cursor != 1 {
-		t.Errorf("expected cursor at 1 (b.go), got %d", screen.cursor)
+	if screen.Cursor != 1 {
+		t.Errorf("expected cursor at 1 (b.go), got %d", screen.Cursor)
 	}
 
-	screen.searchQuery = "nonexistent"
-	screen.searchNext(true)
-	if screen.cursor != 1 {
-		t.Errorf("cursor should stay at 1, got %d", screen.cursor)
+	screen.SearchQuery = "nonexistent"
+	screen.SearchNext(true)
+	if screen.Cursor != 1 {
+		t.Errorf("cursor should stay at 1, got %d", screen.Cursor)
 	}
 }
 
@@ -237,44 +237,44 @@ func TestCommitFilesScreen_Update(t *testing.T) {
 		{Filename: "b.go", ChangeType: "M"},
 	}
 	thm := theme.Dracula()
-	screen := NewCommitFilesScreen("123", "", files, commitMeta{}, 100, 40, thm, false)
+	screen := appscreen.NewCommitFilesScreen("123", "", files, appscreen.CommitMeta{}, 100, 40, thm, false)
 
 	// Test navigation
-	screen.cursor = 0
+	screen.Cursor = 0
 	screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-	if screen.cursor != 1 {
-		t.Errorf("expected cursor 1 after 'j', got %d", screen.cursor)
+	if screen.Cursor != 1 {
+		t.Errorf("expected cursor 1 after 'j', got %d", screen.Cursor)
 	}
 	screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
-	if screen.cursor != 0 {
-		t.Errorf("expected cursor 0 after 'k', got %d", screen.cursor)
+	if screen.Cursor != 0 {
+		t.Errorf("expected cursor 0 after 'k', got %d", screen.Cursor)
 	}
 
 	// Test entering filter mode
 	screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("f")})
-	if !screen.showingFilter {
-		t.Error("expected showingFilter to be true after 'f'")
+	if !screen.ShowingFilter {
+		t.Error("expected ShowingFilter to be true after 'f'")
 	}
-	if !screen.filterInput.Focused() {
+	if !screen.FilterInput.Focused() {
 		t.Error("expected filter input to be focused")
 	}
 
 	// Test typing in filter
 	screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
-	if screen.filterInput.Value() != "a" {
-		t.Errorf("expected filter input 'a', got %s", screen.filterInput.Value())
+	if screen.FilterInput.Value() != "a" {
+		t.Errorf("expected filter input 'a', got %s", screen.FilterInput.Value())
 	}
 	// Should auto-apply filter
-	if screen.filterQuery != "a" {
-		t.Errorf("expected filter query 'a', got %s", screen.filterQuery)
+	if screen.FilterQuery != "a" {
+		t.Errorf("expected filter query 'a', got %s", screen.FilterQuery)
 	}
 
 	// Exit filter
 	screen.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if screen.showingFilter {
+	if screen.ShowingFilter {
 		t.Error("expected filter mode to end on Esc")
 	}
-	if screen.filterQuery != "" {
+	if screen.FilterQuery != "" {
 		t.Error("expected filter to clear on Esc")
 	}
 }
@@ -283,13 +283,13 @@ func TestCommitFilesScreen_View(t *testing.T) {
 	files := []models.CommitFile{
 		{Filename: "test.go", ChangeType: "M"},
 	}
-	meta := commitMeta{
-		sha:     "abcdef",
-		author:  "Me",
-		subject: "Fix it",
+	meta := appscreen.CommitMeta{
+		SHA:     "abcdef",
+		Author:  "Me",
+		Subject: "Fix it",
 	}
 	thm := theme.Dracula()
-	screen := NewCommitFilesScreen("abcdef", "", files, meta, 100, 40, thm, false)
+	screen := appscreen.NewCommitFilesScreen("abcdef", "", files, meta, 100, 40, thm, false)
 
 	view := screen.View()
 	if !strings.Contains(view, "Files in commit abcdef") {
@@ -308,7 +308,7 @@ func TestCommitFilesScreen_GetSelectedNode(t *testing.T) {
 		{Filename: "a.go", ChangeType: "M"},
 	}
 	thm := theme.Dracula()
-	screen := NewCommitFilesScreen("123", "", files, commitMeta{}, 100, 40, thm, false)
+	screen := appscreen.NewCommitFilesScreen("123", "", files, appscreen.CommitMeta{}, 100, 40, thm, false)
 
 	node := screen.GetSelectedNode()
 	if node == nil {
@@ -318,7 +318,7 @@ func TestCommitFilesScreen_GetSelectedNode(t *testing.T) {
 		t.Errorf("expected path 'a.go', got %s", node.Path)
 	}
 
-	screen.cursor = 100
+	screen.Cursor = 100
 	if screen.GetSelectedNode() != nil {
 		t.Error("expected nil node for out of bounds cursor")
 	}

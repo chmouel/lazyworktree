@@ -69,4 +69,6 @@ func (b *appIconProviderBridge) GetUIIcon(icon screen.UIIcon) string {
 // init sets up the icon provider bridge for the screen package.
 func init() {
 	screen.SetIconProvider(&appIconProviderBridge{})
+	// Set the devicon provider for the commit files screen
+	screen.SetIconProviderFunc(deviconForName)
 }

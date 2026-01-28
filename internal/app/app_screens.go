@@ -19,21 +19,6 @@ import (
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
-func screenName(screen screenType) string {
-	switch screen {
-	case screenNone:
-		return "none"
-	case screenInput:
-		return "input"
-	case screenTrust:
-		return "trust"
-	case screenCommitFiles:
-		return "commit-files"
-	default:
-		return "unknown"
-	}
-}
-
 func (m *Model) showInfo(message string, action tea.Cmd) {
 	infoScreen := appscreen.NewInfoScreen(message, m.theme)
 	infoScreen.OnClose = func() tea.Cmd { return action }
@@ -41,105 +26,20 @@ func (m *Model) showInfo(message string, action tea.Cmd) {
 }
 
 func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// New path: delegate to screen manager for migrated screens
-	if m.screenManager.IsActive() {
-		current := m.screenManager.Current()
-		scr, cmd := current.Update(msg)
-		if scr == nil {
-			// Only pop if the current screen hasn't already changed.
-			if m.screenManager.Current() == current {
-				m.screenManager.Pop()
-			}
-		} else {
-			m.screenManager.Set(scr)
-		}
-		return m, cmd
+	if !m.screenManager.IsActive() {
+		return m, nil
 	}
-
-	m.debugf("screen key: %s screen=%s", msg.String(), screenName(m.currentScreen))
-	// PRSelection, IssueSelection, and CommandPalette now handled by screen manager
-	if m.currentScreen == screenCommitFiles {
-		if m.commitFilesScreen == nil {
-			m.currentScreen = screenNone
-			return m, nil
+	current := m.screenManager.Current()
+	scr, cmd := current.Update(msg)
+	if scr == nil {
+		// Only pop if the current screen hasn't already changed.
+		if m.screenManager.Current() == current {
+			m.screenManager.Pop()
 		}
-		keyStr := msg.String()
-
-		// If filter or search is active, delegate to screen first
-		if m.commitFilesScreen.showingFilter || m.commitFilesScreen.showingSearch {
-			cs, cmd := m.commitFilesScreen.Update(msg)
-			if updated, ok := cs.(*CommitFilesScreen); ok {
-				m.commitFilesScreen = updated
-			}
-			return m, cmd
-		}
-
-		switch keyStr {
-		case keyQ, keyCtrlC:
-			m.commitFilesScreen = nil
-			m.currentScreen = screenNone
-			return m, nil
-		case keyEsc, keyEscRaw:
-			m.commitFilesScreen = nil
-			m.currentScreen = screenNone
-			return m, nil
-		case "f":
-			// Start filter mode
-			m.commitFilesScreen.showingFilter = true
-			m.commitFilesScreen.showingSearch = false
-			m.commitFilesScreen.filterInput.Placeholder = placeholderFilterFiles
-			m.commitFilesScreen.filterInput.SetValue(m.commitFilesScreen.filterQuery)
-			m.commitFilesScreen.filterInput.Focus()
-			return m, textinput.Blink
-		case "/":
-			// Start search mode
-			m.commitFilesScreen.showingSearch = true
-			m.commitFilesScreen.showingFilter = false
-			m.commitFilesScreen.filterInput.Placeholder = searchFiles
-			m.commitFilesScreen.filterInput.SetValue("")
-			m.commitFilesScreen.searchQuery = ""
-			m.commitFilesScreen.filterInput.Focus()
-			return m, textinput.Blink
-		case "d":
-			// Show full commit diff via pager
-			sha := m.commitFilesScreen.commitSHA
-			wtPath := m.commitFilesScreen.worktreePath
-			m.commitFilesScreen = nil
-			m.currentScreen = screenNone
-			// Find the worktree to pass to showCommitDiff
-			var wt *models.WorktreeInfo
-			for _, w := range m.filteredWts {
-				if w.Path == wtPath {
-					wt = w
-					break
-				}
-			}
-			if wt != nil {
-				return m, m.showCommitDiff(sha, wt)
-			}
-			return m, nil
-		case keyEnter:
-			node := m.commitFilesScreen.GetSelectedNode()
-			if node == nil {
-				return m, nil
-			}
-			if node.IsDir() {
-				m.commitFilesScreen.ToggleCollapse(node.Path)
-				return m, nil
-			}
-			// Show diff for this specific file
-			sha := m.commitFilesScreen.commitSHA
-			wtPath := m.commitFilesScreen.worktreePath
-			return m, m.showCommitFileDiff(sha, node.File.Filename, wtPath)
-		}
-		// Delegate navigation to screen
-		cs, cmd := m.commitFilesScreen.Update(msg)
-		if updated, ok := cs.(*CommitFilesScreen); ok {
-			m.commitFilesScreen = updated
-		}
-		return m, cmd
+	} else {
+		m.screenManager.Set(scr)
 	}
-	return m, nil
+	return m, cmd
 }
 
 func (m *Model) showCommandPalette() tea.Cmd {
@@ -489,8 +389,10 @@ func (m *Model) UpdateTheme(themeName string) {
 			helpScreen.Thm = thm
 		}
 	}
-	if m.commitFilesScreen != nil {
-		m.commitFilesScreen.thm = thm
+	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypeCommitFiles {
+		if commitFilesScreen, ok := m.screenManager.Current().(*appscreen.CommitFilesScreen); ok {
+			commitFilesScreen.Thm = thm
+		}
 	}
 
 	// Re-render info content with new theme

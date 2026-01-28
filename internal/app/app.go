@@ -346,9 +346,6 @@ type Model struct {
 	logEntries    []commitLogEntry
 	logEntriesAll []commitLogEntry
 
-	// Commit files screen for browsing files in a commit
-	commitFilesScreen *CommitFilesScreen
-
 	// Command history for ! command
 	commandHistory []string
 
@@ -566,7 +563,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case tea.KeyMsg:
-		m.debugf("key: %s screen=%s focus=%d filter=%t", msg.String(), screenName(m.currentScreen), m.view.FocusedPane, m.view.ShowingFilter)
+		screenStr := "none"
+		if m.currentScreen == screenLoading {
+			screenStr = "loading"
+		}
+		m.debugf("key: %s screen=%s focus=%d filter=%t", msg.String(), screenStr, m.view.FocusedPane, m.view.ShowingFilter)
 		if m.currentScreen != screenNone || m.screenManager.IsActive() {
 			return m.handleScreenKey(msg)
 		}
@@ -868,17 +869,42 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(msg.files) == 1 {
 			return m, m.showCommitFileDiff(msg.sha, msg.files[0].Filename, msg.worktreePath)
 		}
-		m.commitFilesScreen = NewCommitFilesScreen(
+		// Convert commitMeta to screen.CommitMeta
+		screenMeta := screen.CommitMeta{
+			SHA:     msg.meta.sha,
+			Author:  msg.meta.author,
+			Email:   msg.meta.email,
+			Date:    msg.meta.date,
+			Subject: msg.meta.subject,
+		}
+		commitFilesScr := screen.NewCommitFilesScreen(
 			msg.sha,
 			msg.worktreePath,
 			msg.files,
-			msg.meta,
+			screenMeta,
 			m.view.WindowWidth,
 			m.view.WindowHeight,
 			m.theme,
 			m.config.IconsEnabled(),
 		)
-		m.currentScreen = screenCommitFiles
+		// Set callbacks
+		sha := msg.sha
+		wtPath := msg.worktreePath
+		commitFilesScr.OnShowFileDiff = func(filename string) tea.Cmd {
+			return m.showCommitFileDiff(sha, filename, wtPath)
+		}
+		commitFilesScr.OnShowCommitDiff = func() tea.Cmd {
+			for _, w := range m.filteredWts {
+				if w.Path == wtPath {
+					return m.showCommitDiff(sha, w)
+				}
+			}
+			return nil
+		}
+		commitFilesScr.OnClose = func() tea.Cmd {
+			return nil
+		}
+		m.screenManager.Push(commitFilesScr)
 		return m, nil
 
 	case ciRerunResultMsg:

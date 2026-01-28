@@ -235,7 +235,7 @@ func TestHandleOpenPRsLoadedAsyncCreation(t *testing.T) {
 	_ = m.handleOpenPRsLoaded(msg)
 
 	if !m.screenManager.IsActive() || m.screenManager.Type() != appscreen.TypePRSelect {
-		t.Fatalf("Expected screenPRSelect, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
+		t.Fatalf("Expected TypePRSelect, got active=%v type=%v", m.screenManager.IsActive(), m.screenManager.Type())
 	}
 }
 
