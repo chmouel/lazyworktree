@@ -5,7 +5,7 @@ import (
 	"sort"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/chmouel/lazyworktree/internal/app/screen"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
 
@@ -523,8 +523,8 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.showCommandPalette()
 
 	case "?":
-		m.currentScreen = screenHelp
-		m.helpScreen = NewHelpScreen(m.view.WindowWidth, m.view.WindowHeight, m.config.CustomCommands, m.theme, m.config.IconsEnabled())
+		helpScreen := appscreen.NewHelpScreen(m.view.WindowWidth, m.view.WindowHeight, m.config.CustomCommands, m.theme, m.config.IconsEnabled())
+		m.screenManager.Push(helpScreen)
 		return m, nil
 
 	case "g":
@@ -903,8 +903,8 @@ func (m *Model) handleEnterKey() (tea.Model, tea.Cmd) {
 // handleMouse processes mouse events for scrolling and clicking
 func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	// Handle mouse scrolling for CommitScreen via screen manager
-	if m.screenManager.Type() == screen.TypeCommit {
-		if cs, ok := m.screenManager.Current().(*screen.CommitScreen); ok {
+	if m.screenManager.Type() == appscreen.TypeCommit {
+		if cs, ok := m.screenManager.Current().(*appscreen.CommitScreen); ok {
 			if msg.Action == tea.MouseActionPress {
 				switch msg.Button {
 				case tea.MouseButtonWheelUp:

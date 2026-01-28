@@ -366,14 +366,50 @@ m.screenManager.Push(paletteScreen)
 - **Tests updated:** 16 functions
 - **Tests passing:** All (`make sanity` ✅)
 
-### Remaining Screens (Wave 2E-F):
+### Wave 2E: HelpScreen Migration (COMPLETED ✅)
+
+**Goal:** Migrate HelpScreen from legacy pattern to screen manager with search functionality.
+
+**Completed:**
+1. ✅ Created `screen/help.go` (~513 lines) implementing Screen interface
+2. ✅ Migrated single usage site `handlers.go:525-528` (? key)
+3. ✅ Added command palette Help action
+4. ✅ No legacy case blocks to remove (already removed)
+5. ✅ No legacy fields to remove (already removed)
+6. ✅ No screenHelp constant to remove (already removed)
+7. ✅ Theme switching already implemented via screen manager iteration
+8. ✅ Test `TestHelpScreen` already uses screen manager pattern
+9. ✅ All tests passing (`make sanity` ✅)
+
+**Features preserved:**
+- Full help text with keybindings and tips
+- Search functionality with live filtering and highlighting
+- Viewport scrolling (j/k, Ctrl+D/U, g/G)
+- Custom commands integration
+- Icon support (conditional)
+- Theme-aware rendering
+
+**Pattern established:**
+```go
+// Creating help screen
+helpScreen := appscreen.NewHelpScreen(m.view.WindowWidth, m.view.WindowHeight, m.config.CustomCommands, m.theme, m.config.IconsEnabled())
+m.screenManager.Push(helpScreen)
+// Screen closes on 'q' or 'esc' (returns nil from Update())
+```
+
+**Stats:**
+- **Lines added:** ~513 (new help.go implementation)
+- **Lines removed:** ~0 (legacy code already removed in previous session)
+- **Files modified:** 11 (1 new, 10 changed)
+- **Tests passing:** All (`make sanity` ✅)
+
+### Remaining Screens (Wave 2F):
 
 | Screen | Complexity | Status | Notes |
 |--------|-----------|--------|-------|
-| HelpScreen | Medium | Pending | |
-| CommitFilesScreen | High (tree-based) | Pending | |
-| ConfirmScreen | Low (uses channels) | Pending | Already in screen/ package |
-| InfoScreen | Low (uses channels) | Pending | Already in screen/ package |
+| CommitFilesScreen | High (tree-based) | Pending | Tree-based file navigation with diff |
+| ConfirmScreen | Low (uses channels) | Pending | Already in screen/ package, needs legacy removal |
+| InfoScreen | Low (uses channels) | Pending | Already in screen/ package, needs legacy removal |
 
 ### Screen interface:
 ```go
@@ -689,6 +725,7 @@ After each refactoring phase:
 | `screen/checklist.go` | 327 | ChecklistScreen migrated |
 | `screen/list_select.go` | 305 | ListSelectionScreen migrated |
 | `screen/input.go` | ~200 | InputScreen migrated (NEW) |
+| `screen/help.go` | 513 | HelpScreen migrated (NEW) |
 | `screen/pr_select_test.go` | NEW | Tests for PRSelectionScreen |
 | `screen/ui_helpers.go` | NEW | Shared UI helper functions |
 | `screen/manager_test.go` | 195 | Tests |

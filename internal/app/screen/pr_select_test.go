@@ -230,6 +230,10 @@ func (p *testIconProvider) GetCIIcon(conclusion string) string {
 	return p.ciIcon
 }
 
+func (p *testIconProvider) GetUIIcon(icon UIIcon) string {
+	return ""
+}
+
 func TestPRSelectionScreenEmptyList(t *testing.T) {
 	scr := NewPRSelectionScreen([]*models.PRInfo{}, 80, 30, theme.Dracula(), true)
 

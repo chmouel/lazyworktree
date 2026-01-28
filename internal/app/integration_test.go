@@ -235,8 +235,8 @@ func TestHelpScreen(t *testing.T) {
 		t.Fatal("Final model is not *Model type")
 	}
 
-	// Help screen should be closed
-	if m.currentScreen == screenHelp {
+	// Help screen should be closed (screen manager should be inactive)
+	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypeHelp {
 		t.Error("Help screen should be closed after pressing 'q'")
 	}
 }

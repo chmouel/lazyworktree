@@ -271,7 +271,6 @@ type Model struct {
 	repoKeyOnce               sync.Once
 	currentScreen             screenType
 	currentDetailsPath        string
-	helpScreen                *HelpScreen
 	spinner                   spinner.Model
 	loading                   bool
 	loadingOperation          string // Tracks what operation is loading (push, sync, etc.)

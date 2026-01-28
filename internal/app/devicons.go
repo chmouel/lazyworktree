@@ -628,20 +628,6 @@ func arrowDown(showIcons bool) string {
 	return uiIcon(UIIconBehind)
 }
 
-func arrowLeft(showIcons bool) string {
-	if !showIcons {
-		return "Left"
-	}
-	return uiIcon(UIIconArrowLeft)
-}
-
-func arrowRight(showIcons bool) string {
-	if !showIcons {
-		return "Right"
-	}
-	return uiIcon(UIIconArrowRight)
-}
-
 func arrowPair(showIcons bool) string {
 	if !showIcons {
 		return "Up/Down"

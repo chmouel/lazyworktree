@@ -29,8 +29,6 @@ func screenName(screen screenType) string {
 		return "info"
 	case screenInput:
 		return "input"
-	case screenHelp:
-		return "help"
 	case screenTrust:
 		return "trust"
 	case screenCommitFiles:
@@ -64,30 +62,6 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	m.debugf("screen key: %s screen=%s", msg.String(), screenName(m.currentScreen))
 	switch m.currentScreen {
-	case screenHelp:
-		if m.helpScreen == nil {
-			m.helpScreen = NewHelpScreen(m.view.WindowWidth, m.view.WindowHeight, m.config.CustomCommands, m.theme, m.config.IconsEnabled())
-		}
-		keyStr := msg.String()
-		if keyStr == keyQ || isEscKey(keyStr) {
-			// If currently searching, esc clears search; otherwise close help
-			if m.helpScreen.searching || m.helpScreen.searchQuery != "" {
-				m.helpScreen.searching = false
-				m.helpScreen.searchInput.Blur()
-				m.helpScreen.searchInput.SetValue("")
-				m.helpScreen.searchQuery = ""
-				m.helpScreen.refreshContent()
-				return m, nil
-			}
-			m.currentScreen = screenNone
-			m.helpScreen = nil
-			return m, nil
-		}
-		hs, cmd := m.helpScreen.Update(msg)
-		if updated, ok := hs.(*HelpScreen); ok {
-			m.helpScreen = updated
-		}
-		return m, cmd
 	// PRSelection, IssueSelection, and CommandPalette now handled by screen manager
 	case screenCommitFiles:
 		if m.commitFilesScreen == nil {
@@ -452,7 +426,8 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 	commands.RegisterSettingsActions(registry, commands.SettingsHandlers{
 		Theme: m.showThemeSelection,
 		Help: func() tea.Cmd {
-			m.currentScreen = screenHelp
+			helpScreen := appscreen.NewHelpScreen(m.view.WindowWidth, m.view.WindowHeight, m.config.CustomCommands, m.theme, m.config.IconsEnabled())
+			m.screenManager.Push(helpScreen)
 			return nil
 		},
 	})
@@ -549,9 +524,6 @@ func (m *Model) UpdateTheme(themeName string) {
 	m.filterInput.TextStyle = lipgloss.NewStyle().Foreground(thm.TextFg)
 
 	// Update other screens if they exist
-	if m.helpScreen != nil {
-		m.helpScreen.thm = thm
-	}
 	if m.confirmScreen != nil {
 		m.confirmScreen.thm = thm
 	}
@@ -579,6 +551,11 @@ func (m *Model) UpdateTheme(themeName string) {
 	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypeChecklist {
 		if checkScreen, ok := m.screenManager.Current().(*appscreen.ChecklistScreen); ok {
 			checkScreen.Thm = thm
+		}
+	}
+	if m.screenManager.IsActive() && m.screenManager.Type() == appscreen.TypeHelp {
+		if helpScreen, ok := m.screenManager.Current().(*appscreen.HelpScreen); ok {
+			helpScreen.Thm = thm
 		}
 	}
 	if m.commitFilesScreen != nil {
