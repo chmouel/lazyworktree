@@ -180,6 +180,22 @@ func TestPRSelectionScreenView(t *testing.T) {
 	}
 }
 
+func TestPRSelectionScreenCIIconsUseProvider(t *testing.T) {
+	previousProvider := currentIconProvider
+	SetIconProvider(&testIconProvider{ciIcon: "CI!"})
+	defer SetIconProvider(previousProvider)
+
+	prs := []*models.PRInfo{
+		{Number: 1, Title: "Test PR", Author: "testuser", CIStatus: "success"},
+	}
+	scr := NewPRSelectionScreen(prs, 80, 30, theme.Dracula(), true)
+
+	view := scr.View()
+	if !strings.Contains(view, "CI!") {
+		t.Fatalf("expected view to include CI icon from provider, got %q", view)
+	}
+}
+
 func TestPRSelectionScreenCIStatusColoring(t *testing.T) {
 	prs := []*models.PRInfo{
 		{Number: 1, Title: "Success PR", CIStatus: "success"},
@@ -196,6 +212,22 @@ func TestPRSelectionScreenCIStatusColoring(t *testing.T) {
 	if view == "" {
 		t.Error("expected non-empty view")
 	}
+}
+
+type testIconProvider struct {
+	ciIcon string
+}
+
+func (p *testIconProvider) GetPRIcon() string {
+	return "PR"
+}
+
+func (p *testIconProvider) GetIssueIcon() string {
+	return "ISS"
+}
+
+func (p *testIconProvider) GetCIIcon(conclusion string) string {
+	return p.ciIcon
 }
 
 func TestPRSelectionScreenEmptyList(t *testing.T) {

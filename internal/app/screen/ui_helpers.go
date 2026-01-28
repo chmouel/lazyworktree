@@ -14,6 +14,7 @@ const (
 type iconProvider interface {
 	GetPRIcon() string
 	GetIssueIcon() string
+	GetCIIcon(conclusion string) string
 }
 
 // defaultIconProvider provides fallback ASCII icons.
@@ -25,6 +26,10 @@ func (p *defaultIconProvider) GetPRIcon() string {
 
 func (p *defaultIconProvider) GetIssueIcon() string {
 	return "ISS"
+}
+
+func (p *defaultIconProvider) GetCIIcon(conclusion string) string {
+	return ""
 }
 
 var currentIconProvider iconProvider = &defaultIconProvider{}
@@ -72,8 +77,11 @@ func getCIStatusIcon(ciStatus string, isDraft, showIcons bool) string {
 	if isDraft {
 		return "D"
 	}
-	// For now, return simple ASCII indicators
-	// The real implementation uses ciIconForConclusion which we'll need to handle
+	if showIcons {
+		if icon := currentIconProvider.GetCIIcon(ciStatus); icon != "" {
+			return icon
+		}
+	}
 	switch ciStatus {
 	case "success":
 		return "S"
@@ -86,6 +94,6 @@ func getCIStatusIcon(ciStatus string, isDraft, showIcons bool) string {
 	case "pending":
 		return "P"
 	default:
-		return " "
+		return "?"
 	}
 }

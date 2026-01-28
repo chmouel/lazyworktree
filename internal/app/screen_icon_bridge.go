@@ -13,6 +13,10 @@ func (b *appIconProviderBridge) GetIssueIcon() string {
 	return getIconIssue()
 }
 
+func (b *appIconProviderBridge) GetCIIcon(conclusion string) string {
+	return ciIconForConclusion(conclusion)
+}
+
 // init sets up the icon provider bridge for the screen package.
 func init() {
 	screen.SetIconProvider(&appIconProviderBridge{})
