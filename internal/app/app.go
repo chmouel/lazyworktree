@@ -472,6 +472,8 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 			SearchTarget: state.SearchTargetWorktrees,
 			FocusedPane:  0,
 			ZoomedPane:   -1,
+			WindowWidth:  80,
+			WindowHeight: 24,
 		},
 		infoContent:   errNoWorktreeSelected,
 		statusContent: "Loading...",
