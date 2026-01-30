@@ -9,7 +9,7 @@ navigating multiple worktrees within a single repository.
 Built with [BubbleTea](https://github.com/charmbracelet/bubbletea), it focuses on fast iteration, clear state visibility, and tight integration with common Git tooling.
 
 ![Go](https://img.shields.io/badge/go-1.25%2B-blue)
-![Coverage](https://img.shields.io/badge/Coverage-67.6%25-yellow)
+![Coverage](https://img.shields.io/badge/Coverage-54.6%25-yellow)
 
 ## Screenshot
 
