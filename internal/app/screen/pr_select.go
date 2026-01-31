@@ -26,6 +26,12 @@ type PRSelectionScreen struct {
 	Thm          *theme.Theme
 	ShowIcons    bool
 
+	// AttachedBranches maps branch names to worktree names for branches already checked out
+	AttachedBranches map[string]string
+
+	// StatusMessage shows temporary feedback (e.g., when trying to select attached PR)
+	StatusMessage string
+
 	// Callbacks
 	OnSelect func(*models.PRInfo) tea.Cmd
 	OnCancel func() tea.Cmd
@@ -81,6 +87,11 @@ func (s *PRSelectionScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	case keyEnter:
 		if s.OnSelect != nil {
 			if pr, ok := s.Selected(); ok {
+				// Check if PR's branch is already attached to a worktree
+				if wtName, attached := s.isAttached(pr); attached {
+					s.StatusMessage = fmt.Sprintf("Branch already checked out in %q", wtName)
+					return s, nil
+				}
 				return nil, s.OnSelect(pr)
 			}
 		}
@@ -91,6 +102,7 @@ func (s *PRSelectionScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		}
 		return nil, nil
 	case "up", "k", "ctrl+k":
+		s.StatusMessage = "" // Clear status on navigation
 		if s.Cursor > 0 {
 			s.Cursor--
 			if s.Cursor < s.ScrollOffset {
@@ -99,6 +111,7 @@ func (s *PRSelectionScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		}
 		return s, nil
 	case "down", "j", "ctrl+j":
+		s.StatusMessage = "" // Clear status on navigation
 		if s.Cursor < len(s.Filtered)-1 {
 			s.Cursor++
 			if s.Cursor >= s.ScrollOffset+maxVisible {
@@ -155,6 +168,19 @@ func (s *PRSelectionScreen) View() string {
 		Foreground(s.Thm.MutedFg).
 		Italic(true)
 
+	disabledStyle := lipgloss.NewStyle().
+		Padding(0, 1).
+		Width(s.Width - 2).
+		Foreground(s.Thm.MutedFg).
+		Italic(true)
+
+	disabledSelectedStyle := lipgloss.NewStyle().
+		Padding(0, 1).
+		Width(s.Width - 2).
+		Background(s.Thm.BorderDim).
+		Foreground(s.Thm.MutedFg).
+		Italic(true)
+
 	// Render Input
 	inputView := inputStyle.Render(s.FilterInput.View())
 
@@ -185,6 +211,9 @@ func (s *PRSelectionScreen) View() string {
 	for i := start; i < end; i++ {
 		pr := s.Filtered[i]
 
+		// Check if this PR's branch is already attached to a worktree
+		wtName, isAttached := s.isAttached(pr)
+
 		// Format PR number
 		prNum := fmt.Sprintf("#%-5d", pr.Number)
 
@@ -198,10 +227,22 @@ func (s *PRSelectionScreen) View() string {
 		// Format CI status icon (draft takes precedence)
 		ciIcon := getCIStatusIcon(pr.CIStatus, pr.IsDraft, s.ShowIcons)
 
-		// Format title (truncate if needed)
+		// Format title (truncate if needed, with suffix for attached PRs)
 		title := pr.Title
-		if len(title) > titleWidth {
-			title = title[:titleWidth-1] + "…"
+		suffix := ""
+		availableTitleWidth := titleWidth
+		if isAttached {
+			suffix = fmt.Sprintf(" (in: %s)", wtName)
+			availableTitleWidth = titleWidth - len(suffix)
+			if availableTitleWidth < 10 {
+				availableTitleWidth = 10
+			}
+		}
+		if len(title) > availableTitleWidth {
+			title = title[:availableTitleWidth-1] + "…"
+		}
+		if isAttached {
+			title += suffix
 		}
 
 		// Build the label
@@ -213,10 +254,18 @@ func (s *PRSelectionScreen) View() string {
 
 		var line string
 		if i == s.Cursor {
-			line = selectedStyle.Render(prLabel)
+			if isAttached {
+				line = disabledSelectedStyle.Render(prLabel)
+			} else {
+				line = selectedStyle.Render(prLabel)
+			}
 		} else {
-			// Apply color to CI icon based on status
-			line = s.renderPRLine(itemStyle, iconPrefix, prNum, authorFmt, ciIcon, title, pr.CIStatus, pr.IsDraft)
+			if isAttached {
+				line = disabledStyle.Render(prLabel)
+			} else {
+				// Apply color to CI icon based on status
+				line = s.renderPRLine(itemStyle, iconPrefix, prNum, authorFmt, ciIcon, title, pr.CIStatus, pr.IsDraft)
+			}
 		}
 		itemViews = append(itemViews, line)
 	}
@@ -236,13 +285,18 @@ func (s *PRSelectionScreen) View() string {
 		Width(s.Width - 2).
 		Render("")
 
-	// Footer
+	// Footer with optional status message
 	footerStyle := lipgloss.NewStyle().
 		Foreground(s.Thm.MutedFg).
 		Align(lipgloss.Right).
 		Width(s.Width - 2).
 		PaddingTop(1)
-	footer := footerStyle.Render("Enter to select • Esc to cancel")
+	footerText := "Enter to select • Esc to cancel"
+	if s.StatusMessage != "" {
+		statusStyle := lipgloss.NewStyle().Foreground(s.Thm.WarnFg)
+		footerText = statusStyle.Render(s.StatusMessage) + "  •  " + footerText
+	}
+	footer := footerStyle.Render(footerText)
 
 	content := lipgloss.JoinVertical(lipgloss.Left,
 		titleStyle,
@@ -312,4 +366,14 @@ func (s *PRSelectionScreen) Selected() (*models.PRInfo, bool) {
 		return nil, false
 	}
 	return s.Filtered[s.Cursor], true
+}
+
+// isAttached checks if a PR's branch is already checked out in a worktree.
+// Returns the worktree name and true if attached, empty string and false otherwise.
+func (s *PRSelectionScreen) isAttached(pr *models.PRInfo) (string, bool) {
+	if s.AttachedBranches == nil {
+		return "", false
+	}
+	wtName, ok := s.AttachedBranches[pr.Branch]
+	return wtName, ok
 }

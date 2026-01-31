@@ -295,8 +295,17 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 		return nil
 	}
 
+	// Build map of branches already attached to worktrees
+	attachedBranches := make(map[string]string)
+	for _, wt := range m.state.data.worktrees {
+		if wt.Branch != "" {
+			attachedBranches[wt.Branch] = filepath.Base(wt.Path)
+		}
+	}
+
 	// Show PR selection screen
 	prScr := screen.NewPRSelectionScreen(msg.prs, m.state.view.WindowWidth, m.state.view.WindowHeight, m.theme, m.config.IconsEnabled())
+	prScr.AttachedBranches = attachedBranches
 	prScr.OnSelect = func(pr *models.PRInfo) tea.Cmd {
 		// Get AI-generated title (if configured)
 		generatedTitle := ""
@@ -370,6 +379,12 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 						return nil
 					}
 
+					// Check if PR's remote branch is already attached to a worktree
+					if wt := m.getWorktreeForBranch(pr.Branch); wt != nil {
+						inputScr.ErrorMsg = fmt.Sprintf("Branch %q is already checked out in worktree %q", pr.Branch, filepath.Base(wt.Path))
+						return nil
+					}
+
 					inputScr.ErrorMsg = ""
 					if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
 						return func() tea.Msg { return errMsg{err: err} }
@@ -378,6 +393,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 					// Create worktree from PR branch (can take time, so do it async with a loading pulse)
 					m.loading = true
 					m.statusContent = fmt.Sprintf("Creating worktree from PR/MR #%d...", pr.Number)
+					m.state.ui.screenManager.Clear() // Clear all stacked screens before loading
 					m.setLoadingScreen(m.statusContent)
 					m.pendingSelectWorktreePath = targetPath
 					return func() tea.Msg {
@@ -438,6 +454,12 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 				return nil
 			}
 
+			// Check if PR's remote branch is already attached to a worktree
+			if wt := m.getWorktreeForBranch(pr.Branch); wt != nil {
+				inputScr.ErrorMsg = fmt.Sprintf("Branch %q is already checked out in worktree %q", pr.Branch, filepath.Base(wt.Path))
+				return nil
+			}
+
 			inputScr.ErrorMsg = ""
 			if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
 				return func() tea.Msg { return errMsg{err: err} }
@@ -446,19 +468,20 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 			// Create worktree from PR branch (can take time, so do it async with a loading pulse)
 			m.loading = true
 			m.statusContent = fmt.Sprintf("Creating worktree from PR/MR #%d...", pr.Number)
+			m.state.ui.screenManager.Clear() // Clear all stacked screens before loading
 			m.setLoadingScreen(m.statusContent)
 			m.pendingSelectWorktreePath = targetPath
 			return func() tea.Msg {
-				ok := m.state.services.git.CreateWorktreeFromPR(m.ctx, pr.Number, pr.Branch, pr.Branch, targetPath)
+				ok := m.state.services.git.CreateWorktreeFromPR(m.ctx, pr.Number, pr.Branch, newBranch, targetPath)
 				if !ok {
 					return createFromPRResultMsg{
 						prNumber:   pr.Number,
-						branch:     pr.Branch,
+						branch:     newBranch,
 						targetPath: targetPath,
 						err:        fmt.Errorf("create worktree from PR/MR branch %q", pr.Branch),
 					}
 				}
-				return createFromPRResultMsg{prNumber: pr.Number, branch: pr.Branch, targetPath: targetPath}
+				return createFromPRResultMsg{prNumber: pr.Number, branch: newBranch, targetPath: targetPath}
 			}
 		}
 
@@ -576,6 +599,7 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 					// Create worktree from base branch (can take time, so do it async with a loading pulse)
 					m.loading = true
 					m.statusContent = fmt.Sprintf("Creating worktree from issue #%d...", issue.Number)
+					m.state.ui.screenManager.Clear() // Clear all stacked screens before loading
 					m.setLoadingScreen(m.statusContent)
 					m.pendingSelectWorktreePath = targetPath
 					return func() tea.Msg {

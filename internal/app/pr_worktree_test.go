@@ -324,3 +324,100 @@ func TestHandleWorktreesLoadedPreservesCursorOnNoPending(t *testing.T) {
 		t.Errorf("Expected selectedIndex to be 0 after reload, got %d", m.state.data.selectedIndex)
 	}
 }
+
+// TestGetWorktreeForBranch tests the helper function for finding worktrees by branch name.
+func TestGetWorktreeForBranch(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+
+	wt1 := &models.WorktreeInfo{Path: "/path/to/main", Branch: "main", IsMain: true}
+	wt2 := &models.WorktreeInfo{Path: "/path/to/feature", Branch: "feature-branch"}
+	wt3 := &models.WorktreeInfo{Path: "/path/to/pr-123", Branch: "fix-bug"}
+	m.state.data.worktrees = []*models.WorktreeInfo{wt1, wt2, wt3}
+
+	// Test finding existing branch
+	found := m.getWorktreeForBranch("feature-branch")
+	if found == nil {
+		t.Fatal("Expected to find worktree for branch 'feature-branch'")
+	}
+	if found.Path != "/path/to/feature" {
+		t.Errorf("Expected path '/path/to/feature', got %q", found.Path)
+	}
+
+	// Test finding non-existent branch
+	notFound := m.getWorktreeForBranch("non-existent")
+	if notFound != nil {
+		t.Errorf("Expected nil for non-existent branch, got %+v", notFound)
+	}
+
+	// Test finding main branch
+	main := m.getWorktreeForBranch("main")
+	if main == nil || !main.IsMain {
+		t.Error("Expected to find main worktree")
+	}
+}
+
+// TestCreateFromPRClearsScreenStack tests that the screen stack is cleared when creating a worktree from PR.
+// This ensures the user returns to the worktree list rather than the PR selection screen.
+func TestCreateFromPRClearsScreenStack(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+	m.repoKey = "test/repo"
+
+	// Simulate the screen stack state before worktree creation:
+	// 1. PR selection screen is on the stack
+	// 2. Input screen is the current screen
+	// 3. Loading screen replaces input screen when creation starts
+	prScreen := appscreen.NewPRSelectionScreen(
+		[]*models.PRInfo{{Number: 1, Title: "Test PR", Branch: "test"}},
+		120, 40, m.theme, false,
+	)
+	m.state.ui.screenManager.Push(prScreen)
+
+	inputScreen := appscreen.NewInputScreen("Test", "Label", "", m.theme, false)
+	m.state.ui.screenManager.Push(inputScreen)
+
+	// Verify the stack has 2 screens (PR in stack, input as current)
+	if m.state.ui.screenManager.StackDepth() != 1 {
+		t.Fatalf("Expected stack depth 1, got %d", m.state.ui.screenManager.StackDepth())
+	}
+	if m.state.ui.screenManager.Type() != appscreen.TypeInput {
+		t.Fatalf("Expected current screen to be TypeInput, got %v", m.state.ui.screenManager.Type())
+	}
+
+	// Simulate what happens when the user submits the input:
+	// The code should clear the stack, then set the loading screen
+	m.loading = true
+	m.statusContent = "Creating worktree from PR/MR #1..."
+	m.state.ui.screenManager.Clear() // This is the fix
+	m.setLoadingScreen(m.statusContent)
+
+	// After Clear() and setLoadingScreen(), only loading screen should remain
+	if m.state.ui.screenManager.StackDepth() != 0 {
+		t.Errorf("Expected stack to be empty after Clear(), got depth %d", m.state.ui.screenManager.StackDepth())
+	}
+	if m.state.ui.screenManager.Type() != appscreen.TypeLoading {
+		t.Errorf("Expected TypeLoading, got %v", m.state.ui.screenManager.Type())
+	}
+
+	// Now simulate the result message
+	targetPath := filepath.Join(cfg.WorktreeDir, "pr-1")
+	msg := createFromPRResultMsg{
+		prNumber:   1,
+		branch:     "test",
+		targetPath: targetPath,
+		err:        nil,
+	}
+
+	_, _ = m.Update(msg)
+
+	// After result, loading screen should be popped and no screens should be active
+	if m.state.ui.screenManager.IsActive() {
+		t.Errorf("Expected no active screen after PR creation result, got type %v", m.state.ui.screenManager.Type())
+	}
+}

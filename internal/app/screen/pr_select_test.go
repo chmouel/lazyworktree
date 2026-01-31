@@ -263,3 +263,109 @@ func TestPRSelectionScreenNoMatchingFilter(t *testing.T) {
 		t.Error("expected view to show 'No PRs match' message")
 	}
 }
+
+func TestPRSelectionScreenAttachedBranches(t *testing.T) {
+	prs := []*models.PRInfo{
+		{Number: 1, Title: "Available PR", Branch: "available-branch"},
+		{Number: 2, Title: "Attached PR", Branch: "attached-branch"},
+	}
+	scr := NewPRSelectionScreen(prs, 100, 30, theme.Dracula(), true)
+
+	// Set attached branches map
+	scr.AttachedBranches = map[string]string{
+		"attached-branch": "my-worktree",
+	}
+
+	// Test isAttached helper
+	wtName, attached := scr.isAttached(prs[0])
+	if attached {
+		t.Error("expected first PR to not be attached")
+	}
+	if wtName != "" {
+		t.Errorf("expected empty worktree name for non-attached PR, got %q", wtName)
+	}
+
+	wtName, attached = scr.isAttached(prs[1])
+	if !attached {
+		t.Error("expected second PR to be attached")
+	}
+	if wtName != "my-worktree" {
+		t.Errorf("expected worktree name 'my-worktree', got %q", wtName)
+	}
+
+	// View should show the worktree info for attached PR
+	view := scr.View()
+	if !strings.Contains(view, "(in: my-worktree)") {
+		t.Error("expected view to show worktree info for attached PR")
+	}
+}
+
+func TestPRSelectionScreenAttachedPRNotSelectable(t *testing.T) {
+	prs := []*models.PRInfo{
+		{Number: 1, Title: "Attached PR", Branch: "attached-branch"},
+	}
+	scr := NewPRSelectionScreen(prs, 100, 30, theme.Dracula(), true)
+
+	// Set attached branches map
+	scr.AttachedBranches = map[string]string{
+		"attached-branch": "my-worktree",
+	}
+
+	// Track if OnSelect was called
+	selectCalled := false
+	scr.OnSelect = func(pr *models.PRInfo) tea.Cmd {
+		selectCalled = true
+		return nil
+	}
+
+	// Try to select the attached PR
+	result, _ := scr.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Screen should NOT close (return non-nil)
+	if result == nil {
+		t.Error("expected screen to stay open when selecting attached PR")
+	}
+
+	// OnSelect should NOT be called
+	if selectCalled {
+		t.Error("expected OnSelect callback to NOT be called for attached PR")
+	}
+
+	// Status message should be set
+	if scr.StatusMessage == "" {
+		t.Error("expected status message to be set when trying to select attached PR")
+	}
+	if !strings.Contains(scr.StatusMessage, "my-worktree") {
+		t.Errorf("expected status message to mention worktree, got %q", scr.StatusMessage)
+	}
+}
+
+func TestPRSelectionScreenStatusMessageClearedOnNavigation(t *testing.T) {
+	prs := []*models.PRInfo{
+		{Number: 1, Title: "First PR", Branch: "branch1"},
+		{Number: 2, Title: "Second PR", Branch: "branch2"},
+	}
+	scr := NewPRSelectionScreen(prs, 100, 30, theme.Dracula(), true)
+
+	// Set a status message
+	scr.StatusMessage = "Some error message"
+
+	// Navigate down
+	scr.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+	// Status message should be cleared
+	if scr.StatusMessage != "" {
+		t.Errorf("expected status message to be cleared on navigation, got %q", scr.StatusMessage)
+	}
+
+	// Set message again
+	scr.StatusMessage = "Another message"
+
+	// Navigate up
+	scr.Update(tea.KeyMsg{Type: tea.KeyUp})
+
+	// Status message should be cleared
+	if scr.StatusMessage != "" {
+		t.Errorf("expected status message to be cleared on navigation, got %q", scr.StatusMessage)
+	}
+}

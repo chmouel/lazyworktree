@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/chmouel/lazyworktree/internal/models"
 )
 
 // runBranchNameScript executes the configured branch_name_script with the content as stdin.
@@ -122,6 +124,15 @@ func (m *Model) branchExistsInWorktrees(branch string) bool {
 		}
 	}
 	return false
+}
+
+func (m *Model) getWorktreeForBranch(branch string) *models.WorktreeInfo {
+	for _, wt := range m.state.data.worktrees {
+		if wt.Branch == branch {
+			return wt
+		}
+	}
+	return nil
 }
 
 func (m *Model) worktreePathExists(path string) bool {
