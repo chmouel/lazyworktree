@@ -47,6 +47,10 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 	prStateMap := extractPRState(m.state.data.worktrees)
 	m.state.data.worktrees = msg.worktrees
 	restorePRState(m.state.data.worktrees, prStateMap)
+	if !m.prDataLoaded && hasPRData(m.state.data.worktrees) {
+		m.prDataLoaded = true
+		m.updateTableColumns(m.state.ui.worktreeTable.Width())
+	}
 
 	// Populate LastSwitchedTS from access history
 	for _, wt := range m.state.data.worktrees {
@@ -103,11 +107,7 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 		m.state.ui.screenManager.Pop()
 	}
 	cmds := []tea.Cmd{}
-	if m.config.AutoFetchPRs && !m.prDataLoaded {
-		m.loading = true
-		m.setLoadingScreen("Fetching PR data...")
-		cmds = append(cmds, m.fetchPRData())
-	} else if cmd := m.updateDetailsView(); cmd != nil {
+	if cmd := m.updateDetailsView(); cmd != nil {
 		cmds = append(cmds, cmd)
 	}
 	if cmd := m.startAutoRefresh(); cmd != nil {
@@ -128,6 +128,10 @@ func (m *Model) handleCachedWorktrees(msg cachedWorktreesMsg) (tea.Model, tea.Cm
 	prStateMap := extractPRState(m.state.data.worktrees)
 	m.state.data.worktrees = msg.worktrees
 	restorePRState(m.state.data.worktrees, prStateMap)
+	if !m.prDataLoaded && hasPRData(m.state.data.worktrees) {
+		m.prDataLoaded = true
+		m.updateTableColumns(m.state.ui.worktreeTable.Width())
+	}
 	// Populate LastSwitchedTS from access history
 	for _, wt := range m.state.data.worktrees {
 		if ts, ok := m.state.data.accessHistory[wt.Path]; ok {
@@ -150,6 +154,10 @@ func (m *Model) handlePruneResult(msg pruneResultMsg) (tea.Model, tea.Cmd) {
 		prStateMap := extractPRState(m.state.data.worktrees)
 		m.state.data.worktrees = msg.worktrees
 		restorePRState(m.state.data.worktrees, prStateMap)
+		if !m.prDataLoaded && hasPRData(m.state.data.worktrees) {
+			m.prDataLoaded = true
+			m.updateTableColumns(m.state.ui.worktreeTable.Width())
+		}
 		m.updateTable()
 		m.saveCache()
 	}
@@ -179,6 +187,8 @@ func (m *Model) handlePRMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case prDataLoadedMsg:
 		return m.handlePRDataLoaded(msg)
+	case singlePRLoadedMsg:
+		return m.handleSinglePRLoaded(msg)
 	case ciStatusLoadedMsg:
 		return m.handleCIStatusLoaded(msg)
 	default:
@@ -281,6 +291,45 @@ func (m *Model) handleCIStatusLoaded(msg ciStatusLoadedMsg) (tea.Model, tea.Cmd)
 		}
 	}
 	return m, nil
+}
+
+// handleSinglePRLoaded processes PR data loaded for a single worktree.
+func (m *Model) handleSinglePRLoaded(msg singlePRLoadedMsg) (tea.Model, tea.Cmd) {
+	// Find the worktree and update its PR
+	for _, wt := range m.state.data.worktrees {
+		if wt.Path == msg.worktreePath {
+			switch {
+			case msg.err != nil:
+				wt.PRFetchError = msg.err.Error()
+				wt.PRFetchStatus = models.PRFetchStatusError
+				wt.PR = nil
+			case msg.pr != nil:
+				wt.PR = msg.pr
+				wt.PRFetchStatus = models.PRFetchStatusLoaded
+				wt.PRFetchError = ""
+			default:
+				wt.PR = nil
+				wt.PRFetchStatus = models.PRFetchStatusNoPR
+				wt.PRFetchError = ""
+			}
+			break
+		}
+	}
+
+	// If PR data now exists, ensure prDataLoaded is set so table shows PR column
+	if !m.prDataLoaded && hasPRData(m.state.data.worktrees) {
+		m.prDataLoaded = true
+		m.updateTableColumns(m.state.ui.worktreeTable.Width())
+	}
+	m.updateTable()
+
+	// Refresh info content for currently selected worktree
+	if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
+		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+	}
+
+	// Trigger CI fetch for the current worktree
+	return m, m.maybeFetchCIStatus()
 }
 
 // handleOpenPRsLoaded handles the result of fetching open PRs.
@@ -728,4 +777,14 @@ func restorePRState(worktrees []*models.WorktreeInfo, stateMap map[string]*prSta
 			wt.PRFetchStatus = state.PRFetchStatus
 		}
 	}
+}
+
+// hasPRData checks if any worktree has PR data loaded.
+func hasPRData(worktrees []*models.WorktreeInfo) bool {
+	for _, wt := range worktrees {
+		if wt.PR != nil {
+			return true
+		}
+	}
+	return false
 }

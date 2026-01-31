@@ -105,11 +105,10 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 - ?: Show this help
 
 **{{HELP_REPO_OPS}}Repository Operations**
-- r: Refresh worktree list
+- r: Refresh worktree list (also refreshes PR/MR/CI for current worktree on GitHub/GitLab)
 - R: Fetch all remotes
 - S: Synchronise with upstream (git pull, then git push, current branch only, requires a clean worktree, honours merge_method)
 - P: Push to upstream branch (current branch only, requires a clean worktree, prompts to set upstream when missing)
-- p: Fetch PR/MR status from GitHub/GitLab
 - v: View CI checks (opens selection screen)
 - Enter: Open selected CI job in browser (within CI check selection screen)
 - Ctrl+v: View selected CI check logs in pager (within CI check selection screen, or in status pane when CI check is selected)

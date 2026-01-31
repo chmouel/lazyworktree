@@ -3796,3 +3796,209 @@ func TestCICheckNavigationWithNoChecks(t *testing.T) {
 		t.Fatalf("expected ciCheckIndex -1, got %d", m.ciCheckIndex)
 	}
 }
+
+// TestPRDataLoadedSyncAfterWorktreeReload verifies prDataLoaded is set when PR state is restored.
+func TestPRDataLoadedSyncAfterWorktreeReload(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	// Set up initial worktrees with PR data
+	initialWts := []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1", PR: &models.PRInfo{Number: 42, Title: "Test PR"}},
+		{Path: filepath.Join(cfg.WorktreeDir, "wt2"), Branch: "feature-2"},
+	}
+	m.state.data.worktrees = initialWts
+	m.prDataLoaded = true
+
+	m.prDataLoaded = false
+
+	newWts := []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1"},
+		{Path: filepath.Join(cfg.WorktreeDir, "wt2"), Branch: "feature-2"},
+	}
+	msg := worktreesLoadedMsg{worktrees: newWts}
+	updated, _ := m.handleWorktreesLoaded(msg)
+	updatedModel := updated.(*Model)
+
+	// Verify PR state was restored
+	var restoredPR *models.PRInfo
+	for _, wt := range updatedModel.state.data.worktrees {
+		if wt.Path == filepath.Join(cfg.WorktreeDir, "wt1") {
+			restoredPR = wt.PR
+			break
+		}
+	}
+	if restoredPR == nil {
+		t.Fatal("expected PR to be restored to wt1")
+	}
+	if restoredPR.Number != 42 {
+		t.Fatalf("expected PR number 42, got %d", restoredPR.Number)
+	}
+
+	if !updatedModel.prDataLoaded {
+		t.Fatal("expected prDataLoaded to be true after restoring PR state")
+	}
+}
+
+// TestPRDataLoadedNotSetWhenNoPRData verifies prDataLoaded remains false when no PR data exists.
+func TestPRDataLoadedNotSetWhenNoPRData(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	// Set up worktrees without PR data
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1"},
+	}
+	m.prDataLoaded = false
+
+	// Load new worktrees without PR data
+	newWts := []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1"},
+	}
+	msg := worktreesLoadedMsg{worktrees: newWts}
+	updated, _ := m.handleWorktreesLoaded(msg)
+	updatedModel := updated.(*Model)
+
+	// prDataLoaded should remain false since no PR data exists
+	if updatedModel.prDataLoaded {
+		t.Fatal("expected prDataLoaded to remain false when no PR data exists")
+	}
+}
+
+// TestPRDataLoadedSyncAfterCachedWorktrees verifies prDataLoaded syncs with cached worktrees.
+func TestPRDataLoadedSyncAfterCachedWorktrees(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1", PR: &models.PRInfo{Number: 123}},
+	}
+	m.prDataLoaded = false
+	m.worktreesLoaded = false
+
+	newWts := []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1"},
+	}
+	msg := cachedWorktreesMsg{worktrees: newWts}
+	updated, _ := m.handleCachedWorktrees(msg)
+	updatedModel := updated.(*Model)
+
+	if !updatedModel.prDataLoaded {
+		t.Fatal("expected prDataLoaded to be true after restoring PR state from cache")
+	}
+}
+
+// TestPRDataLoadedSyncAfterPruneResult verifies prDataLoaded syncs with prune results.
+func TestPRDataLoadedSyncAfterPruneResult(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.loading = true
+
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1", PR: &models.PRInfo{Number: 456}},
+	}
+	m.prDataLoaded = false
+
+	newWts := []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1"},
+	}
+	msg := pruneResultMsg{worktrees: newWts, pruned: 1}
+	updated, _ := m.handlePruneResult(msg)
+	updatedModel := updated.(*Model)
+
+	if !updatedModel.prDataLoaded {
+		t.Fatal("expected prDataLoaded to be true after restoring PR state from prune")
+	}
+}
+
+// TestHandleSinglePRLoadedUpdatesPRData verifies handleSinglePRLoaded updates PR data.
+func TestHandleSinglePRLoadedUpdatesPRData(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: wtPath, Branch: "feature-1"},
+	}
+	m.state.data.filteredWts = m.state.data.worktrees
+	m.state.data.selectedIndex = 0
+	m.prDataLoaded = false
+
+	msg := singlePRLoadedMsg{
+		worktreePath: wtPath,
+		pr:           &models.PRInfo{Number: 123, Title: "Test PR"},
+		err:          nil,
+	}
+	updated, _ := m.handleSinglePRLoaded(msg)
+	updatedModel := updated.(*Model)
+
+	// Verify PR was set on the worktree
+	if updatedModel.state.data.worktrees[0].PR == nil {
+		t.Fatal("expected PR to be set on worktree")
+	}
+	if updatedModel.state.data.worktrees[0].PR.Number != 123 {
+		t.Fatalf("expected PR number 123, got %d", updatedModel.state.data.worktrees[0].PR.Number)
+	}
+	if updatedModel.state.data.worktrees[0].PRFetchStatus != models.PRFetchStatusLoaded {
+		t.Fatalf("expected PRFetchStatus to be Loaded, got %v", updatedModel.state.data.worktrees[0].PRFetchStatus)
+	}
+	if !updatedModel.prDataLoaded {
+		t.Fatal("expected prDataLoaded to be true after receiving PR data")
+	}
+}
+
+// TestHandleSinglePRLoadedHandlesError verifies handleSinglePRLoaded handles fetch errors.
+func TestHandleSinglePRLoadedHandlesError(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: wtPath, Branch: "feature-1"},
+	}
+	m.state.data.filteredWts = m.state.data.worktrees
+	m.state.data.selectedIndex = 0
+
+	msg := singlePRLoadedMsg{
+		worktreePath: wtPath,
+		pr:           nil,
+		err:          context.DeadlineExceeded,
+	}
+	updated, _ := m.handleSinglePRLoaded(msg)
+	updatedModel := updated.(*Model)
+
+	if updatedModel.state.data.worktrees[0].PRFetchStatus != models.PRFetchStatusError {
+		t.Fatalf("expected PRFetchStatus to be Error, got %v", updatedModel.state.data.worktrees[0].PRFetchStatus)
+	}
+	if updatedModel.state.data.worktrees[0].PRFetchError == "" {
+		t.Fatal("expected PRFetchError to be set")
+	}
+}
+
+// TestHandleSinglePRLoadedNoPR verifies handleSinglePRLoaded handles no PR case.
+func TestHandleSinglePRLoadedNoPR(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: wtPath, Branch: "feature-1"},
+	}
+	m.state.data.filteredWts = m.state.data.worktrees
+	m.state.data.selectedIndex = 0
+
+	msg := singlePRLoadedMsg{
+		worktreePath: wtPath,
+		pr:           nil,
+		err:          nil,
+	}
+	updated, _ := m.handleSinglePRLoaded(msg)
+	updatedModel := updated.(*Model)
+
+	if updatedModel.state.data.worktrees[0].PRFetchStatus != models.PRFetchStatusNoPR {
+		t.Fatalf("expected PRFetchStatus to be NoPR, got %v", updatedModel.state.data.worktrees[0].PRFetchStatus)
+	}
+	if updatedModel.state.data.worktrees[0].PR != nil {
+		t.Fatal("expected PR to be nil")
+	}
+}

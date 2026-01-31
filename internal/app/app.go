@@ -130,6 +130,11 @@ type (
 		checks []*models.CICheck
 		err    error
 	}
+	singlePRLoadedMsg struct {
+		worktreePath string
+		pr           *models.PRInfo
+		err          error
+	}
 	openPRsLoadedMsg struct {
 		prs []*models.PRInfo
 		err error
@@ -723,7 +728,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
-	case prDataLoadedMsg, ciStatusLoadedMsg:
+	case prDataLoadedMsg, singlePRLoadedMsg, ciStatusLoadedMsg:
 		return m.handlePRMessages(msg)
 
 	case statusUpdatedMsg:

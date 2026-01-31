@@ -97,9 +97,9 @@ Override config values from the command line (repeatable).
 .br
 Format: \fB--config=lw.key=value\fR
 .br
-Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_fetch_prs\fR, \fBauto_refresh\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBpager\fR, \fBeditor\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBissue_branch_name_template\fR, \fBpr_branch_name_template\fR, \fBsession_prefix\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
+Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_refresh\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBpager\fR, \fBeditor\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBissue_branch_name_template\fR, \fBpr_branch_name_template\fR, \fBsession_prefix\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
 .br
-Examples: \fB--config=lw.theme=nord\fR, \fB--config=lw.auto_fetch_prs=true\fR
+Examples: \fB--config=lw.theme=nord\fR, \fB--config=lw.sort_mode=active\fR
 .br
 This has the highest precedence and overrides all other configuration sources.
 .
@@ -305,7 +305,7 @@ Run arbitrary command in selected worktree.
 .
 .TP
 .B r
-Refresh worktree list.
+Refresh worktree list (also refreshes PR/MR/CI for current worktree on GitHub/GitLab).
 .
 .TP
 .B R
@@ -408,10 +408,6 @@ Jump to previous search match.
 Clear filter for focused pane (when filter is active).
 .
 .SS Forge Integration
-.TP
-.B p
-Fetch PR/MR status (also refreshes CI checks).
-.
 .TP
 .B v
 View CI checks (Enter opens in browser, Ctrl+v views logs in pager).
@@ -552,7 +548,6 @@ Settings can be stored in Git's configuration system with the \fBlw.\fR prefix:
 .nf
 # Set globally
 git config --global lw.theme nord
-git config --global lw.auto_fetch_prs true
 git config --global lw.worktree_dir ~/.local/share/worktrees
 
 # Set per-repository (overrides global)
@@ -744,12 +739,6 @@ Editor command for Status pane file edits.
 Default: config value, then $EDITOR, then nvim, then vi.
 .
 .SS Forge Integration
-.TP
-.B auto_fetch_prs
-Automatically fetch PR/MR data on startup.
-.br
-Default: false
-.
 .TP
 .B issue_branch_name_template
 Template for branch names created from GitHub/GitLab issues. Available placeholders: \fB{number}\fR (issue number), \fB{title}\fR (sanitised issue title), and \fB{generated}\fR (generated title from branch_name_script, falls back to {title} if unavailable).
@@ -947,7 +936,6 @@ palette_mru: true
 palette_mru_limit: 5
 
 # Forge integration
-auto_fetch_prs: true
 issue_branch_name_template: "fix-{number}-{title}"
 pr_branch_name_template: "review-{number}"
 

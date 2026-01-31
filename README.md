@@ -50,7 +50,7 @@ Common overrides:
 lazyworktree --worktree-dir ~/worktrees
 
 # Override config values via command line
-lazyworktree --config lw.theme=nord --config lw.auto_fetch_prs=true
+lazyworktree --config lw.theme=nord --config lw.sort_mode=active
 ```
 
 ## Requirements
@@ -204,12 +204,11 @@ Deletes the worktree and associated branch (only if worktree name matches branch
 | `A` | Absorb worktree into main |
 | `X` | Prune merged worktrees (refreshes PR data, checks merge status) |
 | `!` | Run arbitrary command in selected worktree (with command history) |
-| `p` | Fetch PR/MR status (also refreshes CI checks) |
 | `v` | View CI checks (Enter opens in browser, Ctrl+v views logs in pager) |
 | `o` | Open PR/MR in browser (or root repo in editor if main branch with merged/closed/no PR) |
 | `ctrl+p`, `:` | Command palette |
 | `g` | Open LazyGit |
-| `r` | Refresh list |
+| `r` | Refresh list (also refreshes PR/MR/CI for current worktree on GitHub/GitLab) |
 | `R` | Fetch all remotes |
 | `S` | Sync with upstream (pull + push, requires clean worktree) |
 | `P` | Push to upstream (prompts to set upstream if missing) |
@@ -327,7 +326,6 @@ lazyworktree reads `~/.config/lazyworktree/config.yaml` (or `.yml`) for default 
 ```yaml
 worktree_dir: ~/.local/share/worktrees
 sort_mode: switched  # Options: "path", "active" (commit date), "switched" (last accessed)
-auto_fetch_prs: false
 auto_refresh: true
 refresh_interval: 10  # Seconds
 icon_set: nerd-font-v3
@@ -397,7 +395,6 @@ Settings can be stored in Git's configuration system with the `lw.` prefix. Exam
 ```bash
 # Set globally
 git config --global lw.theme nord
-git config --global lw.auto_fetch_prs true
 git config --global lw.worktree_dir ~/.local/share/worktrees
 
 # Set per-repository
@@ -424,7 +421,6 @@ git config --local --get-regexp "^lw\."
 **Worktree list and refresh**
 
 * `sort_mode`: `"switched"` (last accessed, default), `"active"` (commit date), or `"path"` (alphabetical).
-* `auto_fetch_prs`: fetch PR data on startup.
 * `auto_refresh`: background refresh of git metadata (default: true).
 * `refresh_interval`: refresh frequency in seconds (default: 10).
 * `icon_set`: choose icon set ("nerd-font-v3", "emoji", "text", "none"). Use `none` or an empty value to suppress icons.

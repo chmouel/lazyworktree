@@ -74,6 +74,30 @@ func (m *Model) fetchRemotes() tea.Cmd {
 	}
 }
 
+// refreshCurrentWorktreePR fetches PR info for the currently selected worktree only.
+func (m *Model) refreshCurrentWorktreePR() tea.Cmd {
+	if m.state.data.selectedIndex < 0 || m.state.data.selectedIndex >= len(m.state.data.filteredWts) {
+		return nil
+	}
+
+	// Only for GitHub/GitLab repos
+	if !m.state.services.git.IsGitHubOrGitLab(m.ctx) {
+		return nil
+	}
+
+	wt := m.state.data.filteredWts[m.state.data.selectedIndex]
+	worktreePath := wt.Path
+
+	return func() tea.Msg {
+		pr, err := m.state.services.git.FetchPRForWorktreeWithError(m.ctx, worktreePath)
+		return singlePRLoadedMsg{
+			worktreePath: worktreePath,
+			pr:           pr,
+			err:          err,
+		}
+	}
+}
+
 func (m *Model) showDeleteFile() tea.Cmd {
 	if m.state.data.selectedIndex < 0 || m.state.data.selectedIndex >= len(m.state.data.filteredWts) {
 		return nil

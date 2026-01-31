@@ -409,7 +409,16 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "r":
 		m.loading = true
 		m.setLoadingScreen(loadingRefreshWorktrees)
-		return m, m.refreshWorktrees()
+		cmds := []tea.Cmd{m.refreshWorktrees()}
+
+		// Also refresh PR/CI for current worktree if GitHub/GitLab
+		if m.state.services.git.IsGitHubOrGitLab(m.ctx) {
+			m.cache.ciCache.Clear()
+			if cmd := m.refreshCurrentWorktreePR(); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+		return m, tea.Batch(cmds...)
 
 	case "c":
 		if m.state.view.FocusedPane == 1 {
@@ -462,18 +471,6 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-
-	case "p":
-		m.cache.ciCache.Clear()
-		m.prDataLoaded = false
-		// Must update table rows immediately to match the column count change
-		// Otherwise View() -> applyLayout() -> updateTableColumns() will create
-		// a mismatch between column count (4) and row element count (5)
-		m.updateTable()
-		m.loading = true
-		m.statusContent = "Fetching PR data..."
-		m.setLoadingScreen("Fetching PR data...")
-		return m, m.fetchPRData()
 
 	case "P":
 		return m, m.pushToUpstream()

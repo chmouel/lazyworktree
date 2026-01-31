@@ -167,9 +167,6 @@ pr_branch_name_template: "pr-{number}-{title}"
 # GIT OPERATIONS
 # ============================================================================
 
-# Automatically fetch pull requests/merge requests when opening a repository
-auto_fetch_prs: false
-
 # Merge method for the "Absorb worktree" action
 # Options: "rebase" (rebases onto main, then fast-forwards main to the branch)
 #          "merge" (creates a merge commit on main)
