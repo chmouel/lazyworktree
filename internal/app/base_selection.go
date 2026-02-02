@@ -345,6 +345,7 @@ func (m *Model) showBranchNameInput(baseRef, defaultName string) tea.Cmd {
 		}
 		m.loading = true
 		m.statusContent = fmt.Sprintf("Creating worktree from %s...", baseRef)
+		m.state.ui.screenManager.Clear()
 		m.setLoadingScreen(m.statusContent)
 
 		return m.createWorktreeFromBaseAsync(newBranch, targetPath, baseRef)
@@ -537,6 +538,7 @@ func (m *Model) showWorktreeNameForExistingBranch(branchName string) tea.Cmd {
 		}
 		m.loading = true
 		m.statusContent = fmt.Sprintf("Checking out %s...", branchName)
+		m.state.ui.screenManager.Clear()
 		m.setLoadingScreen(m.statusContent)
 
 		return m.checkoutExistingBranchAsync(worktreeName, targetPath, branchName)
@@ -566,6 +568,8 @@ func (m *Model) checkoutExistingBranchAsync(worktreeName, targetPath, branchName
 		if !ok {
 			return errMsg{err: fmt.Errorf("failed to checkout branch %s", branchName)}
 		}
+
+		m.pendingSelectWorktreePath = targetPath
 
 		env := m.buildCommandEnv(branchName, targetPath)
 		initCmds := m.collectInitCommands()
@@ -613,6 +617,8 @@ func (m *Model) createWorktreeFromBaseAsync(newBranch, targetPath, baseRef strin
 		if !ok {
 			return errMsg{err: fmt.Errorf("failed to create worktree %s", newBranch)}
 		}
+
+		m.pendingSelectWorktreePath = targetPath
 
 		env := m.buildCommandEnv(newBranch, targetPath)
 		initCmds := m.collectInitCommands()
