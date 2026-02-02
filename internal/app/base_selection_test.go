@@ -703,6 +703,53 @@ func TestShowBranchSelection(t *testing.T) {
 	}
 }
 
+func TestShowCommitBaseBranchSelectionLocalOnly(t *testing.T) {
+	repo := initTestRepo(t)
+	withCwd(t, repo.dir)
+
+	runGit(t, repo.dir, "checkout", "-b", "feature-one")
+	runGit(t, repo.dir, "tag", "v1.0.0")
+	runGit(t, repo.dir, "update-ref", "refs/remotes/origin/feature-one", "HEAD")
+
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: repo.dir, Branch: "feature-one", IsMain: true},
+	}
+
+	cmd := m.showCommitBaseBranchSelection(mainWorktreeName)
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatal("expected list screen to be active")
+	}
+
+	listScreen := m.state.ui.screenManager.Current().(*appscreen.ListSelectionScreen)
+	selected, ok := listScreen.Selected()
+	if !ok {
+		t.Fatal("expected a selected branch")
+	}
+	if selected.ID != "feature-one" {
+		t.Fatalf("expected current branch to be selected, got %q", selected.ID)
+	}
+
+	for _, item := range listScreen.Items {
+		if item.Description != "" {
+			t.Fatalf("expected local branch descriptions to be empty, got %q", item.Description)
+		}
+		if strings.HasPrefix(item.ID, "origin/") {
+			t.Fatalf("unexpected remote branch in local list: %q", item.ID)
+		}
+		if item.ID == "v1.0.0" {
+			t.Fatalf("unexpected tag in local list: %q", item.ID)
+		}
+	}
+}
+
 func TestShowCommitSelection(t *testing.T) {
 	repo := initTestRepo(t)
 	withCwd(t, repo.dir)

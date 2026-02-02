@@ -62,7 +62,7 @@ func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 	items := []selectionItem{
 		{id: "from-current", label: fromCurrentLabel, description: fromCurrentDesc},
 		{id: "branch-list", label: "Pick a base branch or tag", description: "Branches, tags, and remotes"},
-		{id: "commit-list", label: "Pick a base commit", description: "Choose a branch, then a commit"},
+		{id: "commit-list", label: "Pick a base commit", description: "Choose a local branch, then a commit"},
 		{id: "from-pr", label: "Create from PR/MR", description: "Create from a pull/merge request"},
 		{id: "from-issue", label: "Create from Issue", description: "Create from a GitHub/GitLab issue"},
 		{id: "freeform", label: "Enter base ref manually", description: "Type a branch or commit"},
@@ -124,7 +124,7 @@ func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 				},
 			)
 		case item.ID == "commit-list":
-			return m.showCommitSelection(defaultBase)
+			return m.showCommitBaseBranchSelection(defaultBase)
 		case item.ID == "freeform":
 			return m.showFreeformBaseInput(defaultBase)
 		case item.ID == "from-pr":
@@ -182,7 +182,15 @@ func (m *Model) showFreeformBaseInput(defaultBase string) tea.Cmd {
 
 func (m *Model) showBranchSelection(title, placeholder, noResults, preferred string, onSelect func(string) tea.Cmd) tea.Cmd {
 	items := m.branchSelectionItems(preferred)
+	return m.showBranchSelectionWithItems(title, placeholder, noResults, preferred, items, onSelect)
+}
 
+func (m *Model) showLocalBranchSelection(title, placeholder, noResults, preferred string, onSelect func(string) tea.Cmd) tea.Cmd {
+	items := m.branchSelectionItemsLocalOnly()
+	return m.showBranchSelectionWithItems(title, placeholder, noResults, preferred, items, onSelect)
+}
+
+func (m *Model) showBranchSelectionWithItems(title, placeholder, noResults, preferred string, items []selectionItem, onSelect func(string) tea.Cmd) tea.Cmd {
 	screenItems := make([]appscreen.SelectionItem, len(items))
 	for i, item := range items {
 		screenItems[i] = appscreen.SelectionItem{
@@ -213,6 +221,19 @@ func (m *Model) showBranchSelection(title, placeholder, noResults, preferred str
 
 	m.state.ui.screenManager.Push(listScreen)
 	return textinput.Blink
+}
+
+func (m *Model) showCommitBaseBranchSelection(defaultBase string) tea.Cmd {
+	preferred := m.preferredCommitBaseBranch(defaultBase)
+	return m.showLocalBranchSelection(
+		"Select base branch for commits",
+		"Filter local branches...",
+		"No local branches found.",
+		preferred,
+		func(branch string) tea.Cmd {
+			return m.showCommitSelection(branch)
+		},
+	)
 }
 
 func stripRemotePrefix(branch string) string {
@@ -357,6 +378,17 @@ func (m *Model) showBranchNameInput(baseRef, defaultName string) tea.Cmd {
 
 	m.state.ui.screenManager.Push(inputScr)
 	return textinput.Blink
+}
+
+func (m *Model) preferredCommitBaseBranch(defaultBase string) string {
+	current := strings.TrimSpace(m.getCurrentBranchForMenu())
+	if current == "" || current == "HEAD" {
+		return defaultBase
+	}
+	if m.localBranchExists(current) {
+		return current
+	}
+	return defaultBase
 }
 
 func (m *Model) suggestBranchName(baseName string) string {
@@ -668,16 +700,25 @@ func (m *Model) clearListSelection() {
 }
 
 func (m *Model) branchSelectionItems(preferred string) []selectionItem {
+	return m.branchSelectionItemsForRefs([]string{"refs/heads", "refs/remotes", "refs/tags"})
+}
+
+func (m *Model) branchSelectionItemsLocalOnly() []selectionItem {
+	return m.branchSelectionItemsForRefs([]string{"refs/heads"})
+}
+
+func (m *Model) branchSelectionItemsForRefs(refs []string) []selectionItem {
+	args := []string{
+		"git", "for-each-ref",
+		"--sort=-committerdate",
+		"--format=%(refname:short)\t%(refname)\t%(committerdate:unix)",
+	}
+	if len(refs) > 0 {
+		args = append(args, refs...)
+	}
 	raw := m.state.services.git.RunGit(
 		m.ctx,
-		[]string{
-			"git", "for-each-ref",
-			"--sort=-committerdate",
-			"--format=%(refname:short)\t%(refname)\t%(committerdate:unix)",
-			"refs/heads",
-			"refs/remotes",
-			"refs/tags",
-		},
+		args,
 		"",
 		[]int{0},
 		true,
