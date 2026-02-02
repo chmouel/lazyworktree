@@ -229,6 +229,110 @@ func TestWezTermLauncherLaunchError(t *testing.T) {
 	}
 }
 
+func TestITermLauncherName(t *testing.T) {
+	launcher := &ITermLauncher{}
+	if launcher.Name() != "iTerm" {
+		t.Errorf("expected 'iTerm', got %q", launcher.Name())
+	}
+}
+
+func TestITermLauncherIsAvailable(t *testing.T) {
+	launcher := &ITermLauncher{}
+
+	t.Run("not available when env not set", func(t *testing.T) {
+		t.Setenv("ITERM_SESSION_ID", "")
+		t.Setenv("TERM_PROGRAM", "")
+		if launcher.IsAvailable() {
+			t.Error("expected IsAvailable to return false when iTerm env vars are empty")
+		}
+	})
+
+	t.Run("available when ITERM_SESSION_ID is set", func(t *testing.T) {
+		t.Setenv("ITERM_SESSION_ID", "w0t0p0")
+		t.Setenv("TERM_PROGRAM", "")
+		if !launcher.IsAvailable() {
+			t.Error("expected IsAvailable to return true when ITERM_SESSION_ID is set")
+		}
+	})
+
+	t.Run("available when TERM_PROGRAM is iTerm.app", func(t *testing.T) {
+		t.Setenv("ITERM_SESSION_ID", "")
+		t.Setenv("TERM_PROGRAM", "iTerm.app")
+		if !launcher.IsAvailable() {
+			t.Error("expected IsAvailable to return true when TERM_PROGRAM is iTerm.app")
+		}
+	})
+}
+
+func TestITermLauncherLaunch(t *testing.T) {
+	var capturedName string
+	var capturedArgs []string
+
+	launcher := &ITermLauncher{
+		commandRunner: func(_ context.Context, name string, args ...string) *exec.Cmd {
+			capturedName = name
+			capturedArgs = args
+			return exec.Command("true")
+		},
+	}
+
+	title, err := launcher.Launch(context.Background(), "claude", "/path/to/worktree", "Claude Code", map[string]string{
+		"WORKTREE_NAME": "feature",
+		"REPO_NAME":     "myrepo",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if title != "Claude Code" {
+		t.Errorf("expected title 'Claude Code', got %q", title)
+	}
+
+	if capturedName != "osascript" {
+		t.Errorf("expected command 'osascript', got %q", capturedName)
+	}
+
+	if len(capturedArgs) < 5 {
+		t.Fatalf("expected at least 5 args, got %d", len(capturedArgs))
+	}
+	if capturedArgs[0] != "-e" {
+		t.Errorf("expected '-e' arg, got %q", capturedArgs[0])
+	}
+	if capturedArgs[2] != "--" {
+		t.Errorf("expected '--' arg, got %q", capturedArgs[2])
+	}
+	if !strings.Contains(capturedArgs[1], "tell application \"iTerm\"") {
+		t.Error("expected iTerm AppleScript in args")
+	}
+
+	expectedCmd := buildShellCommand("claude", "/path/to/worktree", map[string]string{
+		"WORKTREE_NAME": "feature",
+		"REPO_NAME":     "myrepo",
+	})
+	if capturedArgs[3] != expectedCmd {
+		t.Errorf("expected command %q, got %q", expectedCmd, capturedArgs[3])
+	}
+	if capturedArgs[4] != "Claude Code" {
+		t.Errorf("expected title arg 'Claude Code', got %q", capturedArgs[4])
+	}
+}
+
+func TestITermLauncherLaunchError(t *testing.T) {
+	launcher := &ITermLauncher{
+		commandRunner: func(_ context.Context, name string, args ...string) *exec.Cmd {
+			return exec.Command("false") // Will fail
+		},
+	}
+
+	_, err := launcher.Launch(context.Background(), "cmd", "/path", "Title", nil)
+	if err == nil {
+		t.Error("expected error when command fails")
+	}
+	if !strings.Contains(err.Error(), "failed to launch iTerm tab") {
+		t.Errorf("expected 'failed to launch iTerm tab' in error, got %v", err)
+	}
+}
+
 func TestDetectTerminalLauncher(t *testing.T) {
 	runner := func(_ context.Context, name string, args ...string) *exec.Cmd {
 		return exec.Command("true")
@@ -248,6 +352,8 @@ func TestDetectTerminalLauncher(t *testing.T) {
 	t.Run("detects WezTerm when available", func(t *testing.T) {
 		t.Setenv("KITTY_WINDOW_ID", "")
 		t.Setenv("WEZTERM_PANE", "1")
+		t.Setenv("ITERM_SESSION_ID", "")
+		t.Setenv("TERM_PROGRAM", "")
 		launcher := detectTerminalLauncher(runner)
 		if launcher == nil {
 			t.Fatal("expected launcher to be detected when WEZTERM_PANE is set")
@@ -257,10 +363,27 @@ func TestDetectTerminalLauncher(t *testing.T) {
 		}
 	})
 
+	t.Run("detects iTerm when available", func(t *testing.T) {
+		t.Setenv("KITTY_WINDOW_ID", "")
+		t.Setenv("WEZTERM_PANE", "")
+		t.Setenv("WEZTERM_UNIX_SOCKET", "")
+		t.Setenv("ITERM_SESSION_ID", "w0t0p0")
+		t.Setenv("TERM_PROGRAM", "")
+		launcher := detectTerminalLauncher(runner)
+		if launcher == nil {
+			t.Fatal("expected launcher to be detected when ITERM_SESSION_ID is set")
+		}
+		if launcher.Name() != "iTerm" {
+			t.Errorf("expected iTerm launcher, got %q", launcher.Name())
+		}
+	})
+
 	t.Run("returns nil when no terminal available", func(t *testing.T) {
 		t.Setenv("KITTY_WINDOW_ID", "")
 		t.Setenv("WEZTERM_PANE", "")
 		t.Setenv("WEZTERM_UNIX_SOCKET", "")
+		t.Setenv("ITERM_SESSION_ID", "")
+		t.Setenv("TERM_PROGRAM", "")
 		launcher := detectTerminalLauncher(runner)
 		if launcher != nil {
 			t.Errorf("expected nil launcher when no terminal is detected, got %v", launcher)
@@ -303,6 +426,8 @@ func TestOpenTerminalTabNoTerminal(t *testing.T) {
 	t.Setenv("KITTY_WINDOW_ID", "")
 	t.Setenv("WEZTERM_PANE", "")
 	t.Setenv("WEZTERM_UNIX_SOCKET", "")
+	t.Setenv("ITERM_SESSION_ID", "")
+	t.Setenv("TERM_PROGRAM", "")
 
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
@@ -325,8 +450,8 @@ func TestOpenTerminalTabNoTerminal(t *testing.T) {
 	if !strings.Contains(readyMsg.err.Error(), "no supported terminal detected") {
 		t.Errorf("expected 'no supported terminal detected' in error, got %v", readyMsg.err)
 	}
-	if !strings.Contains(readyMsg.err.Error(), "Kitty or WezTerm") {
-		t.Errorf("expected 'Kitty or WezTerm' in error, got %v", readyMsg.err)
+	if !strings.Contains(readyMsg.err.Error(), "Kitty, WezTerm, or iTerm") {
+		t.Errorf("expected 'Kitty, WezTerm, or iTerm' in error, got %v", readyMsg.err)
 	}
 }
 
@@ -368,6 +493,8 @@ func TestOpenTerminalTabSuccess(t *testing.T) {
 func TestOpenTerminalTabSuccessWezTerm(t *testing.T) {
 	t.Setenv("KITTY_WINDOW_ID", "")
 	t.Setenv("WEZTERM_PANE", "1")
+	t.Setenv("ITERM_SESSION_ID", "")
+	t.Setenv("TERM_PROGRAM", "")
 
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
@@ -393,6 +520,43 @@ func TestOpenTerminalTabSuccessWezTerm(t *testing.T) {
 	}
 	if readyMsg.terminalName != "WezTerm" {
 		t.Errorf("expected terminal name 'WezTerm', got %q", readyMsg.terminalName)
+	}
+	if readyMsg.tabTitle != "Claude Code" {
+		t.Errorf("expected tab title 'Claude Code', got %q", readyMsg.tabTitle)
+	}
+}
+
+func TestOpenTerminalTabSuccessITerm(t *testing.T) {
+	t.Setenv("KITTY_WINDOW_ID", "")
+	t.Setenv("WEZTERM_PANE", "")
+	t.Setenv("WEZTERM_UNIX_SOCKET", "")
+	t.Setenv("ITERM_SESSION_ID", "w0t0p0")
+	t.Setenv("TERM_PROGRAM", "")
+
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
+		return exec.Command("true")
+	}
+
+	wt := &models.WorktreeInfo{Path: t.TempDir(), Branch: "feature"}
+	customCmd := &config.CustomCommand{Command: "claude", Description: "Claude Code"}
+
+	cmd := m.openTerminalTab(customCmd, wt)
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+
+	msg := cmd()
+	readyMsg, ok := msg.(terminalTabReadyMsg)
+	if !ok {
+		t.Fatalf("expected terminalTabReadyMsg, got %T", msg)
+	}
+	if readyMsg.err != nil {
+		t.Errorf("unexpected error: %v", readyMsg.err)
+	}
+	if readyMsg.terminalName != "iTerm" {
+		t.Errorf("expected terminal name 'iTerm', got %q", readyMsg.terminalName)
 	}
 	if readyMsg.tabTitle != "Claude Code" {
 		t.Errorf("expected tab title 'Claude Code', got %q", readyMsg.tabTitle)

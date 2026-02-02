@@ -575,7 +575,7 @@ custom_commands:
     description: Status
     show_help: true
     show_output: true
-  c: # Open Claude CLI in a new terminal tab (Kitty or WezTerm)
+  c: # Open Claude CLI in a new terminal tab (Kitty, WezTerm, or iTerm)
     command: claude
     description: Claude Code
     new_tab: true
@@ -605,7 +605,7 @@ custom_commands:
 | `show_help` | bool | `false` | Show in help screen (`?`) and footer |
 | `wait` | bool | `false` | Wait for keypress after completion |
 | `show_output` | bool | `false` | Show stdout/stderr in pager (ignores `wait`) |
-| `new_tab` | bool | `false` | Launch in new terminal tab (Kitty with remote control enabled, or WezTerm) |
+| `new_tab` | bool | `false` | Launch in new terminal tab (Kitty with remote control enabled, WezTerm, or iTerm) |
 | `tmux` | object | `null` | Configure tmux session |
 | `zellij` | object | `null` | Configure zellij session |
 
