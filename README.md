@@ -8,7 +8,7 @@ for creating, inspecting, and navigating worktrees within a repository.
 Built with [BubbleTea](https://github.com/charmbracelet/bubbletea), it focuses on fast iteration, clear state visibility, and tight Git tooling integration.
 
 ![Go](https://img.shields.io/badge/go-1.25%2B-blue)
-![Coverage](https://img.shields.io/badge/Coverage-55.2%25-yellow)
+![Coverage](https://img.shields.io/badge/Coverage-56.4%25-yellow)
 
 ## Screenshot
 
