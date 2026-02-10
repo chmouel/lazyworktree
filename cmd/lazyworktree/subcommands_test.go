@@ -152,13 +152,13 @@ func TestHandleCreateValidation(t *testing.T) {
 			name:        "no-workspace alone (invalid)",
 			args:        []string{"lazyworktree", "create", "--no-workspace"},
 			expectError: true,
-			errorMsg:    "--no-workspace requires --from-pr or --from-issue",
+			errorMsg:    "--no-workspace requires --from-pr, --from-issue, or --from-issue-interactive",
 		},
 		{
 			name:        "no-workspace with from-branch only (invalid)",
 			args:        []string{"lazyworktree", "create", "--from-branch", "main", "--no-workspace"},
 			expectError: true,
-			errorMsg:    "--no-workspace requires --from-pr or --from-issue",
+			errorMsg:    "--no-workspace requires --from-pr, --from-issue, or --from-issue-interactive",
 		},
 		{
 			name:        "no-workspace with with-change (invalid)",
@@ -177,6 +177,51 @@ func TestHandleCreateValidation(t *testing.T) {
 			args:        []string{"lazyworktree", "create", "--from-issue", "42", "--no-workspace", "my-branch"},
 			expectError: true,
 			errorMsg:    "positional name argument cannot be used with --from-issue",
+		},
+		// --from-issue-interactive tests
+		{
+			name:        "valid from-issue-interactive",
+			args:        []string{"lazyworktree", "create", "--from-issue-interactive"},
+			expectError: false,
+		},
+		{
+			name:        "valid from-issue-interactive short flag",
+			args:        []string{"lazyworktree", "create", "-I"},
+			expectError: false,
+		},
+		{
+			name:        "from-issue-interactive with from-branch (valid)",
+			args:        []string{"lazyworktree", "create", "--from-issue-interactive", "--from-branch", "main"},
+			expectError: false,
+		},
+		{
+			name:        "from-issue-interactive with no-workspace (valid)",
+			args:        []string{"lazyworktree", "create", "--from-issue-interactive", "--no-workspace"},
+			expectError: false,
+		},
+		{
+			name:        "from-issue-interactive with from-issue (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-issue-interactive", "--from-issue", "42"},
+			expectError: true,
+			errorMsg:    "--from-issue-interactive and --from-issue are mutually exclusive",
+		},
+		{
+			name:        "from-issue-interactive with from-pr (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-issue-interactive", "--from-pr", "123"},
+			expectError: true,
+			errorMsg:    "--from-issue-interactive and --from-pr are mutually exclusive",
+		},
+		{
+			name:        "from-issue-interactive with positional name (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-issue-interactive", "my-branch"},
+			expectError: true,
+			errorMsg:    "positional name argument cannot be used with --from-issue-interactive",
+		},
+		{
+			name:        "from-issue-interactive with with-change (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-issue-interactive", "--with-change"},
+			expectError: true,
+			errorMsg:    "--with-change cannot be used with --from-issue-interactive",
 		},
 	}
 
@@ -285,6 +330,7 @@ func TestHandleCreateOutputSelection(t *testing.T) {
 	oldCreateFromBranch := createFromBranchFunc
 	oldCreateFromPR := createFromPRFunc
 	oldCreateFromIssue := createFromIssueFunc
+	oldSelectIssueInteractive := selectIssueInteractiveFunc
 	oldWriteOutputSelection := writeOutputSelectionFunc
 	t.Cleanup(func() {
 		loadCLIConfigFunc = oldLoadCLIConfig
@@ -292,6 +338,7 @@ func TestHandleCreateOutputSelection(t *testing.T) {
 		createFromBranchFunc = oldCreateFromBranch
 		createFromPRFunc = oldCreateFromPR
 		createFromIssueFunc = oldCreateFromIssue
+		selectIssueInteractiveFunc = oldSelectIssueInteractive
 		writeOutputSelectionFunc = oldWriteOutputSelection
 	})
 
@@ -309,6 +356,9 @@ func TestHandleCreateOutputSelection(t *testing.T) {
 	}
 	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _, _ bool) (string, error) {
 		return "", os.ErrInvalid
+	}
+	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service) (int, error) {
+		return 0, os.ErrInvalid
 	}
 	writeOutputSelectionFunc = writeOutputSelection
 
@@ -366,6 +416,7 @@ func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
 	oldCreateFromBranch := createFromBranchFunc
 	oldCreateFromPR := createFromPRFunc
 	oldCreateFromIssue := createFromIssueFunc
+	oldSelectIssueInteractive := selectIssueInteractiveFunc
 	oldWriteOutputSelection := writeOutputSelectionFunc
 	t.Cleanup(func() {
 		loadCLIConfigFunc = oldLoadCLIConfig
@@ -373,6 +424,7 @@ func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
 		createFromBranchFunc = oldCreateFromBranch
 		createFromPRFunc = oldCreateFromPR
 		createFromIssueFunc = oldCreateFromIssue
+		selectIssueInteractiveFunc = oldSelectIssueInteractive
 		writeOutputSelectionFunc = oldWriteOutputSelection
 	})
 
@@ -390,6 +442,9 @@ func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
 	}
 	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _, _ bool) (string, error) {
 		return "", os.ErrInvalid
+	}
+	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service) (int, error) {
+		return 0, os.ErrInvalid
 	}
 	writeOutputSelectionFunc = writeOutputSelection
 

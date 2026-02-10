@@ -1,0 +1,184 @@
+package cli
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"strconv"
+	"strings"
+
+	"github.com/chmouel/lazyworktree/internal/models"
+)
+
+// issueSelector abstracts interactive issue selection for testability.
+type issueSelector func(issues []*models.IssueInfo, stdin io.Reader, stderr io.Writer) (*models.IssueInfo, error)
+
+// selectIssueFunc is the package-level function variable used by SelectIssueInteractive.
+// Tests can replace this to avoid fzf/stdin dependencies.
+var selectIssueFunc issueSelector = selectIssueDefault
+
+// fzfLookPath is a package-level variable for exec.LookPath, replaceable in tests.
+var fzfLookPath = exec.LookPath
+
+// SelectIssueInteractive fetches open issues and presents an interactive
+// selector. When fzf is installed, it pipes the issues through fzf with a
+// body preview; otherwise a numbered list is printed to stderr and the user
+// is prompted to type a selection number.
+func SelectIssueInteractive(ctx context.Context, gitSvc gitService, stdin io.Reader, stderr io.Writer) (int, error) {
+	fmt.Fprintf(stderr, "Fetching open issues...\n")
+
+	issues, err := gitSvc.FetchAllOpenIssues(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch issues: %w", err)
+	}
+
+	if len(issues) == 0 {
+		return 0, fmt.Errorf("no open issues found")
+	}
+
+	selected, err := selectIssueFunc(issues, stdin, stderr)
+	if err != nil {
+		return 0, err
+	}
+
+	return selected.Number, nil
+}
+
+// selectIssueDefault chooses between fzf and the plain fallback.
+func selectIssueDefault(issues []*models.IssueInfo, stdin io.Reader, stderr io.Writer) (*models.IssueInfo, error) {
+	if _, err := fzfLookPath("fzf"); err == nil {
+		return selectIssueWithFzf(issues, stderr)
+	}
+	return selectIssueWithPrompt(issues, stdin, stderr)
+}
+
+// selectIssueWithFzf pipes issues through fzf with a preview of the body.
+func selectIssueWithFzf(issues []*models.IssueInfo, stderr io.Writer) (*models.IssueInfo, error) {
+	// Build lookup and input lines
+	lookup := make(map[int]*models.IssueInfo, len(issues))
+	var lines []string
+	for _, issue := range issues {
+		lookup[issue.Number] = issue
+		// Sanitise title: collapse newlines and carriage returns into spaces
+		title := strings.Join(strings.Fields(issue.Title), " ")
+		line := fmt.Sprintf("#%-6d %s", issue.Number, title)
+		lines = append(lines, line)
+	}
+	input := strings.Join(lines, "\n")
+
+	// Build a preview command that extracts the issue number from the
+	// selected line, then looks it up in a here-string map.
+	// We write body text into an environment variable keyed by number so
+	// fzf --preview can echo it.
+	previewScript := buildPreviewScript(issues)
+
+	//nolint:gosec // This is not executing user input, just a static script we built
+	cmd := exec.Command("fzf",
+		"--ansi",
+		"--prompt", "Select issue> ",
+		"--header", "Issue selection (type to filter)",
+		"--preview", previewScript,
+		"--preview-window", "wrap:down:40%",
+	)
+	cmd.Stdin = strings.NewReader(input)
+	cmd.Stderr = stderr
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("issue selection cancelled")
+	}
+
+	selected := strings.TrimSpace(string(out))
+	if selected == "" {
+		return nil, fmt.Errorf("no issue selected")
+	}
+
+	// Parse issue number from the selected line: "#42     Fix the bug"
+	num, err := parseIssueNumberFromLine(selected)
+	if err != nil {
+		return nil, err
+	}
+
+	issue, ok := lookup[num]
+	if !ok {
+		return nil, fmt.Errorf("issue #%d not found", num)
+	}
+	return issue, nil
+}
+
+// buildPreviewScript creates a shell script that maps issue numbers to their
+// body text for the fzf --preview option.
+func buildPreviewScript(issues []*models.IssueInfo) string {
+	// Build a case statement that maps issue numbers to their body text
+	var sb strings.Builder
+	sb.WriteString("num=$(echo {} | sed 's/^#\\([0-9]*\\).*/\\1/'); case $num in ")
+	for _, issue := range issues {
+		body := issue.Body
+		if body == "" {
+			body = "(no description)"
+		}
+		// Escape single quotes for the shell
+		body = strings.ReplaceAll(body, "'", "'\\''")
+		sb.WriteString(fmt.Sprintf("%d) echo '%s';; ", issue.Number, body))
+	}
+	sb.WriteString("*) echo 'No preview available';; esac")
+	return sb.String()
+}
+
+// selectIssueWithPrompt displays a numbered list and reads the user's choice.
+func selectIssueWithPrompt(issues []*models.IssueInfo, stdin io.Reader, stderr io.Writer) (*models.IssueInfo, error) {
+	fmt.Fprintf(stderr, "\nOpen issues:\n\n")
+	for i, issue := range issues {
+		title := strings.Join(strings.Fields(issue.Title), " ")
+		fmt.Fprintf(stderr, "  [%d] #%-6d %s\n", i+1, issue.Number, title)
+	}
+	fmt.Fprintf(stderr, "\nSelect issue [1-%d]: ", len(issues))
+
+	scanner := bufio.NewScanner(stdin)
+	if !scanner.Scan() {
+		return nil, fmt.Errorf("issue selection cancelled")
+	}
+
+	text := strings.TrimSpace(scanner.Text())
+	if text == "" {
+		return nil, fmt.Errorf("no issue selected")
+	}
+
+	idx, err := strconv.Atoi(text)
+	if err != nil {
+		return nil, fmt.Errorf("invalid selection: %q", text)
+	}
+
+	if idx < 1 || idx > len(issues) {
+		return nil, fmt.Errorf("selection out of range: %d (must be 1-%d)", idx, len(issues))
+	}
+
+	return issues[idx-1], nil
+}
+
+// parseIssueNumberFromLine extracts the issue number from a line like "#42     Fix the bug".
+func parseIssueNumberFromLine(line string) (int, error) {
+	line = strings.TrimSpace(line)
+	if !strings.HasPrefix(line, "#") {
+		return 0, fmt.Errorf("unexpected line format: %q", line)
+	}
+	// Remove the '#' prefix, then take everything up to the first space
+	rest := strings.TrimPrefix(line, "#")
+	parts := strings.Fields(rest)
+	if len(parts) == 0 {
+		return 0, fmt.Errorf("unexpected line format: %q", line)
+	}
+	num, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse issue number from %q: %w", line, err)
+	}
+	return num, nil
+}
+
+// SelectIssueInteractiveFromStdio is a convenience wrapper using os.Stdin/os.Stderr.
+func SelectIssueInteractiveFromStdio(ctx context.Context, gitSvc gitService) (int, error) {
+	return SelectIssueInteractive(ctx, gitSvc, os.Stdin, os.Stderr)
+}

@@ -21,9 +21,10 @@ import (
 )
 
 type (
-	createFromBranchFuncType func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) (string, error)
-	createFromPRFuncType     func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, noWorkspace, silent bool) (string, error)
-	createFromIssueFuncType  func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, issueNumber int, baseBranch string, noWorkspace, silent bool) (string, error)
+	createFromBranchFuncType       func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) (string, error)
+	createFromPRFuncType           func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, noWorkspace, silent bool) (string, error)
+	createFromIssueFuncType        func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, issueNumber int, baseBranch string, noWorkspace, silent bool) (string, error)
+	selectIssueInteractiveFuncType func(ctx context.Context, gitSvc *git.Service) (int, error)
 )
 
 var (
@@ -37,6 +38,9 @@ var (
 	}
 	createFromIssueFunc createFromIssueFuncType = func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, issueNumber int, baseBranch string, noWorkspace, silent bool) (string, error) {
 		return cli.CreateFromIssue(ctx, gitSvc, cfg, issueNumber, baseBranch, noWorkspace, silent)
+	}
+	selectIssueInteractiveFunc selectIssueInteractiveFuncType = func(ctx context.Context, gitSvc *git.Service) (int, error) {
+		return cli.SelectIssueInteractiveFromStdio(ctx, gitSvc)
 	}
 	writeOutputSelectionFunc = writeOutputSelection
 )
@@ -163,6 +167,11 @@ func createCommand() *appiCli.Command {
 				Usage: "Create worktree from issue number",
 			},
 			&appiCli.BoolFlag{
+				Name:    "from-issue-interactive",
+				Aliases: []string{"I"},
+				Usage:   "Interactively select an issue to create worktree from",
+			},
+			&appiCli.BoolFlag{
 				Name:  "generate",
 				Usage: "Generate name automatically from the current branch",
 			},
@@ -172,7 +181,7 @@ func createCommand() *appiCli.Command {
 			},
 			&appiCli.BoolFlag{
 				Name:  "no-workspace",
-				Usage: "Create local branch and switch to it without creating a worktree (requires --from-pr or --from-issue)",
+				Usage: "Create local branch and switch to it without creating a worktree (requires --from-pr, --from-issue, or --from-issue-interactive)",
 			},
 			&appiCli.BoolFlag{
 				Name:  "silent",
@@ -217,6 +226,7 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 	fromBranch := cmd.String("from-branch")
 	fromPR := cmd.Int("from-pr")
 	fromIssue := cmd.Int("from-issue")
+	fromIssueInteractive := cmd.Bool("from-issue-interactive")
 	hasName := len(cmd.Args().Slice()) > 0
 	generate := cmd.Bool("generate")
 	withChange := cmd.Bool("with-change")
@@ -230,6 +240,16 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 	// Mutual exclusivity: from-pr and from-issue
 	if fromPR > 0 && fromIssue > 0 {
 		return fmt.Errorf("--from-pr and --from-issue are mutually exclusive")
+	}
+
+	// Mutual exclusivity: from-issue-interactive and from-issue
+	if fromIssueInteractive && fromIssue > 0 {
+		return fmt.Errorf("--from-issue-interactive and --from-issue are mutually exclusive")
+	}
+
+	// Mutual exclusivity: from-issue-interactive and from-pr
+	if fromIssueInteractive && fromPR > 0 {
+		return fmt.Errorf("--from-issue-interactive and --from-pr are mutually exclusive")
 	}
 
 	// Generate flag cannot be used with positional name argument
@@ -247,6 +267,11 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 		return fmt.Errorf("positional name argument cannot be used with --from-issue")
 	}
 
+	// Name (positional arg) cannot be used with from-issue-interactive
+	if hasName && fromIssueInteractive {
+		return fmt.Errorf("positional name argument cannot be used with --from-issue-interactive")
+	}
+
 	// with-change cannot be used with from-pr
 	if withChange && fromPR > 0 {
 		return fmt.Errorf("--with-change cannot be used with --from-pr")
@@ -257,9 +282,14 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 		return fmt.Errorf("--with-change cannot be used with --from-issue")
 	}
 
-	// no-workspace requires from-pr or from-issue
-	if noWorkspace && fromPR == 0 && fromIssue == 0 {
-		return fmt.Errorf("--no-workspace requires --from-pr or --from-issue")
+	// with-change cannot be used with from-issue-interactive
+	if withChange && fromIssueInteractive {
+		return fmt.Errorf("--with-change cannot be used with --from-issue-interactive")
+	}
+
+	// no-workspace requires from-pr, from-issue, or from-issue-interactive
+	if noWorkspace && fromPR == 0 && fromIssue == 0 && !fromIssueInteractive {
+		return fmt.Errorf("--no-workspace requires --from-pr, --from-issue, or --from-issue-interactive")
 	}
 
 	// no-workspace cannot be used with with-change
@@ -298,6 +328,7 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	// Extract command-specific flags
 	fromPR := cmd.Int("from-pr")
 	fromIssue := cmd.Int("from-issue")
+	fromIssueInteractive := cmd.Bool("from-issue-interactive")
 	fromBranch := cmd.String("from-branch")
 	generate := cmd.Bool("generate")
 	withChange := cmd.Bool("with-change")
@@ -319,6 +350,26 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	case fromPR > 0:
 		// Create from PR
 		outputPath, opErr = createFromPRFunc(ctx, gitSvc, cfg, fromPR, noWorkspace, silent)
+	case fromIssueInteractive:
+		// Interactively select an issue, then create from it
+		issueNumber, err := selectIssueInteractiveFunc(ctx, gitSvc)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			_ = log.Close()
+			return err
+		}
+		baseBranch := fromBranch
+		if baseBranch == "" {
+			currentBranch, err := gitSvc.GetCurrentBranch(ctx)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Hint: Specify a base branch explicitly with --from-branch\n")
+				_ = log.Close()
+				return err
+			}
+			baseBranch = currentBranch
+		}
+		outputPath, opErr = createFromIssueFunc(ctx, gitSvc, cfg, issueNumber, baseBranch, noWorkspace, silent)
 	case fromIssue > 0:
 		// Create from issue
 		baseBranch := fromBranch
