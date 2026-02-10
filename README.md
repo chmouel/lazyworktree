@@ -753,6 +753,8 @@ lazyworktree create --from-branch main my-feature
 lazyworktree create --from-pr 123
 lazyworktree create --from-issue 42          # From issue (base: current branch)
 lazyworktree create --from-issue 42 --from-branch main  # From issue with explicit base
+lazyworktree create --from-pr 123 --no-workspace        # Branch only, no worktree
+lazyworktree create --from-issue 42 --no-workspace      # Branch only, no worktree
 ```
 
 For complete CLI documentation, see `man lazyworktree` or `lazyworktree --help`.

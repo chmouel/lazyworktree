@@ -22,8 +22,8 @@ import (
 
 type (
 	createFromBranchFuncType func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) (string, error)
-	createFromPRFuncType     func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, silent bool) (string, error)
-	createFromIssueFuncType  func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, issueNumber int, baseBranch string, silent bool) (string, error)
+	createFromPRFuncType     func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, noWorkspace, silent bool) (string, error)
+	createFromIssueFuncType  func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, issueNumber int, baseBranch string, noWorkspace, silent bool) (string, error)
 )
 
 var (
@@ -32,11 +32,11 @@ var (
 	createFromBranchFunc createFromBranchFuncType = func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) (string, error) {
 		return cli.CreateFromBranch(ctx, gitSvc, cfg, branchName, worktreeName, withChange, silent)
 	}
-	createFromPRFunc createFromPRFuncType = func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, silent bool) (string, error) {
-		return cli.CreateFromPR(ctx, gitSvc, cfg, prNumber, silent)
+	createFromPRFunc createFromPRFuncType = func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, noWorkspace, silent bool) (string, error) {
+		return cli.CreateFromPR(ctx, gitSvc, cfg, prNumber, noWorkspace, silent)
 	}
-	createFromIssueFunc createFromIssueFuncType = func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, issueNumber int, baseBranch string, silent bool) (string, error) {
-		return cli.CreateFromIssue(ctx, gitSvc, cfg, issueNumber, baseBranch, silent)
+	createFromIssueFunc createFromIssueFuncType = func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, issueNumber int, baseBranch string, noWorkspace, silent bool) (string, error) {
+		return cli.CreateFromIssue(ctx, gitSvc, cfg, issueNumber, baseBranch, noWorkspace, silent)
 	}
 	writeOutputSelectionFunc = writeOutputSelection
 )
@@ -171,6 +171,10 @@ func createCommand() *appiCli.Command {
 				Usage: "Carry over uncommitted changes to the new worktree",
 			},
 			&appiCli.BoolFlag{
+				Name:  "no-workspace",
+				Usage: "Create local branch and switch to it without creating a worktree (requires --from-pr or --from-issue)",
+			},
+			&appiCli.BoolFlag{
 				Name:  "silent",
 				Usage: "Suppress progress messages",
 			},
@@ -216,6 +220,7 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 	hasName := len(cmd.Args().Slice()) > 0
 	generate := cmd.Bool("generate")
 	withChange := cmd.Bool("with-change")
+	noWorkspace := cmd.Bool("no-workspace")
 
 	// Mutual exclusivity: from-branch and from-pr
 	if fromBranch != "" && fromPR > 0 {
@@ -252,6 +257,26 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 		return fmt.Errorf("--with-change cannot be used with --from-issue")
 	}
 
+	// no-workspace requires from-pr or from-issue
+	if noWorkspace && fromPR == 0 && fromIssue == 0 {
+		return fmt.Errorf("--no-workspace requires --from-pr or --from-issue")
+	}
+
+	// no-workspace cannot be used with with-change
+	if noWorkspace && withChange {
+		return fmt.Errorf("--no-workspace cannot be used with --with-change")
+	}
+
+	// no-workspace cannot be used with generate
+	if noWorkspace && generate {
+		return fmt.Errorf("--no-workspace cannot be used with --generate")
+	}
+
+	// no-workspace cannot be used with positional name
+	if noWorkspace && hasName {
+		return fmt.Errorf("--no-workspace cannot be used with a positional name argument")
+	}
+
 	return nil
 }
 
@@ -276,6 +301,7 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	fromBranch := cmd.String("from-branch")
 	generate := cmd.Bool("generate")
 	withChange := cmd.Bool("with-change")
+	noWorkspace := cmd.Bool("no-workspace")
 	silent := cmd.Bool("silent")
 
 	// Get name from positional argument if provided
@@ -292,7 +318,7 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	switch {
 	case fromPR > 0:
 		// Create from PR
-		outputPath, opErr = createFromPRFunc(ctx, gitSvc, cfg, fromPR, silent)
+		outputPath, opErr = createFromPRFunc(ctx, gitSvc, cfg, fromPR, noWorkspace, silent)
 	case fromIssue > 0:
 		// Create from issue
 		baseBranch := fromBranch
@@ -306,7 +332,7 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 			}
 			baseBranch = currentBranch
 		}
-		outputPath, opErr = createFromIssueFunc(ctx, gitSvc, cfg, fromIssue, baseBranch, silent)
+		outputPath, opErr = createFromIssueFunc(ctx, gitSvc, cfg, fromIssue, baseBranch, noWorkspace, silent)
 	default:
 		// Create from branch (either specified or current)
 		sourceBranch := fromBranch

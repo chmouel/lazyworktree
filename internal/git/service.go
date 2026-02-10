@@ -1588,6 +1588,113 @@ func (s *Service) CreateWorktreeFromPR(ctx context.Context, prNumber int, remote
 	return true
 }
 
+// CheckoutPRBranch fetches a PR's remote branch, creates a local branch at the
+// PR head commit, sets up tracking configuration, and switches to it — without
+// creating a worktree.  Returns true on success.
+func (s *Service) CheckoutPRBranch(ctx context.Context, prNumber int, remoteBranch, localBranch string) bool {
+	host := s.DetectHost(ctx)
+
+	// For unknown host, fall back to manual fetch
+	if host != gitHostGithub && host != gitHostGitLab {
+		if !s.RunCommandChecked(ctx, []string{"git", "fetch", "origin", remoteBranch}, "", fmt.Sprintf("Failed to fetch remote branch %s", remoteBranch)) {
+			return false
+		}
+		remoteRef := fmt.Sprintf("origin/%s", remoteBranch)
+		if !s.RunCommandChecked(ctx, []string{"git", "branch", localBranch, remoteRef}, "", fmt.Sprintf("Failed to create branch %s", localBranch)) {
+			return false
+		}
+		return s.RunCommandChecked(ctx, []string{"git", "switch", localBranch}, "", fmt.Sprintf("Failed to switch to branch %s", localBranch))
+	}
+
+	var headCommit string
+	var repoURL string
+	var mergeRef string
+
+	switch host {
+	case gitHostGithub:
+		prRaw := s.RunGit(ctx, []string{
+			"gh", "pr", "view", fmt.Sprintf("%d", prNumber),
+			"--json", "headRefOid,headRepository",
+		}, "", []int{0}, true, true)
+		if prRaw == "" {
+			s.notify(fmt.Sprintf("Failed to get PR #%d info", prNumber), "error")
+			return false
+		}
+		var pr map[string]any
+		if err := json.Unmarshal([]byte(prRaw), &pr); err != nil {
+			s.notify(fmt.Sprintf("Failed to parse PR #%d data: %v", prNumber, err), "error")
+			return false
+		}
+		headCommit, _ = pr["headRefOid"].(string)
+		if headCommit == "" {
+			s.notify(fmt.Sprintf("Failed to get PR #%d head commit", prNumber), "error")
+			return false
+		}
+		if headRepo, ok := pr["headRepository"].(map[string]any); ok {
+			repoURL, _ = headRepo["url"].(string)
+		}
+		if repoURL == "" {
+			repoURL = strings.TrimSpace(s.RunGit(ctx, []string{"git", "remote", "get-url", "origin"}, "", []int{0}, true, true))
+		}
+		mergeRef = fmt.Sprintf("refs/pull/%d/head", prNumber)
+
+		if !s.RunCommandChecked(ctx, []string{"git", "fetch", "origin", fmt.Sprintf("pull/%d/head", prNumber)}, "", fmt.Sprintf("Failed to fetch PR #%d", prNumber)) {
+			return false
+		}
+
+	case gitHostGitLab:
+		mrRaw := s.RunGit(ctx, []string{
+			"glab", "mr", "view", fmt.Sprintf("%d", prNumber),
+			"--output", "json",
+		}, "", []int{0}, true, true)
+		if mrRaw == "" {
+			s.notify(fmt.Sprintf("Failed to get MR #%d info", prNumber), "error")
+			return false
+		}
+		var mr map[string]any
+		if err := json.Unmarshal([]byte(mrRaw), &mr); err != nil {
+			s.notify(fmt.Sprintf("Failed to parse MR #%d data: %v", prNumber, err), "error")
+			return false
+		}
+		headCommit, _ = mr["sha"].(string)
+		if headCommit == "" {
+			s.notify(fmt.Sprintf("Failed to get MR #%d head commit", prNumber), "error")
+			return false
+		}
+		sourceBranch, _ := mr["source_branch"].(string)
+		if sourceBranch == "" {
+			sourceBranch = remoteBranch
+		}
+		repoURL = strings.TrimSpace(s.RunGit(ctx, []string{"git", "remote", "get-url", "origin"}, "", []int{0}, true, true))
+		mergeRef = fmt.Sprintf("refs/heads/%s", sourceBranch)
+
+		if !s.RunCommandChecked(ctx, []string{"git", "fetch", "origin", fmt.Sprintf("refs/heads/%s", sourceBranch)}, "", fmt.Sprintf("Failed to fetch MR #%d", prNumber)) {
+			return false
+		}
+	}
+
+	// Create local branch at the PR head commit (no worktree)
+	if !s.RunCommandChecked(ctx, []string{"git", "branch", localBranch, headCommit}, "", fmt.Sprintf("Failed to create branch %s", localBranch)) {
+		return false
+	}
+
+	// Set up branch tracking configuration (replicating gh/glab pr checkout behaviour)
+	if repoURL != "" {
+		s.RunGit(ctx, []string{"git", "config", fmt.Sprintf("branch.%s.remote", localBranch), repoURL}, "", []int{0}, true, true)
+		if host == gitHostGithub {
+			s.RunGit(ctx, []string{"git", "config", fmt.Sprintf("branch.%s.pushRemote", localBranch), repoURL}, "", []int{0}, true, true)
+		}
+		s.RunGit(ctx, []string{"git", "config", fmt.Sprintf("branch.%s.merge", localBranch), mergeRef}, "", []int{0}, true, true)
+	}
+
+	// Switch to the new branch
+	if !s.RunCommandChecked(ctx, []string{"git", "switch", localBranch}, "", fmt.Sprintf("Failed to switch to branch %s", localBranch)) {
+		return false
+	}
+
+	return true
+}
+
 // CherryPickCommit applies a commit to a target worktree.
 // Returns true on success, false on failure (including conflicts).
 func (s *Service) CherryPickCommit(ctx context.Context, commitSHA, targetPath string) (bool, error) {

@@ -22,9 +22,12 @@ type fakeGitService struct {
 	runGitOutput        map[string]string
 	runCommandCheckedOK bool
 
-	createdFromPR bool
-	prs           []*models.PRInfo
-	prsErr        error
+	checkedOutPRBranch   bool
+	lastCheckoutPRBranch string
+	checkoutPRBranchOK   bool
+	createdFromPR        bool
+	prs                  []*models.PRInfo
+	prsErr               error
 
 	issues    []*models.IssueInfo
 	issuesErr error
@@ -36,6 +39,12 @@ type fakeGitService struct {
 	executedCommands      error
 	lastWorktreeAddPath   string
 	lastWorktreeAddBranch string
+}
+
+func (f *fakeGitService) CheckoutPRBranch(_ context.Context, _ int, _, localBranch string) bool {
+	f.checkedOutPRBranch = true
+	f.lastCheckoutPRBranch = localBranch
+	return f.checkoutPRBranchOK
 }
 
 func (f *fakeGitService) CreateWorktreeFromPR(_ context.Context, _ int, _, _, _ string) bool {
