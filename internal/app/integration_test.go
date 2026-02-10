@@ -19,14 +19,17 @@ func TestModelInitialization(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-
-	if m == nil {
+	if m == nil { //nolint:staticcheck // NewModel should never return nil in practice
 		t.Fatal("NewModel returned nil")
-	} else if m.config != cfg {
+	}
+
+	//nolint:staticcheck // Nil check above ensures m is not nil
+	if m.config != cfg {
 		t.Error("Model config not set correctly")
 	}
 
-	if m != nil && m.state.view.FocusedPane != 0 {
+	//nolint:staticcheck // Nil check above ensures m is not nil
+	if m.state.view.FocusedPane != 0 {
 		t.Errorf("Expected focusedPane to be 0, got %d", m.state.view.FocusedPane)
 	}
 

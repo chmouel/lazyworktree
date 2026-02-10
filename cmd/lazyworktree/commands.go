@@ -25,6 +25,7 @@ type (
 	createFromPRFuncType           func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, noWorkspace, silent bool) (string, error)
 	createFromIssueFuncType        func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, issueNumber int, baseBranch string, noWorkspace, silent bool) (string, error)
 	selectIssueInteractiveFuncType func(ctx context.Context, gitSvc *git.Service) (int, error)
+	selectPRInteractiveFuncType    func(ctx context.Context, gitSvc *git.Service) (int, error)
 )
 
 var (
@@ -41,6 +42,9 @@ var (
 	}
 	selectIssueInteractiveFunc selectIssueInteractiveFuncType = func(ctx context.Context, gitSvc *git.Service) (int, error) {
 		return cli.SelectIssueInteractiveFromStdio(ctx, gitSvc)
+	}
+	selectPRInteractiveFunc selectPRInteractiveFuncType = func(ctx context.Context, gitSvc *git.Service) (int, error) {
+		return cli.SelectPRInteractiveFromStdio(ctx, gitSvc)
 	}
 	writeOutputSelectionFunc = writeOutputSelection
 )
@@ -172,6 +176,11 @@ func createCommand() *appiCli.Command {
 				Usage:   "Interactively select an issue to create worktree from",
 			},
 			&appiCli.BoolFlag{
+				Name:    "from-pr-interactive",
+				Aliases: []string{"P"},
+				Usage:   "Interactively select a PR to create worktree from",
+			},
+			&appiCli.BoolFlag{
 				Name:  "generate",
 				Usage: "Generate name automatically from the current branch",
 			},
@@ -181,7 +190,7 @@ func createCommand() *appiCli.Command {
 			},
 			&appiCli.BoolFlag{
 				Name:  "no-workspace",
-				Usage: "Create local branch and switch to it without creating a worktree (requires --from-pr, --from-issue, or --from-issue-interactive)",
+				Usage: "Create local branch and switch to it without creating a worktree (requires --from-pr, --from-pr-interactive, --from-issue, or --from-issue-interactive)",
 			},
 			&appiCli.BoolFlag{
 				Name:  "silent",
@@ -227,6 +236,7 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 	fromPR := cmd.Int("from-pr")
 	fromIssue := cmd.Int("from-issue")
 	fromIssueInteractive := cmd.Bool("from-issue-interactive")
+	fromPRInteractive := cmd.Bool("from-pr-interactive")
 	hasName := len(cmd.Args().Slice()) > 0
 	generate := cmd.Bool("generate")
 	withChange := cmd.Bool("with-change")
@@ -252,9 +262,34 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 		return fmt.Errorf("--from-issue-interactive and --from-pr are mutually exclusive")
 	}
 
+	// Mutual exclusivity: from-pr-interactive and from-pr
+	if fromPRInteractive && fromPR > 0 {
+		return fmt.Errorf("--from-pr-interactive and --from-pr are mutually exclusive")
+	}
+
+	// Mutual exclusivity: from-pr-interactive and from-issue
+	if fromPRInteractive && fromIssue > 0 {
+		return fmt.Errorf("--from-pr-interactive and --from-issue are mutually exclusive")
+	}
+
+	// Mutual exclusivity: from-pr-interactive and from-issue-interactive
+	if fromPRInteractive && fromIssueInteractive {
+		return fmt.Errorf("--from-pr-interactive and --from-issue-interactive are mutually exclusive")
+	}
+
+	// Mutual exclusivity: from-pr-interactive and from-branch
+	if fromPRInteractive && fromBranch != "" {
+		return fmt.Errorf("--from-pr-interactive and --from-branch are mutually exclusive")
+	}
+
 	// Generate flag cannot be used with positional name argument
 	if generate && hasName {
 		return fmt.Errorf("--generate flag cannot be used with a positional name argument")
+	}
+
+	// Generate flag cannot be used with from-pr-interactive
+	if generate && fromPRInteractive {
+		return fmt.Errorf("--generate flag cannot be used with --from-pr-interactive")
 	}
 
 	// Name (positional arg) cannot be used with from-pr
@@ -272,6 +307,11 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 		return fmt.Errorf("positional name argument cannot be used with --from-issue-interactive")
 	}
 
+	// Name (positional arg) cannot be used with from-pr-interactive
+	if hasName && fromPRInteractive {
+		return fmt.Errorf("positional name argument cannot be used with --from-pr-interactive")
+	}
+
 	// with-change cannot be used with from-pr
 	if withChange && fromPR > 0 {
 		return fmt.Errorf("--with-change cannot be used with --from-pr")
@@ -287,9 +327,14 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 		return fmt.Errorf("--with-change cannot be used with --from-issue-interactive")
 	}
 
-	// no-workspace requires from-pr, from-issue, or from-issue-interactive
-	if noWorkspace && fromPR == 0 && fromIssue == 0 && !fromIssueInteractive {
-		return fmt.Errorf("--no-workspace requires --from-pr, --from-issue, or --from-issue-interactive")
+	// with-change cannot be used with from-pr-interactive
+	if withChange && fromPRInteractive {
+		return fmt.Errorf("--with-change cannot be used with --from-pr-interactive")
+	}
+
+	// no-workspace requires from-pr, from-pr-interactive, from-issue, or from-issue-interactive
+	if noWorkspace && fromPR == 0 && !fromPRInteractive && fromIssue == 0 && !fromIssueInteractive {
+		return fmt.Errorf("--no-workspace requires --from-pr, --from-pr-interactive, --from-issue, or --from-issue-interactive")
 	}
 
 	// no-workspace cannot be used with with-change
@@ -329,6 +374,7 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	fromPR := cmd.Int("from-pr")
 	fromIssue := cmd.Int("from-issue")
 	fromIssueInteractive := cmd.Bool("from-issue-interactive")
+	fromPRInteractive := cmd.Bool("from-pr-interactive")
 	fromBranch := cmd.String("from-branch")
 	generate := cmd.Bool("generate")
 	withChange := cmd.Bool("with-change")
@@ -350,6 +396,15 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	case fromPR > 0:
 		// Create from PR
 		outputPath, opErr = createFromPRFunc(ctx, gitSvc, cfg, fromPR, noWorkspace, silent)
+	case fromPRInteractive:
+		// Interactively select a PR, then create from it
+		prNumber, err := selectPRInteractiveFunc(ctx, gitSvc)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			_ = log.Close()
+			return err
+		}
+		outputPath, opErr = createFromPRFunc(ctx, gitSvc, cfg, prNumber, noWorkspace, silent)
 	case fromIssueInteractive:
 		// Interactively select an issue, then create from it
 		issueNumber, err := selectIssueInteractiveFunc(ctx, gitSvc)

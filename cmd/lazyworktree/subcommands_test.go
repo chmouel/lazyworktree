@@ -152,13 +152,13 @@ func TestHandleCreateValidation(t *testing.T) {
 			name:        "no-workspace alone (invalid)",
 			args:        []string{"lazyworktree", "create", "--no-workspace"},
 			expectError: true,
-			errorMsg:    "--no-workspace requires --from-pr, --from-issue, or --from-issue-interactive",
+			errorMsg:    "--no-workspace requires --from-pr, --from-pr-interactive, --from-issue, or --from-issue-interactive",
 		},
 		{
 			name:        "no-workspace with from-branch only (invalid)",
 			args:        []string{"lazyworktree", "create", "--from-branch", "main", "--no-workspace"},
 			expectError: true,
-			errorMsg:    "--no-workspace requires --from-pr, --from-issue, or --from-issue-interactive",
+			errorMsg:    "--no-workspace requires --from-pr, --from-pr-interactive, --from-issue, or --from-issue-interactive",
 		},
 		{
 			name:        "no-workspace with with-change (invalid)",
@@ -222,6 +222,64 @@ func TestHandleCreateValidation(t *testing.T) {
 			args:        []string{"lazyworktree", "create", "--from-issue-interactive", "--with-change"},
 			expectError: true,
 			errorMsg:    "--with-change cannot be used with --from-issue-interactive",
+		},
+		// --from-pr-interactive tests
+		{
+			name:        "valid from-pr-interactive",
+			args:        []string{"lazyworktree", "create", "--from-pr-interactive"},
+			expectError: false,
+		},
+		{
+			name:        "valid from-pr-interactive short flag",
+			args:        []string{"lazyworktree", "create", "-P"},
+			expectError: false,
+		},
+		{
+			name:        "from-pr-interactive with no-workspace (valid)",
+			args:        []string{"lazyworktree", "create", "--from-pr-interactive", "--no-workspace"},
+			expectError: false,
+		},
+		{
+			name:        "from-pr-interactive with from-pr (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-pr-interactive", "--from-pr", "123"},
+			expectError: true,
+			errorMsg:    "--from-pr-interactive and --from-pr are mutually exclusive",
+		},
+		{
+			name:        "from-pr-interactive with from-issue (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-pr-interactive", "--from-issue", "42"},
+			expectError: true,
+			errorMsg:    "--from-pr-interactive and --from-issue are mutually exclusive",
+		},
+		{
+			name:        "from-pr-interactive with from-issue-interactive (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-pr-interactive", "--from-issue-interactive"},
+			expectError: true,
+			errorMsg:    "--from-pr-interactive and --from-issue-interactive are mutually exclusive",
+		},
+		{
+			name:        "from-pr-interactive with from-branch (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-pr-interactive", "--from-branch", "main"},
+			expectError: true,
+			errorMsg:    "--from-pr-interactive and --from-branch are mutually exclusive",
+		},
+		{
+			name:        "from-pr-interactive with positional name (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-pr-interactive", "my-branch"},
+			expectError: true,
+			errorMsg:    "positional name argument cannot be used with --from-pr-interactive",
+		},
+		{
+			name:        "from-pr-interactive with with-change (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-pr-interactive", "--with-change"},
+			expectError: true,
+			errorMsg:    "--with-change cannot be used with --from-pr-interactive",
+		},
+		{
+			name:        "generate with from-pr-interactive (invalid)",
+			args:        []string{"lazyworktree", "create", "--generate", "--from-pr-interactive"},
+			expectError: true,
+			errorMsg:    "--generate flag cannot be used with --from-pr-interactive",
 		},
 	}
 
@@ -331,6 +389,7 @@ func TestHandleCreateOutputSelection(t *testing.T) {
 	oldCreateFromPR := createFromPRFunc
 	oldCreateFromIssue := createFromIssueFunc
 	oldSelectIssueInteractive := selectIssueInteractiveFunc
+	oldSelectPRInteractive := selectPRInteractiveFunc
 	oldWriteOutputSelection := writeOutputSelectionFunc
 	t.Cleanup(func() {
 		loadCLIConfigFunc = oldLoadCLIConfig
@@ -339,6 +398,7 @@ func TestHandleCreateOutputSelection(t *testing.T) {
 		createFromPRFunc = oldCreateFromPR
 		createFromIssueFunc = oldCreateFromIssue
 		selectIssueInteractiveFunc = oldSelectIssueInteractive
+		selectPRInteractiveFunc = oldSelectPRInteractive
 		writeOutputSelectionFunc = oldWriteOutputSelection
 	})
 
@@ -358,6 +418,9 @@ func TestHandleCreateOutputSelection(t *testing.T) {
 		return "", os.ErrInvalid
 	}
 	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service) (int, error) {
+		return 0, os.ErrInvalid
+	}
+	selectPRInteractiveFunc = func(_ context.Context, _ *git.Service) (int, error) {
 		return 0, os.ErrInvalid
 	}
 	writeOutputSelectionFunc = writeOutputSelection
@@ -417,6 +480,7 @@ func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
 	oldCreateFromPR := createFromPRFunc
 	oldCreateFromIssue := createFromIssueFunc
 	oldSelectIssueInteractive := selectIssueInteractiveFunc
+	oldSelectPRInteractive := selectPRInteractiveFunc
 	oldWriteOutputSelection := writeOutputSelectionFunc
 	t.Cleanup(func() {
 		loadCLIConfigFunc = oldLoadCLIConfig
@@ -425,6 +489,7 @@ func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
 		createFromPRFunc = oldCreateFromPR
 		createFromIssueFunc = oldCreateFromIssue
 		selectIssueInteractiveFunc = oldSelectIssueInteractive
+		selectPRInteractiveFunc = oldSelectPRInteractive
 		writeOutputSelectionFunc = oldWriteOutputSelection
 	})
 
@@ -444,6 +509,9 @@ func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
 		return "", os.ErrInvalid
 	}
 	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service) (int, error) {
+		return 0, os.ErrInvalid
+	}
+	selectPRInteractiveFunc = func(_ context.Context, _ *git.Service) (int, error) {
 		return 0, os.ErrInvalid
 	}
 	writeOutputSelectionFunc = writeOutputSelection

@@ -755,9 +755,11 @@ lazyworktree create --from-issue 42          # From issue (base: current branch)
 lazyworktree create --from-issue 42 --from-branch main  # From issue with explicit base
 lazyworktree create -I                       # Interactively select issue (fzf or list)
 lazyworktree create -I --from-branch main    # Interactive issue with explicit base
+lazyworktree create -P                       # Interactively select PR (fzf or list)
 lazyworktree create --from-pr 123 --no-workspace        # Branch only, no worktree
 lazyworktree create --from-issue 42 --no-workspace      # Branch only, no worktree
 lazyworktree create -I --no-workspace                    # Interactively select issue, branch only
+lazyworktree create -P --no-workspace        # Interactively select PR, branch only
 ```
 
 For complete CLI documentation, see `man lazyworktree` or `lazyworktree --help`.

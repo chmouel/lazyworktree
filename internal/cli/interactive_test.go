@@ -189,6 +189,8 @@ func TestBuildPreviewScript_SingleQuoteEscaping(t *testing.T) {
 type mockGitServiceForInteractive struct {
 	issues []*models.IssueInfo
 	err    error
+	prs    []*models.PRInfo
+	prsErr error
 }
 
 func (m *mockGitServiceForInteractive) FetchAllOpenIssues(_ context.Context) ([]*models.IssueInfo, error) {
@@ -208,8 +210,8 @@ func (m *mockGitServiceForInteractive) ExecuteCommands(context.Context, []string
 	return nil
 }
 
-func (m *mockGitServiceForInteractive) FetchAllOpenPRs(context.Context) ([]*models.PRInfo, error) {
-	return nil, nil
+func (m *mockGitServiceForInteractive) FetchAllOpenPRs(_ context.Context) ([]*models.PRInfo, error) {
+	return m.prs, m.prsErr
 }
 
 func (m *mockGitServiceForInteractive) GetCurrentBranch(context.Context) (string, error) {
@@ -313,6 +315,243 @@ func TestSelectIssueWithFzf_Integration(t *testing.T) {
 	require.NoError(t, err, "fzf --filter failed")
 
 	// First result line should be parseable
+	firstLine := strings.Split(strings.TrimSpace(string(out)), "\n")[0]
+	num, err := parseIssueNumberFromLine(firstLine)
+	require.NoError(t, err)
+	assert.Equal(t, 42, num)
+}
+
+// --- PR interactive selector tests ---
+
+func samplePRs() []*models.PRInfo {
+	return []*models.PRInfo{
+		{Number: 10, Title: "Fix login bug", Body: "The login page crashes.", Author: "alice", Branch: "fix-login", BaseBranch: "main", CIStatus: "success"},
+		{Number: 42, Title: "Add dark mode", Body: "Support dark theme.", Author: "bob", Branch: "dark-mode", BaseBranch: "main", IsDraft: true, CIStatus: "pending"},
+		{Number: 99, Title: "Improve performance", Body: "", Author: "charlie", Branch: "perf", BaseBranch: "develop", CIStatus: "none"},
+	}
+}
+
+// --- selectPRWithPrompt tests ---
+
+func TestSelectPRWithPrompt_ValidSelection(t *testing.T) {
+	prs := samplePRs()
+	stdin := strings.NewReader("2\n")
+	stderr := &bytes.Buffer{}
+
+	selected, err := selectPRWithPrompt(prs, stdin, stderr)
+	require.NoError(t, err)
+	assert.Equal(t, 42, selected.Number)
+	assert.Equal(t, "Add dark mode", selected.Title)
+
+	output := stderr.String()
+	assert.Contains(t, output, "Open pull requests:")
+	assert.Contains(t, output, "[1] #10")
+	assert.Contains(t, output, "[2] #42")
+	assert.Contains(t, output, "[3] #99")
+	assert.Contains(t, output, "Select pull request [1-3]:")
+}
+
+func TestSelectPRWithPrompt_FirstItem(t *testing.T) {
+	prs := samplePRs()
+	stdin := strings.NewReader("1\n")
+	stderr := &bytes.Buffer{}
+
+	selected, err := selectPRWithPrompt(prs, stdin, stderr)
+	require.NoError(t, err)
+	assert.Equal(t, 10, selected.Number)
+}
+
+func TestSelectPRWithPrompt_LastItem(t *testing.T) {
+	prs := samplePRs()
+	stdin := strings.NewReader("3\n")
+	stderr := &bytes.Buffer{}
+
+	selected, err := selectPRWithPrompt(prs, stdin, stderr)
+	require.NoError(t, err)
+	assert.Equal(t, 99, selected.Number)
+}
+
+func TestSelectPRWithPrompt_OutOfRangeTooHigh(t *testing.T) {
+	prs := samplePRs()
+	stdin := strings.NewReader("5\n")
+	stderr := &bytes.Buffer{}
+
+	_, err := selectPRWithPrompt(prs, stdin, stderr)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "selection out of range")
+}
+
+func TestSelectPRWithPrompt_OutOfRangeZero(t *testing.T) {
+	prs := samplePRs()
+	stdin := strings.NewReader("0\n")
+	stderr := &bytes.Buffer{}
+
+	_, err := selectPRWithPrompt(prs, stdin, stderr)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "selection out of range")
+}
+
+func TestSelectPRWithPrompt_NonNumeric(t *testing.T) {
+	prs := samplePRs()
+	stdin := strings.NewReader("abc\n")
+	stderr := &bytes.Buffer{}
+
+	_, err := selectPRWithPrompt(prs, stdin, stderr)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid selection")
+}
+
+func TestSelectPRWithPrompt_EmptyInput(t *testing.T) {
+	prs := samplePRs()
+	stdin := strings.NewReader("\n")
+	stderr := &bytes.Buffer{}
+
+	_, err := selectPRWithPrompt(prs, stdin, stderr)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no pull request selected")
+}
+
+func TestSelectPRWithPrompt_EOF(t *testing.T) {
+	prs := samplePRs()
+	stdin := strings.NewReader("")
+	stderr := &bytes.Buffer{}
+
+	_, err := selectPRWithPrompt(prs, stdin, stderr)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cancelled")
+}
+
+func TestSelectPRWithPrompt_DraftAndCITags(t *testing.T) {
+	prs := samplePRs()
+	stdin := strings.NewReader("2\n")
+	stderr := &bytes.Buffer{}
+
+	_, err := selectPRWithPrompt(prs, stdin, stderr)
+	require.NoError(t, err)
+
+	output := stderr.String()
+	assert.Contains(t, output, "[draft]")
+	assert.Contains(t, output, "[CI: pending]")
+}
+
+// --- buildPRPreviewScript tests ---
+
+func TestBuildPRPreviewScript(t *testing.T) {
+	prs := samplePRs()
+	script := buildPRPreviewScript(prs)
+
+	assert.Contains(t, script, "10)")
+	assert.Contains(t, script, "42)")
+	assert.Contains(t, script, "99)")
+
+	// Should include author and branch info
+	assert.Contains(t, script, "Author: alice")
+	assert.Contains(t, script, "Branch: fix-login -> main")
+
+	// Draft PR should show draft status
+	assert.Contains(t, script, "Status: Draft")
+
+	// CI status
+	assert.Contains(t, script, "CI: success")
+	assert.Contains(t, script, "CI: pending")
+
+	// PR with no body should show placeholder
+	assert.Contains(t, script, "(no description)")
+
+	// Should include PR body text
+	assert.Contains(t, script, "The login page crashes.")
+	assert.Contains(t, script, "Support dark theme.")
+}
+
+func TestBuildPRPreviewScript_SingleQuoteEscaping(t *testing.T) {
+	prs := []*models.PRInfo{
+		{Number: 1, Title: "Test", Body: "It's a bug that can't be fixed", Author: "dev", Branch: "fix", BaseBranch: "main"},
+	}
+	script := buildPRPreviewScript(prs)
+
+	assert.Contains(t, script, "It'\\''s a bug that can'\\''t be fixed")
+}
+
+// --- SelectPRInteractive tests ---
+
+func TestSelectPRInteractive_NoPRs(t *testing.T) {
+	gitSvc := &mockGitServiceForInteractive{prs: []*models.PRInfo{}}
+	stderr := &bytes.Buffer{}
+
+	_, err := SelectPRInteractive(context.Background(), gitSvc, strings.NewReader(""), stderr)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no open pull requests found")
+}
+
+func TestSelectPRInteractive_FetchError(t *testing.T) {
+	gitSvc := &mockGitServiceForInteractive{prsErr: assert.AnError}
+	stderr := &bytes.Buffer{}
+
+	_, err := SelectPRInteractive(context.Background(), gitSvc, strings.NewReader(""), stderr)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to fetch pull requests")
+}
+
+func TestSelectPRInteractive_UsesPromptFallback(t *testing.T) {
+	oldFunc := selectPRFunc
+	t.Cleanup(func() { selectPRFunc = oldFunc })
+
+	selectPRFunc = selectPRWithPrompt
+
+	gitSvc := &mockGitServiceForInteractive{prs: samplePRs()}
+	stderr := &bytes.Buffer{}
+
+	num, err := SelectPRInteractive(context.Background(), gitSvc, strings.NewReader("2\n"), stderr)
+	require.NoError(t, err)
+	assert.Equal(t, 42, num)
+}
+
+func TestSelectPRDefault_FallsBackToPromptWhenNoFzf(t *testing.T) {
+	oldLookPath := fzfLookPath
+	t.Cleanup(func() { fzfLookPath = oldLookPath })
+
+	fzfLookPath = func(name string) (string, error) {
+		return "", exec.ErrNotFound
+	}
+
+	prs := samplePRs()
+	stdin := strings.NewReader("1\n")
+	stderr := &bytes.Buffer{}
+
+	selected, err := selectPRDefault(prs, stdin, stderr)
+	require.NoError(t, err)
+	assert.Equal(t, 10, selected.Number)
+}
+
+func TestSelectPRInteractive_FormattedLinesParseable(t *testing.T) {
+	prs := samplePRs()
+	for _, pr := range prs {
+		line := fmt.Sprintf("#%-6d %-12s %s", pr.Number, pr.Author, pr.Title)
+		num, err := parseIssueNumberFromLine(line)
+		require.NoError(t, err, "failed to parse line: %q", line)
+		assert.Equal(t, pr.Number, num)
+	}
+}
+
+func TestSelectPRWithFzf_Integration(t *testing.T) {
+	if _, err := exec.LookPath("fzf"); err != nil {
+		t.Skip("fzf not installed, skipping integration test")
+	}
+
+	prs := samplePRs()
+
+	var lines []string
+	for _, pr := range prs {
+		lines = append(lines, fmt.Sprintf("#%-6d %-12s %s", pr.Number, pr.Author, pr.Title))
+	}
+	input := strings.Join(lines, "\n")
+
+	// Filter for "dark" should match PR #42 "Add dark mode"
+	cmd := exec.Command("fzf", "--filter", "dark")
+	cmd.Stdin = strings.NewReader(input)
+	out, err := cmd.Output()
+	require.NoError(t, err, "fzf --filter failed")
+
 	firstLine := strings.Split(strings.TrimSpace(string(out)), "\n")[0]
 	num, err := parseIssueNumberFromLine(firstLine)
 	require.NoError(t, err)

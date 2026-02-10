@@ -8,7 +8,8 @@ lazyworktree \- A TUI tool to manage git worktrees
 .br
 .B lazyworktree wt\-create
 [\-\-from\-branch \fIBRANCH\fR] [\-\-name \fINAME\fR] | [\-\-from\-pr \fINUMBER\fR]
-| [\-\-from\-issue \fINUMBER\fR] | [\-\-from\-issue\-interactive|\-I]
+| [\-\-from\-pr\-interactive|\-P] | [\-\-from\-issue \fINUMBER\fR]
+| [\-\-from\-issue\-interactive|\-I]
 [\-\-with\-change] [\-\-silent]
 .br
 .B lazyworktree wt\-delete
@@ -131,6 +132,10 @@ Create worktree from issue number. Fetches the specified issue and creates a wor
 Interactively select an open issue to create a worktree from. When \fBfzf\fR is installed, presents a searchable list with issue body preview; otherwise displays a numbered list for selection. Shares the same constraints as \-\-from\-issue (mutually exclusive with \-\-from\-pr, cannot combine with \-\-with\-change or a positional name). Combine with \-\-from\-branch to specify a base branch.
 .
 .TP
+.B \-\-from\-pr\-interactive\fR, \fB\-P\fR
+Interactively select an open pull request to create a worktree from. When \fBfzf\fR is installed, presents a searchable list with PR metadata preview (author, branches, draft status, CI); otherwise displays a numbered list for selection. Mutually exclusive with \-\-from\-pr, \-\-from\-issue, \-\-from\-issue\-interactive, and \-\-from\-branch. Cannot combine with \-\-with\-change or a positional name.
+.
+.TP
 .B \-\-generate
 Generate the worktree name automatically from the current branch. Cannot be used with a positional name argument or \-\-from\-pr.
 .
@@ -140,7 +145,7 @@ Carry over uncommitted changes to the new worktree. Works with current branch or
 .
 .TP
 .B \-\-no\-workspace
-Skip worktree creation entirely. Instead, creates a local branch and switches to it in the current working directory. Must be used with \-\-from\-pr, \-\-from\-issue, or \-\-from\-issue\-interactive. Cannot be combined with \-\-with\-change, \-\-generate, or a positional name argument. Outputs the branch name rather than a worktree path.
+Skip worktree creation entirely. Instead, creates a local branch and switches to it in the current working directory. Must be used with \-\-from\-pr, \-\-from\-pr\-interactive, \-\-from\-issue, or \-\-from\-issue\-interactive. Cannot be combined with \-\-with\-change, \-\-generate, or a positional name argument. Outputs the branch name rather than a worktree path.
 .
 .TP
 .B \-\-silent
@@ -217,6 +222,11 @@ Create from issue number with explicit base branch:
 .B lazyworktree create \-\-from\-issue 42 \-\-from\-branch main
 .
 .PP
+Interactively select a PR (fzf or numbered list):
+.br
+.B lazyworktree create \-P
+.
+.PP
 Checkout PR branch without creating a worktree:
 .br
 .B lazyworktree create \-\-from\-pr 123 \-\-no\-workspace
@@ -230,6 +240,11 @@ Checkout issue branch without creating a worktree:
 Interactively select issue and checkout without creating a worktree:
 .br
 .B lazyworktree create \-I \-\-no\-workspace
+.
+.PP
+Interactively select PR and checkout without creating a worktree:
+.br
+.B lazyworktree create \-P \-\-no\-workspace
 .
 .PP
 Create with uncommitted changes:
