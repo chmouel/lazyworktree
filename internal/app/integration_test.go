@@ -26,7 +26,7 @@ func TestModelInitialization(t *testing.T) {
 		t.Error("Model config not set correctly")
 	}
 
-	if m != nil && m.state.view.FocusedPane != 0 {
+	if m.state.view.FocusedPane != 0 {
 		t.Errorf("Expected focusedPane to be 0, got %d", m.state.view.FocusedPane)
 	}
 

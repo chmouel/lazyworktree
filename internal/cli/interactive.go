@@ -13,61 +13,99 @@ import (
 	"github.com/chmouel/lazyworktree/internal/models"
 )
 
-type issueSelector func(issues []*models.IssueInfo, stdin io.Reader, stderr io.Writer) (*models.IssueInfo, error)
-
-// selectIssueFunc is the default issue selector, replaceable in tests.
-var selectIssueFunc issueSelector = selectIssueDefault
-
-var fzfLookPath = exec.LookPath
-
-// SelectIssueInteractive presents an interactive issue selector (fzf when available, numbered list otherwise).
-func SelectIssueInteractive(ctx context.Context, gitSvc gitService, stdin io.Reader, stderr io.Writer) (int, error) {
-	fmt.Fprintf(stderr, "Fetching open issues...\n")
-
-	issues, err := gitSvc.FetchAllOpenIssues(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("failed to fetch issues: %w", err)
-	}
-
-	if len(issues) == 0 {
-		return 0, fmt.Errorf("no open issues found")
-	}
-
-	selected, err := selectIssueFunc(issues, stdin, stderr)
-	if err != nil {
-		return 0, err
-	}
-
-	return selected.Number, nil
+// selectableItem is implemented by types that can be presented in an interactive selector.
+type selectableItem interface {
+	ItemNumber() int
+	FormatLine() string
+	FormatPreview() string
 }
 
-// selectIssueDefault chooses between fzf and the plain fallback.
-func selectIssueDefault(issues []*models.IssueInfo, stdin io.Reader, stderr io.Writer) (*models.IssueInfo, error) {
-	if _, err := fzfLookPath("fzf"); err == nil {
-		return selectIssueWithFzf(issues, stderr)
-	}
-	return selectIssueWithPrompt(issues, stdin, stderr)
+// issueItem wraps IssueInfo to implement selectableItem.
+type issueItem struct{ *models.IssueInfo }
+
+func (i issueItem) ItemNumber() int { return i.Number }
+
+func (i issueItem) FormatLine() string {
+	return fmt.Sprintf("#%-6d %s", i.Number, strings.Join(strings.Fields(i.Title), " "))
 }
 
-// selectIssueWithFzf pipes issues through fzf with a preview of the body.
-func selectIssueWithFzf(issues []*models.IssueInfo, stderr io.Writer) (*models.IssueInfo, error) {
-	lookup := make(map[int]*models.IssueInfo, len(issues))
+func (i issueItem) FormatPreview() string {
+	if i.Body == "" {
+		return "(no description)"
+	}
+	return i.Body
+}
+
+// prItem wraps PRInfo to implement selectableItem.
+type prItem struct{ *models.PRInfo }
+
+func (p prItem) ItemNumber() int { return p.Number }
+
+func (p prItem) FormatLine() string {
+	title := strings.Join(strings.Fields(p.Title), " ")
+	var tags []string
+	if p.IsDraft {
+		tags = append(tags, "[draft]")
+	}
+	if p.CIStatus != "" && p.CIStatus != "none" {
+		tags = append(tags, fmt.Sprintf("[CI: %s]", p.CIStatus))
+	}
+	tagStr := ""
+	if len(tags) > 0 {
+		tagStr = "  " + strings.Join(tags, " ")
+	}
+	return fmt.Sprintf("#%-6d %-12s %s%s", p.Number, p.Author, title, tagStr)
+}
+
+func (p prItem) FormatPreview() string {
+	var parts []string
+	parts = append(parts, fmt.Sprintf("Author: %s", p.Author))
+	parts = append(parts, fmt.Sprintf("Branch: %s -> %s", p.Branch, p.BaseBranch))
+	if p.IsDraft {
+		parts = append(parts, "Status: Draft")
+	}
+	if p.CIStatus != "" && p.CIStatus != "none" {
+		parts = append(parts, fmt.Sprintf("CI: %s", p.CIStatus))
+	}
+	body := p.Body
+	if body == "" {
+		body = "(no description)"
+	}
+	parts = append(parts, "", body)
+	return strings.Join(parts, "\n")
+}
+
+// selector function types used for test injection.
+type (
+	issueSelector func(issues []*models.IssueInfo, stdin io.Reader, stderr io.Writer) (*models.IssueInfo, error)
+	prSelector    func(prs []*models.PRInfo, stdin io.Reader, stderr io.Writer) (*models.PRInfo, error)
+)
+
+var (
+	selectIssueFunc issueSelector = selectIssueDefault
+	selectPRFunc    prSelector    = selectPRDefault
+	fzfLookPath                   = exec.LookPath
+)
+
+// --- Generic selection helpers ---
+
+// selectWithFzf pipes items through fzf and returns the selected item.
+func selectWithFzf[T selectableItem](items []T, prompt, header, cancelMsg, notFoundMsg string, stderr io.Writer) (T, error) {
+	var zero T
+	lookup := make(map[int]T, len(items))
 	var lines []string
-	for _, issue := range issues {
-		lookup[issue.Number] = issue
-		title := strings.Join(strings.Fields(issue.Title), " ")
-		line := fmt.Sprintf("#%-6d %s", issue.Number, title)
-		lines = append(lines, line)
+	for _, item := range items {
+		lookup[item.ItemNumber()] = item
+		lines = append(lines, item.FormatLine())
 	}
 	input := strings.Join(lines, "\n")
-
-	previewScript := buildPreviewScript(issues)
+	previewScript := buildGenericPreviewScript(items)
 
 	//nolint:gosec // This is not executing user input, just a static script we built
 	cmd := exec.Command("fzf",
 		"--ansi",
-		"--prompt", "Select issue> ",
-		"--header", "Issue selection (type to filter)",
+		"--prompt", prompt,
+		"--header", header,
 		"--preview", previewScript,
 		"--preview-window", "wrap:down:40%",
 	)
@@ -76,77 +114,73 @@ func selectIssueWithFzf(issues []*models.IssueInfo, stderr io.Writer) (*models.I
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("issue selection cancelled")
+		return zero, fmt.Errorf("%s", cancelMsg)
 	}
 
 	selected := strings.TrimSpace(string(out))
 	if selected == "" {
-		return nil, fmt.Errorf("no issue selected")
+		return zero, fmt.Errorf("%s", notFoundMsg)
 	}
 
-	num, err := parseIssueNumberFromLine(selected)
+	num, err := parseNumberFromLine(selected)
 	if err != nil {
-		return nil, err
+		return zero, err
 	}
-
-	issue, ok := lookup[num]
+	item, ok := lookup[num]
 	if !ok {
-		return nil, fmt.Errorf("issue #%d not found", num)
+		return zero, fmt.Errorf("%s #%d not found", notFoundMsg, num)
 	}
-	return issue, nil
+	return item, nil
 }
 
-// buildPreviewScript creates a shell script that maps issue numbers to their
-// body text for the fzf --preview option.
-func buildPreviewScript(issues []*models.IssueInfo) string {
+// selectWithPrompt displays a numbered list and reads the user's choice.
+func selectWithPrompt[T selectableItem](items []T, noun string, stdin io.Reader, stderr io.Writer) (T, error) {
+	var zero T
+	fmt.Fprintf(stderr, "\nOpen %ss:\n\n", noun)
+	for i, item := range items {
+		fmt.Fprintf(stderr, "  [%d] %s\n", i+1, item.FormatLine())
+	}
+	fmt.Fprintf(stderr, "\nSelect %s [1-%d]: ", noun, len(items))
+
+	scanner := bufio.NewScanner(stdin)
+	if !scanner.Scan() {
+		return zero, fmt.Errorf("%s selection cancelled", noun)
+	}
+
+	text := strings.TrimSpace(scanner.Text())
+	if text == "" {
+		return zero, fmt.Errorf("no %s selected", noun)
+	}
+
+	idx, err := strconv.Atoi(text)
+	if err != nil {
+		return zero, fmt.Errorf("invalid selection: %q", text)
+	}
+
+	if idx < 1 || idx > len(items) {
+		return zero, fmt.Errorf("selection out of range: %d (must be 1-%d)", idx, len(items))
+	}
+
+	return items[idx-1], nil
+}
+
+// buildGenericPreviewScript creates a shell script that maps item numbers to their
+// preview text for the fzf --preview option.
+func buildGenericPreviewScript[T selectableItem](items []T) string {
 	var sb strings.Builder
 	sb.WriteString("num=$(echo {} | sed 's/^#\\([0-9]*\\).*/\\1/'); case $num in ")
-	for _, issue := range issues {
-		body := issue.Body
-		if body == "" {
-			body = "(no description)"
-		}
+	for _, item := range items {
+		preview := item.FormatPreview()
 		// Escape single quotes for the shell
-		body = strings.ReplaceAll(body, "'", "'\\''")
-		sb.WriteString(fmt.Sprintf("%d) echo '%s';; ", issue.Number, body))
+		preview = strings.ReplaceAll(preview, "'", "'\\''")
+		sb.WriteString(fmt.Sprintf("%d) echo '%s';; ", item.ItemNumber(), preview))
 	}
 	sb.WriteString("*) echo 'No preview available';; esac")
 	return sb.String()
 }
 
-// selectIssueWithPrompt displays a numbered list and reads the user's choice.
-func selectIssueWithPrompt(issues []*models.IssueInfo, stdin io.Reader, stderr io.Writer) (*models.IssueInfo, error) {
-	fmt.Fprintf(stderr, "\nOpen issues:\n\n")
-	for i, issue := range issues {
-		title := strings.Join(strings.Fields(issue.Title), " ")
-		fmt.Fprintf(stderr, "  [%d] #%-6d %s\n", i+1, issue.Number, title)
-	}
-	fmt.Fprintf(stderr, "\nSelect issue [1-%d]: ", len(issues))
-
-	scanner := bufio.NewScanner(stdin)
-	if !scanner.Scan() {
-		return nil, fmt.Errorf("issue selection cancelled")
-	}
-
-	text := strings.TrimSpace(scanner.Text())
-	if text == "" {
-		return nil, fmt.Errorf("no issue selected")
-	}
-
-	idx, err := strconv.Atoi(text)
-	if err != nil {
-		return nil, fmt.Errorf("invalid selection: %q", text)
-	}
-
-	if idx < 1 || idx > len(issues) {
-		return nil, fmt.Errorf("selection out of range: %d (must be 1-%d)", idx, len(issues))
-	}
-
-	return issues[idx-1], nil
-}
-
-// parseIssueNumberFromLine extracts the issue number from a line like "#42     Fix the bug".
-func parseIssueNumberFromLine(line string) (int, error) {
+// parseNumberFromLine extracts the number from a line like "#42     Fix the bug".
+func parseNumberFromLine(line string) (int, error) {
 	line = strings.TrimSpace(line)
 	if !strings.HasPrefix(line, "#") {
 		return 0, fmt.Errorf("unexpected line format: %q", line)
@@ -163,15 +197,63 @@ func parseIssueNumberFromLine(line string) (int, error) {
 	return num, nil
 }
 
+// --- Issue selectors (thin wrappers around generic helpers) ---
+
+// SelectIssueInteractive presents an interactive issue selector (fzf when available, numbered list otherwise).
+func SelectIssueInteractive(ctx context.Context, gitSvc gitService, stdin io.Reader, stderr io.Writer) (int, error) {
+	fmt.Fprintf(stderr, "Fetching open issues...\n")
+
+	issues, err := gitSvc.FetchAllOpenIssues(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch issues: %w", err)
+	}
+	if len(issues) == 0 {
+		return 0, fmt.Errorf("no open issues found")
+	}
+
+	selected, err := selectIssueFunc(issues, stdin, stderr)
+	if err != nil {
+		return 0, err
+	}
+	return selected.Number, nil
+}
+
+func selectIssueDefault(issues []*models.IssueInfo, stdin io.Reader, stderr io.Writer) (*models.IssueInfo, error) {
+	if _, err := fzfLookPath("fzf"); err == nil {
+		return selectIssueWithFzf(issues, stderr)
+	}
+	return selectIssueWithPrompt(issues, stdin, stderr)
+}
+
+func selectIssueWithFzf(issues []*models.IssueInfo, stderr io.Writer) (*models.IssueInfo, error) {
+	items := wrapIssues(issues)
+	selected, err := selectWithFzf(items, "Select issue> ", "Issue selection (type to filter)", "issue selection cancelled", "no issue selected", stderr)
+	if err != nil {
+		return nil, err
+	}
+	return selected.IssueInfo, nil
+}
+
+func selectIssueWithPrompt(issues []*models.IssueInfo, stdin io.Reader, stderr io.Writer) (*models.IssueInfo, error) {
+	items := wrapIssues(issues)
+	selected, err := selectWithPrompt(items, "issue", stdin, stderr)
+	if err != nil {
+		return nil, err
+	}
+	return selected.IssueInfo, nil
+}
+
+// buildPreviewScript creates a shell script for issue previews (kept for test compatibility).
+func buildPreviewScript(issues []*models.IssueInfo) string {
+	return buildGenericPreviewScript(wrapIssues(issues))
+}
+
 // SelectIssueInteractiveFromStdio wraps SelectIssueInteractive with os.Stdin/os.Stderr.
 func SelectIssueInteractiveFromStdio(ctx context.Context, gitSvc gitService) (int, error) {
 	return SelectIssueInteractive(ctx, gitSvc, os.Stdin, os.Stderr)
 }
 
-type prSelector func(prs []*models.PRInfo, stdin io.Reader, stderr io.Writer) (*models.PRInfo, error)
-
-// selectPRFunc is the default PR selector, replaceable in tests.
-var selectPRFunc prSelector = selectPRDefault
+// --- PR selectors (thin wrappers around generic helpers) ---
 
 // SelectPRInteractive presents an interactive PR selector (fzf when available, numbered list otherwise).
 func SelectPRInteractive(ctx context.Context, gitSvc gitService, stdin io.Reader, stderr io.Writer) (int, error) {
@@ -181,7 +263,6 @@ func SelectPRInteractive(ctx context.Context, gitSvc gitService, stdin io.Reader
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch pull requests: %w", err)
 	}
-
 	if len(prs) == 0 {
 		return 0, fmt.Errorf("no open pull requests found")
 	}
@@ -190,11 +271,9 @@ func SelectPRInteractive(ctx context.Context, gitSvc gitService, stdin io.Reader
 	if err != nil {
 		return 0, err
 	}
-
 	return selected.Number, nil
 }
 
-// selectPRDefault chooses between fzf and the plain fallback.
 func selectPRDefault(prs []*models.PRInfo, stdin io.Reader, stderr io.Writer) (*models.PRInfo, error) {
 	if _, err := fzfLookPath("fzf"); err == nil {
 		return selectPRWithFzf(prs, stderr)
@@ -202,136 +281,51 @@ func selectPRDefault(prs []*models.PRInfo, stdin io.Reader, stderr io.Writer) (*
 	return selectPRWithPrompt(prs, stdin, stderr)
 }
 
-// selectPRWithFzf pipes PRs through fzf with a preview of the body.
 func selectPRWithFzf(prs []*models.PRInfo, stderr io.Writer) (*models.PRInfo, error) {
-	lookup := make(map[int]*models.PRInfo, len(prs))
-	var lines []string
-	for _, pr := range prs {
-		lookup[pr.Number] = pr
-		title := strings.Join(strings.Fields(pr.Title), " ")
-		var tags []string
-		if pr.IsDraft {
-			tags = append(tags, "[draft]")
-		}
-		if pr.CIStatus != "" && pr.CIStatus != "none" {
-			tags = append(tags, fmt.Sprintf("[CI: %s]", pr.CIStatus))
-		}
-		tagStr := ""
-		if len(tags) > 0 {
-			tagStr = "  " + strings.Join(tags, " ")
-		}
-		line := fmt.Sprintf("#%-6d %-12s %s%s", pr.Number, pr.Author, title, tagStr)
-		lines = append(lines, line)
-	}
-	input := strings.Join(lines, "\n")
-
-	previewScript := buildPRPreviewScript(prs)
-
-	//nolint:gosec // This is not executing user input, just a static script we built
-	cmd := exec.Command("fzf",
-		"--ansi",
-		"--prompt", "Select PR> ",
-		"--header", "Pull request selection (type to filter)",
-		"--preview", previewScript,
-		"--preview-window", "wrap:down:40%",
-	)
-	cmd.Stdin = strings.NewReader(input)
-	cmd.Stderr = stderr
-
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("pull request selection cancelled")
-	}
-
-	selected := strings.TrimSpace(string(out))
-	if selected == "" {
-		return nil, fmt.Errorf("no pull request selected")
-	}
-
-	num, err := parseIssueNumberFromLine(selected)
+	items := wrapPRs(prs)
+	selected, err := selectWithFzf(items, "Select PR> ", "Pull request selection (type to filter)", "pull request selection cancelled", "no pull request selected", stderr)
 	if err != nil {
 		return nil, err
 	}
-
-	pr, ok := lookup[num]
-	if !ok {
-		return nil, fmt.Errorf("pull request #%d not found", num)
-	}
-	return pr, nil
+	return selected.PRInfo, nil
 }
 
-// buildPRPreviewScript creates a shell script that maps PR numbers to their
-// metadata for the fzf --preview option.
-func buildPRPreviewScript(prs []*models.PRInfo) string {
-	var sb strings.Builder
-	sb.WriteString("num=$(echo {} | sed 's/^#\\([0-9]*\\).*/\\1/'); case $num in ")
-	for _, pr := range prs {
-		var parts []string
-		parts = append(parts, fmt.Sprintf("Author: %s", pr.Author))
-		parts = append(parts, fmt.Sprintf("Branch: %s -> %s", pr.Branch, pr.BaseBranch))
-		if pr.IsDraft {
-			parts = append(parts, "Status: Draft")
-		}
-		if pr.CIStatus != "" && pr.CIStatus != "none" {
-			parts = append(parts, fmt.Sprintf("CI: %s", pr.CIStatus))
-		}
-		body := pr.Body
-		if body == "" {
-			body = "(no description)"
-		}
-		parts = append(parts, "", body)
-		preview := strings.Join(parts, "\n")
-		// Escape single quotes for the shell
-		preview = strings.ReplaceAll(preview, "'", "'\\''")
-		sb.WriteString(fmt.Sprintf("%d) echo '%s';; ", pr.Number, preview))
-	}
-	sb.WriteString("*) echo 'No preview available';; esac")
-	return sb.String()
-}
-
-// selectPRWithPrompt displays a numbered list and reads the user's choice.
 func selectPRWithPrompt(prs []*models.PRInfo, stdin io.Reader, stderr io.Writer) (*models.PRInfo, error) {
-	fmt.Fprintf(stderr, "\nOpen pull requests:\n\n")
-	for i, pr := range prs {
-		title := strings.Join(strings.Fields(pr.Title), " ")
-		var tags []string
-		if pr.IsDraft {
-			tags = append(tags, "[draft]")
-		}
-		if pr.CIStatus != "" && pr.CIStatus != "none" {
-			tags = append(tags, fmt.Sprintf("[CI: %s]", pr.CIStatus))
-		}
-		tagStr := ""
-		if len(tags) > 0 {
-			tagStr = "  " + strings.Join(tags, " ")
-		}
-		fmt.Fprintf(stderr, "  [%d] #%-6d %-12s %s%s\n", i+1, pr.Number, pr.Author, title, tagStr)
-	}
-	fmt.Fprintf(stderr, "\nSelect pull request [1-%d]: ", len(prs))
-
-	scanner := bufio.NewScanner(stdin)
-	if !scanner.Scan() {
-		return nil, fmt.Errorf("pull request selection cancelled")
-	}
-
-	text := strings.TrimSpace(scanner.Text())
-	if text == "" {
-		return nil, fmt.Errorf("no pull request selected")
-	}
-
-	idx, err := strconv.Atoi(text)
+	items := wrapPRs(prs)
+	selected, err := selectWithPrompt(items, "pull request", stdin, stderr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid selection: %q", text)
+		return nil, err
 	}
+	return selected.PRInfo, nil
+}
 
-	if idx < 1 || idx > len(prs) {
-		return nil, fmt.Errorf("selection out of range: %d (must be 1-%d)", idx, len(prs))
-	}
-
-	return prs[idx-1], nil
+// buildPRPreviewScript creates a shell script for PR previews (kept for test compatibility).
+func buildPRPreviewScript(prs []*models.PRInfo) string {
+	return buildGenericPreviewScript(wrapPRs(prs))
 }
 
 // SelectPRInteractiveFromStdio wraps SelectPRInteractive with os.Stdin/os.Stderr.
 func SelectPRInteractiveFromStdio(ctx context.Context, gitSvc gitService) (int, error) {
 	return SelectPRInteractive(ctx, gitSvc, os.Stdin, os.Stderr)
 }
+
+// --- Conversion helpers ---
+
+func wrapIssues(issues []*models.IssueInfo) []issueItem {
+	items := make([]issueItem, len(issues))
+	for i, issue := range issues {
+		items[i] = issueItem{issue}
+	}
+	return items
+}
+
+func wrapPRs(prs []*models.PRInfo) []prItem {
+	items := make([]prItem, len(prs))
+	for i, pr := range prs {
+		items[i] = prItem{pr}
+	}
+	return items
+}
+
+// parseIssueNumberFromLine is an alias for parseNumberFromLine kept for test compatibility.
+var parseIssueNumberFromLine = parseNumberFromLine

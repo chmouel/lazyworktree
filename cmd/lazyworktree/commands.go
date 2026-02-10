@@ -274,31 +274,25 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 		return err
 	}
 
-	if err := validateIncompatibility("--from-branch", fromBranch != "", "--from-pr", fromPR > 0); err != nil {
-		return err
+	incompatible := []struct {
+		name1 string
+		set1  bool
+		name2 string
+		set2  bool
+	}{
+		{"--from-branch", fromBranch != "", "--from-pr", fromPR > 0},
+		{"--from-branch", fromBranch != "", "--from-pr-interactive", fromPRInteractive},
+		{"--generate", generate, "positional name argument", hasName},
+		{"--generate", generate, "--from-pr-interactive", fromPRInteractive},
+		{"positional name argument", hasName, "--from-pr", fromPR > 0},
+		{"positional name argument", hasName, "--from-issue", fromIssue > 0},
+		{"positional name argument", hasName, "--from-issue-interactive", fromIssueInteractive},
+		{"positional name argument", hasName, "--from-pr-interactive", fromPRInteractive},
 	}
-	if err := validateIncompatibility("--from-branch", fromBranch != "", "--from-pr-interactive", fromPRInteractive); err != nil {
-		return err
-	}
-
-	if err := validateIncompatibility("--generate", generate, "positional name argument", hasName); err != nil {
-		return err
-	}
-	if err := validateIncompatibility("--generate", generate, "--from-pr-interactive", fromPRInteractive); err != nil {
-		return err
-	}
-
-	if err := validateIncompatibility("positional name argument", hasName, "--from-pr", fromPR > 0); err != nil {
-		return err
-	}
-	if err := validateIncompatibility("positional name argument", hasName, "--from-issue", fromIssue > 0); err != nil {
-		return err
-	}
-	if err := validateIncompatibility("positional name argument", hasName, "--from-issue-interactive", fromIssueInteractive); err != nil {
-		return err
-	}
-	if err := validateIncompatibility("positional name argument", hasName, "--from-pr-interactive", fromPRInteractive); err != nil {
-		return err
+	for _, pair := range incompatible {
+		if err := validateIncompatibility(pair.name1, pair.set1, pair.name2, pair.set2); err != nil {
+			return err
+		}
 	}
 
 	if withChange {
