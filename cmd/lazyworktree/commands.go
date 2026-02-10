@@ -23,6 +23,7 @@ import (
 type (
 	createFromBranchFuncType func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) (string, error)
 	createFromPRFuncType     func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, silent bool) (string, error)
+	createFromIssueFuncType  func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, issueNumber int, baseBranch string, silent bool) (string, error)
 )
 
 var (
@@ -33,6 +34,9 @@ var (
 	}
 	createFromPRFunc createFromPRFuncType = func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, silent bool) (string, error) {
 		return cli.CreateFromPR(ctx, gitSvc, cfg, prNumber, silent)
+	}
+	createFromIssueFunc createFromIssueFuncType = func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, issueNumber int, baseBranch string, silent bool) (string, error) {
+		return cli.CreateFromIssue(ctx, gitSvc, cfg, issueNumber, baseBranch, silent)
 	}
 	writeOutputSelectionFunc = writeOutputSelection
 )
@@ -154,6 +158,10 @@ func createCommand() *appiCli.Command {
 				Name:  "from-pr",
 				Usage: "Create worktree from PR number",
 			},
+			&appiCli.IntFlag{
+				Name:  "from-issue",
+				Usage: "Create worktree from issue number",
+			},
 			&appiCli.BoolFlag{
 				Name:  "generate",
 				Usage: "Generate name automatically from the current branch",
@@ -204,6 +212,7 @@ func deleteCommand() *appiCli.Command {
 func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 	fromBranch := cmd.String("from-branch")
 	fromPR := cmd.Int("from-pr")
+	fromIssue := cmd.Int("from-issue")
 	hasName := len(cmd.Args().Slice()) > 0
 	generate := cmd.Bool("generate")
 	withChange := cmd.Bool("with-change")
@@ -211,6 +220,11 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 	// Mutual exclusivity: from-branch and from-pr
 	if fromBranch != "" && fromPR > 0 {
 		return fmt.Errorf("--from-branch and --from-pr are mutually exclusive")
+	}
+
+	// Mutual exclusivity: from-pr and from-issue
+	if fromPR > 0 && fromIssue > 0 {
+		return fmt.Errorf("--from-pr and --from-issue are mutually exclusive")
 	}
 
 	// Generate flag cannot be used with positional name argument
@@ -223,9 +237,19 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 		return fmt.Errorf("positional name argument cannot be used with --from-pr")
 	}
 
+	// Name (positional arg) cannot be used with from-issue
+	if hasName && fromIssue > 0 {
+		return fmt.Errorf("positional name argument cannot be used with --from-issue")
+	}
+
 	// with-change cannot be used with from-pr
 	if withChange && fromPR > 0 {
 		return fmt.Errorf("--with-change cannot be used with --from-pr")
+	}
+
+	// with-change cannot be used with from-issue
+	if withChange && fromIssue > 0 {
+		return fmt.Errorf("--with-change cannot be used with --from-issue")
 	}
 
 	return nil
@@ -248,6 +272,7 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 
 	// Extract command-specific flags
 	fromPR := cmd.Int("from-pr")
+	fromIssue := cmd.Int("from-issue")
 	fromBranch := cmd.String("from-branch")
 	generate := cmd.Bool("generate")
 	withChange := cmd.Bool("with-change")
@@ -264,10 +289,25 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 		opErr      error
 		outputPath string
 	)
-	if fromPR > 0 {
+	switch {
+	case fromPR > 0:
 		// Create from PR
 		outputPath, opErr = createFromPRFunc(ctx, gitSvc, cfg, fromPR, silent)
-	} else {
+	case fromIssue > 0:
+		// Create from issue
+		baseBranch := fromBranch
+		if baseBranch == "" {
+			currentBranch, err := gitSvc.GetCurrentBranch(ctx)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Hint: Specify a base branch explicitly with --from-branch\n")
+				_ = log.Close()
+				return err
+			}
+			baseBranch = currentBranch
+		}
+		outputPath, opErr = createFromIssueFunc(ctx, gitSvc, cfg, fromIssue, baseBranch, silent)
+	default:
 		// Create from branch (either specified or current)
 		sourceBranch := fromBranch
 

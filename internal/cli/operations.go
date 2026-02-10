@@ -40,7 +40,9 @@ var DefaultFS OSFilesystem = RealFilesystem{}
 type gitService interface {
 	CreateWorktreeFromPR(ctx context.Context, prNumber int, branch string, worktreeName string, targetPath string) bool
 	ExecuteCommands(ctx context.Context, cmdList []string, cwd string, env map[string]string) error
+	FetchAllOpenIssues(ctx context.Context) ([]*models.IssueInfo, error)
 	FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
+	GetCurrentBranch(ctx context.Context) (string, error)
 	GetMainWorktreePath(ctx context.Context) string
 	GetWorktrees(ctx context.Context) ([]*models.WorktreeInfo, error)
 	ResolveRepoName(ctx context.Context) string
@@ -254,6 +256,78 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 	// Create worktree from PR
 	if !gitSvc.CreateWorktreeFromPR(ctx, selectedPR.Number, selectedPR.Branch, branchName, targetPath) {
 		return "", fmt.Errorf("failed to create worktree from PR #%d", selectedPR.Number)
+	}
+
+	// Run init commands
+	if err := runInitCommands(ctx, gitSvc, cfg, branchName, targetPath, silent); err != nil {
+		// Clean up the worktree if init commands fail
+		gitSvc.RunCommandChecked(ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", "Failed to cleanup worktree")
+		return "", err
+	}
+
+	return targetPath, nil
+}
+
+// CreateFromIssue creates a worktree from an issue number.
+func CreateFromIssue(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, issueNumber int, baseBranch string, silent bool) (string, error) {
+	return CreateFromIssueWithFS(ctx, gitSvc, cfg, issueNumber, baseBranch, silent, DefaultFS)
+}
+
+// CreateFromIssueWithFS creates a worktree from an issue number using the provided filesystem.
+func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, issueNumber int, baseBranch string, silent bool, fs OSFilesystem) (string, error) {
+	if !silent {
+		fmt.Fprintf(os.Stderr, "Fetching issue #%d...\n", issueNumber)
+	}
+
+	// Fetch all issues to find the specific one
+	issues, err := gitSvc.FetchAllOpenIssues(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch issues: %w", err)
+	}
+
+	// Find the issue with the specified number
+	var selectedIssue *models.IssueInfo
+	for _, issue := range issues {
+		if issue.Number == issueNumber {
+			selectedIssue = issue
+			break
+		}
+	}
+
+	if selectedIssue == nil {
+		return "", fmt.Errorf("issue #%d not found (must be an open issue)", issueNumber)
+	}
+
+	// Generate branch name using template
+	template := cfg.IssueBranchNameTemplate
+	if template == "" {
+		template = "issue-{number}-{title}"
+	}
+	branchName := utils.GenerateIssueWorktreeName(selectedIssue, template, "")
+
+	// Construct target path
+	repoName := gitSvc.ResolveRepoName(ctx)
+	targetPath := filepath.Join(cfg.WorktreeDir, repoName, branchName)
+
+	// Check for path conflicts
+	if _, err := fs.Stat(targetPath); err == nil {
+		return "", fmt.Errorf("path already exists: %s", targetPath)
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("failed to check path %s: %w", targetPath, err)
+	}
+
+	// Create parent directory
+	if err := fs.MkdirAll(filepath.Dir(targetPath), utils.DefaultDirPerms); err != nil {
+		return "", fmt.Errorf("failed to create worktree directory: %w", err)
+	}
+
+	// Create worktree from base branch
+	if !gitSvc.RunCommandChecked(ctx,
+		[]string{"git", "worktree", "add", "-b", branchName, targetPath, baseBranch},
+		"",
+		fmt.Sprintf("Failed to create worktree from issue #%d", issueNumber),
+	) {
+		return "", fmt.Errorf("failed to create worktree from issue #%d", issueNumber)
 	}
 
 	// Run init commands
