@@ -13,20 +13,14 @@ import (
 	"github.com/chmouel/lazyworktree/internal/models"
 )
 
-// issueSelector abstracts interactive issue selection for testability.
 type issueSelector func(issues []*models.IssueInfo, stdin io.Reader, stderr io.Writer) (*models.IssueInfo, error)
 
-// selectIssueFunc is the package-level function variable used by SelectIssueInteractive.
-// Tests can replace this to avoid fzf/stdin dependencies.
+// selectIssueFunc is the default issue selector, replaceable in tests.
 var selectIssueFunc issueSelector = selectIssueDefault
 
-// fzfLookPath is a package-level variable for exec.LookPath, replaceable in tests.
 var fzfLookPath = exec.LookPath
 
-// SelectIssueInteractive fetches open issues and presents an interactive
-// selector. When fzf is installed, it pipes the issues through fzf with a
-// body preview; otherwise a numbered list is printed to stderr and the user
-// is prompted to type a selection number.
+// SelectIssueInteractive presents an interactive issue selector (fzf when available, numbered list otherwise).
 func SelectIssueInteractive(ctx context.Context, gitSvc gitService, stdin io.Reader, stderr io.Writer) (int, error) {
 	fmt.Fprintf(stderr, "Fetching open issues...\n")
 
@@ -57,22 +51,16 @@ func selectIssueDefault(issues []*models.IssueInfo, stdin io.Reader, stderr io.W
 
 // selectIssueWithFzf pipes issues through fzf with a preview of the body.
 func selectIssueWithFzf(issues []*models.IssueInfo, stderr io.Writer) (*models.IssueInfo, error) {
-	// Build lookup and input lines
 	lookup := make(map[int]*models.IssueInfo, len(issues))
 	var lines []string
 	for _, issue := range issues {
 		lookup[issue.Number] = issue
-		// Sanitise title: collapse newlines and carriage returns into spaces
 		title := strings.Join(strings.Fields(issue.Title), " ")
 		line := fmt.Sprintf("#%-6d %s", issue.Number, title)
 		lines = append(lines, line)
 	}
 	input := strings.Join(lines, "\n")
 
-	// Build a preview command that extracts the issue number from the
-	// selected line, then looks it up in a here-string map.
-	// We write body text into an environment variable keyed by number so
-	// fzf --preview can echo it.
 	previewScript := buildPreviewScript(issues)
 
 	//nolint:gosec // This is not executing user input, just a static script we built
@@ -96,7 +84,6 @@ func selectIssueWithFzf(issues []*models.IssueInfo, stderr io.Writer) (*models.I
 		return nil, fmt.Errorf("no issue selected")
 	}
 
-	// Parse issue number from the selected line: "#42     Fix the bug"
 	num, err := parseIssueNumberFromLine(selected)
 	if err != nil {
 		return nil, err
@@ -112,7 +99,6 @@ func selectIssueWithFzf(issues []*models.IssueInfo, stderr io.Writer) (*models.I
 // buildPreviewScript creates a shell script that maps issue numbers to their
 // body text for the fzf --preview option.
 func buildPreviewScript(issues []*models.IssueInfo) string {
-	// Build a case statement that maps issue numbers to their body text
 	var sb strings.Builder
 	sb.WriteString("num=$(echo {} | sed 's/^#\\([0-9]*\\).*/\\1/'); case $num in ")
 	for _, issue := range issues {
@@ -165,7 +151,6 @@ func parseIssueNumberFromLine(line string) (int, error) {
 	if !strings.HasPrefix(line, "#") {
 		return 0, fmt.Errorf("unexpected line format: %q", line)
 	}
-	// Remove the '#' prefix, then take everything up to the first space
 	rest := strings.TrimPrefix(line, "#")
 	parts := strings.Fields(rest)
 	if len(parts) == 0 {
@@ -178,22 +163,17 @@ func parseIssueNumberFromLine(line string) (int, error) {
 	return num, nil
 }
 
-// SelectIssueInteractiveFromStdio is a convenience wrapper using os.Stdin/os.Stderr.
+// SelectIssueInteractiveFromStdio wraps SelectIssueInteractive with os.Stdin/os.Stderr.
 func SelectIssueInteractiveFromStdio(ctx context.Context, gitSvc gitService) (int, error) {
 	return SelectIssueInteractive(ctx, gitSvc, os.Stdin, os.Stderr)
 }
 
-// prSelector abstracts interactive PR selection for testability.
 type prSelector func(prs []*models.PRInfo, stdin io.Reader, stderr io.Writer) (*models.PRInfo, error)
 
-// selectPRFunc is the package-level function variable used by SelectPRInteractive.
-// Tests can replace this to avoid fzf/stdin dependencies.
+// selectPRFunc is the default PR selector, replaceable in tests.
 var selectPRFunc prSelector = selectPRDefault
 
-// SelectPRInteractive fetches open PRs and presents an interactive
-// selector. When fzf is installed, it pipes the PRs through fzf with a
-// body preview; otherwise a numbered list is printed to stderr and the user
-// is prompted to type a selection number.
+// SelectPRInteractive presents an interactive PR selector (fzf when available, numbered list otherwise).
 func SelectPRInteractive(ctx context.Context, gitSvc gitService, stdin io.Reader, stderr io.Writer) (int, error) {
 	fmt.Fprintf(stderr, "Fetching open pull requests...\n")
 
@@ -351,7 +331,7 @@ func selectPRWithPrompt(prs []*models.PRInfo, stdin io.Reader, stderr io.Writer)
 	return prs[idx-1], nil
 }
 
-// SelectPRInteractiveFromStdio is a convenience wrapper using os.Stdin/os.Stderr.
+// SelectPRInteractiveFromStdio wraps SelectPRInteractive with os.Stdin/os.Stderr.
 func SelectPRInteractiveFromStdio(ctx context.Context, gitSvc gitService) (int, error) {
 	return SelectPRInteractive(ctx, gitSvc, os.Stdin, os.Stderr)
 }

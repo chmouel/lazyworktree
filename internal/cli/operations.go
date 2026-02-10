@@ -43,6 +43,8 @@ type gitService interface {
 	ExecuteCommands(ctx context.Context, cmdList []string, cwd string, env map[string]string) error
 	FetchAllOpenIssues(ctx context.Context) ([]*models.IssueInfo, error)
 	FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
+	FetchIssue(ctx context.Context, issueNumber int) (*models.IssueInfo, error)
+	FetchPR(ctx context.Context, prNumber int) (*models.PRInfo, error)
 	GetCurrentBranch(ctx context.Context) (string, error)
 	GetMainWorktreePath(ctx context.Context) string
 	GetWorktrees(ctx context.Context) ([]*models.WorktreeInfo, error)
@@ -207,30 +209,14 @@ func CreateFromPR(ctx context.Context, gitSvc gitService, cfg *config.AppConfig,
 }
 
 // CreateFromPRWithFS creates a worktree from a PR number using the provided filesystem.
-// When noWorkspace is true, it creates a local branch and switches to it without
-// creating a worktree directory.
 func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, prNumber int, noWorkspace, silent bool, fs OSFilesystem) (string, error) {
 	if !silent {
 		fmt.Fprintf(os.Stderr, "Fetching PR #%d...\n", prNumber)
 	}
 
-	// Fetch all PRs to find the specific one
-	prs, err := gitSvc.FetchAllOpenPRs(ctx)
+	selectedPR, err := gitSvc.FetchPR(ctx, prNumber)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch PRs: %w", err)
-	}
-
-	// Find the PR with the specified number
-	var selectedPR *models.PRInfo
-	for _, pr := range prs {
-		if pr.Number == prNumber {
-			selectedPR = pr
-			break
-		}
-	}
-
-	if selectedPR == nil {
-		return "", fmt.Errorf("PR #%d not found (must be an open PR)", prNumber)
+		return "", fmt.Errorf("failed to fetch PR: %w", err)
 	}
 
 	// Generate branch name using template
@@ -240,7 +226,6 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 	}
 	branchName := utils.GeneratePRWorktreeName(selectedPR, template, "")
 
-	// No-workspace mode: create branch and switch to it, skip worktree creation
 	if noWorkspace {
 		if !gitSvc.CheckoutPRBranch(ctx, selectedPR.Number, selectedPR.Branch, branchName) {
 			return "", fmt.Errorf("failed to checkout branch for PR #%d", selectedPR.Number)
@@ -285,30 +270,14 @@ func CreateFromIssue(ctx context.Context, gitSvc gitService, cfg *config.AppConf
 }
 
 // CreateFromIssueWithFS creates a worktree from an issue number using the provided filesystem.
-// When noWorkspace is true, it creates a local branch from the base branch and switches
-// to it without creating a worktree directory.
 func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, issueNumber int, baseBranch string, noWorkspace, silent bool, fs OSFilesystem) (string, error) {
 	if !silent {
 		fmt.Fprintf(os.Stderr, "Fetching issue #%d...\n", issueNumber)
 	}
 
-	// Fetch all issues to find the specific one
-	issues, err := gitSvc.FetchAllOpenIssues(ctx)
+	selectedIssue, err := gitSvc.FetchIssue(ctx, issueNumber)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch issues: %w", err)
-	}
-
-	// Find the issue with the specified number
-	var selectedIssue *models.IssueInfo
-	for _, issue := range issues {
-		if issue.Number == issueNumber {
-			selectedIssue = issue
-			break
-		}
-	}
-
-	if selectedIssue == nil {
-		return "", fmt.Errorf("issue #%d not found (must be an open issue)", issueNumber)
+		return "", fmt.Errorf("failed to fetch issue: %w", err)
 	}
 
 	// Generate branch name using template
@@ -318,7 +287,6 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 	}
 	branchName := utils.GenerateIssueWorktreeName(selectedIssue, template, "")
 
-	// No-workspace mode: create branch from base and switch to it
 	if noWorkspace {
 		if !gitSvc.RunCommandChecked(ctx,
 			[]string{"git", "branch", branchName, baseBranch},

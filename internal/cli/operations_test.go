@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -61,6 +62,30 @@ func (f *fakeGitService) FetchAllOpenIssues(_ context.Context) ([]*models.IssueI
 
 func (f *fakeGitService) FetchAllOpenPRs(_ context.Context) ([]*models.PRInfo, error) {
 	return f.prs, f.prsErr
+}
+
+func (f *fakeGitService) FetchIssue(_ context.Context, issueNumber int) (*models.IssueInfo, error) {
+	for _, issue := range f.issues {
+		if issue.Number == issueNumber {
+			return issue, nil
+		}
+	}
+	if f.issuesErr != nil {
+		return nil, f.issuesErr
+	}
+	return nil, fmt.Errorf("issue #%d not found", issueNumber)
+}
+
+func (f *fakeGitService) FetchPR(_ context.Context, prNumber int) (*models.PRInfo, error) {
+	for _, pr := range f.prs {
+		if pr.Number == prNumber {
+			return pr, nil
+		}
+	}
+	if f.prsErr != nil {
+		return nil, f.prsErr
+	}
+	return nil, fmt.Errorf("PR #%d not found", prNumber)
 }
 
 func (f *fakeGitService) GetCurrentBranch(_ context.Context) (string, error) {

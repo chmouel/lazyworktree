@@ -21,8 +21,6 @@ func sampleIssues() []*models.IssueInfo {
 	}
 }
 
-// --- selectIssueWithPrompt tests ---
-
 func TestSelectIssueWithPrompt_ValidSelection(t *testing.T) {
 	issues := sampleIssues()
 	stdin := strings.NewReader("2\n")
@@ -33,7 +31,6 @@ func TestSelectIssueWithPrompt_ValidSelection(t *testing.T) {
 	assert.Equal(t, 42, selected.Number)
 	assert.Equal(t, "Add dark mode", selected.Title)
 
-	// Verify the prompt was printed to stderr
 	output := stderr.String()
 	assert.Contains(t, output, "Open issues:")
 	assert.Contains(t, output, "[1] #10")
@@ -122,8 +119,6 @@ func TestSelectIssueWithPrompt_EOF(t *testing.T) {
 	assert.Contains(t, err.Error(), "cancelled")
 }
 
-// --- parseIssueNumberFromLine tests ---
-
 func TestParseIssueNumberFromLine(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -155,21 +150,14 @@ func TestParseIssueNumberFromLine(t *testing.T) {
 	}
 }
 
-// --- buildPreviewScript tests ---
-
 func TestBuildPreviewScript(t *testing.T) {
 	issues := sampleIssues()
 	script := buildPreviewScript(issues)
 
-	// Should contain a case statement for each issue
 	assert.Contains(t, script, "10)")
 	assert.Contains(t, script, "42)")
 	assert.Contains(t, script, "99)")
-
-	// Issue with no body should show placeholder
 	assert.Contains(t, script, "(no description)")
-
-	// Should include issue body text
 	assert.Contains(t, script, "The login page crashes on submit.")
 	assert.Contains(t, script, "Support dark theme across the UI.")
 }
@@ -180,11 +168,8 @@ func TestBuildPreviewScript_SingleQuoteEscaping(t *testing.T) {
 	}
 	script := buildPreviewScript(issues)
 
-	// Single quotes must be escaped for shell safety
 	assert.Contains(t, script, "It'\\''s a bug that can'\\''t be fixed")
 }
-
-// --- SelectIssueInteractive tests (with mock gitService) ---
 
 type mockGitServiceForInteractive struct {
 	issues []*models.IssueInfo
@@ -197,7 +182,6 @@ func (m *mockGitServiceForInteractive) FetchAllOpenIssues(_ context.Context) ([]
 	return m.issues, m.err
 }
 
-// Implement remaining gitService methods as no-ops for the interface.
 func (m *mockGitServiceForInteractive) CheckoutPRBranch(context.Context, int, string, string) bool {
 	return false
 }
@@ -212,6 +196,30 @@ func (m *mockGitServiceForInteractive) ExecuteCommands(context.Context, []string
 
 func (m *mockGitServiceForInteractive) FetchAllOpenPRs(_ context.Context) ([]*models.PRInfo, error) {
 	return m.prs, m.prsErr
+}
+
+func (m *mockGitServiceForInteractive) FetchIssue(_ context.Context, issueNumber int) (*models.IssueInfo, error) {
+	for _, issue := range m.issues {
+		if issue.Number == issueNumber {
+			return issue, nil
+		}
+	}
+	if m.err != nil {
+		return nil, m.err
+	}
+	return nil, fmt.Errorf("issue #%d not found", issueNumber)
+}
+
+func (m *mockGitServiceForInteractive) FetchPR(_ context.Context, prNumber int) (*models.PRInfo, error) {
+	for _, pr := range m.prs {
+		if pr.Number == prNumber {
+			return pr, nil
+		}
+	}
+	if m.prsErr != nil {
+		return nil, m.prsErr
+	}
+	return nil, fmt.Errorf("PR #%d not found", prNumber)
 }
 
 func (m *mockGitServiceForInteractive) GetCurrentBranch(context.Context) (string, error) {
@@ -249,7 +257,6 @@ func TestSelectIssueInteractive_FetchError(t *testing.T) {
 }
 
 func TestSelectIssueInteractive_UsesPromptFallback(t *testing.T) {
-	// Override selectIssueFunc to use prompt fallback directly
 	oldFunc := selectIssueFunc
 	t.Cleanup(func() { selectIssueFunc = oldFunc })
 
@@ -264,10 +271,8 @@ func TestSelectIssueInteractive_UsesPromptFallback(t *testing.T) {
 }
 
 func TestSelectIssueDefault_FallsBackToPromptWhenNoFzf(t *testing.T) {
-	// Override fzfLookPath to simulate fzf not being installed
 	oldLookPath := fzfLookPath
 	t.Cleanup(func() { fzfLookPath = oldLookPath })
-
 	fzfLookPath = func(name string) (string, error) {
 		return "", exec.ErrNotFound
 	}
@@ -282,10 +287,8 @@ func TestSelectIssueDefault_FallsBackToPromptWhenNoFzf(t *testing.T) {
 }
 
 func TestSelectIssueInteractive_FormattedLinesParseable(t *testing.T) {
-	// Verify the formatted lines produced by selectIssueWithFzf can be parsed back
 	issues := sampleIssues()
 	for _, issue := range issues {
-		// This matches the format used in selectIssueWithFzf
 		line := fmt.Sprintf("#%-6d %s", issue.Number, issue.Title)
 		num, err := parseIssueNumberFromLine(line)
 		require.NoError(t, err, "failed to parse line: %q", line)
@@ -294,12 +297,10 @@ func TestSelectIssueInteractive_FormattedLinesParseable(t *testing.T) {
 }
 
 func TestSelectIssueWithFzf_Integration(t *testing.T) {
-	// Skip if fzf is not installed
 	if _, err := exec.LookPath("fzf"); err != nil {
 		t.Skip("fzf not installed, skipping integration test")
 	}
 
-	// Use fzf --filter to simulate non-interactive selection
 	issues := sampleIssues()
 
 	var lines []string
@@ -314,14 +315,11 @@ func TestSelectIssueWithFzf_Integration(t *testing.T) {
 	out, err := cmd.Output()
 	require.NoError(t, err, "fzf --filter failed")
 
-	// First result line should be parseable
 	firstLine := strings.Split(strings.TrimSpace(string(out)), "\n")[0]
 	num, err := parseIssueNumberFromLine(firstLine)
 	require.NoError(t, err)
 	assert.Equal(t, 42, num)
 }
-
-// --- PR interactive selector tests ---
 
 func samplePRs() []*models.PRInfo {
 	return []*models.PRInfo{
@@ -330,8 +328,6 @@ func samplePRs() []*models.PRInfo {
 		{Number: 99, Title: "Improve performance", Body: "", Author: "charlie", Branch: "perf", BaseBranch: "develop", CIStatus: "none"},
 	}
 }
-
-// --- selectPRWithPrompt tests ---
 
 func TestSelectPRWithPrompt_ValidSelection(t *testing.T) {
 	prs := samplePRs()
@@ -434,8 +430,6 @@ func TestSelectPRWithPrompt_DraftAndCITags(t *testing.T) {
 	assert.Contains(t, output, "[CI: pending]")
 }
 
-// --- buildPRPreviewScript tests ---
-
 func TestBuildPRPreviewScript(t *testing.T) {
 	prs := samplePRs()
 	script := buildPRPreviewScript(prs)
@@ -443,22 +437,12 @@ func TestBuildPRPreviewScript(t *testing.T) {
 	assert.Contains(t, script, "10)")
 	assert.Contains(t, script, "42)")
 	assert.Contains(t, script, "99)")
-
-	// Should include author and branch info
 	assert.Contains(t, script, "Author: alice")
 	assert.Contains(t, script, "Branch: fix-login -> main")
-
-	// Draft PR should show draft status
 	assert.Contains(t, script, "Status: Draft")
-
-	// CI status
 	assert.Contains(t, script, "CI: success")
 	assert.Contains(t, script, "CI: pending")
-
-	// PR with no body should show placeholder
 	assert.Contains(t, script, "(no description)")
-
-	// Should include PR body text
 	assert.Contains(t, script, "The login page crashes.")
 	assert.Contains(t, script, "Support dark theme.")
 }
@@ -471,8 +455,6 @@ func TestBuildPRPreviewScript_SingleQuoteEscaping(t *testing.T) {
 
 	assert.Contains(t, script, "It'\\''s a bug that can'\\''t be fixed")
 }
-
-// --- SelectPRInteractive tests ---
 
 func TestSelectPRInteractive_NoPRs(t *testing.T) {
 	gitSvc := &mockGitServiceForInteractive{prs: []*models.PRInfo{}}

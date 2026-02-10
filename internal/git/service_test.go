@@ -1564,6 +1564,178 @@ func TestFetchAllOpenIssuesInvalidJSON(t *testing.T) {
 	assert.True(t, notified, "expected notification for JSON decode error")
 }
 
+func TestFetchIssueGitHub(t *testing.T) {
+	stub := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"issue\" ] && [ \"$2\" = \"view\" ] && [ \"$3\" = \"42\" ]; then\n" +
+		"  echo '{\"number\":42,\"state\":\"open\",\"title\":\"Test Issue\",\"body\":\"Test body\",\"url\":\"https://github.com/repo/issues/42\",\"author\":{\"login\":\"testuser\",\"name\":\"Test User\",\"is_bot\":false}}'\n" +
+		"  exit 0\n" +
+		"fi\n" +
+		"exit 1\n"
+	dir := writeStub(t, "gh", stub)
+	withStubbedPath(t, dir)
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	service.gitHost = gitHostGithub
+
+	issue, err := service.FetchIssue(context.Background(), 42)
+	require.NoError(t, err)
+	require.NotNil(t, issue)
+
+	assert.Equal(t, 42, issue.Number)
+	assert.Equal(t, "open", issue.State)
+	assert.Equal(t, "Test Issue", issue.Title)
+	assert.Equal(t, "Test body", issue.Body)
+	assert.Equal(t, "https://github.com/repo/issues/42", issue.URL)
+	assert.Equal(t, "testuser", issue.Author)
+	assert.Equal(t, "Test User", issue.AuthorName)
+	assert.False(t, issue.AuthorIsBot)
+}
+
+func TestFetchIssueGitLab(t *testing.T) {
+	stub := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"issues/42\" ]; then\n" +
+		"  echo '{\"iid\":42,\"state\":\"opened\",\"title\":\"Test Issue\",\"description\":\"Test description\",\"web_url\":\"https://gitlab.com/repo/issues/42\",\"author\":{\"username\":\"testuser\",\"name\":\"Test User\",\"bot\":false}}'\n" +
+		"  exit 0\n" +
+		"fi\n" +
+		"exit 1\n"
+	dir := writeStub(t, "glab", stub)
+	withStubbedPath(t, dir)
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	service.gitHost = gitHostGitLab
+
+	issue, err := service.FetchIssue(context.Background(), 42)
+	require.NoError(t, err)
+	require.NotNil(t, issue)
+
+	assert.Equal(t, 42, issue.Number)
+	assert.Equal(t, "open", issue.State)
+	assert.Equal(t, "Test Issue", issue.Title)
+	assert.Equal(t, "Test description", issue.Body)
+}
+
+func TestFetchIssueNotFound(t *testing.T) {
+	stub := "#!/bin/sh\n" +
+		"exit 0\n"
+	dir := writeStub(t, "gh", stub)
+	withStubbedPath(t, dir)
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	service.gitHost = gitHostGithub
+
+	issue, err := service.FetchIssue(context.Background(), 999)
+	require.Error(t, err)
+	assert.Nil(t, issue)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestFetchIssueClosed(t *testing.T) {
+	stub := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"issue\" ] && [ \"$2\" = \"view\" ] && [ \"$3\" = \"42\" ]; then\n" +
+		"  echo '{\"number\":42,\"state\":\"closed\",\"title\":\"Closed Issue\",\"body\":\"Test\",\"url\":\"https://github.com/repo/issues/42\",\"author\":{\"login\":\"user\",\"name\":\"User\",\"is_bot\":false}}'\n" +
+		"  exit 0\n" +
+		"fi\n" +
+		"exit 1\n"
+	dir := writeStub(t, "gh", stub)
+	withStubbedPath(t, dir)
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	service.gitHost = gitHostGithub
+
+	issue, err := service.FetchIssue(context.Background(), 42)
+	require.Error(t, err)
+	assert.Nil(t, issue)
+	assert.Contains(t, err.Error(), "not open")
+}
+
+func TestFetchPRGitHub(t *testing.T) {
+	stub := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"pr\" ] && [ \"$2\" = \"view\" ] && [ \"$3\" = \"123\" ]; then\n" +
+		"  echo '{\"number\":123,\"state\":\"OPEN\",\"title\":\"Test PR\",\"body\":\"Test body\",\"url\":\"https://github.com/repo/pull/123\",\"headRefName\":\"feature-branch\",\"baseRefName\":\"main\",\"author\":{\"login\":\"testuser\",\"name\":\"Test User\",\"is_bot\":false},\"isDraft\":false,\"statusCheckRollup\":[{\"conclusion\":\"SUCCESS\"}]}'\n" +
+		"  exit 0\n" +
+		"fi\n" +
+		"exit 1\n"
+	dir := writeStub(t, "gh", stub)
+	withStubbedPath(t, dir)
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	service.gitHost = gitHostGithub
+
+	pr, err := service.FetchPR(context.Background(), 123)
+	require.NoError(t, err)
+	require.NotNil(t, pr)
+
+	assert.Equal(t, 123, pr.Number)
+	assert.Equal(t, "OPEN", pr.State)
+	assert.Equal(t, "Test PR", pr.Title)
+	assert.Equal(t, "Test body", pr.Body)
+	assert.Equal(t, "https://github.com/repo/pull/123", pr.URL)
+	assert.Equal(t, "feature-branch", pr.Branch)
+	assert.Equal(t, "main", pr.BaseBranch)
+	assert.Equal(t, "testuser", pr.Author)
+	assert.Equal(t, "Test User", pr.AuthorName)
+	assert.False(t, pr.AuthorIsBot)
+	assert.False(t, pr.IsDraft)
+}
+
+func TestFetchPRGitLab(t *testing.T) {
+	stub := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"merge_requests/123\" ]; then\n" +
+		"  echo '{\"iid\":123,\"state\":\"opened\",\"title\":\"Test MR\",\"description\":\"Test description\",\"web_url\":\"https://gitlab.com/repo/merge_requests/123\",\"source_branch\":\"feature\",\"target_branch\":\"main\",\"author\":{\"username\":\"testuser\",\"name\":\"Test User\",\"bot\":false},\"draft\":false}'\n" +
+		"  exit 0\n" +
+		"fi\n" +
+		"exit 1\n"
+	dir := writeStub(t, "glab", stub)
+	withStubbedPath(t, dir)
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	service.gitHost = gitHostGitLab
+
+	pr, err := service.FetchPR(context.Background(), 123)
+	require.NoError(t, err)
+	require.NotNil(t, pr)
+
+	assert.Equal(t, 123, pr.Number)
+	assert.Equal(t, "OPEN", pr.State)
+	assert.Equal(t, "Test MR", pr.Title)
+	assert.Equal(t, "feature", pr.Branch)
+	assert.Equal(t, "main", pr.BaseBranch)
+}
+
+func TestFetchPRNotFound(t *testing.T) {
+	stub := "#!/bin/sh\n" +
+		"exit 0\n"
+	dir := writeStub(t, "gh", stub)
+	withStubbedPath(t, dir)
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	service.gitHost = gitHostGithub
+
+	pr, err := service.FetchPR(context.Background(), 999)
+	require.Error(t, err)
+	assert.Nil(t, pr)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestFetchPRClosed(t *testing.T) {
+	stub := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"pr\" ] && [ \"$2\" = \"view\" ] && [ \"$3\" = \"123\" ]; then\n" +
+		"  echo '{\"number\":123,\"state\":\"CLOSED\",\"title\":\"Closed PR\",\"body\":\"Test\",\"url\":\"https://github.com/repo/pull/123\",\"headRefName\":\"feature\",\"baseRefName\":\"main\",\"author\":{\"login\":\"user\",\"name\":\"User\",\"is_bot\":false},\"isDraft\":false}'\n" +
+		"  exit 0\n" +
+		"fi\n" +
+		"exit 1\n"
+	dir := writeStub(t, "gh", stub)
+	withStubbedPath(t, dir)
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	service.gitHost = gitHostGithub
+
+	pr, err := service.FetchPR(context.Background(), 123)
+	require.Error(t, err)
+	assert.Nil(t, pr)
+	assert.Contains(t, err.Error(), "not open")
+}
+
 func TestApplyGitPagerEdgeCases(t *testing.T) {
 	notify := func(_ string, _ string) {}
 	notifyOnce := func(_ string, _ string, _ string) {}

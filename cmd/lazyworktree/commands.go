@@ -189,8 +189,9 @@ func createCommand() *appiCli.Command {
 				Usage: "Carry over uncommitted changes to the new worktree",
 			},
 			&appiCli.BoolFlag{
-				Name:  "no-workspace",
-				Usage: "Create local branch and switch to it without creating a worktree (requires --from-pr, --from-pr-interactive, --from-issue, or --from-issue-interactive)",
+				Name:    "no-workspace",
+				Aliases: []string{"N"},
+				Usage:   "Create local branch and switch to it without creating a worktree (requires --from-pr, --from-pr-interactive, --from-issue, or --from-issue-interactive)",
 			},
 			&appiCli.BoolFlag{
 				Name:  "silent",
@@ -230,6 +231,28 @@ func deleteCommand() *appiCli.Command {
 	}
 }
 
+// validateMutualExclusivity checks that at most one flag in a group is set.
+func validateMutualExclusivity(checks map[string]bool, groupName string) error {
+	var setFlags []string
+	for name, isSet := range checks {
+		if isSet {
+			setFlags = append(setFlags, name)
+		}
+	}
+	if len(setFlags) > 1 {
+		return fmt.Errorf("%s are mutually exclusive: %s", groupName, strings.Join(setFlags, ", "))
+	}
+	return nil
+}
+
+// validateIncompatibility checks that two flags are not both set.
+func validateIncompatibility(flag1Name string, flag1Set bool, flag2Name string, flag2Set bool) error {
+	if flag1Set && flag2Set {
+		return fmt.Errorf("%s cannot be used with %s", flag1Name, flag2Name)
+	}
+	return nil
+}
+
 // validateCreateFlags validates mutual exclusivity rules for the create subcommand.
 func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 	fromBranch := cmd.String("from-branch")
@@ -242,117 +265,79 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 	withChange := cmd.Bool("with-change")
 	noWorkspace := cmd.Bool("no-workspace")
 
-	// Mutual exclusivity: from-branch and from-pr
-	if fromBranch != "" && fromPR > 0 {
-		return fmt.Errorf("--from-branch and --from-pr are mutually exclusive")
+	if err := validateMutualExclusivity(map[string]bool{
+		"--from-pr":                fromPR > 0,
+		"--from-issue":             fromIssue > 0,
+		"--from-pr-interactive":    fromPRInteractive,
+		"--from-issue-interactive": fromIssueInteractive,
+	}, "creation mode flags"); err != nil {
+		return err
 	}
 
-	// Mutual exclusivity: from-pr and from-issue
-	if fromPR > 0 && fromIssue > 0 {
-		return fmt.Errorf("--from-pr and --from-issue are mutually exclusive")
+	if err := validateIncompatibility("--from-branch", fromBranch != "", "--from-pr", fromPR > 0); err != nil {
+		return err
+	}
+	if err := validateIncompatibility("--from-branch", fromBranch != "", "--from-pr-interactive", fromPRInteractive); err != nil {
+		return err
 	}
 
-	// Mutual exclusivity: from-issue-interactive and from-issue
-	if fromIssueInteractive && fromIssue > 0 {
-		return fmt.Errorf("--from-issue-interactive and --from-issue are mutually exclusive")
+	if err := validateIncompatibility("--generate", generate, "positional name argument", hasName); err != nil {
+		return err
+	}
+	if err := validateIncompatibility("--generate", generate, "--from-pr-interactive", fromPRInteractive); err != nil {
+		return err
 	}
 
-	// Mutual exclusivity: from-issue-interactive and from-pr
-	if fromIssueInteractive && fromPR > 0 {
-		return fmt.Errorf("--from-issue-interactive and --from-pr are mutually exclusive")
+	if err := validateIncompatibility("positional name argument", hasName, "--from-pr", fromPR > 0); err != nil {
+		return err
+	}
+	if err := validateIncompatibility("positional name argument", hasName, "--from-issue", fromIssue > 0); err != nil {
+		return err
+	}
+	if err := validateIncompatibility("positional name argument", hasName, "--from-issue-interactive", fromIssueInteractive); err != nil {
+		return err
+	}
+	if err := validateIncompatibility("positional name argument", hasName, "--from-pr-interactive", fromPRInteractive); err != nil {
+		return err
 	}
 
-	// Mutual exclusivity: from-pr-interactive and from-pr
-	if fromPRInteractive && fromPR > 0 {
-		return fmt.Errorf("--from-pr-interactive and --from-pr are mutually exclusive")
+	if withChange {
+		if fromPR > 0 || fromIssue > 0 || fromIssueInteractive || fromPRInteractive {
+			return fmt.Errorf("--with-change cannot be used with --from-pr, --from-issue, --from-issue-interactive, or --from-pr-interactive")
+		}
 	}
 
-	// Mutual exclusivity: from-pr-interactive and from-issue
-	if fromPRInteractive && fromIssue > 0 {
-		return fmt.Errorf("--from-pr-interactive and --from-issue are mutually exclusive")
-	}
-
-	// Mutual exclusivity: from-pr-interactive and from-issue-interactive
-	if fromPRInteractive && fromIssueInteractive {
-		return fmt.Errorf("--from-pr-interactive and --from-issue-interactive are mutually exclusive")
-	}
-
-	// Mutual exclusivity: from-pr-interactive and from-branch
-	if fromPRInteractive && fromBranch != "" {
-		return fmt.Errorf("--from-pr-interactive and --from-branch are mutually exclusive")
-	}
-
-	// Generate flag cannot be used with positional name argument
-	if generate && hasName {
-		return fmt.Errorf("--generate flag cannot be used with a positional name argument")
-	}
-
-	// Generate flag cannot be used with from-pr-interactive
-	if generate && fromPRInteractive {
-		return fmt.Errorf("--generate flag cannot be used with --from-pr-interactive")
-	}
-
-	// Name (positional arg) cannot be used with from-pr
-	if hasName && fromPR > 0 {
-		return fmt.Errorf("positional name argument cannot be used with --from-pr")
-	}
-
-	// Name (positional arg) cannot be used with from-issue
-	if hasName && fromIssue > 0 {
-		return fmt.Errorf("positional name argument cannot be used with --from-issue")
-	}
-
-	// Name (positional arg) cannot be used with from-issue-interactive
-	if hasName && fromIssueInteractive {
-		return fmt.Errorf("positional name argument cannot be used with --from-issue-interactive")
-	}
-
-	// Name (positional arg) cannot be used with from-pr-interactive
-	if hasName && fromPRInteractive {
-		return fmt.Errorf("positional name argument cannot be used with --from-pr-interactive")
-	}
-
-	// with-change cannot be used with from-pr
-	if withChange && fromPR > 0 {
-		return fmt.Errorf("--with-change cannot be used with --from-pr")
-	}
-
-	// with-change cannot be used with from-issue
-	if withChange && fromIssue > 0 {
-		return fmt.Errorf("--with-change cannot be used with --from-issue")
-	}
-
-	// with-change cannot be used with from-issue-interactive
-	if withChange && fromIssueInteractive {
-		return fmt.Errorf("--with-change cannot be used with --from-issue-interactive")
-	}
-
-	// with-change cannot be used with from-pr-interactive
-	if withChange && fromPRInteractive {
-		return fmt.Errorf("--with-change cannot be used with --from-pr-interactive")
-	}
-
-	// no-workspace requires from-pr, from-pr-interactive, from-issue, or from-issue-interactive
-	if noWorkspace && fromPR == 0 && !fromPRInteractive && fromIssue == 0 && !fromIssueInteractive {
-		return fmt.Errorf("--no-workspace requires --from-pr, --from-pr-interactive, --from-issue, or --from-issue-interactive")
-	}
-
-	// no-workspace cannot be used with with-change
-	if noWorkspace && withChange {
-		return fmt.Errorf("--no-workspace cannot be used with --with-change")
-	}
-
-	// no-workspace cannot be used with generate
-	if noWorkspace && generate {
-		return fmt.Errorf("--no-workspace cannot be used with --generate")
-	}
-
-	// no-workspace cannot be used with positional name
-	if noWorkspace && hasName {
-		return fmt.Errorf("--no-workspace cannot be used with a positional name argument")
+	if noWorkspace {
+		if fromPR == 0 && !fromPRInteractive && fromIssue == 0 && !fromIssueInteractive {
+			return fmt.Errorf("--no-workspace requires --from-pr, --from-pr-interactive, --from-issue, or --from-issue-interactive")
+		}
+		if err := validateIncompatibility("--no-workspace", true, "--with-change", withChange); err != nil {
+			return err
+		}
+		if err := validateIncompatibility("--no-workspace", true, "--generate", generate); err != nil {
+			return err
+		}
+		if err := validateIncompatibility("--no-workspace", true, "positional name argument", hasName); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+// determineBaseBranch resolves the base branch to use, falling back to current branch if needed.
+func determineBaseBranch(ctx context.Context, gitSvc *git.Service, fromBranch string) (string, error) {
+	if fromBranch != "" {
+		return fromBranch, nil
+	}
+	currentBranch, err := gitSvc.GetCurrentBranch(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Hint: Specify a base branch explicitly with --from-branch\n")
+		_ = log.Close()
+		return "", err
+	}
+	return currentBranch, nil
 }
 
 // handleCreateAction handles the create subcommand action.
@@ -387,17 +372,14 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 		name = cmd.Args().Get(0)
 	}
 
-	// Execute appropriate operation
 	var (
 		opErr      error
 		outputPath string
 	)
 	switch {
 	case fromPR > 0:
-		// Create from PR
 		outputPath, opErr = createFromPRFunc(ctx, gitSvc, cfg, fromPR, noWorkspace, silent)
 	case fromPRInteractive:
-		// Interactively select a PR, then create from it
 		prNumber, err := selectPRInteractiveFunc(ctx, gitSvc)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -406,37 +388,21 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 		}
 		outputPath, opErr = createFromPRFunc(ctx, gitSvc, cfg, prNumber, noWorkspace, silent)
 	case fromIssueInteractive:
-		// Interactively select an issue, then create from it
 		issueNumber, err := selectIssueInteractiveFunc(ctx, gitSvc)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			_ = log.Close()
 			return err
 		}
-		baseBranch := fromBranch
-		if baseBranch == "" {
-			currentBranch, err := gitSvc.GetCurrentBranch(ctx)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				fmt.Fprintf(os.Stderr, "Hint: Specify a base branch explicitly with --from-branch\n")
-				_ = log.Close()
-				return err
-			}
-			baseBranch = currentBranch
+		baseBranch, err := determineBaseBranch(ctx, gitSvc, fromBranch)
+		if err != nil {
+			return err
 		}
 		outputPath, opErr = createFromIssueFunc(ctx, gitSvc, cfg, issueNumber, baseBranch, noWorkspace, silent)
 	case fromIssue > 0:
-		// Create from issue
-		baseBranch := fromBranch
-		if baseBranch == "" {
-			currentBranch, err := gitSvc.GetCurrentBranch(ctx)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				fmt.Fprintf(os.Stderr, "Hint: Specify a base branch explicitly with --from-branch\n")
-				_ = log.Close()
-				return err
-			}
-			baseBranch = currentBranch
+		baseBranch, err := determineBaseBranch(ctx, gitSvc, fromBranch)
+		if err != nil {
+			return err
 		}
 		outputPath, opErr = createFromIssueFunc(ctx, gitSvc, cfg, fromIssue, baseBranch, noWorkspace, silent)
 	default:

@@ -213,7 +213,7 @@ func TestCreateFromIssue_FetchError(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error")
 	}
-	if !strings.Contains(err.Error(), "failed to fetch issues") {
+	if !strings.Contains(err.Error(), "failed to fetch issue") {
 		t.Fatalf("expected fetch error, got: %v", err)
 	}
 }

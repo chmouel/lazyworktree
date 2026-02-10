@@ -1064,6 +1064,140 @@ func (s *Service) fetchGitLabOpenPRs(ctx context.Context) ([]*models.PRInfo, err
 	return result, nil
 }
 
+// FetchPR fetches a single PR by number.
+func (s *Service) FetchPR(ctx context.Context, prNumber int) (*models.PRInfo, error) {
+	host := s.DetectHost(ctx)
+	if host == gitHostGitLab {
+		return s.fetchGitLabPR(ctx, prNumber)
+	}
+
+	// Default to GitHub
+	prRaw := s.RunGit(ctx, []string{
+		"gh", "pr", "view", strconv.Itoa(prNumber),
+		"--json", "headRefName,baseRefName,state,number,title,body,url,author,isDraft,statusCheckRollup",
+	}, "", []int{0}, false, host == gitHostUnknown)
+
+	if prRaw == "" {
+		return nil, fmt.Errorf("PR #%d not found", prNumber)
+	}
+
+	var pr map[string]any
+	if err := json.Unmarshal([]byte(prRaw), &pr); err != nil {
+		key := "pr_json_decode"
+		s.notifyOnce(key, fmt.Sprintf("Failed to parse PR data: %v", err), "error")
+		return nil, err
+	}
+
+	state, _ := pr["state"].(string)
+	if !strings.EqualFold(state, prStateOpen) {
+		return nil, fmt.Errorf("PR #%d is not open (state: %s)", prNumber, state)
+	}
+
+	number, _ := pr["number"].(float64)
+	title, _ := pr["title"].(string)
+	body, _ := pr["body"].(string)
+	url, _ := pr["url"].(string)
+	headRefName, _ := pr["headRefName"].(string)
+	baseRefName, _ := pr["baseRefName"].(string)
+
+	author := ""
+	authorName := ""
+	authorIsBot := false
+	if authorObj, ok := pr["author"].(map[string]any); ok {
+		if login, ok := authorObj["login"].(string); ok {
+			author = login
+		}
+		if name, ok := authorObj["name"].(string); ok {
+			authorName = name
+		}
+		if isBot, ok := authorObj["is_bot"].(bool); ok {
+			authorIsBot = isBot
+		}
+	}
+
+	isDraft, _ := pr["isDraft"].(bool)
+	ciStatus := computeCIStatusFromRollup(pr["statusCheckRollup"])
+
+	return &models.PRInfo{
+		Number:      int(number),
+		State:       prStateOpen,
+		Title:       title,
+		Body:        body,
+		URL:         url,
+		Branch:      headRefName,
+		BaseBranch:  baseRefName,
+		Author:      author,
+		AuthorName:  authorName,
+		AuthorIsBot: authorIsBot,
+		IsDraft:     isDraft,
+		CIStatus:    ciStatus,
+	}, nil
+}
+
+// fetchGitLabPR fetches a single PR (merge request) by number from GitLab.
+func (s *Service) fetchGitLabPR(ctx context.Context, prNumber int) (*models.PRInfo, error) {
+	prRaw := s.RunGit(ctx, []string{"glab", "api", fmt.Sprintf("merge_requests/%d", prNumber)}, "", []int{0}, false, false)
+	if prRaw == "" {
+		return nil, fmt.Errorf("PR #%d not found", prNumber)
+	}
+
+	var pr map[string]any
+	if err := json.Unmarshal([]byte(prRaw), &pr); err != nil {
+		key := "pr_json_decode_glab"
+		s.notifyOnce(key, fmt.Sprintf("Failed to parse GLAB PR data: %v", err), "error")
+		return nil, err
+	}
+
+	state, _ := pr["state"].(string)
+	state = strings.ToUpper(state)
+	if state == "OPENED" {
+		state = prStateOpen
+	}
+	if state != prStateOpen {
+		return nil, fmt.Errorf("PR #%d is not open (state: %s)", prNumber, state)
+	}
+
+	iid, _ := pr["iid"].(float64)
+	title, _ := pr["title"].(string)
+	description, _ := pr["description"].(string)
+	webURL, _ := pr["web_url"].(string)
+	sourceBranch, _ := pr["source_branch"].(string)
+	targetBranch, _ := pr["target_branch"].(string)
+
+	author := ""
+	authorName := ""
+	authorIsBot := false
+	if authorObj, ok := pr["author"].(map[string]any); ok {
+		if username, ok := authorObj["username"].(string); ok {
+			author = username
+		}
+		if name, ok := authorObj["name"].(string); ok {
+			authorName = name
+		}
+		if bot, ok := authorObj["bot"].(bool); ok {
+			authorIsBot = bot
+		}
+	}
+
+	isDraft, _ := pr["draft"].(bool)
+	ciStatus := "none"
+
+	return &models.PRInfo{
+		Number:      int(iid),
+		State:       state,
+		Title:       title,
+		Body:        description,
+		URL:         webURL,
+		Branch:      sourceBranch,
+		BaseBranch:  targetBranch,
+		Author:      author,
+		AuthorName:  authorName,
+		AuthorIsBot: authorIsBot,
+		IsDraft:     isDraft,
+		CIStatus:    ciStatus,
+	}, nil
+}
+
 // FetchAllOpenIssues fetches all open issues and returns them as a slice.
 func (s *Service) FetchAllOpenIssues(ctx context.Context) ([]*models.IssueInfo, error) {
 	host := s.DetectHost(ctx)
@@ -1185,6 +1319,119 @@ func (s *Service) fetchGitLabOpenIssues(ctx context.Context) ([]*models.IssueInf
 	}
 
 	return result, nil
+}
+
+// FetchIssue fetches a single issue by number.
+func (s *Service) FetchIssue(ctx context.Context, issueNumber int) (*models.IssueInfo, error) {
+	host := s.DetectHost(ctx)
+	if host == gitHostGitLab {
+		return s.fetchGitLabIssue(ctx, issueNumber)
+	}
+
+	// Default to GitHub
+	issueRaw := s.RunGit(ctx, []string{
+		"gh", "issue", "view", strconv.Itoa(issueNumber),
+		"--json", "number,state,title,body,url,author",
+	}, "", []int{0}, false, host == gitHostUnknown)
+
+	if issueRaw == "" {
+		return nil, fmt.Errorf("issue #%d not found", issueNumber)
+	}
+
+	var issue map[string]any
+	if err := json.Unmarshal([]byte(issueRaw), &issue); err != nil {
+		key := "issue_json_decode"
+		s.notifyOnce(key, fmt.Sprintf("Failed to parse issue data: %v", err), "error")
+		return nil, err
+	}
+
+	state, _ := issue["state"].(string)
+	if !strings.EqualFold(state, "open") {
+		return nil, fmt.Errorf("issue #%d is not open (state: %s)", issueNumber, state)
+	}
+
+	number, _ := issue["number"].(float64)
+	title, _ := issue["title"].(string)
+	body, _ := issue["body"].(string)
+	url, _ := issue["url"].(string)
+
+	author := ""
+	authorName := ""
+	authorIsBot := false
+	if authorObj, ok := issue["author"].(map[string]any); ok {
+		if login, ok := authorObj["login"].(string); ok {
+			author = login
+		}
+		if name, ok := authorObj["name"].(string); ok {
+			authorName = name
+		}
+		if isBot, ok := authorObj["is_bot"].(bool); ok {
+			authorIsBot = isBot
+		}
+	}
+
+	return &models.IssueInfo{
+		Number:      int(number),
+		State:       "open",
+		Title:       title,
+		Body:        body,
+		URL:         url,
+		Author:      author,
+		AuthorName:  authorName,
+		AuthorIsBot: authorIsBot,
+	}, nil
+}
+
+// fetchGitLabIssue fetches a single issue by number from GitLab.
+func (s *Service) fetchGitLabIssue(ctx context.Context, issueNumber int) (*models.IssueInfo, error) {
+	issueRaw := s.RunGit(ctx, []string{"glab", "api", fmt.Sprintf("issues/%d", issueNumber)}, "", []int{0}, false, false)
+	if issueRaw == "" {
+		return nil, fmt.Errorf("issue #%d not found", issueNumber)
+	}
+
+	var issue map[string]any
+	if err := json.Unmarshal([]byte(issueRaw), &issue); err != nil {
+		key := "issue_json_decode_glab"
+		s.notifyOnce(key, fmt.Sprintf("Failed to parse GLAB issue data: %v", err), "error")
+		return nil, err
+	}
+
+	state, _ := issue["state"].(string)
+	state = strings.ToUpper(state)
+	if state != issueStateOpened && state != "OPEN" {
+		return nil, fmt.Errorf("issue #%d is not open (state: %s)", issueNumber, state)
+	}
+
+	iid, _ := issue["iid"].(float64)
+	title, _ := issue["title"].(string)
+	description, _ := issue["description"].(string)
+	webURL, _ := issue["web_url"].(string)
+
+	author := ""
+	authorName := ""
+	authorIsBot := false
+	if authorObj, ok := issue["author"].(map[string]any); ok {
+		if username, ok := authorObj["username"].(string); ok {
+			author = username
+		}
+		if name, ok := authorObj["name"].(string); ok {
+			authorName = name
+		}
+		if bot, ok := authorObj["bot"].(bool); ok {
+			authorIsBot = bot
+		}
+	}
+
+	return &models.IssueInfo{
+		Number:      int(iid),
+		State:       "open",
+		Title:       title,
+		Body:        description,
+		URL:         webURL,
+		Author:      author,
+		AuthorName:  authorName,
+		AuthorIsBot: authorIsBot,
+	}, nil
 }
 
 // FetchCIStatus fetches CI check statuses for a PR from GitHub or GitLab.
@@ -1588,9 +1835,7 @@ func (s *Service) CreateWorktreeFromPR(ctx context.Context, prNumber int, remote
 	return true
 }
 
-// CheckoutPRBranch fetches a PR's remote branch, creates a local branch at the
-// PR head commit, sets up tracking configuration, and switches to it — without
-// creating a worktree.  Returns true on success.
+// CheckoutPRBranch checks out a PR branch locally without creating a worktree.
 func (s *Service) CheckoutPRBranch(ctx context.Context, prNumber int, remoteBranch, localBranch string) bool {
 	host := s.DetectHost(ctx)
 
@@ -1673,12 +1918,11 @@ func (s *Service) CheckoutPRBranch(ctx context.Context, prNumber int, remoteBran
 		}
 	}
 
-	// Create local branch at the PR head commit (no worktree)
 	if !s.RunCommandChecked(ctx, []string{"git", "branch", localBranch, headCommit}, "", fmt.Sprintf("Failed to create branch %s", localBranch)) {
 		return false
 	}
 
-	// Set up branch tracking configuration (replicating gh/glab pr checkout behaviour)
+	// Replicate gh/glab pr checkout tracking behaviour
 	if repoURL != "" {
 		s.RunGit(ctx, []string{"git", "config", fmt.Sprintf("branch.%s.remote", localBranch), repoURL}, "", []int{0}, true, true)
 		if host == gitHostGithub {
@@ -1687,7 +1931,6 @@ func (s *Service) CheckoutPRBranch(ctx context.Context, prNumber int, remoteBran
 		s.RunGit(ctx, []string{"git", "config", fmt.Sprintf("branch.%s.merge", localBranch), mergeRef}, "", []int{0}, true, true)
 	}
 
-	// Switch to the new branch
 	if !s.RunCommandChecked(ctx, []string{"git", "switch", localBranch}, "", fmt.Sprintf("Failed to switch to branch %s", localBranch)) {
 		return false
 	}
