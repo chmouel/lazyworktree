@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/chmouel/lazyworktree/internal/config"
@@ -81,6 +82,211 @@ func TestCreateFromPR_MkdirFailure(t *testing.T) {
 
 	if _, err := CreateFromPRWithFS(ctx, svc, cfg, 1, true, fs); err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+func TestCreateFromIssue_NotFound(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	svc := &fakeGitService{
+		resolveRepoName: "repo",
+		issues: []*models.IssueInfo{
+			{Number: 1, Title: "fix bug"},
+			{Number: 2, Title: "add feature"},
+		},
+	}
+
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees", IssueBranchNameTemplate: "issue-{number}-{title}"}
+
+	if _, err := CreateFromIssue(ctx, svc, cfg, 99, "main", true); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestCreateFromIssue_ExistingPath(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	fs := &mockFilesystem{
+		statFunc: func(string) (os.FileInfo, error) {
+			return nil, nil // path exists
+		},
+		mkdirAllFunc: func(string, os.FileMode) error {
+			return errors.New("should not be called")
+		},
+	}
+
+	svc := &fakeGitService{
+		resolveRepoName: "repo",
+		issues: []*models.IssueInfo{
+			{Number: 1, Title: "fix bug"},
+		},
+	}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees", IssueBranchNameTemplate: "issue-{number}-{title}"}
+
+	if _, err := CreateFromIssueWithFS(ctx, svc, cfg, 1, "main", true, fs); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestCreateFromIssue_MkdirFailure(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	fs := &mockFilesystem{
+		statFunc: func(string) (os.FileInfo, error) {
+			return nil, os.ErrNotExist
+		},
+		mkdirAllFunc: func(string, os.FileMode) error {
+			return errors.New("mkdir failed")
+		},
+	}
+
+	svc := &fakeGitService{
+		resolveRepoName: "repo",
+		issues: []*models.IssueInfo{
+			{Number: 1, Title: "fix bug"},
+		},
+	}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees", IssueBranchNameTemplate: "issue-{number}-{title}"}
+
+	if _, err := CreateFromIssueWithFS(ctx, svc, cfg, 1, "main", true, fs); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestCreateFromIssue_Success(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	fs := &mockFilesystem{
+		statFunc: func(string) (os.FileInfo, error) {
+			return nil, os.ErrNotExist
+		},
+		mkdirAllFunc: func(string, os.FileMode) error {
+			return nil
+		},
+	}
+
+	svc := &fakeGitService{
+		resolveRepoName:     "repo",
+		runCommandCheckedOK: true,
+		mainWorktreePath:    t.TempDir(),
+		issues: []*models.IssueInfo{
+			{Number: 42, Title: "implement dark mode"},
+		},
+	}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees", IssueBranchNameTemplate: "issue-{number}-{title}"}
+
+	path, err := CreateFromIssueWithFS(ctx, svc, cfg, 42, "main", true, fs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expectedBranch := "issue-42-implement-dark-mode"
+	if svc.lastWorktreeAddBranch != expectedBranch {
+		t.Fatalf("expected branch %q, got %q", expectedBranch, svc.lastWorktreeAddBranch)
+	}
+
+	if !strings.HasSuffix(path, expectedBranch) {
+		t.Fatalf("expected path to end with %q, got %q", expectedBranch, path)
+	}
+}
+
+func TestCreateFromIssue_FetchError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	svc := &fakeGitService{
+		resolveRepoName: "repo",
+		issuesErr:       errors.New("network error"),
+	}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees"}
+
+	_, err := CreateFromIssue(ctx, svc, cfg, 1, "main", true)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "failed to fetch issues") {
+		t.Fatalf("expected fetch error, got: %v", err)
+	}
+}
+
+func TestCreateFromIssue_CreateWorktreeFailure(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	fs := &mockFilesystem{
+		statFunc: func(string) (os.FileInfo, error) {
+			return nil, os.ErrNotExist
+		},
+		mkdirAllFunc: func(string, os.FileMode) error {
+			return nil
+		},
+	}
+
+	svc := &fakeGitService{
+		resolveRepoName:     "repo",
+		runCommandCheckedOK: false,
+		issues: []*models.IssueInfo{
+			{Number: 1, Title: "fix bug"},
+		},
+	}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees", IssueBranchNameTemplate: "issue-{number}-{title}"}
+
+	_, err := CreateFromIssueWithFS(ctx, svc, cfg, 1, "main", true, fs)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "failed to create worktree from issue #1") {
+		t.Fatalf("expected creation error, got: %v", err)
+	}
+}
+
+func TestCreateFromIssue_DefaultTemplate(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	fs := &mockFilesystem{
+		statFunc: func(string) (os.FileInfo, error) {
+			return nil, os.ErrNotExist
+		},
+		mkdirAllFunc: func(string, os.FileMode) error {
+			return nil
+		},
+	}
+
+	svc := &fakeGitService{
+		resolveRepoName:     "repo",
+		runCommandCheckedOK: true,
+		mainWorktreePath:    t.TempDir(),
+		issues: []*models.IssueInfo{
+			{Number: 10, Title: "add tests"},
+		},
+	}
+	// Empty template — should use default "issue-{number}-{title}"
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees"}
+
+	path, err := CreateFromIssueWithFS(ctx, svc, cfg, 10, "develop", true, fs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expectedBranch := "issue-10-add-tests"
+	if svc.lastWorktreeAddBranch != expectedBranch {
+		t.Fatalf("expected branch %q, got %q", expectedBranch, svc.lastWorktreeAddBranch)
+	}
+
+	if !strings.HasSuffix(path, expectedBranch) {
+		t.Fatalf("expected path to end with %q, got %q", expectedBranch, path)
 	}
 }
 

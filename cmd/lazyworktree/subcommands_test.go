@@ -110,6 +110,34 @@ func TestHandleCreateValidation(t *testing.T) {
 			expectError: true,
 			errorMsg:    "--generate flag cannot be used with a positional name argument",
 		},
+		{
+			name:        "valid from-issue",
+			args:        []string{"lazyworktree", "create", "--from-issue", "42"},
+			expectError: false,
+		},
+		{
+			name:        "from-issue with from-pr (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-issue", "42", "--from-pr", "123"},
+			expectError: true,
+			errorMsg:    "--from-pr and --from-issue are mutually exclusive",
+		},
+		{
+			name:        "from-issue with from-branch (valid - overrides base)",
+			args:        []string{"lazyworktree", "create", "--from-issue", "42", "--from-branch", "develop"},
+			expectError: false,
+		},
+		{
+			name:        "from-issue with positional name (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-issue", "42", "my-branch"},
+			expectError: true,
+			errorMsg:    "positional name argument cannot be used with --from-issue",
+		},
+		{
+			name:        "from-issue with with-change (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-issue", "42", "--with-change"},
+			expectError: true,
+			errorMsg:    "--with-change cannot be used with --from-issue",
+		},
 	}
 
 	for _, tt := range tests {
@@ -216,12 +244,14 @@ func TestHandleCreateOutputSelection(t *testing.T) {
 	oldNewCLIGitService := newCLIGitServiceFunc
 	oldCreateFromBranch := createFromBranchFunc
 	oldCreateFromPR := createFromPRFunc
+	oldCreateFromIssue := createFromIssueFunc
 	oldWriteOutputSelection := writeOutputSelectionFunc
 	t.Cleanup(func() {
 		loadCLIConfigFunc = oldLoadCLIConfig
 		newCLIGitServiceFunc = oldNewCLIGitService
 		createFromBranchFunc = oldCreateFromBranch
 		createFromPRFunc = oldCreateFromPR
+		createFromIssueFunc = oldCreateFromIssue
 		writeOutputSelectionFunc = oldWriteOutputSelection
 	})
 
@@ -235,6 +265,9 @@ func TestHandleCreateOutputSelection(t *testing.T) {
 		return expectedPath, nil
 	}
 	createFromPRFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ bool) (string, error) {
+		return "", os.ErrInvalid
+	}
+	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _ bool) (string, error) {
 		return "", os.ErrInvalid
 	}
 	writeOutputSelectionFunc = writeOutputSelection
@@ -292,12 +325,14 @@ func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
 	oldNewCLIGitService := newCLIGitServiceFunc
 	oldCreateFromBranch := createFromBranchFunc
 	oldCreateFromPR := createFromPRFunc
+	oldCreateFromIssue := createFromIssueFunc
 	oldWriteOutputSelection := writeOutputSelectionFunc
 	t.Cleanup(func() {
 		loadCLIConfigFunc = oldLoadCLIConfig
 		newCLIGitServiceFunc = oldNewCLIGitService
 		createFromBranchFunc = oldCreateFromBranch
 		createFromPRFunc = oldCreateFromPR
+		createFromIssueFunc = oldCreateFromIssue
 		writeOutputSelectionFunc = oldWriteOutputSelection
 	})
 
@@ -311,6 +346,9 @@ func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
 		return "", os.ErrInvalid
 	}
 	createFromPRFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ bool) (string, error) {
+		return "", os.ErrInvalid
+	}
+	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _ bool) (string, error) {
 		return "", os.ErrInvalid
 	}
 	writeOutputSelectionFunc = writeOutputSelection

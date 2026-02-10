@@ -751,6 +751,8 @@ lazyworktree create my-feature               # Explicit name
 lazyworktree create my-feature --with-change # With uncommitted changes
 lazyworktree create --from-branch main my-feature
 lazyworktree create --from-pr 123
+lazyworktree create --from-issue 42          # From issue (base: current branch)
+lazyworktree create --from-issue 42 --from-branch main  # From issue with explicit base
 ```
 
 For complete CLI documentation, see `man lazyworktree` or `lazyworktree --help`.

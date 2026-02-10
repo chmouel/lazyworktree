@@ -26,6 +26,12 @@ type fakeGitService struct {
 	prs           []*models.PRInfo
 	prsErr        error
 
+	issues    []*models.IssueInfo
+	issuesErr error
+
+	currentBranch    string
+	currentBranchErr error
+
 	mainWorktreePath      string
 	executedCommands      error
 	lastWorktreeAddPath   string
@@ -40,8 +46,16 @@ func (f *fakeGitService) ExecuteCommands(_ context.Context, _ []string, _ string
 	return f.executedCommands
 }
 
+func (f *fakeGitService) FetchAllOpenIssues(_ context.Context) ([]*models.IssueInfo, error) {
+	return f.issues, f.issuesErr
+}
+
 func (f *fakeGitService) FetchAllOpenPRs(_ context.Context) ([]*models.PRInfo, error) {
 	return f.prs, f.prsErr
+}
+
+func (f *fakeGitService) GetCurrentBranch(_ context.Context) (string, error) {
+	return f.currentBranch, f.currentBranchErr
 }
 
 func (f *fakeGitService) GetMainWorktreePath(_ context.Context) string {
