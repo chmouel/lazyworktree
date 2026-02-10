@@ -134,6 +134,10 @@ Generate the worktree name automatically from the current branch. Cannot be used
 Carry over uncommitted changes to the new worktree. Works with current branch or \-\-from\-branch. Cannot be used with \-\-from\-pr or \-\-from\-issue. Stashes changes from current worktree, creates new worktree, and applies the stash.
 .
 .TP
+.B \-\-no\-workspace
+Skip worktree creation entirely. Instead, creates a local branch and switches to it in the current working directory. Must be used with \-\-from\-pr or \-\-from\-issue. Cannot be combined with \-\-with\-change, \-\-generate, or a positional name argument. Outputs the branch name rather than a worktree path.
+.
+.TP
 .B \-\-silent
 Suppress all progress messages to stderr. Only the worktree path is written to stdout unless \-\-output\-selection is used. Useful for scripting and automation.
 .TP
@@ -206,6 +210,16 @@ Create from issue number (base: current branch):
 Create from issue number with explicit base branch:
 .br
 .B lazyworktree create \-\-from\-issue 42 \-\-from\-branch main
+.
+.PP
+Checkout PR branch without creating a worktree:
+.br
+.B lazyworktree create \-\-from\-pr 123 \-\-no\-workspace
+.
+.PP
+Checkout issue branch without creating a worktree:
+.br
+.B lazyworktree create \-\-from\-issue 42 \-\-no\-workspace
 .
 .PP
 Create with uncommitted changes:

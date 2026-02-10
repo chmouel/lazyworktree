@@ -138,6 +138,46 @@ func TestHandleCreateValidation(t *testing.T) {
 			expectError: true,
 			errorMsg:    "--with-change cannot be used with --from-issue",
 		},
+		{
+			name:        "no-workspace with from-pr (valid)",
+			args:        []string{"lazyworktree", "create", "--from-pr", "123", "--no-workspace"},
+			expectError: false,
+		},
+		{
+			name:        "no-workspace with from-issue (valid)",
+			args:        []string{"lazyworktree", "create", "--from-issue", "42", "--no-workspace"},
+			expectError: false,
+		},
+		{
+			name:        "no-workspace alone (invalid)",
+			args:        []string{"lazyworktree", "create", "--no-workspace"},
+			expectError: true,
+			errorMsg:    "--no-workspace requires --from-pr or --from-issue",
+		},
+		{
+			name:        "no-workspace with from-branch only (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-branch", "main", "--no-workspace"},
+			expectError: true,
+			errorMsg:    "--no-workspace requires --from-pr or --from-issue",
+		},
+		{
+			name:        "no-workspace with with-change (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-pr", "123", "--no-workspace", "--with-change"},
+			expectError: true,
+			errorMsg:    "--with-change cannot be used with --from-pr",
+		},
+		{
+			name:        "no-workspace with generate (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-pr", "123", "--no-workspace", "--generate"},
+			expectError: true,
+			errorMsg:    "--no-workspace cannot be used with --generate",
+		},
+		{
+			name:        "no-workspace with positional name (invalid)",
+			args:        []string{"lazyworktree", "create", "--from-issue", "42", "--no-workspace", "my-branch"},
+			expectError: true,
+			errorMsg:    "positional name argument cannot be used with --from-issue",
+		},
 	}
 
 	for _, tt := range tests {
@@ -264,10 +304,10 @@ func TestHandleCreateOutputSelection(t *testing.T) {
 	createFromBranchFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _, _ string, _, _ bool) (string, error) {
 		return expectedPath, nil
 	}
-	createFromPRFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ bool) (string, error) {
+	createFromPRFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _, _ bool) (string, error) {
 		return "", os.ErrInvalid
 	}
-	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _ bool) (string, error) {
+	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _, _ bool) (string, error) {
 		return "", os.ErrInvalid
 	}
 	writeOutputSelectionFunc = writeOutputSelection
@@ -345,10 +385,10 @@ func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
 	createFromBranchFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _, _ string, _, _ bool) (string, error) {
 		return "", os.ErrInvalid
 	}
-	createFromPRFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ bool) (string, error) {
+	createFromPRFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _, _ bool) (string, error) {
 		return "", os.ErrInvalid
 	}
-	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _ bool) (string, error) {
+	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _, _ bool) (string, error) {
 		return "", os.ErrInvalid
 	}
 	writeOutputSelectionFunc = writeOutputSelection

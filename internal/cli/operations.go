@@ -38,6 +38,7 @@ func (RealFilesystem) Getwd() (string, error) { return os.Getwd() }
 var DefaultFS OSFilesystem = RealFilesystem{}
 
 type gitService interface {
+	CheckoutPRBranch(ctx context.Context, prNumber int, remoteBranch string, localBranch string) bool
 	CreateWorktreeFromPR(ctx context.Context, prNumber int, branch string, worktreeName string, targetPath string) bool
 	ExecuteCommands(ctx context.Context, cmdList []string, cwd string, env map[string]string) error
 	FetchAllOpenIssues(ctx context.Context) ([]*models.IssueInfo, error)
@@ -201,12 +202,14 @@ func generateUniqueWorktreeNameFS(cfg *config.AppConfig, repoName, branchName st
 }
 
 // CreateFromPR creates a worktree from a PR number.
-func CreateFromPR(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, prNumber int, silent bool) (string, error) {
-	return CreateFromPRWithFS(ctx, gitSvc, cfg, prNumber, silent, DefaultFS)
+func CreateFromPR(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, prNumber int, noWorkspace, silent bool) (string, error) {
+	return CreateFromPRWithFS(ctx, gitSvc, cfg, prNumber, noWorkspace, silent, DefaultFS)
 }
 
 // CreateFromPRWithFS creates a worktree from a PR number using the provided filesystem.
-func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, prNumber int, silent bool, fs OSFilesystem) (string, error) {
+// When noWorkspace is true, it creates a local branch and switches to it without
+// creating a worktree directory.
+func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, prNumber int, noWorkspace, silent bool, fs OSFilesystem) (string, error) {
 	if !silent {
 		fmt.Fprintf(os.Stderr, "Fetching PR #%d...\n", prNumber)
 	}
@@ -236,6 +239,14 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 		template = "pr-{number}-{title}"
 	}
 	branchName := utils.GeneratePRWorktreeName(selectedPR, template, "")
+
+	// No-workspace mode: create branch and switch to it, skip worktree creation
+	if noWorkspace {
+		if !gitSvc.CheckoutPRBranch(ctx, selectedPR.Number, selectedPR.Branch, branchName) {
+			return "", fmt.Errorf("failed to checkout branch for PR #%d", selectedPR.Number)
+		}
+		return branchName, nil
+	}
 
 	// Construct target path
 	repoName := gitSvc.ResolveRepoName(ctx)
@@ -269,12 +280,14 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 }
 
 // CreateFromIssue creates a worktree from an issue number.
-func CreateFromIssue(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, issueNumber int, baseBranch string, silent bool) (string, error) {
-	return CreateFromIssueWithFS(ctx, gitSvc, cfg, issueNumber, baseBranch, silent, DefaultFS)
+func CreateFromIssue(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, issueNumber int, baseBranch string, noWorkspace, silent bool) (string, error) {
+	return CreateFromIssueWithFS(ctx, gitSvc, cfg, issueNumber, baseBranch, noWorkspace, silent, DefaultFS)
 }
 
 // CreateFromIssueWithFS creates a worktree from an issue number using the provided filesystem.
-func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, issueNumber int, baseBranch string, silent bool, fs OSFilesystem) (string, error) {
+// When noWorkspace is true, it creates a local branch from the base branch and switches
+// to it without creating a worktree directory.
+func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, issueNumber int, baseBranch string, noWorkspace, silent bool, fs OSFilesystem) (string, error) {
 	if !silent {
 		fmt.Fprintf(os.Stderr, "Fetching issue #%d...\n", issueNumber)
 	}
@@ -304,6 +317,25 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 		template = "issue-{number}-{title}"
 	}
 	branchName := utils.GenerateIssueWorktreeName(selectedIssue, template, "")
+
+	// No-workspace mode: create branch from base and switch to it
+	if noWorkspace {
+		if !gitSvc.RunCommandChecked(ctx,
+			[]string{"git", "branch", branchName, baseBranch},
+			"",
+			fmt.Sprintf("Failed to create branch from issue #%d", issueNumber),
+		) {
+			return "", fmt.Errorf("failed to create branch from issue #%d", issueNumber)
+		}
+		if !gitSvc.RunCommandChecked(ctx,
+			[]string{"git", "switch", branchName},
+			"",
+			fmt.Sprintf("Failed to switch to branch %s", branchName),
+		) {
+			return "", fmt.Errorf("failed to switch to branch %s", branchName)
+		}
+		return branchName, nil
+	}
 
 	// Construct target path
 	repoName := gitSvc.ResolveRepoName(ctx)
