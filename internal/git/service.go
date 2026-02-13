@@ -1663,6 +1663,69 @@ func (s *Service) configureBranchTracking(ctx context.Context, localBranch, cwd 
 	s.RunGit(ctx, []string{"git", "config", fmt.Sprintf("branch.%s.merge", localBranch), ref.mergeRef}, cwd, []int{0}, true, true)
 }
 
+func (s *Service) findWorktreePathForBranch(ctx context.Context, branch string) (string, bool) {
+	rawWts := s.RunGit(ctx, []string{"git", "worktree", "list", "--porcelain"}, "", []int{0}, true, true)
+	if rawWts == "" {
+		return "", false
+	}
+
+	currentPath := ""
+	for _, line := range strings.Split(rawWts, "\n") {
+		switch {
+		case strings.HasPrefix(line, "worktree "):
+			currentPath = strings.TrimPrefix(line, "worktree ")
+		case strings.HasPrefix(line, "branch "):
+			wtBranch := strings.TrimPrefix(line, "branch ")
+			wtBranch = strings.TrimPrefix(wtBranch, "refs/heads/")
+			if wtBranch == branch {
+				return currentPath, true
+			}
+		}
+	}
+
+	return "", false
+}
+
+func (s *Service) localBranchExists(ctx context.Context, branch string) bool {
+	ref := s.RunGit(
+		ctx,
+		[]string{"git", "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", branch)},
+		"",
+		[]int{0, 1},
+		true,
+		true,
+	)
+	return strings.TrimSpace(ref) != ""
+}
+
+func (s *Service) syncPRLocalBranch(ctx context.Context, localBranch, targetRef string) bool {
+	if localBranch == "" || targetRef == "" {
+		s.notify("PR branch information is missing", "error")
+		return false
+	}
+
+	if path, attached := s.findWorktreePathForBranch(ctx, localBranch); attached {
+		s.notify(fmt.Sprintf("Branch %q is already checked out in worktree %q", localBranch, path), "error")
+		return false
+	}
+
+	if s.localBranchExists(ctx, localBranch) {
+		return s.RunCommandChecked(
+			ctx,
+			[]string{"git", "branch", "-f", localBranch, targetRef},
+			"",
+			fmt.Sprintf("Failed to reset branch %s", localBranch),
+		)
+	}
+
+	return s.RunCommandChecked(
+		ctx,
+		[]string{"git", "branch", localBranch, targetRef},
+		"",
+		fmt.Sprintf("Failed to create branch %s", localBranch),
+	)
+}
+
 // CreateWorktreeFromPR creates a worktree from a PR's remote branch.
 // It fetches the PR head commit, creates a worktree at that commit with a proper branch,
 // and sets up branch tracking configuration (replicating what gh/glab pr checkout does).
@@ -1675,14 +1738,20 @@ func (s *Service) CreateWorktreeFromPR(ctx context.Context, prNumber int, remote
 			return false
 		}
 		remoteRef := fmt.Sprintf("origin/%s", remoteBranch)
-		return s.RunCommandChecked(ctx, []string{"git", "worktree", "add", "-b", localBranch, targetPath, remoteRef}, "", fmt.Sprintf("Failed to create worktree from PR branch %s", remoteBranch))
+		if !s.syncPRLocalBranch(ctx, localBranch, remoteRef) {
+			return false
+		}
+		return s.RunCommandChecked(ctx, []string{"git", "worktree", "add", targetPath, localBranch}, "", fmt.Sprintf("Failed to create worktree from PR branch %s", remoteBranch))
 	}
 
 	ref, ok := s.fetchPRRefInfo(ctx, prNumber, remoteBranch)
 	if !ok {
 		return false
 	}
-	if !s.RunCommandChecked(ctx, []string{"git", "worktree", "add", "-b", localBranch, targetPath, ref.headCommit}, "", fmt.Sprintf("Failed to create worktree at %s", targetPath)) {
+	if !s.syncPRLocalBranch(ctx, localBranch, ref.headCommit) {
+		return false
+	}
+	if !s.RunCommandChecked(ctx, []string{"git", "worktree", "add", targetPath, localBranch}, "", fmt.Sprintf("Failed to create worktree at %s", targetPath)) {
 		return false
 	}
 	s.configureBranchTracking(ctx, localBranch, targetPath, ref)
@@ -1699,7 +1768,7 @@ func (s *Service) CheckoutPRBranch(ctx context.Context, prNumber int, remoteBran
 			return false
 		}
 		remoteRef := fmt.Sprintf("origin/%s", remoteBranch)
-		if !s.RunCommandChecked(ctx, []string{"git", "branch", localBranch, remoteRef}, "", fmt.Sprintf("Failed to create branch %s", localBranch)) {
+		if !s.syncPRLocalBranch(ctx, localBranch, remoteRef) {
 			return false
 		}
 		return s.RunCommandChecked(ctx, []string{"git", "switch", localBranch}, "", fmt.Sprintf("Failed to switch to branch %s", localBranch))
@@ -1709,7 +1778,7 @@ func (s *Service) CheckoutPRBranch(ctx context.Context, prNumber int, remoteBran
 	if !ok {
 		return false
 	}
-	if !s.RunCommandChecked(ctx, []string{"git", "branch", localBranch, ref.headCommit}, "", fmt.Sprintf("Failed to create branch %s", localBranch)) {
+	if !s.syncPRLocalBranch(ctx, localBranch, ref.headCommit) {
 		return false
 	}
 	s.configureBranchTracking(ctx, localBranch, "", ref)

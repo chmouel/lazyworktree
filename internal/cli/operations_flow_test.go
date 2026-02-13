@@ -24,7 +24,7 @@ func TestCreateFromPR_NotFound(t *testing.T) {
 		},
 	}
 
-	cfg := &config.AppConfig{WorktreeDir: "/worktrees", PRBranchNameTemplate: "pr-{number}-{title}"}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees"}
 
 	if _, err := CreateFromPR(ctx, svc, cfg, 99, false, true); err == nil {
 		t.Fatalf("expected error")
@@ -51,7 +51,7 @@ func TestCreateFromPR_ExistingPath(t *testing.T) {
 			{Number: 1, Branch: "b1", Title: "one"},
 		},
 	}
-	cfg := &config.AppConfig{WorktreeDir: "/worktrees", PRBranchNameTemplate: "pr-{number}-{title}"}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees"}
 
 	if _, err := CreateFromPRWithFS(ctx, svc, cfg, 1, false, true, fs); err == nil {
 		t.Fatalf("expected error")
@@ -78,7 +78,7 @@ func TestCreateFromPR_MkdirFailure(t *testing.T) {
 			{Number: 1, Branch: "b1", Title: "one"},
 		},
 	}
-	cfg := &config.AppConfig{WorktreeDir: "/worktrees", PRBranchNameTemplate: "pr-{number}-{title}"}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees"}
 
 	if _, err := CreateFromPRWithFS(ctx, svc, cfg, 1, false, true, fs); err == nil {
 		t.Fatalf("expected error")
@@ -302,14 +302,14 @@ func TestCreateFromPR_NoWorkspace_Success(t *testing.T) {
 			{Number: 42, Branch: "feature-branch", Title: "add dark mode"},
 		},
 	}
-	cfg := &config.AppConfig{WorktreeDir: "/worktrees", PRBranchNameTemplate: "pr-{number}-{title}"}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees"}
 
 	result, err := CreateFromPR(ctx, svc, cfg, 42, true, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expectedBranch := "pr-42-add-dark-mode"
+	expectedBranch := "feature-branch"
 	if result != expectedBranch {
 		t.Fatalf("expected branch name %q, got %q", expectedBranch, result)
 	}
@@ -334,7 +334,7 @@ func TestCreateFromPR_NoWorkspace_CheckoutFailure(t *testing.T) {
 			{Number: 1, Branch: "b1", Title: "one"},
 		},
 	}
-	cfg := &config.AppConfig{WorktreeDir: "/worktrees", PRBranchNameTemplate: "pr-{number}-{title}"}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees"}
 
 	_, err := CreateFromPR(ctx, svc, cfg, 1, true, true)
 	if err == nil {
@@ -342,6 +342,31 @@ func TestCreateFromPR_NoWorkspace_CheckoutFailure(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to checkout branch for PR #1") {
 		t.Fatalf("expected checkout error, got: %v", err)
+	}
+}
+
+func TestCreateFromPR_BranchAlreadyAttached(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	svc := &fakeGitService{
+		resolveRepoName: "repo",
+		worktrees: []*models.WorktreeInfo{
+			{Path: "/worktrees/repo/feature-branch", Branch: "feature-branch"},
+		},
+		prs: []*models.PRInfo{
+			{Number: 7, Branch: "feature-branch", Title: "already attached"},
+		},
+	}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees"}
+
+	_, err := CreateFromPR(ctx, svc, cfg, 7, false, true)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "already checked out") {
+		t.Fatalf("expected attached branch error, got: %v", err)
 	}
 }
 

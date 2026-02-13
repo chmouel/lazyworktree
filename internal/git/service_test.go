@@ -594,11 +594,10 @@ func TestComputeCIStatusFromRollup(t *testing.T) {
 func TestCreateWorktreeFromPR(t *testing.T) {
 	notify := func(_ string, _ string) {}
 	notifyOnce := func(_ string, _ string, _ string) {}
-
-	service := NewService(notify, notifyOnce)
 	ctx := context.Background()
 
 	t.Run("create worktree from PR with temporary directory", func(t *testing.T) {
+		service := NewService(notify, notifyOnce)
 		tmpDir := t.TempDir()
 		targetPath := filepath.Join(tmpDir, "test-worktree")
 
@@ -610,6 +609,7 @@ func TestCreateWorktreeFromPR(t *testing.T) {
 	})
 
 	t.Run("unknown host uses manual fetch fallback", func(t *testing.T) {
+		service := NewService(notify, notifyOnce)
 		// Set up a git repo with a non-GitHub/GitLab remote
 		repo := t.TempDir()
 		runGit(t, repo, "init", "-b", "main")
@@ -655,6 +655,7 @@ func TestCreateWorktreeFromPR(t *testing.T) {
 	})
 
 	t.Run("returns false when not in git repo", func(t *testing.T) {
+		service := NewService(notify, notifyOnce)
 		tmpDir := t.TempDir()
 		withCwd(t, tmpDir)
 
@@ -665,15 +666,96 @@ func TestCreateWorktreeFromPR(t *testing.T) {
 	})
 
 	t.Run("returns false for invalid target path", func(t *testing.T) {
+		service := NewService(notify, notifyOnce)
 		repo := t.TempDir()
 		runGit(t, repo, "init")
-		runGit(t, repo, "remote", "add", "origin", "https://bitbucket.org/org/repo.git")
+		runGit(t, repo, "remote", "add", "origin", "https://bitbucket.example.com/org/repo.git")
 		withCwd(t, repo)
 
 		// Use invalid path (nested in non-existent directory)
 		invalidPath := "/nonexistent/deeply/nested/path/worktree"
 		ok := service.CreateWorktreeFromPR(ctx, 1, "feature", "local", invalidPath)
 
+		assert.False(t, ok)
+	})
+
+	t.Run("existing local branch is reset to PR branch before worktree creation", func(t *testing.T) {
+		service := NewService(notify, notifyOnce)
+		remoteRepo := t.TempDir()
+		runGit(t, remoteRepo, "init", "--bare", "-b", "main")
+
+		setupRepo := t.TempDir()
+		runGit(t, setupRepo, "clone", remoteRepo, ".")
+		runGit(t, setupRepo, "config", "user.email", "test@test.com")
+		runGit(t, setupRepo, "config", "user.name", "Test User")
+		runGit(t, setupRepo, "config", "commit.gpgsign", "false")
+
+		testFile := filepath.Join(setupRepo, "test.txt")
+		require.NoError(t, os.WriteFile(testFile, []byte("initial"), 0o600))
+		runGit(t, setupRepo, "add", "test.txt")
+		runGit(t, setupRepo, "commit", "-m", "initial")
+		runGit(t, setupRepo, "push", "-u", "origin", "main")
+
+		runGit(t, setupRepo, "checkout", "-b", "feature-branch")
+		require.NoError(t, os.WriteFile(testFile, []byte("feature content"), 0o600))
+		runGit(t, setupRepo, "commit", "-am", "feature commit")
+		runGit(t, setupRepo, "push", "-u", "origin", "feature-branch")
+		featureSHA := runGit(t, setupRepo, "rev-parse", "HEAD")
+
+		testRepo := t.TempDir()
+		runGit(t, testRepo, "clone", remoteRepo, ".")
+		runGit(t, testRepo, "config", "user.email", "test@test.com")
+		runGit(t, testRepo, "config", "user.name", "Test User")
+		runGit(t, testRepo, "config", "commit.gpgsign", "false")
+
+		// Create a stale local branch that should be reset to the PR branch tip.
+		runGit(t, testRepo, "checkout", "-b", "feature-branch", "origin/main")
+		runGit(t, testRepo, "checkout", "main")
+
+		withCwd(t, testRepo)
+		targetPath := filepath.Join(t.TempDir(), "feature-branch")
+		ok := service.CreateWorktreeFromPR(ctx, 1, "feature-branch", "feature-branch", targetPath)
+		require.True(t, ok)
+
+		gotSHA := runGit(t, testRepo, "rev-parse", "feature-branch")
+		assert.Equal(t, featureSHA, gotSHA)
+		assert.Equal(t, "feature-branch", runGit(t, targetPath, "rev-parse", "--abbrev-ref", "HEAD"))
+	})
+
+	t.Run("returns false when PR branch is already attached to another worktree", func(t *testing.T) {
+		service := NewService(notify, notifyOnce)
+		remoteRepo := t.TempDir()
+		runGit(t, remoteRepo, "init", "--bare", "-b", "main")
+
+		setupRepo := t.TempDir()
+		runGit(t, setupRepo, "clone", remoteRepo, ".")
+		runGit(t, setupRepo, "config", "user.email", "test@test.com")
+		runGit(t, setupRepo, "config", "user.name", "Test User")
+		runGit(t, setupRepo, "config", "commit.gpgsign", "false")
+
+		testFile := filepath.Join(setupRepo, "test.txt")
+		require.NoError(t, os.WriteFile(testFile, []byte("initial"), 0o600))
+		runGit(t, setupRepo, "add", "test.txt")
+		runGit(t, setupRepo, "commit", "-m", "initial")
+		runGit(t, setupRepo, "push", "-u", "origin", "main")
+
+		runGit(t, setupRepo, "checkout", "-b", "feature-branch")
+		require.NoError(t, os.WriteFile(testFile, []byte("feature content"), 0o600))
+		runGit(t, setupRepo, "commit", "-am", "feature commit")
+		runGit(t, setupRepo, "push", "-u", "origin", "feature-branch")
+
+		testRepo := t.TempDir()
+		runGit(t, testRepo, "clone", remoteRepo, ".")
+		runGit(t, testRepo, "config", "user.email", "test@test.com")
+		runGit(t, testRepo, "config", "user.name", "Test User")
+		runGit(t, testRepo, "config", "commit.gpgsign", "false")
+
+		attachedPath := filepath.Join(t.TempDir(), "attached-feature")
+		runGit(t, testRepo, "worktree", "add", "-b", "feature-branch", attachedPath, "origin/feature-branch")
+
+		withCwd(t, testRepo)
+		targetPath := filepath.Join(t.TempDir(), "new-feature-worktree")
+		ok := service.CreateWorktreeFromPR(ctx, 1, "feature-branch", "feature-branch", targetPath)
 		assert.False(t, ok)
 	})
 }

@@ -234,6 +234,94 @@ func TestHandleOpenPRsLoadedAsyncCreation(t *testing.T) {
 	}
 }
 
+func TestHandleOpenPRsLoadedAttachedBranchSelectsWorktree(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	mainPath := filepath.Join(cfg.WorktreeDir, "main")
+	featurePath := filepath.Join(cfg.WorktreeDir, "feature")
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: mainPath, Branch: "main", IsMain: true, LastSwitchedTS: 20},
+		{Path: featurePath, Branch: "feature-branch", LastSwitchedTS: 10},
+	}
+	m.updateTable()
+
+	prs := []*models.PRInfo{
+		{Number: 55, Title: "Attached", Branch: "feature-branch"},
+	}
+	_ = m.handleOpenPRsLoaded(openPRsLoadedMsg{prs: prs})
+
+	prScr, ok := m.state.ui.screenManager.Current().(*appscreen.PRSelectionScreen)
+	if !ok {
+		t.Fatalf("expected PR selection screen, got %T", m.state.ui.screenManager.Current())
+	}
+
+	cmd := prScr.OnSelect(prs[0])
+	if cmd != nil {
+		t.Fatal("expected no command when branch is already attached")
+	}
+
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+
+	infoScr := m.state.ui.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "already checked out") {
+		t.Fatalf("expected attached branch message, got %q", infoScr.Message)
+	}
+
+	if m.state.data.selectedIndex < 0 || m.state.data.selectedIndex >= len(m.state.data.filteredWts) {
+		t.Fatalf("selected index out of range: %d", m.state.data.selectedIndex)
+	}
+	selected := m.state.data.filteredWts[m.state.data.selectedIndex]
+	if selected.Path != featurePath {
+		t.Fatalf("expected selected path %q, got %q", featurePath, selected.Path)
+	}
+}
+
+func TestHandleOpenPRsLoadedCreateUsesPRBranch(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+	m.repoKey = "test/repo"
+
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "main"), Branch: "main", IsMain: true},
+	}
+	m.updateTable()
+
+	prs := []*models.PRInfo{
+		{Number: 77, Title: "Use PR branch", Branch: "feature/demo-branch"},
+	}
+	_ = m.handleOpenPRsLoaded(openPRsLoadedMsg{prs: prs})
+
+	prScr, ok := m.state.ui.screenManager.Current().(*appscreen.PRSelectionScreen)
+	if !ok {
+		t.Fatalf("expected PR selection screen, got %T", m.state.ui.screenManager.Current())
+	}
+
+	cmd := prScr.OnSelect(prs[0])
+	if cmd == nil {
+		t.Fatal("expected async creation command")
+	}
+	if !m.loading {
+		t.Fatal("expected loading state to be enabled")
+	}
+
+	expectedPath := filepath.Join(m.getRepoWorktreeDir(), "feature-demo-branch")
+	if m.pendingSelectWorktreePath != expectedPath {
+		t.Fatalf("expected pending path %q, got %q", expectedPath, m.pendingSelectWorktreePath)
+	}
+	if m.state.ui.screenManager.Type() != appscreen.TypeLoading {
+		t.Fatalf("expected loading screen, got %v", m.state.ui.screenManager.Type())
+	}
+}
+
 // TestCreateFromPRResultMsgWithInitCommands tests that init commands are run after PR worktree creation.
 func TestCreateFromPRResultMsgWithInitCommands(t *testing.T) {
 	cfg := &config.AppConfig{

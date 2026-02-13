@@ -344,7 +344,7 @@ func TestPRSelectionScreenAttachedBranches(t *testing.T) {
 	}
 }
 
-func TestPRSelectionScreenAttachedPRNotSelectable(t *testing.T) {
+func TestPRSelectionScreenAttachedPRSelectable(t *testing.T) {
 	prs := []*models.PRInfo{
 		{Number: 1, Title: "Attached PR", Branch: "attached-branch"},
 	}
@@ -362,25 +362,17 @@ func TestPRSelectionScreenAttachedPRNotSelectable(t *testing.T) {
 		return nil
 	}
 
-	// Try to select the attached PR
+	// Select the attached PR
 	result, _ := scr.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
-	// Screen should NOT close (return non-nil)
-	if result == nil {
-		t.Error("expected screen to stay open when selecting attached PR")
+	// Screen should close and delegate handling to OnSelect
+	if result != nil {
+		t.Error("expected screen to close when selecting attached PR")
 	}
 
-	// OnSelect should NOT be called
-	if selectCalled {
-		t.Error("expected OnSelect callback to NOT be called for attached PR")
-	}
-
-	// Status message should be set
-	if scr.StatusMessage == "" {
-		t.Error("expected status message to be set when trying to select attached PR")
-	}
-	if !strings.Contains(scr.StatusMessage, "my-worktree") {
-		t.Errorf("expected status message to mention worktree, got %q", scr.StatusMessage)
+	// OnSelect should be called so the model can handle attached branch behaviour.
+	if !selectCalled {
+		t.Error("expected OnSelect callback to be called for attached PR")
 	}
 }
 

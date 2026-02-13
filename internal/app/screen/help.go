@@ -85,6 +85,7 @@ When CI checks are displayed in the info panel:
 **{{HELP_WORKTREE_ACTIONS}}Worktree Actions**
 - c: Create new worktree (branch, commit, PR/MR, issue, or custom)
 - Create from current: supply an explicit name or leave empty for auto-generation
+- Create from PR/MR: always uses the PR/MR branch name
 - Existing local branch: choose to checkout the branch or create a new one based on it
 - Tab / Shift+Tab: Move focus to the "Include current file changes" checkbox
 - Space: Toggle "Include current file changes"

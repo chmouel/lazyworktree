@@ -100,7 +100,6 @@ type AppConfig struct {
 	FuzzyFinderInput        bool   // Enable fuzzy finder for input suggestions (default: false)
 	IconSet                 string // Icon set: "nerd-font-v3", "text" (default: "nerd-font-v3"). Legacy "emoji" and "none" map to "text".
 	IssueBranchNameTemplate string // Template for issue branch names with placeholders: {number}, {title} (default: "issue-{number}-{title}")
-	PRBranchNameTemplate    string // Template for PR branch names with placeholders: {number}, {title} (default: "pr-{number}-{title}")
 	SessionPrefix           string // Prefix for tmux/zellij session names (default: "wt-")
 	PaletteMRU              bool   // Enable MRU sorting for command palette (default: false)
 	PaletteMRULimit         int    // Number of MRU items to show (default: 5)
@@ -134,7 +133,6 @@ func DefaultConfig() *AppConfig {
 		Theme:                   "",
 		MergeMethod:             "rebase",
 		IssueBranchNameTemplate: "issue-{number}-{title}",
-		PRBranchNameTemplate:    "pr-{number}-{title}",
 		SessionPrefix:           "wt-",
 		PaletteMRU:              true,
 		PaletteMRULimit:         5,
@@ -313,13 +311,6 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 		issueBranchNameTemplate = strings.TrimSpace(issueBranchNameTemplate)
 		if issueBranchNameTemplate != "" {
 			cfg.IssueBranchNameTemplate = issueBranchNameTemplate
-		}
-	}
-
-	if prBranchNameTemplate, ok := data["pr_branch_name_template"].(string); ok {
-		prBranchNameTemplate = strings.TrimSpace(prBranchNameTemplate)
-		if prBranchNameTemplate != "" {
-			cfg.PRBranchNameTemplate = prBranchNameTemplate
 		}
 	}
 
@@ -800,9 +791,6 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	}
 	if overrideCfg.IssueBranchNameTemplate != "" {
 		cfg.IssueBranchNameTemplate = overrideCfg.IssueBranchNameTemplate
-	}
-	if overrideCfg.PRBranchNameTemplate != "" {
-		cfg.PRBranchNameTemplate = overrideCfg.PRBranchNameTemplate
 	}
 	if overrideCfg.SessionPrefix != "" {
 		cfg.SessionPrefix = overrideCfg.SessionPrefix

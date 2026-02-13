@@ -48,3 +48,29 @@ func (m *Model) worktreeAtIndex(idx int) *models.WorktreeInfo {
 	}
 	return m.state.data.filteredWts[idx]
 }
+
+// selectWorktreeByPath selects the given worktree path in the main table.
+// Returns true when the selection was applied.
+func (m *Model) selectWorktreeByPath(path string) bool {
+	if path == "" {
+		return false
+	}
+
+	// If the worktree filter hides the target, clear it first so selection can succeed.
+	if strings.TrimSpace(m.state.services.filter.FilterQuery) != "" {
+		m.setFilterQuery(filterTargetWorktrees, "")
+		m.state.ui.filterInput.SetValue("")
+	}
+
+	m.updateTable()
+	for i, wt := range m.state.data.filteredWts {
+		if wt.Path == path {
+			m.state.ui.worktreeTable.SetCursor(i)
+			m.state.data.selectedIndex = i
+			m.updateWorktreeArrows()
+			return true
+		}
+	}
+
+	return false
+}

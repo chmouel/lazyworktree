@@ -219,12 +219,18 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 		return "", fmt.Errorf("failed to fetch PR: %w", err)
 	}
 
-	// Generate branch name using template
-	template := cfg.PRBranchNameTemplate
-	if template == "" {
-		template = "pr-{number}-{title}"
+	branchName := strings.TrimSpace(selectedPR.Branch)
+	if branchName == "" {
+		return "", fmt.Errorf("failed to create branch for PR #%d: missing PR branch", selectedPR.Number)
 	}
-	branchName := utils.GeneratePRWorktreeName(selectedPR, template, "")
+
+	worktrees, err := gitSvc.GetWorktrees(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect worktrees for PR #%d: %w", selectedPR.Number, err)
+	}
+	if worktreePath, attached := findWorktreePathForBranch(worktrees, branchName); attached {
+		return "", fmt.Errorf("branch %q is already checked out in worktree %q", branchName, worktreePath)
+	}
 
 	if noWorkspace {
 		if !gitSvc.CheckoutPRBranch(ctx, selectedPR.Number, selectedPR.Branch, branchName) {
@@ -235,7 +241,11 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 
 	// Construct target path
 	repoName := gitSvc.ResolveRepoName(ctx)
-	targetPath := filepath.Join(cfg.WorktreeDir, repoName, branchName)
+	worktreeName := utils.SanitizeBranchName(branchName, 100)
+	if worktreeName == "" {
+		worktreeName = fmt.Sprintf("pr-%d", selectedPR.Number)
+	}
+	targetPath := filepath.Join(cfg.WorktreeDir, repoName, worktreeName)
 
 	// Check for path conflicts
 	if _, err := fs.Stat(targetPath); err == nil {
@@ -262,6 +272,15 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 	}
 
 	return targetPath, nil
+}
+
+func findWorktreePathForBranch(worktrees []*models.WorktreeInfo, branch string) (string, bool) {
+	for _, wt := range worktrees {
+		if wt.Branch == branch {
+			return wt.Path, true
+		}
+	}
+	return "", false
 }
 
 // CreateFromIssue creates a worktree from an issue number.

@@ -97,11 +97,6 @@ func (s *PRSelectionScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		case keyEnter:
 			if s.OnSelect != nil {
 				if pr, ok := s.Selected(); ok {
-					// Check if PR's branch is already attached to a worktree
-					if wtName, attached := s.isAttached(pr); attached {
-						s.StatusMessage = fmt.Sprintf("Branch already checked out in %q", wtName)
-						return s, nil
-					}
 					return nil, s.OnSelect(pr)
 				}
 			}
@@ -141,11 +136,6 @@ func (s *PRSelectionScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	case keyEnter:
 		if s.OnSelect != nil {
 			if pr, ok := s.Selected(); ok {
-				// Check if PR's branch is already attached to a worktree
-				if wtName, attached := s.isAttached(pr); attached {
-					s.StatusMessage = fmt.Sprintf("Branch already checked out in %q", wtName)
-					return s, nil
-				}
 				return nil, s.OnSelect(pr)
 			}
 		}

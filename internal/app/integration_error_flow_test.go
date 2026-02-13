@@ -10,6 +10,7 @@ import (
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
 func TestIntegrationOpenPRsErrors(t *testing.T) {
@@ -62,41 +63,41 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	}
 	cmd := prScreen.OnSelect(missingBranch)
 	if cmd != nil {
-		updated, _ = m.Update(cmd())
-		m = updated.(*Model)
+		t.Fatal("expected missing-branch PR selection to fail immediately")
 	}
-
-	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInput {
-		t.Fatal("expected input screen for PR selection")
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatal("expected info screen for missing PR branch")
 	}
-	inputScr := m.state.ui.screenManager.Current().(*appscreen.InputScreen)
-	inputScr.OnSubmit("pr1-add-feature", false)
-	if inputScr.ErrorMsg != errPRBranchMissing {
-		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
+	infoScr := m.state.ui.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, errPRBranchMissing) {
+		t.Fatalf("unexpected error: %q", infoScr.Message)
 	}
 
 	withBranch := &models.PRInfo{Number: 2, Title: "Add tests", Branch: featureBranch}
 	updated, _ = m.Update(openPRsLoadedMsg{prs: []*models.PRInfo{withBranch}})
 	m = updated.(*Model)
 
-	duplicateBranch := "my-feature"
-	m.state.data.worktrees = []*models.WorktreeInfo{{Branch: duplicateBranch}}
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "main"), Branch: "main", IsMain: true},
+		{Path: filepath.Join(cfg.WorktreeDir, "attached"), Branch: featureBranch},
+	}
+	m.updateTable()
 
 	prScreen = m.state.ui.screenManager.Current().(*appscreen.PRSelectionScreen)
 	cmd = prScreen.OnSelect(withBranch)
 	if cmd != nil {
-		updated, _ = m.Update(cmd())
-		m = updated.(*Model)
+		t.Fatal("expected attached-branch PR selection to fail immediately")
+	}
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatal("expected info screen for attached PR branch")
+	}
+	infoScr = m.state.ui.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "already checked out") {
+		t.Fatalf("unexpected error: %q", infoScr.Message)
 	}
 
-	inputScr = m.state.ui.screenManager.Current().(*appscreen.InputScreen)
-	inputScr.OnSubmit(duplicateBranch, false)
-	if !strings.Contains(inputScr.ErrorMsg, "already exists") {
-		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
-	}
-
-	existsBranch := "exists"
-	if err := os.MkdirAll(filepath.Join(m.getRepoWorktreeDir(), existsBranch), 0o750); err != nil {
+	worktreeName := utils.SanitizeBranchName(featureBranch, 100)
+	if err := os.MkdirAll(filepath.Join(m.getRepoWorktreeDir(), worktreeName), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	m.state.data.worktrees = nil
@@ -107,14 +108,14 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	prScreen = m.state.ui.screenManager.Current().(*appscreen.PRSelectionScreen)
 	cmd = prScreen.OnSelect(withBranch)
 	if cmd != nil {
-		updated, _ = m.Update(cmd())
-		m = updated.(*Model)
+		t.Fatal("expected existing-path PR selection to fail immediately")
 	}
-
-	inputScr = m.state.ui.screenManager.Current().(*appscreen.InputScreen)
-	inputScr.OnSubmit(existsBranch, false)
-	if !strings.Contains(inputScr.ErrorMsg, "Path already exists") {
-		t.Fatalf("unexpected error: %q", inputScr.ErrorMsg)
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatal("expected info screen for existing path")
+	}
+	infoScr = m.state.ui.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Path already exists") {
+		t.Fatalf("unexpected error: %q", infoScr.Message)
 	}
 }
 

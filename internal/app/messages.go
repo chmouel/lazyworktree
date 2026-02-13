@@ -384,190 +384,52 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 	prScr := screen.NewPRSelectionScreen(msg.prs, m.state.view.WindowWidth, m.state.view.WindowHeight, m.theme, m.config.IconsEnabled())
 	prScr.AttachedBranches = attachedBranches
 	prScr.OnSelect = func(pr *models.PRInfo) tea.Cmd {
-		// Get AI-generated title (if configured)
-		generatedTitle := ""
-		scriptErr := ""
-
-		if m.config.BranchNameScript != "" {
-			prContent := fmt.Sprintf("%s\n\n%s", pr.Title, pr.Body)
-			template := m.config.PRBranchNameTemplate
-			if template == "" {
-				template = "pr-{number}-{title}"
-			}
-			// Pass empty string for generatedTitle since we're getting it now
-			suggestedName := utils.GeneratePRWorktreeName(pr, template, "")
-
-			if aiTitle, err := runBranchNameScript(
-				m.ctx,
-				m.config.BranchNameScript,
-				prContent,
-				"pr",
-				fmt.Sprintf("%d", pr.Number),
-				template,
-				suggestedName,
-			); err != nil {
-				scriptErr = fmt.Sprintf("Branch name script error: %v", err)
-			} else if aiTitle != "" {
-				generatedTitle = aiTitle
-			}
-		}
-
-		// Apply template with both original and generated titles
-		template := m.config.PRBranchNameTemplate
-		if template == "" {
-			template = "pr-{number}-{title}"
-		}
-
-		defaultName := utils.GeneratePRWorktreeName(pr, template, generatedTitle)
-
-		// Suggest branch name (check for duplicates)
-		suggested := strings.TrimSpace(defaultName)
-		if suggested != "" {
-			suggested = m.suggestBranchName(suggested)
-		}
-
-		if scriptErr != "" {
-			m.showInfo(scriptErr, func() tea.Msg {
-				inputScr := screen.NewInputScreen(
-					fmt.Sprintf("Create worktree from PR #%d (branch: %s)", pr.Number, pr.Branch),
-					"Worktree name",
-					suggested,
-					m.theme,
-					m.config.IconsEnabled(),
-				)
-
-				inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
-					newBranch := strings.TrimSpace(value)
-					newBranch = sanitizeBranchNameFromTitle(newBranch, "")
-					if newBranch == "" {
-						inputScr.ErrorMsg = errBranchEmpty
-						return nil
-					}
-
-					targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
-					if errMsg := m.validateNewWorktreeTarget(newBranch, targetPath); errMsg != "" {
-						inputScr.ErrorMsg = errMsg
-						return nil
-					}
-
-					// Validate that PR has a branch
-					if pr.Branch == "" {
-						inputScr.ErrorMsg = errPRBranchMissing
-						return nil
-					}
-
-					// Check if PR's remote branch is already attached to a worktree
-					if wt := m.getWorktreeForBranch(pr.Branch); wt != nil {
-						inputScr.ErrorMsg = fmt.Sprintf("Branch %q is already checked out in worktree %q", pr.Branch, filepath.Base(wt.Path))
-						return nil
-					}
-
-					inputScr.ErrorMsg = ""
-					if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
-						return func() tea.Msg { return errMsg{err: err} }
-					}
-
-					// Create worktree from PR branch (can take time, so do it async with a loading pulse)
-					m.loading = true
-					m.statusContent = fmt.Sprintf("Creating worktree from PR/MR #%d...", pr.Number)
-					m.state.ui.screenManager.Clear() // Clear all stacked screens before loading
-					m.setLoadingScreen(m.statusContent)
-					m.pendingSelectWorktreePath = targetPath
-					return func() tea.Msg {
-						ok := m.state.services.git.CreateWorktreeFromPR(m.ctx, pr.Number, pr.Branch, newBranch, targetPath)
-						if !ok {
-							return createFromPRResultMsg{
-								prNumber:   pr.Number,
-								branch:     newBranch,
-								targetPath: targetPath,
-								err:        fmt.Errorf("create worktree from PR/MR branch %q", pr.Branch),
-							}
-						}
-						return createFromPRResultMsg{
-							prNumber:   pr.Number,
-							branch:     newBranch,
-							targetPath: targetPath,
-							err:        nil,
-						}
-					}
-				}
-
-				inputScr.OnCancel = func() tea.Cmd {
-					return nil
-				}
-
-				m.state.ui.screenManager.Push(inputScr)
-				return nil
-			})
+		branchName := strings.TrimSpace(pr.Branch)
+		if branchName == "" {
+			m.showInfo(errPRBranchMissing, nil)
 			return nil
 		}
 
-		// Show input screen with generated name
-		inputScr := screen.NewInputScreen(
-			fmt.Sprintf("Create worktree from PR #%d (branch: %s)", pr.Number, pr.Branch),
-			"Worktree name",
-			suggested,
-			m.theme,
-			m.config.IconsEnabled(),
-		)
-
-		inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
-			newBranch := strings.TrimSpace(value)
-			newBranch = sanitizeBranchNameFromTitle(newBranch, "")
-			if newBranch == "" {
-				inputScr.ErrorMsg = errBranchEmpty
-				return nil
-			}
-
-			targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
-			if errMsg := m.validateNewWorktreeTarget(newBranch, targetPath); errMsg != "" {
-				inputScr.ErrorMsg = errMsg
-				return nil
-			}
-
-			// Validate that PR has a branch
-			if pr.Branch == "" {
-				inputScr.ErrorMsg = errPRBranchMissing
-				return nil
-			}
-
-			// Check if PR's remote branch is already attached to a worktree
-			if wt := m.getWorktreeForBranch(pr.Branch); wt != nil {
-				inputScr.ErrorMsg = fmt.Sprintf("Branch %q is already checked out in worktree %q", pr.Branch, filepath.Base(wt.Path))
-				return nil
-			}
-
-			inputScr.ErrorMsg = ""
-			if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
-				return func() tea.Msg { return errMsg{err: err} }
-			}
-
-			// Create worktree from PR branch (can take time, so do it async with a loading pulse)
-			m.loading = true
-			m.statusContent = fmt.Sprintf("Creating worktree from PR/MR #%d...", pr.Number)
-			m.state.ui.screenManager.Clear() // Clear all stacked screens before loading
-			m.setLoadingScreen(m.statusContent)
-			m.pendingSelectWorktreePath = targetPath
-			return func() tea.Msg {
-				ok := m.state.services.git.CreateWorktreeFromPR(m.ctx, pr.Number, pr.Branch, newBranch, targetPath)
-				if !ok {
-					return createFromPRResultMsg{
-						prNumber:   pr.Number,
-						branch:     newBranch,
-						targetPath: targetPath,
-						err:        fmt.Errorf("create worktree from PR/MR branch %q", pr.Branch),
-					}
-				}
-				return createFromPRResultMsg{prNumber: pr.Number, branch: newBranch, targetPath: targetPath}
-			}
-		}
-
-		inputScr.OnCancel = func() tea.Cmd {
+		if wt := m.getWorktreeForBranch(branchName); wt != nil {
+			m.state.ui.screenManager.Clear()
+			m.selectWorktreeByPath(wt.Path)
+			m.showInfo(fmt.Sprintf("Branch %q is already checked out in worktree %q", branchName, filepath.Base(wt.Path)), nil)
 			return nil
 		}
 
-		m.state.ui.screenManager.Push(inputScr)
-		return textinput.Blink
+		worktreeName := utils.SanitizeBranchName(branchName, 100)
+		if worktreeName == "" {
+			worktreeName = fmt.Sprintf("pr-%d", pr.Number)
+		}
+
+		targetPath := filepath.Join(m.getRepoWorktreeDir(), worktreeName)
+		if m.worktreePathExists(targetPath) {
+			m.showInfo(fmt.Sprintf("Path already exists: %s", targetPath), nil)
+			return nil
+		}
+
+		if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
+			return func() tea.Msg { return errMsg{err: err} }
+		}
+
+		// Create worktree from PR branch (can take time, so do it async with a loading pulse)
+		m.loading = true
+		m.statusContent = fmt.Sprintf("Creating worktree from PR/MR #%d...", pr.Number)
+		m.state.ui.screenManager.Clear() // Clear all stacked screens before loading
+		m.setLoadingScreen(m.statusContent)
+		m.pendingSelectWorktreePath = targetPath
+		return func() tea.Msg {
+			ok := m.state.services.git.CreateWorktreeFromPR(m.ctx, pr.Number, branchName, branchName, targetPath)
+			if !ok {
+				return createFromPRResultMsg{
+					prNumber:   pr.Number,
+					branch:     branchName,
+					targetPath: targetPath,
+					err:        fmt.Errorf("create worktree from PR/MR branch %q", branchName),
+				}
+			}
+			return createFromPRResultMsg{prNumber: pr.Number, branch: branchName, targetPath: targetPath}
+		}
 	}
 	prScr.OnCancel = func() tea.Cmd {
 		return nil
