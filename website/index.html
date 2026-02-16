@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LazyWorktree | Beautiful Git Worktree Management</title>
+    <meta
+      name="description"
+      content="LazyWorktree is a keyboard-driven TUI for Git worktrees. Create, inspect, and navigate worktrees with speed and clarity."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-one"></div>
+    <div class="bg-orb orb-two"></div>
+    <div class="grain"></div>
+
+    <header class="site-header reveal">
+      <a href="#" class="brand" aria-label="LazyWorktree home">
+        <span class="brand-mark">lw</span>
+        <span class="brand-text">lazyworktree</span>
+      </a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a href="#features">Features</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#install">Install</a>
+      </nav>
+      <a
+        class="btn btn-small"
+        href="https://github.com/chmouel/lazyworktree"
+        target="_blank"
+        rel="noreferrer"
+        >GitHub</a
+      >
+    </header>
+
+    <main>
+      <section class="hero reveal">
+        <p class="kicker">Terminal-first Git worktree control</p>
+        <h1>Easy worktree management for the terminal.</h1>
+        <p class="hero-copy">
+          LazyWorktree is a fast TUI for creating, reviewing, and switching Git
+          worktrees. It combines Vim-style navigation, PR and CI visibility, and
+          deep Git tooling in one focused interface.
+        </p>
+        <div class="hero-actions">
+          <a
+            class="btn btn-primary"
+            href="https://github.com/chmouel/lazyworktree/releases"
+            target="_blank"
+            rel="noreferrer"
+            >Download Releases</a
+          >
+          <a
+            class="btn btn-secondary"
+            href="https://github.com/chmouel/lazyworktree#readme"
+            target="_blank"
+            rel="noreferrer"
+            >Read the Docs</a
+          >
+        </div>
+        <ul class="stats" aria-label="Key metrics">
+          <li><strong>Git 2.31+</strong><span>Supported baseline</span></li>
+          <li>
+            <strong>Keyboard-first</strong
+            ><span>Vim motions + command palette</span>
+          </li>
+          <li>
+            <strong>PR and CI aware</strong
+            ><span>GitHub and GitLab workflows</span>
+          </li>
+        </ul>
+
+        <div class="hero-grid">
+          <article class="terminal-card">
+            <p class="card-label">Quick start</p>
+            <pre><code>$ brew tap chmouel/lazyworktree https://github.com/chmouel/lazyworktree
+$ brew install lazyworktree --cask
+$ cd your-repository
+$ lazyworktree</code></pre>
+          </article>
+          <figure class="preview-card">
+            <img
+              src="https://github.com/user-attachments/assets/229a4d6d-f26f-4b85-b909-fc28b9c524c2"
+              alt="LazyWorktree TUI screenshot"
+            />
+            <figcaption>
+              Worktree, status, and log panes with rich keyboard actions.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="features" class="features reveal">
+        <div class="section-heading">
+          <p class="kicker">Why teams choose it</p>
+          <h2>Manage your worktree with Ease.</h2>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <h3>Smart worktree creation</h3>
+            <p>
+              Create from branches, PRs, MRs, or issues with automatic naming
+              and optional file carry-over.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3>Deep Git tooling</h3>
+            <p>
+              Stage, commit, diff, cherry-pick, synchronise, and open LazyGit
+              without context switching.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3>CI visibility</h3>
+            <p>
+              Inspect checks, browse logs, and jump straight to job pages when
+              builds fail.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3>Command palette</h3>
+            <p>
+              Use a VSCode-style palette with MRU ranking to access actions
+              quickly and consistently.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3>Session aware</h3>
+            <p>
+              Integrate with tmux or zellij so each worktree can have a
+              dedicated terminal context.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3>Security-minded hooks</h3>
+            <p>
+              Run init and terminate hooks via `.wt` files with TOFU-based trust
+              controls.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="workflow" class="workflow reveal">
+        <div class="workflow-content">
+          <div class="section-heading">
+            <p class="kicker">Built for momentum</p>
+            <h2>A clean loop from idea to merged branch.</h2>
+          </div>
+          <ol class="timeline">
+            <li>
+              <span>01</span>Spawn a worktree from your current branch, issue,
+              or open PR/MR.
+            </li>
+            <li>
+              <span>02</span>Code with live status, commit inspection, and
+              instant diffs in the same UI.
+            </li>
+            <li>
+              <span>03</span>Review CI, open the PR, prune merged branches, and
+              move to the next task.
+            </li>
+          </ol>
+        </div>
+        <figure class="workflow-preview">
+          <img
+            src="assets/ci-runs.png"
+            alt="CI runs view inside LazyWorktree"
+          />
+          <figcaption>CI checks stay one keystroke away.</figcaption>
+        </figure>
+      </section>
+
+      <section id="install" class="install reveal">
+        <div class="section-heading">
+          <p class="kicker">Install</p>
+          <h2>Get running in less than one minute.</h2>
+        </div>
+        <div
+          class="tab-controls"
+          role="tablist"
+          aria-label="Installation methods"
+        >
+          <button
+            class="tab-btn active"
+            data-target="tab-brew"
+            role="tab"
+            aria-selected="true"
+            aria-controls="tab-brew"
+          >
+            Homebrew
+          </button>
+          <button
+            class="tab-btn"
+            data-target="tab-arch"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-arch"
+          >
+            Arch
+          </button>
+          <button
+            class="tab-btn"
+            data-target="tab-source"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-source"
+          >
+            Source
+          </button>
+        </div>
+        <div class="tab-panel active" id="tab-brew" role="tabpanel">
+          <pre><code>brew tap chmouel/lazyworktree https://github.com/chmouel/lazyworktree
+brew install lazyworktree --cask</code></pre>
+        </div>
+        <div class="tab-panel" id="tab-arch" role="tabpanel" hidden>
+          <pre><code>yay -S lazyworktree-bin</code></pre>
+        </div>
+        <div class="tab-panel" id="tab-source" role="tabpanel" hidden>
+          <pre><code>go install github.com/chmouel/lazyworktree/cmd/lazyworktree@latest</code></pre>
+        </div>
+        <p class="install-note">
+          Optional tools: <code>gh</code> or <code>glab</code> for forge data,
+          and <code>delta</code> for enhanced diffs.
+        </p>
+      </section>
+
+      <section class="cta reveal">
+        <h2>Bring calm to your busiest repositories.</h2>
+        <p>
+          LazyWorktree keeps each branch isolated, visible, and easy to manage
+          from the keyboard.
+        </p>
+        <div class="hero-actions">
+          <a
+            class="btn btn-primary"
+            href="https://github.com/chmouel/lazyworktree/releases"
+            target="_blank"
+            rel="noreferrer"
+            >Install LazyWorktree</a
+          >
+          <a
+            class="btn btn-secondary"
+            href="https://github.com/chmouel/lazyworktree"
+            target="_blank"
+            rel="noreferrer"
+            >View Source</a
+          >
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>LazyWorktree is open source under the MIT licence.</p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
