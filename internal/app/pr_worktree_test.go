@@ -1,7 +1,9 @@
 package app
 
 import (
+	"context"
 	"fmt"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -240,6 +242,9 @@ func TestHandleOpenPRsLoadedAttachedBranchSelectsWorktree(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
+	m.state.services.git.SetCommandRunner(func(_ context.Context, _ string, _ ...string) *exec.Cmd {
+		return exec.Command("bash", "-lc", "exit 1")
+	})
 
 	mainPath := filepath.Join(cfg.WorktreeDir, "main")
 	featurePath := filepath.Join(cfg.WorktreeDir, "feature")
@@ -313,12 +318,66 @@ func TestHandleOpenPRsLoadedCreateUsesPRBranch(t *testing.T) {
 		t.Fatal("expected loading state to be enabled")
 	}
 
-	expectedPath := filepath.Join(m.getRepoWorktreeDir(), "feature-demo-branch")
+	expectedPath := filepath.Join(m.getRepoWorktreeDir(), "pr-77-use-pr-branch")
 	if m.pendingSelectWorktreePath != expectedPath {
 		t.Fatalf("expected pending path %q, got %q", expectedPath, m.pendingSelectWorktreePath)
 	}
 	if m.state.ui.screenManager.Type() != appscreen.TypeLoading {
 		t.Fatalf("expected loading screen, got %v", m.state.ui.screenManager.Type())
+	}
+}
+
+func TestHandleOpenPRsLoadedCreateNonAuthorUsesGeneratedBranch(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+	m.repoKey = "test/repo"
+	m.state.services.git.SetCommandRunner(func(_ context.Context, name string, args ...string) *exec.Cmd {
+		cmd := strings.Join(append([]string{name}, args...), " ")
+		switch cmd {
+		case "git remote get-url origin":
+			return exec.Command("bash", "-lc", "echo https://github.com/org/repo.git")
+		case "gh api user --jq .login":
+			return exec.Command("bash", "-lc", "echo reviewer")
+		default:
+			return exec.Command("bash", "-lc", "exit 1")
+		}
+	})
+
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "main"), Branch: "main", IsMain: true},
+	}
+	m.updateTable()
+
+	prs := []*models.PRInfo{
+		{Number: 77, Title: "Use PR branch", Branch: "feature/demo-branch", Author: "alice"},
+	}
+	_ = m.handleOpenPRsLoaded(openPRsLoadedMsg{prs: prs})
+
+	prScr, ok := m.state.ui.screenManager.Current().(*appscreen.PRSelectionScreen)
+	if !ok {
+		t.Fatalf("expected PR selection screen, got %T", m.state.ui.screenManager.Current())
+	}
+
+	cmd := prScr.OnSelect(prs[0])
+	if cmd == nil {
+		t.Fatal("expected async creation command")
+	}
+
+	expected := filepath.Join(m.getRepoWorktreeDir(), "pr-77-use-pr-branch")
+	if m.pendingSelectWorktreePath != expected {
+		t.Fatalf("expected pending path %q, got %q", expected, m.pendingSelectWorktreePath)
+	}
+
+	msg := cmd()
+	res, ok := msg.(createFromPRResultMsg)
+	if !ok {
+		t.Fatalf("expected createFromPRResultMsg, got %T", msg)
+	}
+	if res.branch != "pr-77-use-pr-branch" {
+		t.Fatalf("expected generated local branch, got %q", res.branch)
 	}
 }
 

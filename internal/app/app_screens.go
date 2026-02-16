@@ -332,6 +332,19 @@ func (m *Model) showThemeSelection() tea.Cmd {
 			m.originalTheme = ""
 			return nil
 		}
+		confirmScreen.OnCancel = func() tea.Cmd {
+			// Keep the selected theme for this session; only skip persistence.
+			m.originalTheme = ""
+
+			// Close confirm + underlying theme picker to return to the main UI.
+			if m.state.ui.screenManager.IsActive() && m.state.ui.screenManager.Type() == appscreen.TypeConfirm {
+				m.state.ui.screenManager.Pop()
+			}
+			if m.state.ui.screenManager.IsActive() && m.state.ui.screenManager.Type() == appscreen.TypeListSelect {
+				m.state.ui.screenManager.Pop()
+			}
+			return nil
+		}
 		m.state.ui.screenManager.Push(confirmScreen)
 		return nil
 	}

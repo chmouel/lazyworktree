@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
 // runBranchNameScript executes the configured branch_name_script with the content as stdin.
@@ -133,6 +135,53 @@ func (m *Model) getWorktreeForBranch(branch string) *models.WorktreeInfo {
 		}
 	}
 	return nil
+}
+
+func appendPRNameSuffix(base string, suffix int) string {
+	if suffix <= 0 {
+		return strings.TrimSpace(base)
+	}
+
+	sfx := fmt.Sprintf("-%d", suffix)
+	maxBaseLen := 100 - len(sfx)
+	if maxBaseLen < 1 {
+		maxBaseLen = 1
+	}
+
+	trimmed := strings.TrimRight(strings.TrimSpace(base), "-")
+	if len(trimmed) > maxBaseLen {
+		trimmed = strings.TrimRight(trimmed[:maxBaseLen], "-")
+	}
+	if trimmed == "" {
+		trimmed = "pr"
+	}
+
+	return trimmed + sfx
+}
+
+func (m *Model) uniquePRGeneratedName(base string) string {
+	cleanBase := utils.SanitizeBranchName(strings.TrimSpace(base), 100)
+	if cleanBase == "" {
+		cleanBase = "pr"
+	}
+
+	for i := 0; ; i++ {
+		candidate := appendPRNameSuffix(cleanBase, i)
+		if candidate == "" {
+			continue
+		}
+		if m.getWorktreeForBranch(candidate) != nil {
+			continue
+		}
+		if m.localBranchExists(candidate) {
+			continue
+		}
+		targetPath := filepath.Join(m.getRepoWorktreeDir(), candidate)
+		if m.worktreePathExists(targetPath) {
+			continue
+		}
+		return candidate
+	}
 }
 
 func (m *Model) worktreePathExists(path string) bool {

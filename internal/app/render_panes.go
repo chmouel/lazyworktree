@@ -462,6 +462,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		}
 		stateStyle := lipgloss.NewStyle().Foreground(stateColor)
 		prNumber := fmt.Sprintf("#%d", wt.PR.Number)
+		prNumber = osc8Hyperlink(prNumber, wt.PR.URL)
 		infoLines = append(infoLines, "")
 		infoLines = append(infoLines, prLabelStyle.Render(prPrefix))
 		infoLines = append(infoLines, fmt.Sprintf("  %s %s [%s]",

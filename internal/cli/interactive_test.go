@@ -225,7 +225,8 @@ func (m *mockGitServiceForInteractive) FetchPR(_ context.Context, prNumber int) 
 func (m *mockGitServiceForInteractive) GetCurrentBranch(context.Context) (string, error) {
 	return "main", nil
 }
-func (m *mockGitServiceForInteractive) GetMainWorktreePath(context.Context) string { return "" }
+func (m *mockGitServiceForInteractive) GetAuthenticatedUsername(context.Context) string { return "" }
+func (m *mockGitServiceForInteractive) GetMainWorktreePath(context.Context) string      { return "" }
 func (m *mockGitServiceForInteractive) GetWorktrees(context.Context) ([]*models.WorktreeInfo, error) {
 	return nil, nil
 }

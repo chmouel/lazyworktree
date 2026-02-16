@@ -322,6 +322,71 @@ func TestCreateFromPR_NoWorkspace_Success(t *testing.T) {
 	}
 }
 
+func TestCreateFromPR_NoWorkspace_NonAuthorUsesGeneratedName(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	svc := &fakeGitService{
+		resolveRepoName:    "repo",
+		authUsername:       "reviewer",
+		checkoutPRBranchOK: true,
+		prs: []*models.PRInfo{
+			{Number: 42, Branch: "feature-branch", Title: "add dark mode", Author: "alice"},
+		},
+	}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees"}
+
+	result, err := CreateFromPR(ctx, svc, cfg, 42, true, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expectedBranch := "pr-42-add-dark-mode"
+	if result != expectedBranch {
+		t.Fatalf("expected branch name %q, got %q", expectedBranch, result)
+	}
+
+	if !svc.checkedOutPRBranch {
+		t.Fatal("expected CheckoutPRBranch to be called")
+	}
+	if svc.lastCheckoutPRBranch != expectedBranch {
+		t.Fatalf("expected checkout branch %q, got %q", expectedBranch, svc.lastCheckoutPRBranch)
+	}
+}
+
+func TestCreateFromPR_NoWorkspace_NonAuthorCollisionGetsSuffix(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	svc := &fakeGitService{
+		resolveRepoName:    "repo",
+		authUsername:       "reviewer",
+		checkoutPRBranchOK: true,
+		worktrees: []*models.WorktreeInfo{
+			{Path: "/worktrees/repo/pr-42-add-dark-mode", Branch: "pr-42-add-dark-mode"},
+		},
+		prs: []*models.PRInfo{
+			{Number: 42, Branch: "feature-branch", Title: "add dark mode", Author: "alice"},
+		},
+	}
+	cfg := &config.AppConfig{WorktreeDir: "/worktrees"}
+
+	result, err := CreateFromPR(ctx, svc, cfg, 42, true, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expectedBranch := "pr-42-add-dark-mode-1"
+	if result != expectedBranch {
+		t.Fatalf("expected branch name %q, got %q", expectedBranch, result)
+	}
+	if svc.lastCheckoutPRBranch != expectedBranch {
+		t.Fatalf("expected checkout branch %q, got %q", expectedBranch, svc.lastCheckoutPRBranch)
+	}
+}
+
 func TestCreateFromPR_NoWorkspace_CheckoutFailure(t *testing.T) {
 	t.Parallel()
 

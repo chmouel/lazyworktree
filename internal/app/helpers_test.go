@@ -708,6 +708,27 @@ func TestRunBranchNameScriptWithEnvironmentVariables(t *testing.T) {
 	}
 }
 
+func TestAppendPRNameSuffix(t *testing.T) {
+	tests := []struct {
+		name   string
+		base   string
+		suffix int
+		want   string
+	}{
+		{name: "no suffix", base: "pr-42-title", suffix: 0, want: "pr-42-title"},
+		{name: "with suffix", base: "pr-42-title", suffix: 2, want: "pr-42-title-2"},
+		{name: "trims to keep max length", base: strings.Repeat("a", 100), suffix: 9, want: strings.Repeat("a", 98) + "-9"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := appendPRNameSuffix(tt.base, tt.suffix); got != tt.want {
+				t.Fatalf("appendPRNameSuffix(%q, %d) = %q, want %q", tt.base, tt.suffix, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestFormatCreateFromCurrentLabel(t *testing.T) {
 	tests := []struct {
 		name     string

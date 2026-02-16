@@ -1853,6 +1853,56 @@ func TestFetchPRClosed(t *testing.T) {
 	assert.Contains(t, err.Error(), "not open")
 }
 
+func TestGetAuthenticatedUsername(t *testing.T) {
+	t.Run("github", func(t *testing.T) {
+		stub := "#!/bin/sh\n" +
+			"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"user\" ]; then\n" +
+			"  echo 'octocat'\n" +
+			"  exit 0\n" +
+			"fi\n" +
+			"exit 1\n"
+		dir := writeStub(t, "gh", stub)
+		withStubbedPath(t, dir)
+
+		service := NewService(func(string, string) {}, func(string, string, string) {})
+		service.gitHost = gitHostGithub
+
+		assert.Equal(t, "octocat", service.GetAuthenticatedUsername(context.Background()))
+	})
+
+	t.Run("gitlab", func(t *testing.T) {
+		stub := "#!/bin/sh\n" +
+			"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"user\" ]; then\n" +
+			"  echo '{\"username\":\"alice\"}'\n" +
+			"  exit 0\n" +
+			"fi\n" +
+			"exit 1\n"
+		dir := writeStub(t, "glab", stub)
+		withStubbedPath(t, dir)
+
+		service := NewService(func(string, string) {}, func(string, string, string) {})
+		service.gitHost = gitHostGitLab
+
+		assert.Equal(t, "alice", service.GetAuthenticatedUsername(context.Background()))
+	})
+
+	t.Run("gitlab invalid json returns empty", func(t *testing.T) {
+		stub := "#!/bin/sh\n" +
+			"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"user\" ]; then\n" +
+			"  echo '{invalid'\n" +
+			"  exit 0\n" +
+			"fi\n" +
+			"exit 1\n"
+		dir := writeStub(t, "glab", stub)
+		withStubbedPath(t, dir)
+
+		service := NewService(func(string, string) {}, func(string, string, string) {})
+		service.gitHost = gitHostGitLab
+
+		assert.Empty(t, service.GetAuthenticatedUsername(context.Background()))
+	})
+}
+
 func TestApplyGitPagerEdgeCases(t *testing.T) {
 	notify := func(_ string, _ string) {}
 	notifyOnce := func(_ string, _ string, _ string) {}

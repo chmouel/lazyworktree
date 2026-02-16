@@ -143,30 +143,42 @@ editor: nvim
 #   issue_branch_name_template: "{number}-{title}"            # 123-fix-login-bug
 issue_branch_name_template: "issue-{number}-{title}"
 
-# Script to generate branch name suggestions when creating worktrees from changes or issues
+# Template for PR branch and worktree names when creating from pull requests
+# Available placeholders:
+#   {number} - The PR number
+#   {title} - The sanitised PR title (original)
+#   {generated} - The AI-generated title (falls back to {title} if not available)
+#   {pr_author} - The PR author's username (sanitised)
+# Examples:
+#   pr_branch_name_template: "pr-{number}-{title}"             # pr-123-fix-login-bug
+#   pr_branch_name_template: "pr-{number}-{generated}"         # pr-123-fix-auth-bug (AI title)
+#   pr_branch_name_template: "pr-{number}-{pr_author}-{title}" # pr-123-alice-fix-login-bug
+pr_branch_name_template: "pr-{number}-{title}"
+
+# Script to generate branch name suggestions when creating worktrees from changes, issues, or PRs
 #
-# For issues: The script outputs a title that is used in the {generated} placeholder
+# For issues/PRs: The script outputs a title that is used in the {generated} placeholder
 #
 # For diffs: The script outputs a complete branch name
 #
-# The script receives content on stdin (git diff for changes, issue title+body for issues)
+# The script receives content on stdin (git diff for changes, issue/PR title+body for issues/PRs)
 #
 # Environment variables available to the script:
-#   LAZYWORKTREE_TYPE: The type of creation (issue/diff)
-#   LAZYWORKTREE_NUMBER: The issue number (empty for diff-based creation)
-#   LAZYWORKTREE_TEMPLATE: The configured template (e.g., "issue-{number}-{title}")
-#   LAZYWORKTREE_SUGGESTED_NAME: The template-generated branch name using original issue title
+#   LAZYWORKTREE_TYPE: The type of creation (pr/issue/diff)
+#   LAZYWORKTREE_NUMBER: The issue/PR number (empty for diff-based creation)
+#   LAZYWORKTREE_TEMPLATE: The configured template (e.g., "pr-{number}-{title}")
+#   LAZYWORKTREE_SUGGESTED_NAME: The template-generated name using original issue/PR title
 #
 # Examples:
-#   # Simple title generation for issues
-#   branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title for this issue. Output only the title.'"
+#   # Simple title generation for issues/PRs
+#   branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title for this issue or PR. Output only the title.'"
 #
-#   # Different behaviour for diffs vs issues
+#   # Different behaviour for diffs vs issues/PRs
 #   branch_name_script: |
 #     if [ "$LAZYWORKTREE_TYPE" = "diff" ]; then
 #       aichat -m gemini:gemini-2.5-flash-lite 'Generate a complete branch name for this diff'
 #     else
-#       aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title (no issue- prefix). Output only the title.'
+#       aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title (no issue-/pr- prefix). Output only the title.'
 #     fi
 #
 # branch_name_script: ""

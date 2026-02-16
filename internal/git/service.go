@@ -648,6 +648,34 @@ func (s *Service) IsGitHub(ctx context.Context) bool {
 	return s.DetectHost(ctx) == gitHostGithub
 }
 
+// GetAuthenticatedUsername returns the authenticated forge username for this repository host.
+// Returns an empty string when no authenticated username can be resolved.
+func (s *Service) GetAuthenticatedUsername(ctx context.Context) string {
+	host := s.DetectHost(ctx)
+	switch host {
+	case gitHostGithub:
+		username := s.RunGit(ctx, []string{"gh", "api", "user", "--jq", ".login"}, "", []int{0}, true, true)
+		return strings.TrimSpace(username)
+	case gitHostGitLab:
+		raw := s.RunGit(ctx, []string{"glab", "api", "user"}, "", []int{0}, true, true)
+		if raw == "" {
+			return ""
+		}
+		var user map[string]any
+		if err := json.Unmarshal([]byte(raw), &user); err != nil {
+			return ""
+		}
+		if username, ok := user["username"].(string); ok {
+			return strings.TrimSpace(username)
+		}
+		if username, ok := user["login"].(string); ok {
+			return strings.TrimSpace(username)
+		}
+	}
+
+	return ""
+}
+
 // authorKeys holds the JSON key names for extracting author info from GitHub vs GitLab payloads.
 type authorKeys struct {
 	usernameKey string // "login" for GitHub, "username" for GitLab

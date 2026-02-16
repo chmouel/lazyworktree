@@ -99,7 +99,7 @@ Override config values from the command line (repeatable).
 .br
 Format: \fB--config=lw.key=value\fR
 .br
-Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_refresh\fR, \fBdisable_pr\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBgit_pager_command_mode\fR, \fBpager\fR, \fBeditor\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBissue_branch_name_template\fR, \fBsession_prefix\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
+Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_refresh\fR, \fBdisable_pr\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBgit_pager_command_mode\fR, \fBpager\fR, \fBeditor\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBissue_branch_name_template\fR, \fBpr_branch_name_template\fR, \fBsession_prefix\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
 .br
 Examples: \fB--config=lw.theme=nord\fR, \fB--config=lw.sort_mode=active\fR
 .br
@@ -121,7 +121,7 @@ Create worktree from the specified branch. If not provided, uses the current bra
 .
 .TP
 .B \-\-from\-pr \fINUMBER\fR
-Create worktree from PR number. Fetches the specified PR and uses the PR branch name directly. If that branch already exists locally, it is reset to the PR head before creation. If the branch is already checked out in another worktree, creation fails.
+Create worktree from PR number. Fetches the specified PR and generates the worktree name from \fBpr_branch_name_template\fR (with optional \fBbranch_name_script\fR). Local branch naming is conditional: if the authenticated requester matches the PR author, the PR branch name is kept; otherwise the generated name is used. If requester identity cannot be resolved, lazyworktree falls back to the PR branch name.
 .
 .TP
 .B \-\-from\-issue \fINUMBER\fR
@@ -405,6 +405,7 @@ Cycle sort mode (Path / Last Active / Last Switched).
 .
 .SS Status Pane
 The Status pane displays changed files in a collapsible tree view, grouped by directory. Directories are shown with expand/collapse indicators (▼/▶) and can be toggled with Enter. Files are sorted alphabetically within each directory level and include icons from the selected icon set when enabled.
+In terminals that support OSC-8 hyperlinks, the PR/MR number in the info panel is clickable.
 .
 .TP
 .B Enter
@@ -929,6 +930,14 @@ Default: issue-{number}-{title}
 .br
 Example: With template "fix-{number}-{title}", issue #42 titled "Memory Leak" becomes branch "fix-42-memory-leak". With template "issue-{number}-{generated}" and a script configured, the generated title is used instead.
 .
+.TP
+.B pr_branch_name_template
+Template for worktree names created from pull/merge requests. Available placeholders: \fB{number}\fR (PR/MR number), \fB{title}\fR (sanitised PR/MR title), \fB{pr_author}\fR (sanitised PR author username), and \fB{generated}\fR (generated title from branch_name_script, falls back to {title} if unavailable).
+.br
+Default: pr-{number}-{title}
+.br
+Example: With template "review-{number}", PR #123 becomes worktree name "review-123". With template "pr-{number}-{pr_author}-{generated}", PR #123 by alice can become "pr-123-alice-feat-fix-ci".
+.
 .SS Security and Behaviour
 .TP
 .B trust_mode
@@ -945,9 +954,9 @@ Options: \fBrebase\fR (default - rebases onto main then fast-forwards, synchroni
 .SS Automation
 .TP
 .B branch_name_script
-Script to generate branch name suggestions when creating worktrees from changes or issues. For issues, the script should output a title (e.g., "feat-ai-session-manager") which will be sanitised and made available via the \fB{generated}\fR placeholder in your configured issue template. For diffs, the script should output a complete branch name. The script receives content on stdin (git diff for changes, issue title and body for issues). First line of output is used.
+Script to generate branch name suggestions when creating worktrees from changes, issues, or PRs. For issues/PRs, the script should output a title (e.g., "feat-ai-session-manager") which will be sanitised and made available via the \fB{generated}\fR placeholder in your configured template. For diffs, the script should output a complete branch name. The script receives content on stdin (git diff for changes, issue/PR title and body for issues/PRs). First line of output is used.
 .br
-Available environment variables: LAZYWORKTREE_TYPE (issue/diff), LAZYWORKTREE_NUMBER (issue number), LAZYWORKTREE_TEMPLATE (configured template), LAZYWORKTREE_SUGGESTED_NAME (template-generated name using original issue title).
+Available environment variables: LAZYWORKTREE_TYPE (pr/issue/diff), LAZYWORKTREE_NUMBER (PR/issue number), LAZYWORKTREE_TEMPLATE (configured template), LAZYWORKTREE_SUGGESTED_NAME (template-generated name using original PR/issue title).
 .br
 Script operates under a 30-second timeout.
 .
@@ -1113,7 +1122,7 @@ palette_mru_limit: 5
 
 # Forge integration
 issue_branch_name_template: "fix-{number}-{title}"
-# PR worktrees always use the PR branch name.
+pr_branch_name_template: "pr-{number}-{generated}"
 
 # Diff settings
 git_pager: delta

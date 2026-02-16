@@ -22,11 +22,15 @@ type fakeGitService struct {
 	worktreesErr        error
 	runGitOutput        map[string]string
 	runCommandCheckedOK bool
+	authUsername        string
 
 	checkedOutPRBranch   bool
 	lastCheckoutPRBranch string
 	checkoutPRBranchOK   bool
 	createdFromPR        bool
+	lastPRRemoteBranch   string
+	lastPRLocalBranch    string
+	lastPRTargetPath     string
 	prs                  []*models.PRInfo
 	prsErr               error
 
@@ -48,7 +52,10 @@ func (f *fakeGitService) CheckoutPRBranch(_ context.Context, _ int, _, localBran
 	return f.checkoutPRBranchOK
 }
 
-func (f *fakeGitService) CreateWorktreeFromPR(_ context.Context, _ int, _, _, _ string) bool {
+func (f *fakeGitService) CreateWorktreeFromPR(_ context.Context, _ int, remoteBranch, localBranch, targetPath string) bool {
+	f.lastPRRemoteBranch = remoteBranch
+	f.lastPRLocalBranch = localBranch
+	f.lastPRTargetPath = targetPath
 	return f.createdFromPR
 }
 
@@ -90,6 +97,10 @@ func (f *fakeGitService) FetchPR(_ context.Context, prNumber int) (*models.PRInf
 
 func (f *fakeGitService) GetCurrentBranch(_ context.Context) (string, error) {
 	return f.currentBranch, f.currentBranchErr
+}
+
+func (f *fakeGitService) GetAuthenticatedUsername(_ context.Context) string {
+	return f.authUsername
 }
 
 func (f *fakeGitService) GetMainWorktreePath(_ context.Context) string {

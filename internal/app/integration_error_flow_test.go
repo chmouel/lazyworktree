@@ -1,8 +1,10 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -45,6 +47,9 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.state.view.WindowWidth = 120
 	m.state.view.WindowHeight = 40
+	m.state.services.git.SetCommandRunner(func(_ context.Context, _ string, _ ...string) *exec.Cmd {
+		return exec.Command("bash", "-lc", "exit 1")
+	})
 
 	missingBranch := &models.PRInfo{Number: 1, Title: "Add feature"}
 	updated, _ := m.Update(openPRsLoadedMsg{prs: []*models.PRInfo{missingBranch}})
@@ -96,7 +101,7 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 		t.Fatalf("unexpected error: %q", infoScr.Message)
 	}
 
-	worktreeName := utils.SanitizeBranchName(featureBranch, 100)
+	worktreeName := utils.GeneratePRWorktreeName(withBranch, "pr-{number}-{title}", "")
 	if err := os.MkdirAll(filepath.Join(m.getRepoWorktreeDir(), worktreeName), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}

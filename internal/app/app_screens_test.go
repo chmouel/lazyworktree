@@ -3,10 +3,12 @@ package app
 import (
 	"errors"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -460,6 +462,144 @@ func TestShowThemeSelection(t *testing.T) {
 	available := theme.AvailableThemes()
 	if len(listScreen.Items) != len(available) {
 		t.Fatalf("expected %d themes in list, got %d", len(available), len(listScreen.Items))
+	}
+}
+
+func findSelectionItemByID(items []appscreen.SelectionItem, id string) (appscreen.SelectionItem, bool) {
+	for _, item := range items {
+		if item.ID == id {
+			return item, true
+		}
+	}
+	return appscreen.SelectionItem{}, false
+}
+
+func TestThemeSelectionCancelSaveKeepsAppliedThemeAndClosesFlow(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		Theme:       "dracula",
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	m.showThemeSelection()
+	listScreen, ok := m.state.ui.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if !ok || listScreen == nil {
+		t.Fatal("expected list selection screen")
+	}
+
+	item, found := findSelectionItemByID(listScreen.Items, "clean-light")
+	if !found {
+		t.Fatal("expected clean-light in theme selection list")
+	}
+	if listScreen.OnCursorChange == nil {
+		t.Fatal("expected OnCursorChange callback")
+	}
+	listScreen.OnCursorChange(item)
+
+	if string(m.theme.Accent) != "#c6dbe5" {
+		t.Fatalf("expected clean-light accent after preview, got %v", m.theme.Accent)
+	}
+
+	if listScreen.OnSelect == nil {
+		t.Fatal("expected OnSelect callback")
+	}
+	listScreen.OnSelect(item)
+
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeConfirm {
+		t.Fatalf("expected confirm screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+
+	_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+
+	if m.config.Theme != "dracula" {
+		t.Fatalf("expected config theme to remain dracula, got %q", m.config.Theme)
+	}
+	if string(m.theme.Accent) != "#c6dbe5" {
+		t.Fatalf("expected selected theme to stay applied, got accent %v", m.theme.Accent)
+	}
+	if m.state.ui.screenManager.IsActive() {
+		t.Fatalf("expected theme flow to close, got active screen type %v", m.state.ui.screenManager.Type())
+	}
+}
+
+func TestThemeSelectionListCancelRestoresOriginalTheme(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		Theme:       "dracula",
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	m.showThemeSelection()
+	listScreen, ok := m.state.ui.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if !ok || listScreen == nil {
+		t.Fatal("expected list selection screen")
+	}
+
+	item, found := findSelectionItemByID(listScreen.Items, "clean-light")
+	if !found {
+		t.Fatal("expected clean-light in theme selection list")
+	}
+	listScreen.OnCursorChange(item)
+	if string(m.theme.Accent) != "#c6dbe5" {
+		t.Fatalf("expected clean-light accent after preview, got %v", m.theme.Accent)
+	}
+
+	_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyEsc})
+
+	if string(m.theme.Accent) != "#BD93F9" {
+		t.Fatalf("expected original dracula theme restored, got accent %v", m.theme.Accent)
+	}
+	if m.state.ui.screenManager.IsActive() {
+		t.Fatalf("expected list screen to close, got type %v", m.state.ui.screenManager.Type())
+	}
+}
+
+func TestThemeSelectionConfirmSavePersistsTheme(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		Theme:       "dracula",
+		ConfigPath:  filepath.Join(t.TempDir(), "config.yaml"),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	m.showThemeSelection()
+	listScreen, ok := m.state.ui.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if !ok || listScreen == nil {
+		t.Fatal("expected list selection screen")
+	}
+
+	item, found := findSelectionItemByID(listScreen.Items, "clean-light")
+	if !found {
+		t.Fatal("expected clean-light in theme selection list")
+	}
+	listScreen.OnCursorChange(item)
+	listScreen.OnSelect(item)
+
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeConfirm {
+		t.Fatalf("expected confirm screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+
+	_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+
+	if m.config.Theme != "clean-light" {
+		t.Fatalf("expected config theme to persist as clean-light, got %q", m.config.Theme)
+	}
+	if string(m.theme.Accent) != "#c6dbe5" {
+		t.Fatalf("expected clean-light to stay applied, got accent %v", m.theme.Accent)
+	}
+	if m.originalTheme != "" {
+		t.Fatalf("expected originalTheme to be cleared, got %q", m.originalTheme)
+	}
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected to return to list selection screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+
+	_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyEsc})
+	if string(m.theme.Accent) != "#c6dbe5" {
+		t.Fatalf("expected persisted theme to remain after exiting picker, got accent %v", m.theme.Accent)
 	}
 }
 

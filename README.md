@@ -60,7 +60,7 @@ as emacs!).
 * lazygit: Full TUI git control
 * tmux / zellij: Session management
 * [aichat](https://github.com/sigoden/aichat) or similar LLM cli for automatic
-branch naming from diffs/issues.
+branch naming from diffs/issues/PRs.
 
 **Build-time only:**
 
@@ -283,10 +283,11 @@ git_pager_args:
 trust_mode: "tofu" # Options: "tofu" (default), "never", "always"
 merge_method: "rebase" # Options: "rebase" (default), "merge"
 session_prefix: "wt-" # Prefix for tmux/zellij session names (default: "wt-")
-# Branch name generation for issues
+# Branch name generation for issues and PRs
 issue_branch_name_template: "issue-{number}-{title}" # Placeholders: {number}, {title}, {generated}
+pr_branch_name_template: "pr-{number}-{title}" # Placeholders: {number}, {title}, {generated}, {pr_author}
 # Automatic branch name generation (see "Automatically Generated Branch Names")
-branch_name_script: "" # Script to generate names from diff/issue content
+branch_name_script: "" # Script to generate names from diff/issue/PR content
 init_commands:
   - link_topsymlinks
 terminate_commands:
@@ -403,6 +404,7 @@ CI environment variables: `LW_CI_JOB_NAME`, `LW_CI_JOB_NAME_CLEAN`, `LW_CI_RUN_I
 
 * `branch_name_script`: script for automatic branch suggestions. See [Automatically generated branch names](#automatically-generated-branch-names).
 * `issue_branch_name_template`: template with placeholders `{number}`, `{title}`, `{generated}`.
+* `pr_branch_name_template`: template with placeholders `{number}`, `{title}`, `{generated}`, `{pr_author}`.
 
 **Custom create menu**
 
@@ -498,6 +500,7 @@ Shows CI check statuses for worktrees with associated PR/MR:
 * `✓` Green - Passed | `✗` Red - Failed | `●` Yellow - Pending | `○` Grey - Skipped | `⊘` Grey - Cancelled
 
 Status is fetched lazily and cached for 30 seconds. Press `p` to refresh.
+In terminals that support OSC-8 hyperlinks, the PR/MR number in the Status info panel is clickable.
 
 ## Custom Commands
 
@@ -665,7 +668,7 @@ Special characters are converted to hyphens for Git compatibility. Leading/trail
 
 ## Automatically Generated Branch Names
 
-Configure `branch_name_script` to generate names via tools like [aichat](https://github.com/sigoden/aichat/) or [claude code](https://claude.com/product/claude-code). Issues output to `{generated}` placeholder; diffs output complete names. PR creation always uses the PR branch name.
+Configure `branch_name_script` to generate names via tools like [aichat](https://github.com/sigoden/aichat/) or [claude code](https://claude.com/product/claude-code). Issues/PRs output to `{generated}` placeholder; diffs output complete names.
 
 > [!NOTE]
 > Smaller, faster models suffice for branch names.
@@ -673,8 +676,11 @@ Configure `branch_name_script` to generate names via tools like [aichat](https:/
 ### Configuration
 
 ```yaml
-# For issues: generate a title (available via {generated} placeholder)
-branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title for this issue. Output only the title (like feat-session-manager), nothing else.'"
+# For PRs/issues: generate a title (available via {generated} placeholder)
+branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title for this PR or issue. Output only the title (like feat-session-manager), nothing else.'"
+
+# Use the generated title in PR branch/worktree naming
+pr_branch_name_template: "pr-{number}-{generated}"
 
 # For diffs: generate a complete branch name
 # branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short git branch name (no spaces, use hyphens) for this diff. Output only the branch name, nothing else.'"
@@ -682,16 +688,19 @@ branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short ti
 
 ### Template Placeholders
 
-* `{number}` - Issue number
+* `{number}` - PR/issue number
 * `{title}` - Original sanitised title
 * `{generated}` - Generated title (falls back to `{title}`)
+* `{pr_author}` - PR author username (PR templates only)
 
 **Examples:**
 
-| Template | Result (Issue #2: "Add AI session management") | Generated: `feat-ai-session-manager` |
-|----------|------------------------------------------------|--------------------------------------|
-| `issue-{number}-{title}` | `issue-2-add-ai-session-management` | Not used |
-| `issue-{number}-{generated}` | `issue-2-feat-ai-session-manager` | Used |
+| Template | Result | Generated: `feat-ai-session-manager` |
+|----------|--------|--------------------------------------|
+| `issue-{number}-{title}` | `issue-2-add-ai-session-management` (Issue #2) | Not used |
+| `issue-{number}-{generated}` | `issue-2-feat-ai-session-manager` (Issue #2) | Used |
+| `pr-{number}-{generated}` | `pr-7-feat-ai-session-manager` (PR #7) | Used |
+| `pr-{number}-{pr_author}-{title}` | `pr-7-alice-add-ai-session-management` (PR #7 by @alice) | Not used |
 
 If script fails, `{generated}` falls back to `{title}`.
 
@@ -701,7 +710,7 @@ Receives content on stdin, outputs branch name on stdout (first line). Timeout: 
 
 ### Environment Variables
 
-`LAZYWORKTREE_TYPE` (issue/diff), `LAZYWORKTREE_NUMBER`, `LAZYWORKTREE_TEMPLATE`, `LAZYWORKTREE_SUGGESTED_NAME`.
+`LAZYWORKTREE_TYPE` (pr/issue/diff), `LAZYWORKTREE_NUMBER`, `LAZYWORKTREE_TEMPLATE`, `LAZYWORKTREE_SUGGESTED_NAME`.
 
 **Example:**
 
@@ -711,12 +720,12 @@ branch_name_script: |
   if [ "$LAZYWORKTREE_TYPE" = "diff" ]; then
     aichat -m gemini:gemini-2.5-flash-lite 'Generate a complete branch name for this diff'
   else
-    aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title (no issue- prefix) for this issue'
+    aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title (no issue-/pr- prefix) for this issue or PR'
   fi
 
-# Use issue number in the prompt
+# Use issue/PR number in the prompt
 branch_name_script: |
-  aichat -m gemini:gemini-2.5-flash-lite "Generate a title for issue #$LAZYWORKTREE_NUMBER. Output only the title."
+  aichat -m gemini:gemini-2.5-flash-lite "Generate a title for item #$LAZYWORKTREE_NUMBER. Output only the title."
 ```
 
 ## CLI Usage
@@ -762,7 +771,9 @@ lazyworktree create -I --no-workspace                    # Interactively select 
 lazyworktree create -P --no-workspace        # Interactively select PR, branch only
 ```
 
-PR creation always uses the PR branch name. If that branch is already checked out in another worktree, creation fails and you must reuse that worktree.
+PR creation always uses the generated worktree name. The local branch name is conditional:
+if you are the PR author, lazyworktree keeps the PR branch name; otherwise it uses the generated name.
+When requester identity cannot be resolved, lazyworktree falls back to the PR branch name.
 
 For complete CLI documentation, see `man lazyworktree` or `lazyworktree --help`.
 

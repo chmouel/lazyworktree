@@ -35,6 +35,8 @@ func TestDefaultConfig(t *testing.T) {
 	require.Contains(t, cfg.CustomCommands, "Z")
 	assert.Equal(t, "Zellij", cfg.CustomCommands["Z"].Description)
 	assert.Empty(t, cfg.BranchNameScript)
+	assert.Equal(t, "issue-{number}-{title}", cfg.IssueBranchNameTemplate)
+	assert.Equal(t, "pr-{number}-{title}", cfg.PRBranchNameTemplate)
 	assert.Equal(t, "default", cfg.Layout)
 }
 
@@ -882,6 +884,24 @@ func TestParseConfig(t *testing.T) {
 			},
 			validate: func(t *testing.T, cfg *AppConfig) {
 				assert.Equal(t, "echo test", cfg.BranchNameScript)
+			},
+		},
+		{
+			name: "pr_branch_name_template",
+			data: map[string]interface{}{
+				"pr_branch_name_template": "review-{number}-{generated}",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, "review-{number}-{generated}", cfg.PRBranchNameTemplate)
+			},
+		},
+		{
+			name: "pr_branch_name_template with spaces is trimmed",
+			data: map[string]interface{}{
+				"pr_branch_name_template": "  review-{number}-{title}  ",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, "review-{number}-{title}", cfg.PRBranchNameTemplate)
 			},
 		},
 		{
@@ -2091,6 +2111,7 @@ func TestApplyCLIOverrides(t *testing.T) {
 		"lw.auto_fetch_prs=true",
 		"lw.disable_pr=true",
 		"lw.max_diff_chars=500000",
+		"lw.pr_branch_name_template=review-{number}-{generated}",
 	}
 
 	err := cfg.ApplyCLIOverrides(overrides)
@@ -2100,6 +2121,7 @@ func TestApplyCLIOverrides(t *testing.T) {
 	assert.True(t, cfg.AutoFetchPRs)
 	assert.True(t, cfg.DisablePR)
 	assert.Equal(t, 500000, cfg.MaxDiffChars)
+	assert.Equal(t, "review-{number}-{generated}", cfg.PRBranchNameTemplate)
 }
 
 func TestApplyCLIOverridesMultiValue(t *testing.T) {

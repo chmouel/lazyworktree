@@ -386,22 +386,53 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 	prScr := screen.NewPRSelectionScreen(msg.prs, m.state.view.WindowWidth, m.state.view.WindowHeight, m.theme, m.config.IconsEnabled())
 	prScr.AttachedBranches = attachedBranches
 	prScr.OnSelect = func(pr *models.PRInfo) tea.Cmd {
-		branchName := strings.TrimSpace(pr.Branch)
-		if branchName == "" {
+		remoteBranch := strings.TrimSpace(pr.Branch)
+		if remoteBranch == "" {
 			m.showInfo(errPRBranchMissing, nil)
 			return nil
 		}
 
-		if wt := m.getWorktreeForBranch(branchName); wt != nil {
-			m.state.ui.screenManager.Clear()
-			m.selectWorktreeByPath(wt.Path)
-			m.showInfo(fmt.Sprintf("Branch %q is already checked out in worktree %q", branchName, filepath.Base(wt.Path)), nil)
-			return nil
+		template := strings.TrimSpace(m.config.PRBranchNameTemplate)
+		if template == "" {
+			template = "pr-{number}-{title}"
 		}
-
-		worktreeName := utils.SanitizeBranchName(branchName, 100)
+		generatedTitle := ""
+		if m.config.BranchNameScript != "" {
+			prContent := fmt.Sprintf("%s\n\n%s", pr.Title, pr.Body)
+			suggestedName := utils.GeneratePRWorktreeName(pr, template, "")
+			aiTitle, scriptErr := runBranchNameScript(
+				m.ctx,
+				m.config.BranchNameScript,
+				prContent,
+				"pr",
+				fmt.Sprintf("%d", pr.Number),
+				template,
+				suggestedName,
+			)
+			if scriptErr != nil {
+				log.Printf("branch_name_script failed for PR #%d: %v", pr.Number, scriptErr)
+			} else if aiTitle != "" {
+				generatedTitle = aiTitle
+			}
+		}
+		worktreeName := strings.TrimSpace(utils.GeneratePRWorktreeName(pr, template, generatedTitle))
 		if worktreeName == "" {
 			worktreeName = fmt.Sprintf("pr-%d", pr.Number)
+		}
+
+		requester := strings.TrimSpace(m.state.services.git.GetAuthenticatedUsername(m.ctx))
+		isAuthor := requester != "" && strings.EqualFold(requester, strings.TrimSpace(pr.Author))
+		useGeneratedBranch := requester != "" && !isAuthor
+
+		localBranch := remoteBranch
+		if useGeneratedBranch {
+			localBranch = m.uniquePRGeneratedName(worktreeName)
+			worktreeName = localBranch
+		} else if wt := m.getWorktreeForBranch(localBranch); wt != nil {
+			m.state.ui.screenManager.Clear()
+			m.selectWorktreeByPath(wt.Path)
+			m.showInfo(fmt.Sprintf("Branch %q is already checked out in worktree %q", localBranch, filepath.Base(wt.Path)), nil)
+			return nil
 		}
 
 		targetPath := filepath.Join(m.getRepoWorktreeDir(), worktreeName)
@@ -421,16 +452,16 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 		m.setLoadingScreen(m.statusContent)
 		m.pendingSelectWorktreePath = targetPath
 		return func() tea.Msg {
-			ok := m.state.services.git.CreateWorktreeFromPR(m.ctx, pr.Number, branchName, branchName, targetPath)
+			ok := m.state.services.git.CreateWorktreeFromPR(m.ctx, pr.Number, remoteBranch, localBranch, targetPath)
 			if !ok {
 				return createFromPRResultMsg{
 					prNumber:   pr.Number,
-					branch:     branchName,
+					branch:     localBranch,
 					targetPath: targetPath,
-					err:        fmt.Errorf("create worktree from PR/MR branch %q", branchName),
+					err:        fmt.Errorf("create worktree from PR/MR branch %q", remoteBranch),
 				}
 			}
-			return createFromPRResultMsg{prNumber: pr.Number, branch: branchName, targetPath: targetPath}
+			return createFromPRResultMsg{prNumber: pr.Number, branch: localBranch, targetPath: targetPath}
 		}
 	}
 	prScr.OnCancel = func() tea.Cmd {

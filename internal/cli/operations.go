@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -46,6 +48,7 @@ type gitService interface {
 	FetchIssue(ctx context.Context, issueNumber int) (*models.IssueInfo, error)
 	FetchPR(ctx context.Context, prNumber int) (*models.PRInfo, error)
 	GetCurrentBranch(ctx context.Context) (string, error)
+	GetAuthenticatedUsername(ctx context.Context) string
 	GetMainWorktreePath(ctx context.Context) string
 	GetWorktrees(ctx context.Context) ([]*models.WorktreeInfo, error)
 	ResolveRepoName(ctx context.Context) string
@@ -219,32 +222,59 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 		return "", fmt.Errorf("failed to fetch PR: %w", err)
 	}
 
-	branchName := strings.TrimSpace(selectedPR.Branch)
-	if branchName == "" {
+	remoteBranch := strings.TrimSpace(selectedPR.Branch)
+	if remoteBranch == "" {
 		return "", fmt.Errorf("failed to create branch for PR #%d: missing PR branch", selectedPR.Number)
 	}
+
+	template := strings.TrimSpace(cfg.PRBranchNameTemplate)
+	if template == "" {
+		template = "pr-{number}-{title}"
+	}
+	generatedTitle := ""
+	if cfg.BranchNameScript != "" {
+		prContent := fmt.Sprintf("%s\n\n%s", selectedPR.Title, selectedPR.Body)
+		suggestedName := utils.GeneratePRWorktreeName(selectedPR, template, "")
+		aiTitle, scriptErr := runBranchNameScript(ctx, cfg.BranchNameScript, prContent, "pr", fmt.Sprintf("%d", selectedPR.Number), template, suggestedName)
+		if scriptErr != nil {
+			if !silent {
+				fmt.Fprintf(os.Stderr, "Warning: branch_name_script failed: %v\n", scriptErr)
+			}
+		} else if aiTitle != "" {
+			generatedTitle = aiTitle
+		}
+	}
+	worktreeName := strings.TrimSpace(utils.GeneratePRWorktreeName(selectedPR, template, generatedTitle))
+	if worktreeName == "" {
+		worktreeName = fmt.Sprintf("pr-%d", selectedPR.Number)
+	}
+
+	requester := strings.TrimSpace(gitSvc.GetAuthenticatedUsername(ctx))
+	isAuthor := requester != "" && strings.EqualFold(requester, strings.TrimSpace(selectedPR.Author))
+	useGeneratedBranch := requester != "" && !isAuthor
 
 	worktrees, err := gitSvc.GetWorktrees(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to inspect worktrees for PR #%d: %w", selectedPR.Number, err)
 	}
-	if worktreePath, attached := findWorktreePathForBranch(worktrees, branchName); attached {
-		return "", fmt.Errorf("branch %q is already checked out in worktree %q", branchName, worktreePath)
+
+	repoName := gitSvc.ResolveRepoName(ctx)
+	localBranch := remoteBranch
+	if useGeneratedBranch {
+		localBranch = uniquePRGeneratedBranchNameFS(ctx, gitSvc, fs, cfg, repoName, worktrees, worktreeName, !noWorkspace)
+		worktreeName = localBranch
+	} else if worktreePath, attached := findWorktreePathForBranch(worktrees, localBranch); attached {
+		return "", fmt.Errorf("branch %q is already checked out in worktree %q", localBranch, worktreePath)
 	}
 
 	if noWorkspace {
-		if !gitSvc.CheckoutPRBranch(ctx, selectedPR.Number, selectedPR.Branch, branchName) {
+		if !gitSvc.CheckoutPRBranch(ctx, selectedPR.Number, remoteBranch, localBranch) {
 			return "", fmt.Errorf("failed to checkout branch for PR #%d", selectedPR.Number)
 		}
-		return branchName, nil
+		return localBranch, nil
 	}
 
 	// Construct target path
-	repoName := gitSvc.ResolveRepoName(ctx)
-	worktreeName := utils.SanitizeBranchName(branchName, 100)
-	if worktreeName == "" {
-		worktreeName = fmt.Sprintf("pr-%d", selectedPR.Number)
-	}
 	targetPath := filepath.Join(cfg.WorktreeDir, repoName, worktreeName)
 
 	// Check for path conflicts
@@ -260,12 +290,12 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 	}
 
 	// Create worktree from PR
-	if !gitSvc.CreateWorktreeFromPR(ctx, selectedPR.Number, selectedPR.Branch, branchName, targetPath) {
+	if !gitSvc.CreateWorktreeFromPR(ctx, selectedPR.Number, remoteBranch, localBranch, targetPath) {
 		return "", fmt.Errorf("failed to create worktree from PR #%d", selectedPR.Number)
 	}
 
 	// Run init commands
-	if err := runInitCommands(ctx, gitSvc, cfg, branchName, targetPath, silent); err != nil {
+	if err := runInitCommands(ctx, gitSvc, cfg, localBranch, targetPath, silent); err != nil {
 		// Clean up the worktree if init commands fail
 		gitSvc.RunCommandChecked(ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", "Failed to cleanup worktree")
 		return "", err
@@ -281,6 +311,119 @@ func findWorktreePathForBranch(worktrees []*models.WorktreeInfo, branch string) 
 		}
 	}
 	return "", false
+}
+
+func runBranchNameScript(ctx context.Context, script, content, scriptType, number, template, suggestedName string) (string, error) {
+	if script == "" {
+		return "", nil
+	}
+
+	const scriptTimeout = 30 * time.Second
+	scriptCtx, cancel := context.WithTimeout(ctx, scriptTimeout)
+	defer cancel()
+
+	// #nosec G204 -- script is user-configured and trusted
+	cmd := exec.CommandContext(scriptCtx, "bash", "-c", script)
+	cmd.Stdin = strings.NewReader(content)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("LAZYWORKTREE_TYPE=%s", scriptType),
+		fmt.Sprintf("LAZYWORKTREE_NUMBER=%s", number),
+		fmt.Sprintf("LAZYWORKTREE_TEMPLATE=%s", template),
+		fmt.Sprintf("LAZYWORKTREE_SUGGESTED_NAME=%s", suggestedName),
+	)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("branch name script failed: %w (stderr: %s)", err, stderr.String())
+	}
+
+	output := strings.TrimSpace(stdout.String())
+	if output == "" {
+		return "", nil
+	}
+	if idx := strings.IndexAny(output, "\n\r"); idx >= 0 {
+		output = output[:idx]
+	}
+	return strings.TrimSpace(output), nil
+}
+
+func uniquePRGeneratedBranchNameFS(
+	ctx context.Context,
+	gitSvc gitService,
+	fs OSFilesystem,
+	cfg *config.AppConfig,
+	repoName string,
+	worktrees []*models.WorktreeInfo,
+	base string,
+	checkPath bool,
+) string {
+	trimmedBase := strings.TrimSpace(base)
+	if trimmedBase == "" {
+		trimmedBase = "pr"
+	}
+	trimmedBase = utils.SanitizeBranchName(trimmedBase, 100)
+	if trimmedBase == "" {
+		trimmedBase = "pr"
+	}
+
+	for i := 0; ; i++ {
+		candidate := appendPRNameSuffix(trimmedBase, i)
+		if candidate == "" {
+			continue
+		}
+
+		if _, attached := findWorktreePathForBranch(worktrees, candidate); attached {
+			continue
+		}
+		if localBranchExists(ctx, gitSvc, candidate) {
+			continue
+		}
+		if checkPath {
+			targetPath := filepath.Join(cfg.WorktreeDir, repoName, candidate)
+			if _, err := fs.Stat(targetPath); err == nil {
+				continue
+			}
+		}
+
+		return candidate
+	}
+}
+
+func appendPRNameSuffix(base string, suffix int) string {
+	if suffix <= 0 {
+		return strings.TrimSpace(base)
+	}
+
+	sfx := fmt.Sprintf("-%d", suffix)
+	maxBaseLen := 100 - len(sfx)
+	if maxBaseLen < 1 {
+		maxBaseLen = 1
+	}
+
+	trimmed := strings.TrimRight(strings.TrimSpace(base), "-")
+	if len(trimmed) > maxBaseLen {
+		trimmed = strings.TrimRight(trimmed[:maxBaseLen], "-")
+	}
+	if trimmed == "" {
+		trimmed = "pr"
+	}
+
+	return trimmed + sfx
+}
+
+func localBranchExists(ctx context.Context, gitSvc gitService, branch string) bool {
+	ref := gitSvc.RunGit(
+		ctx,
+		[]string{"git", "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", branch)},
+		"",
+		[]int{0, 1},
+		true,
+		true,
+	)
+	return strings.TrimSpace(ref) != ""
 }
 
 // CreateFromIssue creates a worktree from an issue number.
