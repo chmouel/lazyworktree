@@ -156,8 +156,8 @@ func TestBuildInfoContentAnnotationKeywordsUppercaseWithIconTextSet(t *testing.T
 
 	info := m.buildInfoContent(wt)
 	plain := stripANSISequences(info)
-	if !strings.Contains(plain, "Annotation:") {
-		t.Fatalf("expected annotation section, got %q", plain)
+	if !strings.Contains(plain, "Notes:") {
+		t.Fatalf("expected notes section, got %q", plain)
 	}
 	if !strings.Contains(plain, "[!] FIXME") {
 		t.Fatalf("expected FIXME keyword badge, got %q", plain)

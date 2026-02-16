@@ -91,10 +91,10 @@ When CI checks are displayed in the info panel:
 - Existing local branch: choose to checkout the branch or create a new one based on it
 - Tab / Shift+Tab: Move focus to the "Include current file changes" checkbox
 - Space: Toggle "Include current file changes"
-- i: Annotate selected worktree (multiline note)
-- Annotation editor: Ctrl+S saves, Enter adds a new line, Esc cancels
-- Worktrees with non-empty annotations show a note marker beside the name
-- In the Info pane, uppercase annotation tags such as TODO, FIXME, or WARNING: are highlighted with icons; lowercase tags are left unchanged
+- i: Edit selected worktree notes
+- Note editor: Ctrl+S saves, Enter adds a new line, Esc cancels
+- Worktrees with non-empty notes show a note marker beside the name
+- In the Info pane, uppercase note tags such as TODO, FIXME, or WARNING: are highlighted with icons; lowercase tags are left unchanged
 - m: Rename selected worktree
 - D: Delete selected worktree
 - A: Absorb worktree into main (merge or rebase based on configuration, then delete)

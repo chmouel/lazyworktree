@@ -124,7 +124,7 @@ Zsh helpers are in `shell/functions.zsh`. See [./shell/README.md](./shell/README
 | `Enter` | Jump to worktree (exit and cd) |
 | `j`, `k` | Move selection up/down in lists and menus |
 | `c` | Create new worktree (from branch, commit, PR/MR, or issue) |
-| `i` | Annotate selected worktree (multiline note) |
+| `i` | Edit selected worktree notes |
 | `m` | Rename selected worktree |
 | `D` | Delete selected worktree |
 | `d` | View diff in pager (worktree or commit, depending on pane) |
@@ -157,7 +157,7 @@ Zsh helpers are in `shell/functions.zsh`. See [./shell/README.md](./shell/README
 | `=` | Toggle zoom for focused pane (full screen) |
 | `L` | Toggle layout (default / top) |
 
-In the annotation editor (`i`): `Ctrl+S` saves, `Enter` adds a new line, and `Esc` cancels. Worktrees with non-empty annotations show a note marker beside the name. In the Info pane, uppercase annotation tags such as `TODO`, `FIXME`, or `WARNING:` are highlighted with icons. Lowercase tags are left unchanged.
+In the note editor (`i`): `Ctrl+S` saves, `Enter` adds a new line, and `Esc` cancels. Worktrees with non-empty notes show a note marker beside the name. In the Info pane, uppercase note tags such as `TODO`, `FIXME`, or `WARNING:` are highlighted with icons. Lowercase tags are left unchanged.
 
 **Log Pane** (when focused on commit log):
 

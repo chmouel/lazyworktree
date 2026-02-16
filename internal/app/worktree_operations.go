@@ -570,7 +570,7 @@ func (m *Model) showRenameWorktree() tea.Cmd {
 	return textinput.Blink
 }
 
-// showAnnotateWorktree opens a multiline annotation editor for the selected worktree.
+// showAnnotateWorktree opens a multiline note editor for the selected worktree.
 func (m *Model) showAnnotateWorktree() tea.Cmd {
 	if m.state.view.FocusedPane != 0 {
 		return nil
@@ -583,7 +583,7 @@ func (m *Model) showAnnotateWorktree() tea.Cmd {
 	wt := m.state.data.filteredWts[m.state.data.selectedIndex]
 	existing, _ := m.getWorktreeNote(wt.Path)
 	textareaScr := appscreen.NewTextareaScreen(
-		"Annotate worktree",
+		"Worktree notes",
 		"Add notes for this worktree...",
 		existing.Note,
 		m.state.view.WindowWidth,

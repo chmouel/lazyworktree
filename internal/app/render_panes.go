@@ -440,7 +440,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 	}
 	if note, ok := m.getWorktreeNote(wt.Path); ok {
 		infoLines = append(infoLines, "")
-		infoLines = append(infoLines, sectionStyle.Render("Annotation:"))
+		infoLines = append(infoLines, sectionStyle.Render("Notes:"))
 		for _, line := range strings.Split(note.Note, "\n") {
 			infoLines = append(infoLines, "  "+m.renderAnnotationKeywords(line, valueStyle))
 		}

@@ -100,7 +100,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 		hints = []string{
 			m.renderKeyHint("1-3", "Pane"),
 			m.renderKeyHint("c", "Create"),
-			m.renderKeyHint("i", "Annotate"),
+			m.renderKeyHint("i", "Notes"),
 			m.renderKeyHint("f", "Filter"),
 			m.renderKeyHint("d", "Diff"),
 			m.renderKeyHint("D", "Delete"),

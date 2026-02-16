@@ -101,7 +101,7 @@ func RegisterWorktreeActions(r *Registry, h WorktreeHandlers) {
 		CommandAction{ID: "create", Label: "Create worktree", Description: "Add a new worktree from base branch or PR/MR", Section: sectionWorktreeActions, Shortcut: "c", Icon: IconWorktree, Handler: h.Create},
 		CommandAction{ID: "delete", Label: "Delete worktree", Description: "Remove worktree and branch", Section: sectionWorktreeActions, Shortcut: "D", Icon: IconWorktree, Handler: h.Delete},
 		CommandAction{ID: "rename", Label: "Rename worktree", Description: "Rename worktree and branch", Section: sectionWorktreeActions, Shortcut: "m", Icon: IconWorktree, Handler: h.Rename},
-		CommandAction{ID: "annotate", Label: "Annotate worktree", Description: "Add or edit a note for the selected worktree", Section: sectionWorktreeActions, Shortcut: "i", Icon: IconWorktree, Handler: h.Annotate},
+		CommandAction{ID: "annotate", Label: "Worktree notes", Description: "Add or edit notes for the selected worktree", Section: sectionWorktreeActions, Shortcut: "i", Icon: IconWorktree, Handler: h.Annotate},
 		CommandAction{ID: "absorb", Label: "Absorb worktree", Description: "Merge branch into main and remove worktree", Section: sectionWorktreeActions, Shortcut: "A", Icon: IconWorktree, Handler: h.Absorb},
 		CommandAction{ID: "prune", Label: "Prune merged", Description: "Remove merged PR worktrees", Section: sectionWorktreeActions, Shortcut: "X", Icon: IconWorktree, Handler: h.Prune},
 	)
