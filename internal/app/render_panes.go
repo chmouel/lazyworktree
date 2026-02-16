@@ -237,6 +237,16 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 	if wt == nil {
 		return errNoWorktreeSelected
 	}
+	// Consider any worktree on the same branch as the main worktree as a main-branch view.
+	isMainBranch := wt.IsMain
+	if !isMainBranch {
+		for _, candidate := range m.state.data.worktrees {
+			if candidate != nil && candidate.IsMain && candidate.Branch != "" && wt.Branch == candidate.Branch {
+				isMainBranch = true
+				break
+			}
+		}
+	}
 
 	labelStyle := lipgloss.NewStyle().Foreground(m.theme.Cyan).Bold(true)
 	valueStyle := lipgloss.NewStyle().Foreground(m.theme.TextFg)
@@ -317,7 +327,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		// URL styled with cyan for consistency
 		urlStyle := lipgloss.NewStyle().Foreground(m.theme.Cyan).Underline(true)
 		infoLines = append(infoLines, fmt.Sprintf("  %s", urlStyle.Render(wt.PR.URL)))
-	} else if wt.PR == nil && !m.config.DisablePR {
+	} else if wt.PR == nil && !m.config.DisablePR && wt.HasUpstream {
 		// Show PR status/error when PR is nil
 		grayStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
 		errorStyle := lipgloss.NewStyle().Foreground(m.theme.ErrorFg)
@@ -352,13 +362,9 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 			}
 
 		case models.PRFetchStatusNoPR:
-			switch {
-			case m.prDataLoaded && wt.HasUpstream:
+			if m.prDataLoaded {
 				// Fetch was attempted, no error, no PR found - this is expected
 				infoLines = append(infoLines, grayStyle.Render("  No PR for this branch"))
-			case !wt.HasUpstream:
-				// No upstream, so no PR possible
-				infoLines = append(infoLines, grayStyle.Render("  Branch has no upstream"))
 			}
 
 		case models.PRFetchStatusFetching:
@@ -367,7 +373,11 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		default:
 			// Not fetched yet
 			if !m.prDataLoaded {
-				infoLines = append(infoLines, grayStyle.Render("  Press 'p' to fetch PR data"))
+				if isMainBranch {
+					infoLines = append(infoLines, grayStyle.Render("  Main branch usually has no PR"))
+				} else {
+					infoLines = append(infoLines, grayStyle.Render("  Press 'p' to fetch PR data"))
+				}
 			}
 		}
 	}

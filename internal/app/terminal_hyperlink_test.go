@@ -60,3 +60,75 @@ func TestOSC8HyperlinkEmptyURLReturnsPlainText(t *testing.T) {
 		t.Fatalf("expected plain text for empty URL, got %q", got)
 	}
 }
+
+func TestBuildInfoContentMainBranchWithoutPRHidesFetchHint(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
+	m := NewModel(cfg, "")
+	m.prDataLoaded = false
+
+	mainWt := &models.WorktreeInfo{
+		Path:        "/tmp/main",
+		Branch:      "main",
+		IsMain:      true,
+		HasUpstream: true,
+	}
+	m.state.data.worktrees = []*models.WorktreeInfo{mainWt}
+
+	info := m.buildInfoContent(mainWt)
+	if strings.Contains(info, "Press 'p' to fetch PR data") {
+		t.Fatalf("did not expect fetch hint on main branch, got %q", info)
+	}
+	if !strings.Contains(info, "Main branch usually has no PR") {
+		t.Fatalf("expected main-branch message, got %q", info)
+	}
+}
+
+func TestBuildInfoContentFeatureBranchShowsFetchHint(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
+	m := NewModel(cfg, "")
+	m.prDataLoaded = false
+
+	mainWt := &models.WorktreeInfo{
+		Path:        "/tmp/main",
+		Branch:      "main",
+		IsMain:      true,
+		HasUpstream: true,
+	}
+	featureWt := &models.WorktreeInfo{
+		Path:        "/tmp/feature",
+		Branch:      "feature/test",
+		IsMain:      false,
+		HasUpstream: true,
+	}
+	m.state.data.worktrees = []*models.WorktreeInfo{mainWt, featureWt}
+
+	info := m.buildInfoContent(featureWt)
+	if !strings.Contains(info, "Press 'p' to fetch PR data") {
+		t.Fatalf("expected fetch hint for feature branch, got %q", info)
+	}
+}
+
+func TestBuildInfoContentNoUpstreamHidesPRSection(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
+	m := NewModel(cfg, "")
+	m.prDataLoaded = true
+
+	wt := &models.WorktreeInfo{
+		Path:        "/tmp/no-upstream",
+		Branch:      "local-only",
+		HasUpstream: false,
+		PR:          nil,
+	}
+	m.state.data.worktrees = []*models.WorktreeInfo{wt}
+
+	info := m.buildInfoContent(wt)
+	if strings.Contains(info, "PR:") {
+		t.Fatalf("did not expect PR section for branch without upstream, got %q", info)
+	}
+	if strings.Contains(info, "Branch has no upstream") {
+		t.Fatalf("did not expect no-upstream PR message, got %q", info)
+	}
+}
