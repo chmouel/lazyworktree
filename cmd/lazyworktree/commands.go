@@ -148,9 +148,8 @@ func outputSubcommandFlagsFiltered(cmd *appiCli.Command, prefix string) {
 // createCommand returns the create subcommand definition.
 func createCommand() *appiCli.Command {
 	return &appiCli.Command{
-		Name:    "create",
-		Aliases: []string{"wt-create"},
-		Usage:   "Create a new worktree",
+		Name:  "create",
+		Usage: "Create a new worktree",
 		Action: func(ctx context.Context, cmd *appiCli.Command) error {
 			if handleSubcommandCompletion(cmd) {
 				return nil
@@ -212,7 +211,6 @@ func createCommand() *appiCli.Command {
 func deleteCommand() *appiCli.Command {
 	return &appiCli.Command{
 		Name:      "delete",
-		Aliases:   []string{"wt-delete"},
 		Usage:     "Delete a worktree",
 		ArgsUsage: "[worktree-path]",
 		Action: func(ctx context.Context, cmd *appiCli.Command) error {
@@ -238,7 +236,6 @@ func deleteCommand() *appiCli.Command {
 func renameCommand() *appiCli.Command {
 	return &appiCli.Command{
 		Name:      "rename",
-		Aliases:   []string{"wt-rename"},
 		Usage:     "Rename a worktree",
 		ArgsUsage: "[worktree-path-or-name] [new-name]",
 		Action: func(ctx context.Context, cmd *appiCli.Command) error {
