@@ -102,7 +102,7 @@ Override config values from the command line (repeatable).
 .br
 Format: \fB--config=lw.key=value\fR
 .br
-Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_refresh\fR, \fBdisable_pr\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBgit_pager_command_mode\fR, \fBpager\fR, \fBeditor\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBworktree_note_script\fR, \fBissue_branch_name_template\fR, \fBpr_branch_name_template\fR, \fBsession_prefix\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
+Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_refresh\fR, \fBdisable_pr\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBgit_pager_command_mode\fR, \fBpager\fR, \fBeditor\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBworktree_note_script\fR, \fBworktree_notes_path\fR, \fBissue_branch_name_template\fR, \fBpr_branch_name_template\fR, \fBsession_prefix\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
 .br
 Examples: \fB--config=lw.theme=nord\fR, \fB--config=lw.sort_mode=active\fR
 .br
@@ -765,6 +765,14 @@ Default worktree root directory. Worktrees are organised under ~/.local/share/wo
 Default: ~/.local/share/worktrees
 .br
 Can be overridden with \fB--worktree-dir\fR.
+.
+.TP
+.B worktree_notes_path
+Optional path to store all worktree notes in a single shared JSON file.
+.br
+When set, notes are keyed by repository/worktree-relative identifiers rather than absolute paths, which helps with synchronisation across systems.
+.br
+Default: empty (per-repository \fB.worktree-notes.json\fR files under \fBworktree_dir\fR)
 .
 .TP
 .B sort_mode

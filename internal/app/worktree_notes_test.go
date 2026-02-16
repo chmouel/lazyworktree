@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -299,5 +300,53 @@ func TestUpdateTableHidesNoteIconForEmptyNote(t *testing.T) {
 	}
 	if _, err := os.Stat(notesPath); !os.IsNotExist(err) {
 		t.Fatalf("expected notes file to be removed when all notes are empty, got err=%v", err)
+	}
+}
+
+func TestSetAndLoadWorktreeNotesSharedFileUsesRelativeKeys(t *testing.T) {
+	worktreeDir := t.TempDir()
+	sharedPath := filepath.Join(t.TempDir(), "shared-notes.json")
+	cfg := &config.AppConfig{
+		WorktreeDir:       worktreeDir,
+		WorktreeNotesPath: sharedPath,
+	}
+	repoKey := "org/repo"
+
+	m := NewModel(cfg, "")
+	m.repoKey = repoKey
+	wtPath := filepath.Join(worktreeDir, "org", "repo", "feature-a")
+	m.setWorktreeNote(wtPath, "shared note")
+
+	// #nosec G304 -- sharedPath is a test temp file controlled by the test.
+	data, err := os.ReadFile(sharedPath)
+	if err != nil {
+		t.Fatalf("read shared notes failed: %v", err)
+	}
+
+	var payload map[string]map[string]models.WorktreeNote
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("unmarshal shared notes failed: %v", err)
+	}
+
+	repoNotes, ok := payload[repoKey]
+	if !ok {
+		t.Fatalf("expected repo section %q in shared file", repoKey)
+	}
+	if _, ok := repoNotes[wtPath]; ok {
+		t.Fatalf("did not expect absolute key %q in shared file", wtPath)
+	}
+	if note := repoNotes["feature-a"]; note.Note != "shared note" {
+		t.Fatalf("unexpected shared note payload: %#v", repoNotes)
+	}
+
+	m2 := NewModel(cfg, "")
+	m2.repoKey = repoKey
+	m2.loadWorktreeNotes()
+	note, ok := m2.getWorktreeNote(wtPath)
+	if !ok {
+		t.Fatal("expected note to load from shared file")
+	}
+	if note.Note != "shared note" {
+		t.Fatalf("unexpected note text: %q", note.Note)
 	}
 }

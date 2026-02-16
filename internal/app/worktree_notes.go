@@ -13,8 +13,23 @@ func worktreeNoteKey(path string) string {
 	return filepath.Clean(path)
 }
 
+func (m *Model) worktreeNoteKey(path string) string {
+	notesPath := m.getWorktreeNotesPath()
+	if notesPath == "" {
+		return worktreeNoteKey(path)
+	}
+	return services.WorktreeNoteKey(m.getRepoKey(), m.getWorktreeDir(), notesPath, path)
+}
+
+func (m *Model) getWorktreeNotesPath() string {
+	if m.config == nil {
+		return ""
+	}
+	return strings.TrimSpace(m.config.WorktreeNotesPath)
+}
+
 func (m *Model) loadWorktreeNotes() {
-	notes, err := services.LoadWorktreeNotes(m.getRepoKey(), m.getWorktreeDir())
+	notes, err := services.LoadWorktreeNotes(m.getRepoKey(), m.getWorktreeDir(), m.getWorktreeNotesPath())
 	if err != nil {
 		m.debugf("failed to parse worktree notes: %v", err)
 		return
@@ -26,7 +41,7 @@ func (m *Model) loadWorktreeNotes() {
 }
 
 func (m *Model) saveWorktreeNotes() {
-	if err := services.SaveWorktreeNotes(m.getRepoKey(), m.getWorktreeDir(), m.worktreeNotes); err != nil {
+	if err := services.SaveWorktreeNotes(m.getRepoKey(), m.getWorktreeDir(), m.getWorktreeNotesPath(), m.worktreeNotes); err != nil {
 		m.debugf("failed to write worktree notes: %v", err)
 	}
 }
@@ -35,8 +50,12 @@ func (m *Model) getWorktreeNote(path string) (models.WorktreeNote, bool) {
 	if strings.TrimSpace(path) == "" {
 		return models.WorktreeNote{}, false
 	}
-	key := worktreeNoteKey(path)
+	key := m.worktreeNoteKey(path)
 	note, ok := m.worktreeNotes[key]
+	if !ok && m.getWorktreeNotesPath() != "" {
+		// Backwards compatibility with older absolute-path keys.
+		note, ok = m.worktreeNotes[filepath.Clean(path)]
+	}
 	if !ok {
 		return models.WorktreeNote{}, false
 	}
@@ -55,7 +74,7 @@ func (m *Model) setWorktreeNote(path, noteText string) {
 	}
 
 	trimmed := strings.TrimSpace(noteText)
-	key := worktreeNoteKey(path)
+	key := m.worktreeNoteKey(path)
 	if trimmed == "" {
 		delete(m.worktreeNotes, key)
 		m.saveWorktreeNotes()
@@ -66,6 +85,9 @@ func (m *Model) setWorktreeNote(path, noteText string) {
 		Note:      trimmed,
 		UpdatedAt: time.Now().Unix(),
 	}
+	if m.getWorktreeNotesPath() != "" {
+		delete(m.worktreeNotes, filepath.Clean(path))
+	}
 	m.saveWorktreeNotes()
 }
 
@@ -73,7 +95,7 @@ func (m *Model) deleteWorktreeNote(path string) {
 	if strings.TrimSpace(path) == "" || len(m.worktreeNotes) == 0 {
 		return
 	}
-	key := worktreeNoteKey(path)
+	key := m.worktreeNoteKey(path)
 	if _, ok := m.worktreeNotes[key]; !ok {
 		return
 	}
@@ -85,7 +107,7 @@ func (m *Model) migrateWorktreeNote(oldPath, newPath string) {
 	if strings.TrimSpace(oldPath) == "" || strings.TrimSpace(newPath) == "" || len(m.worktreeNotes) == 0 {
 		return
 	}
-	oldKey := worktreeNoteKey(oldPath)
+	oldKey := m.worktreeNoteKey(oldPath)
 	note, ok := m.worktreeNotes[oldKey]
 	if !ok {
 		return
@@ -93,7 +115,7 @@ func (m *Model) migrateWorktreeNote(oldPath, newPath string) {
 
 	delete(m.worktreeNotes, oldKey)
 	note.UpdatedAt = time.Now().Unix()
-	m.worktreeNotes[worktreeNoteKey(newPath)] = note
+	m.worktreeNotes[m.worktreeNoteKey(newPath)] = note
 	m.saveWorktreeNotes()
 }
 
@@ -107,7 +129,10 @@ func (m *Model) pruneStaleWorktreeNotes(worktrees []*models.WorktreeInfo) {
 		if wt == nil || strings.TrimSpace(wt.Path) == "" {
 			continue
 		}
-		validPaths[worktreeNoteKey(wt.Path)] = true
+		validPaths[m.worktreeNoteKey(wt.Path)] = true
+		if m.getWorktreeNotesPath() != "" {
+			validPaths[filepath.Clean(wt.Path)] = true
+		}
 	}
 
 	changed := false

@@ -313,6 +313,8 @@ pr_branch_name_template: "pr-{number}-{title}" # Placeholders: {number}, {title}
 branch_name_script: "" # Script to generate names from diff/issue/PR content
 # Automatic worktree note generation when creating from PR/MR or issue
 worktree_note_script: "" # Script to generate notes from PR/issue title+body
+# Optional shared note storage file (single JSON for all repositories)
+worktree_notes_path: "" # e.g. ~/.local/share/lazyworktree/worktree-notes.json
 init_commands:
   - link_topsymlinks
 terminate_commands:
@@ -419,6 +421,7 @@ CI environment variables: `LW_CI_JOB_NAME`, `LW_CI_JOB_NAME_CLEAN`, `LW_CI_RUN_I
 **Worktree lifecycle**
 
 * `init_commands`, `terminate_commands`: run before repository `.wt` commands.
+* `worktree_notes_path`: optional path to store all worktree notes in one shared JSON file. In this mode, note keys are repo/worktree-relative (not absolute paths), making cross-system sync easier.
 
 **Sync and multiplexers**
 
@@ -757,6 +760,8 @@ branch_name_script: |
 ## Automatically Generated Worktree Notes
 
 Configure `worktree_note_script` to generate initial worktree notes when creating from a PR/MR or issue. The script receives the selected item's title and body on stdin and can produce multiline output. If the script fails or outputs nothing, creation continues and no note is saved.
+
+To store notes in a single synchronisable JSON file, set `worktree_notes_path`. When enabled, keys are stored relative to the repository under `worktree_dir` instead of absolute filesystem paths.
 
 ### Configuration
 

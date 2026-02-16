@@ -200,6 +200,15 @@ pr_branch_name_template: "pr-{number}-{title}"
 #
 # worktree_note_script: ""
 
+# Optional path to store all worktree notes in a single shared JSON file.
+# Useful when synchronising notes across systems.
+# In this mode, notes are keyed by repo/worktree (relative to worktree_dir),
+# rather than absolute paths.
+# Example:
+#   worktree_notes_path: ~/.local/share/lazyworktree/worktree-notes.json
+#
+# worktree_notes_path: ""
+
 # ============================================================================
 # GIT OPERATIONS
 # ============================================================================

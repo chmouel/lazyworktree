@@ -98,6 +98,7 @@ When CI checks are displayed in the info panel:
 - T: Open Taskboard (grouped by worktree from markdown checkbox notes)
 - Taskboard: Enter/Space toggles selected checkbox task, f filters tasks, q/Esc closes
 - Worktrees with non-empty notes show a note marker beside the name
+- worktree_notes_path can store notes in one shared JSON file with repo-relative keys for easier synchronisation
 - In the Info pane, notes render Markdown for headings, bold text, inline code, lists, quotes, links, and fenced code blocks
 - Uppercase note tags such as TODO, FIXME, or WARNING: are highlighted with icons outside fenced code blocks; lowercase tags are left unchanged
 - m: Rename selected worktree

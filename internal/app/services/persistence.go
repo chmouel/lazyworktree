@@ -197,9 +197,124 @@ func SavePaletteHistory(repoKey, worktreeDir string, commands []CommandPaletteUs
 	return nil
 }
 
+// WorktreeNoteKey returns the storage key for a worktree note.
+//
+// Default mode stores notes in per-repo files and uses full worktree paths as keys.
+// Shared-file mode (worktreeNotesPath set) uses repo-relative keys for cross-system sync.
+func WorktreeNoteKey(repoKey, worktreeDir, worktreeNotesPath, worktreePath string) string {
+	trimmedPath := strings.TrimSpace(worktreePath)
+	if trimmedPath == "" {
+		return ""
+	}
+
+	cleanPath := filepath.Clean(trimmedPath)
+	if strings.TrimSpace(worktreeNotesPath) == "" {
+		return cleanPath
+	}
+
+	repoRoot := filepath.Clean(filepath.Join(worktreeDir, repoKey))
+	if rel, ok := relativePathWithin(repoRoot, cleanPath); ok {
+		if rel == "." {
+			return filepath.Base(cleanPath)
+		}
+		return filepath.ToSlash(rel)
+	}
+
+	worktreeRoot := filepath.Clean(worktreeDir)
+	if rel, ok := relativePathWithin(worktreeRoot, cleanPath); ok {
+		rel = filepath.ToSlash(rel)
+		repoPrefix := filepath.ToSlash(strings.Trim(repoKey, string(filepath.Separator)))
+		if repoPrefix != "" {
+			if rel == repoPrefix {
+				return filepath.Base(cleanPath)
+			}
+			if strings.HasPrefix(rel, repoPrefix+"/") {
+				rel = strings.TrimPrefix(rel, repoPrefix+"/")
+			}
+		}
+		if rel != "." && rel != "" {
+			return rel
+		}
+	}
+
+	return filepath.Base(cleanPath)
+}
+
 // LoadWorktreeNotes loads worktree notes from file.
-func LoadWorktreeNotes(repoKey, worktreeDir string) (map[string]models.WorktreeNote, error) {
-	notesPath := filepath.Join(worktreeDir, repoKey, models.WorktreeNotesFilename)
+func LoadWorktreeNotes(repoKey, worktreeDir, worktreeNotesPath string) (map[string]models.WorktreeNote, error) {
+	if strings.TrimSpace(worktreeNotesPath) == "" {
+		return loadRepoWorktreeNotes(filepath.Join(worktreeDir, repoKey, models.WorktreeNotesFilename))
+	}
+
+	allNotes, err := loadSharedWorktreeNotes(repoKey, worktreeNotesPath)
+	if err != nil {
+		return nil, err
+	}
+	repoNotes, ok := allNotes[repoKey]
+	if !ok || repoNotes == nil {
+		return map[string]models.WorktreeNote{}, nil
+	}
+	return repoNotes, nil
+}
+
+// SaveWorktreeNotes saves worktree notes to file.
+func SaveWorktreeNotes(repoKey, worktreeDir, worktreeNotesPath string, notes map[string]models.WorktreeNote) error {
+	normalized := normalizeWorktreeNotes(notes)
+
+	if strings.TrimSpace(worktreeNotesPath) == "" {
+		return saveRepoWorktreeNotes(filepath.Join(worktreeDir, repoKey, models.WorktreeNotesFilename), normalized)
+	}
+
+	allNotes, err := loadSharedWorktreeNotes(repoKey, worktreeNotesPath)
+	if err != nil {
+		return err
+	}
+
+	if len(normalized) == 0 {
+		delete(allNotes, repoKey)
+	} else {
+		allNotes[repoKey] = normalized
+	}
+
+	if len(allNotes) == 0 {
+		if err := os.Remove(worktreeNotesPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(worktreeNotesPath), utils.DefaultDirPerms); err != nil {
+		return err
+	}
+
+	data, err := json.Marshal(allNotes)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(worktreeNotesPath, data, defaultFilePerms); err != nil {
+		return err
+	}
+	return nil
+}
+
+func normalizeWorktreeNotes(notes map[string]models.WorktreeNote) map[string]models.WorktreeNote {
+	if notes == nil {
+		return map[string]models.WorktreeNote{}
+	}
+
+	normalized := make(map[string]models.WorktreeNote, len(notes))
+	for noteKey, note := range notes {
+		trimmed := strings.TrimSpace(note.Note)
+		if trimmed == "" {
+			continue
+		}
+		note.Note = trimmed
+		normalized[noteKey] = note
+	}
+	return normalized
+}
+
+func loadRepoWorktreeNotes(notesPath string) (map[string]models.WorktreeNote, error) {
 	// #nosec G304 -- notesPath is constructed from vetted directory and constant filename
 	data, err := os.ReadFile(notesPath)
 	if err != nil {
@@ -216,24 +331,8 @@ func LoadWorktreeNotes(repoKey, worktreeDir string) (map[string]models.WorktreeN
 	return notes, nil
 }
 
-// SaveWorktreeNotes saves worktree notes to file.
-func SaveWorktreeNotes(repoKey, worktreeDir string, notes map[string]models.WorktreeNote) error {
-	notesPath := filepath.Join(worktreeDir, repoKey, models.WorktreeNotesFilename)
-	if notes == nil {
-		notes = map[string]models.WorktreeNote{}
-	}
-
-	normalized := make(map[string]models.WorktreeNote, len(notes))
-	for path, note := range notes {
-		trimmed := strings.TrimSpace(note.Note)
-		if trimmed == "" {
-			continue
-		}
-		note.Note = trimmed
-		normalized[path] = note
-	}
-
-	if len(normalized) == 0 {
+func saveRepoWorktreeNotes(notesPath string, notes map[string]models.WorktreeNote) error {
+	if len(notes) == 0 {
 		if err := os.Remove(notesPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
@@ -244,7 +343,7 @@ func SaveWorktreeNotes(repoKey, worktreeDir string, notes map[string]models.Work
 		return err
 	}
 
-	data, err := json.Marshal(normalized)
+	data, err := json.Marshal(notes)
 	if err != nil {
 		return err
 	}
@@ -252,4 +351,50 @@ func SaveWorktreeNotes(repoKey, worktreeDir string, notes map[string]models.Work
 		return err
 	}
 	return nil
+}
+
+func loadSharedWorktreeNotes(repoKey, worktreeNotesPath string) (map[string]map[string]models.WorktreeNote, error) {
+	// #nosec G304 -- path is user-configured and intentionally read for persistence
+	data, err := os.ReadFile(worktreeNotesPath)
+	if err != nil {
+		return map[string]map[string]models.WorktreeNote{}, nil
+	}
+
+	var allNotes map[string]map[string]models.WorktreeNote
+	if err := json.Unmarshal(data, &allNotes); err == nil {
+		if allNotes == nil {
+			return map[string]map[string]models.WorktreeNote{}, nil
+		}
+		return allNotes, nil
+	} else {
+		// Backwards compatibility: if the shared file contains a legacy single-repo payload,
+		// treat it as the current repository's notes.
+		var legacy map[string]models.WorktreeNote
+		if legacyErr := json.Unmarshal(data, &legacy); legacyErr == nil {
+			if legacy == nil {
+				return map[string]map[string]models.WorktreeNote{}, nil
+			}
+			return map[string]map[string]models.WorktreeNote{
+				repoKey: legacy,
+			}, nil
+		}
+		return nil, err
+	}
+}
+
+func relativePathWithin(base, target string) (string, bool) {
+	base = filepath.Clean(base)
+	target = filepath.Clean(target)
+
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return "", false
+	}
+	if rel == "." {
+		return ".", true
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return rel, true
 }

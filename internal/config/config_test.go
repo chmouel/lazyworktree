@@ -37,6 +37,7 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Empty(t, cfg.BranchNameScript)
 	assert.Equal(t, "issue-{number}-{title}", cfg.IssueBranchNameTemplate)
 	assert.Empty(t, cfg.WorktreeNoteScript)
+	assert.Empty(t, cfg.WorktreeNotesPath)
 	assert.Equal(t, "pr-{number}-{title}", cfg.PRBranchNameTemplate)
 	assert.Equal(t, "default", cfg.Layout)
 }
@@ -912,6 +913,33 @@ func TestParseConfig(t *testing.T) {
 			},
 			validate: func(t *testing.T, cfg *AppConfig) {
 				assert.Equal(t, "echo note", cfg.WorktreeNoteScript)
+			},
+		},
+		{
+			name: "worktree_notes_path",
+			data: map[string]interface{}{
+				"worktree_notes_path": "/tmp/lazyworktree-notes.json",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, "/tmp/lazyworktree-notes.json", cfg.WorktreeNotesPath)
+			},
+		},
+		{
+			name: "worktree_notes_path with spaces is trimmed",
+			data: map[string]interface{}{
+				"worktree_notes_path": "   /tmp/notes.json   ",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, "/tmp/notes.json", cfg.WorktreeNotesPath)
+			},
+		},
+		{
+			name: "worktree_notes_path empty string",
+			data: map[string]interface{}{
+				"worktree_notes_path": "",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Empty(t, cfg.WorktreeNotesPath)
 			},
 		},
 		{
@@ -2140,6 +2168,7 @@ func TestApplyCLIOverrides(t *testing.T) {
 		"lw.disable_pr=true",
 		"lw.max_diff_chars=500000",
 		"lw.worktree_note_script=echo note",
+		"lw.worktree_notes_path=/tmp/lazyworktree-notes.json",
 		"lw.pr_branch_name_template=review-{number}-{generated}",
 	}
 
@@ -2151,6 +2180,7 @@ func TestApplyCLIOverrides(t *testing.T) {
 	assert.True(t, cfg.DisablePR)
 	assert.Equal(t, 500000, cfg.MaxDiffChars)
 	assert.Equal(t, "echo note", cfg.WorktreeNoteScript)
+	assert.Equal(t, "/tmp/lazyworktree-notes.json", cfg.WorktreeNotesPath)
 	assert.Equal(t, "review-{number}-{generated}", cfg.PRBranchNameTemplate)
 }
 

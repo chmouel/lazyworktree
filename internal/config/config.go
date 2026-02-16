@@ -97,6 +97,7 @@ type AppConfig struct {
 	CustomCommands          map[string]*CustomCommand
 	BranchNameScript        string // Script to generate branch name suggestions from diff
 	WorktreeNoteScript      string // Script to generate worktree notes from PR/issue content
+	WorktreeNotesPath       string // Optional path to a single shared JSON file for worktree notes
 	Theme                   string // Theme name: see AvailableThemes in internal/theme
 	MergeMethod             string // Merge method for absorb: "rebase" or "merge" (default: "rebase")
 	FuzzyFinderInput        bool   // Enable fuzzy finder for input suggestions (default: false)
@@ -318,6 +319,15 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 		worktreeNoteScript = strings.TrimSpace(worktreeNoteScript)
 		if worktreeNoteScript != "" {
 			cfg.WorktreeNoteScript = worktreeNoteScript
+		}
+	}
+	if worktreeNotesPath, ok := data["worktree_notes_path"].(string); ok {
+		worktreeNotesPath = strings.TrimSpace(worktreeNotesPath)
+		if worktreeNotesPath != "" {
+			expanded, err := utils.ExpandPath(worktreeNotesPath)
+			if err == nil {
+				cfg.WorktreeNotesPath = expanded
+			}
 		}
 	}
 
@@ -819,6 +829,9 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	}
 	if overrideCfg.WorktreeNoteScript != "" {
 		cfg.WorktreeNoteScript = overrideCfg.WorktreeNoteScript
+	}
+	if overrideCfg.WorktreeNotesPath != "" {
+		cfg.WorktreeNotesPath = overrideCfg.WorktreeNotesPath
 	}
 	if overrideCfg.IssueBranchNameTemplate != "" {
 		cfg.IssueBranchNameTemplate = overrideCfg.IssueBranchNameTemplate
