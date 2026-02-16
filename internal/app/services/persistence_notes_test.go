@@ -104,3 +104,46 @@ func TestSaveWorktreeNotesSkipsWhitespaceOnlyNotes(t *testing.T) {
 		t.Fatalf("expected no notes file for whitespace-only note, got err=%v", err)
 	}
 }
+
+func TestSaveWorktreeNote(t *testing.T) {
+	worktreeDir := t.TempDir()
+	repoKey := "repo"
+	wtPath := filepath.Join(worktreeDir, "repo", "feature")
+
+	if err := SaveWorktreeNote(repoKey, worktreeDir, wtPath, "  generated note  "); err != nil {
+		t.Fatalf("save note failed: %v", err)
+	}
+
+	notes, err := LoadWorktreeNotes(repoKey, worktreeDir)
+	if err != nil {
+		t.Fatalf("load notes failed: %v", err)
+	}
+
+	got, ok := notes[wtPath]
+	if !ok {
+		t.Fatalf("expected note for %q", wtPath)
+	}
+	if got.Note != "generated note" {
+		t.Fatalf("unexpected note text: %q", got.Note)
+	}
+	if got.UpdatedAt == 0 {
+		t.Fatal("expected UpdatedAt to be set")
+	}
+}
+
+func TestSaveWorktreeNoteEmptyInputNoop(t *testing.T) {
+	worktreeDir := t.TempDir()
+	repoKey := "repo"
+	notesPath := filepath.Join(worktreeDir, repoKey, models.WorktreeNotesFilename)
+
+	if err := SaveWorktreeNote(repoKey, worktreeDir, " ", "some text"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := SaveWorktreeNote(repoKey, worktreeDir, "/tmp/wt", "   "); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, err := os.Stat(notesPath); !os.IsNotExist(err) {
+		t.Fatalf("expected notes file to be absent, got err=%v", err)
+	}
+}

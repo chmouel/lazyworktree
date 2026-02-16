@@ -104,6 +104,64 @@ func TestCreateFromPRResultMsgError(t *testing.T) {
 	}
 }
 
+func TestCreateFromPRResultMsgSuccessSavesGeneratedNote(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.repoKey = "test/repo"
+	m.setWindowSize(120, 40)
+	m.loading = true
+	m.setLoadingScreen("Creating worktree...")
+
+	targetPath := filepath.Join(cfg.WorktreeDir, "pr-123")
+	msg := createFromPRResultMsg{
+		prNumber:   123,
+		branch:     "feature-branch",
+		targetPath: targetPath,
+		note:       "Generated note",
+	}
+
+	_, _ = m.Update(msg)
+
+	note, ok := m.getWorktreeNote(targetPath)
+	if !ok {
+		t.Fatal("expected generated note to be stored")
+	}
+	if note.Note != "Generated note" {
+		t.Fatalf("unexpected note text: %q", note.Note)
+	}
+}
+
+func TestCreateFromIssueResultMsgSuccessSavesGeneratedNote(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.repoKey = "test/repo"
+	m.setWindowSize(120, 40)
+	m.loading = true
+	m.setLoadingScreen("Creating worktree...")
+
+	targetPath := filepath.Join(cfg.WorktreeDir, "issue-123")
+	msg := createFromIssueResultMsg{
+		issueNumber: 123,
+		branch:      "issue-123",
+		targetPath:  targetPath,
+		note:        "Issue generated note",
+	}
+
+	_, _ = m.Update(msg)
+
+	note, ok := m.getWorktreeNote(targetPath)
+	if !ok {
+		t.Fatal("expected generated note to be stored")
+	}
+	if note.Note != "Issue generated note" {
+		t.Fatalf("unexpected note text: %q", note.Note)
+	}
+}
+
 // TestHandleWorktreesLoadedSelectsPendingPath tests that worktrees are selected after creation.
 func TestHandleWorktreesLoadedSelectsPendingPath(t *testing.T) {
 	cfg := &config.AppConfig{

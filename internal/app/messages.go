@@ -461,7 +461,16 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 					err:        fmt.Errorf("create worktree from PR/MR branch %q", remoteBranch),
 				}
 			}
-			return createFromPRResultMsg{prNumber: pr.Number, branch: localBranch, targetPath: targetPath}
+			noteText, err := m.generateWorktreeNote("pr", pr.Number, pr.Title, pr.Body, pr.URL)
+			if err != nil {
+				m.debugf("worktree note script error for PR/MR #%d: %v", pr.Number, err)
+			}
+			return createFromPRResultMsg{
+				prNumber:   pr.Number,
+				branch:     localBranch,
+				targetPath: targetPath,
+				note:       noteText,
+			}
 		}
 	}
 	prScr.OnCancel = func() tea.Cmd {
@@ -589,7 +598,16 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 								err:         fmt.Errorf("create worktree from issue #%d", issue.Number),
 							}
 						}
-						return createFromIssueResultMsg{issueNumber: issue.Number, branch: newBranch, targetPath: targetPath}
+						noteText, err := m.generateWorktreeNote("issue", issue.Number, issue.Title, issue.Body, issue.URL)
+						if err != nil {
+							m.debugf("worktree note script error for issue #%d: %v", issue.Number, err)
+						}
+						return createFromIssueResultMsg{
+							issueNumber: issue.Number,
+							branch:      newBranch,
+							targetPath:  targetPath,
+							note:        noteText,
+						}
 					}
 				}
 

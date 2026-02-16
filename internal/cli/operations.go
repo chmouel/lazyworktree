@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	appservices "github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/git"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -301,6 +302,8 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 		return "", err
 	}
 
+	maybeCreateAutoWorktreeNote(ctx, cfg, repoName, targetPath, "pr", selectedPR.Number, selectedPR.Title, selectedPR.Body, selectedPR.URL, silent)
+
 	return targetPath, nil
 }
 
@@ -498,6 +501,8 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 		gitSvc.RunCommandChecked(ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", "Failed to cleanup worktree")
 		return "", err
 	}
+
+	maybeCreateAutoWorktreeNote(ctx, cfg, repoName, targetPath, "issue", selectedIssue.Number, selectedIssue.Title, selectedIssue.Body, selectedIssue.URL, silent)
 
 	return targetPath, nil
 }
@@ -729,6 +734,40 @@ func buildCommandEnv(branch, wtPath, mainPath, repoName string) map[string]strin
 		"WORKTREE_PATH":      wtPath,
 		"WORKTREE_NAME":      filepath.Base(wtPath),
 		"REPO_NAME":          repoName,
+	}
+}
+
+func maybeCreateAutoWorktreeNote(
+	ctx context.Context,
+	cfg *config.AppConfig,
+	repoKey, targetPath, contentType string,
+	number int,
+	title, body, url string,
+	silent bool,
+) {
+	if strings.TrimSpace(cfg.WorktreeNoteScript) == "" {
+		return
+	}
+
+	content := fmt.Sprintf("%s\n\n%s", title, body)
+	noteText, err := appservices.RunWorktreeNoteScript(ctx, cfg.WorktreeNoteScript, appservices.WorktreeNoteScriptInput{
+		Content: content,
+		Type:    contentType,
+		Number:  number,
+		Title:   title,
+		URL:     url,
+	})
+	if err != nil {
+		if !silent {
+			fmt.Fprintf(os.Stderr, "Warning: worktree note script failed: %v\n", err)
+		}
+		return
+	}
+	if strings.TrimSpace(noteText) == "" {
+		return
+	}
+	if err := appservices.SaveWorktreeNote(repoKey, cfg.WorktreeDir, targetPath, noteText); err != nil && !silent {
+		fmt.Fprintf(os.Stderr, "Warning: failed to save worktree note: %v\n", err)
 	}
 }
 

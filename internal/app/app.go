@@ -154,6 +154,7 @@ type (
 		prNumber   int
 		branch     string
 		targetPath string
+		note       string
 		err        error
 	}
 	openIssuesLoadedMsg struct {
@@ -164,6 +165,7 @@ type (
 		issueNumber int
 		branch      string
 		targetPath  string
+		note        string
 		err         error
 	}
 	renameWorktreeResultMsg struct {
@@ -639,6 +641,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showInfo(fmt.Sprintf("Failed to create worktree from PR/MR #%d: %v", msg.prNumber, msg.err), nil)
 			return m, nil
 		}
+		if strings.TrimSpace(msg.note) != "" {
+			m.setWorktreeNote(msg.targetPath, msg.note)
+		}
 		env := m.buildCommandEnv(msg.branch, msg.targetPath)
 		initCmds := m.collectInitCommands()
 		after := func() tea.Msg {
@@ -654,6 +659,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pendingSelectWorktreePath = ""
 			m.showInfo(fmt.Sprintf("Failed to create worktree from issue #%d: %v", msg.issueNumber, msg.err), nil)
 			return m, nil
+		}
+		if strings.TrimSpace(msg.note) != "" {
+			m.setWorktreeNote(msg.targetPath, msg.note)
 		}
 		env := m.buildCommandEnv(msg.branch, msg.targetPath)
 		initCmds := m.collectInitCommands()

@@ -183,6 +183,23 @@ pr_branch_name_template: "pr-{number}-{title}"
 #
 # branch_name_script: ""
 
+# Script to generate an initial worktree note when creating from a PR/MR or issue
+#
+# The script receives content on stdin (title + body from the selected PR/MR or issue)
+#
+# Environment variables available to the script:
+#   LAZYWORKTREE_TYPE: The source type (pr/issue)
+#   LAZYWORKTREE_NUMBER: The PR/MR or issue number
+#   LAZYWORKTREE_TITLE: The PR/MR or issue title
+#   LAZYWORKTREE_URL: The PR/MR or issue URL
+#
+# If the script fails or outputs nothing, creation continues without writing a note.
+#
+# Example:
+#   worktree_note_script: "aichat -m gemini:gemini-2.5-flash-lite 'Summarise this ticket as concise implementation notes.'"
+#
+# worktree_note_script: ""
+
 # ============================================================================
 # GIT OPERATIONS
 # ============================================================================

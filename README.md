@@ -288,6 +288,8 @@ issue_branch_name_template: "issue-{number}-{title}" # Placeholders: {number}, {
 pr_branch_name_template: "pr-{number}-{title}" # Placeholders: {number}, {title}, {generated}, {pr_author}
 # Automatic branch name generation (see "Automatically Generated Branch Names")
 branch_name_script: "" # Script to generate names from diff/issue/PR content
+# Automatic worktree note generation when creating from PR/MR or issue
+worktree_note_script: "" # Script to generate notes from PR/issue title+body
 init_commands:
   - link_topsymlinks
 terminate_commands:
@@ -405,6 +407,7 @@ CI environment variables: `LW_CI_JOB_NAME`, `LW_CI_JOB_NAME_CLEAN`, `LW_CI_RUN_I
 * `branch_name_script`: script for automatic branch suggestions. See [Automatically generated branch names](#automatically-generated-branch-names).
 * `issue_branch_name_template`: template with placeholders `{number}`, `{title}`, `{generated}`.
 * `pr_branch_name_template`: template with placeholders `{number}`, `{title}`, `{generated}`, `{pr_author}`.
+* `worktree_note_script`: script for automatic worktree notes when creating from PR/MR or issue.
 
 **Custom create menu**
 
@@ -727,6 +730,24 @@ branch_name_script: |
 branch_name_script: |
   aichat -m gemini:gemini-2.5-flash-lite "Generate a title for item #$LAZYWORKTREE_NUMBER. Output only the title."
 ```
+
+## Automatically Generated Worktree Notes
+
+Configure `worktree_note_script` to generate initial worktree notes when creating from a PR/MR or issue. The script receives the selected item's title and body on stdin and can produce multiline output. If the script fails or outputs nothing, creation continues and no note is saved.
+
+### Configuration
+
+```yaml
+worktree_note_script: "aichat -m gemini:gemini-2.5-flash-lite 'Summarise this ticket into practical implementation notes.'"
+```
+
+### Script Requirements
+
+Receives content on stdin, outputs note text on stdout. Timeout: 30s.
+
+### Environment Variables
+
+`LAZYWORKTREE_TYPE` (pr/issue), `LAZYWORKTREE_NUMBER`, `LAZYWORKTREE_TITLE`, `LAZYWORKTREE_URL`.
 
 ## CLI Usage
 

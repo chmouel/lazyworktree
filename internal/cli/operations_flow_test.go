@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	appservices "github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -82,6 +84,97 @@ func TestCreateFromPR_MkdirFailure(t *testing.T) {
 
 	if _, err := CreateFromPRWithFS(ctx, svc, cfg, 1, false, true, fs); err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+func TestCreateFromPR_SuccessWithWorktreeNoteScript(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	worktreeDir := t.TempDir()
+
+	fs := &mockFilesystem{
+		statFunc: func(string) (os.FileInfo, error) {
+			return nil, os.ErrNotExist
+		},
+		mkdirAllFunc: func(string, os.FileMode) error {
+			return nil
+		},
+	}
+
+	svc := &fakeGitService{
+		resolveRepoName:  "repo",
+		createdFromPR:    true,
+		mainWorktreePath: t.TempDir(),
+		prs: []*models.PRInfo{
+			{Number: 42, Branch: "feature-branch", Title: "Add feature", Body: "Body text", URL: "https://example.com/pr/42"},
+		},
+	}
+	cfg := &config.AppConfig{
+		WorktreeDir:        worktreeDir,
+		WorktreeNoteScript: `printf 'note-%s' "$LAZYWORKTREE_NUMBER"`,
+	}
+
+	path, err := CreateFromPRWithFS(ctx, svc, cfg, 42, false, true, fs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	notes, err := appservices.LoadWorktreeNotes("repo", worktreeDir)
+	if err != nil {
+		t.Fatalf("failed to load notes: %v", err)
+	}
+	note, ok := notes[path]
+	if !ok {
+		t.Fatalf("expected note for %q", path)
+	}
+	if note.Note != "note-42" {
+		t.Fatalf("unexpected note content: %q", note.Note)
+	}
+}
+
+func TestCreateFromPR_WorktreeNoteScriptFailureNonFatal(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	worktreeDir := t.TempDir()
+
+	fs := &mockFilesystem{
+		statFunc: func(string) (os.FileInfo, error) {
+			return nil, os.ErrNotExist
+		},
+		mkdirAllFunc: func(string, os.FileMode) error {
+			return nil
+		},
+	}
+
+	svc := &fakeGitService{
+		resolveRepoName:  "repo",
+		createdFromPR:    true,
+		mainWorktreePath: t.TempDir(),
+		prs: []*models.PRInfo{
+			{Number: 7, Branch: "feature-branch", Title: "Add feature", Body: "Body text", URL: "https://example.com/pr/7"},
+		},
+	}
+	cfg := &config.AppConfig{
+		WorktreeDir:        worktreeDir,
+		WorktreeNoteScript: "echo boom >&2; exit 1",
+	}
+
+	path, err := CreateFromPRWithFS(ctx, svc, cfg, 7, false, true, fs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := filepath.Base(path); got != "pr-7-add-feature" {
+		t.Fatalf("unexpected worktree name: %q", got)
+	}
+
+	notes, err := appservices.LoadWorktreeNotes("repo", worktreeDir)
+	if err != nil {
+		t.Fatalf("failed to load notes: %v", err)
+	}
+	if len(notes) != 0 {
+		t.Fatalf("expected no notes, got %#v", notes)
 	}
 }
 
@@ -290,6 +383,53 @@ func TestCreateFromIssue_DefaultTemplate(t *testing.T) {
 	}
 }
 
+func TestCreateFromIssue_SuccessWithWorktreeNoteScript(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	worktreeDir := t.TempDir()
+
+	fs := &mockFilesystem{
+		statFunc: func(string) (os.FileInfo, error) {
+			return nil, os.ErrNotExist
+		},
+		mkdirAllFunc: func(string, os.FileMode) error {
+			return nil
+		},
+	}
+
+	svc := &fakeGitService{
+		resolveRepoName:     "repo",
+		runCommandCheckedOK: true,
+		mainWorktreePath:    t.TempDir(),
+		issues: []*models.IssueInfo{
+			{Number: 10, Title: "add tests", Body: "body", URL: "https://example.com/issues/10"},
+		},
+	}
+	cfg := &config.AppConfig{
+		WorktreeDir:             worktreeDir,
+		IssueBranchNameTemplate: "issue-{number}-{title}",
+		WorktreeNoteScript:      `printf 'issue-%s-%s' "$LAZYWORKTREE_NUMBER" "$LAZYWORKTREE_TYPE"`,
+	}
+
+	path, err := CreateFromIssueWithFS(ctx, svc, cfg, 10, "develop", false, true, fs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	notes, err := appservices.LoadWorktreeNotes("repo", worktreeDir)
+	if err != nil {
+		t.Fatalf("failed to load notes: %v", err)
+	}
+	note, ok := notes[path]
+	if !ok {
+		t.Fatalf("expected note for %q", path)
+	}
+	if note.Note != "issue-10-issue" {
+		t.Fatalf("unexpected note content: %q", note.Note)
+	}
+}
+
 func TestCreateFromPR_NoWorkspace_Success(t *testing.T) {
 	t.Parallel()
 
@@ -457,6 +597,36 @@ func TestCreateFromIssue_NoWorkspace_Success(t *testing.T) {
 	expectedBranch := "issue-42-implement-dark-mode"
 	if result != expectedBranch {
 		t.Fatalf("expected branch name %q, got %q", expectedBranch, result)
+	}
+}
+
+func TestCreateFromIssue_NoWorkspaceSkipsWorktreeNoteScript(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	worktreeDir := t.TempDir()
+
+	svc := &fakeGitService{
+		resolveRepoName:     "repo",
+		runCommandCheckedOK: true,
+		issues: []*models.IssueInfo{
+			{Number: 42, Title: "implement dark mode", Body: "body", URL: "https://example.com/issues/42"},
+		},
+	}
+	cfg := &config.AppConfig{
+		WorktreeDir:             worktreeDir,
+		IssueBranchNameTemplate: "issue-{number}-{title}",
+		WorktreeNoteScript:      "cat",
+	}
+
+	_, err := CreateFromIssue(ctx, svc, cfg, 42, "main", true, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	notesPath := filepath.Join(worktreeDir, "repo", models.WorktreeNotesFilename)
+	if _, err := os.Stat(notesPath); !os.IsNotExist(err) {
+		t.Fatalf("expected no notes file, got err=%v", err)
 	}
 }
 
