@@ -99,7 +99,7 @@ Override config values from the command line (repeatable).
 .br
 Format: \fB--config=lw.key=value\fR
 .br
-Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_refresh\fR, \fBdisable_pr\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBgit_pager_command_mode\fR, \fBpager\fR, \fBeditor\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBissue_branch_name_template\fR, \fBpr_branch_name_template\fR, \fBsession_prefix\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
+Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_refresh\fR, \fBdisable_pr\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBgit_pager_command_mode\fR, \fBpager\fR, \fBeditor\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBworktree_note_script\fR, \fBissue_branch_name_template\fR, \fBpr_branch_name_template\fR, \fBsession_prefix\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
 .br
 Examples: \fB--config=lw.theme=nord\fR, \fB--config=lw.sort_mode=active\fR
 .br
@@ -957,6 +957,14 @@ Options: \fBrebase\fR (default - rebases onto main then fast-forwards, synchroni
 Script to generate branch name suggestions when creating worktrees from changes, issues, or PRs. For issues/PRs, the script should output a title (e.g., "feat-ai-session-manager") which will be sanitised and made available via the \fB{generated}\fR placeholder in your configured template. For diffs, the script should output a complete branch name. The script receives content on stdin (git diff for changes, issue/PR title and body for issues/PRs). First line of output is used.
 .br
 Available environment variables: LAZYWORKTREE_TYPE (pr/issue/diff), LAZYWORKTREE_NUMBER (PR/issue number), LAZYWORKTREE_TEMPLATE (configured template), LAZYWORKTREE_SUGGESTED_NAME (template-generated name using original PR/issue title).
+.br
+Script operates under a 30-second timeout.
+.
+.TP
+.B worktree_note_script
+Script to generate an initial worktree note when creating from a PR/MR or issue. The script receives title and body content on stdin and may return multiline output. If the script fails or returns empty output, worktree creation continues and no note is saved.
+.br
+Available environment variables: LAZYWORKTREE_TYPE (pr/issue), LAZYWORKTREE_NUMBER, LAZYWORKTREE_TITLE, LAZYWORKTREE_URL.
 .br
 Script operates under a 30-second timeout.
 .

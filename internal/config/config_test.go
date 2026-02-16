@@ -37,6 +37,7 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Empty(t, cfg.BranchNameScript)
 	assert.Equal(t, "issue-{number}-{title}", cfg.IssueBranchNameTemplate)
 	assert.Equal(t, "pr-{number}-{title}", cfg.PRBranchNameTemplate)
+	assert.Empty(t, cfg.WorktreeNoteScript)
 	assert.Equal(t, "default", cfg.Layout)
 }
 
@@ -902,6 +903,33 @@ func TestParseConfig(t *testing.T) {
 			},
 			validate: func(t *testing.T, cfg *AppConfig) {
 				assert.Equal(t, "review-{number}-{title}", cfg.PRBranchNameTemplate)
+			},
+		},
+		{
+			name: "worktree_note_script",
+			data: map[string]interface{}{
+				"worktree_note_script": "echo note",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, "echo note", cfg.WorktreeNoteScript)
+			},
+		},
+		{
+			name: "worktree_note_script empty string",
+			data: map[string]interface{}{
+				"worktree_note_script": "",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Empty(t, cfg.WorktreeNoteScript)
+			},
+		},
+		{
+			name: "worktree_note_script with spaces is trimmed",
+			data: map[string]interface{}{
+				"worktree_note_script": "   echo note   ",
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, "echo note", cfg.WorktreeNoteScript)
 			},
 		},
 		{
@@ -2112,6 +2140,7 @@ func TestApplyCLIOverrides(t *testing.T) {
 		"lw.disable_pr=true",
 		"lw.max_diff_chars=500000",
 		"lw.pr_branch_name_template=review-{number}-{generated}",
+		"lw.worktree_note_script=echo note",
 	}
 
 	err := cfg.ApplyCLIOverrides(overrides)
@@ -2122,6 +2151,7 @@ func TestApplyCLIOverrides(t *testing.T) {
 	assert.True(t, cfg.DisablePR)
 	assert.Equal(t, 500000, cfg.MaxDiffChars)
 	assert.Equal(t, "review-{number}-{generated}", cfg.PRBranchNameTemplate)
+	assert.Equal(t, "echo note", cfg.WorktreeNoteScript)
 }
 
 func TestApplyCLIOverridesMultiValue(t *testing.T) {

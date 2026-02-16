@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
@@ -61,6 +62,21 @@ func runBranchNameScript(ctx context.Context, script, content, scriptType, numbe
 	}
 
 	return strings.TrimSpace(output), nil
+}
+
+func (m *Model) generateWorktreeNote(contentType string, number int, title, body, url string) (string, error) {
+	if strings.TrimSpace(m.config.WorktreeNoteScript) == "" {
+		return "", nil
+	}
+
+	content := fmt.Sprintf("%s\n\n%s", title, body)
+	return services.RunWorktreeNoteScript(m.ctx, m.config.WorktreeNoteScript, services.WorktreeNoteScriptInput{
+		Content: content,
+		Type:    contentType,
+		Number:  number,
+		Title:   title,
+		URL:     url,
+	})
 }
 
 func fuzzyScoreLower(query, target string) (int, bool) {
