@@ -163,33 +163,7 @@ Search Mode:
 - j / k: Scroll up / down
 - Ctrl+D / Ctrl+U: Scroll half page down / up
 
-**{{HELP_SHELL_COMPLETION}}Shell Completion**
-Generate completions: lazyworktree --completion <bash|zsh|fish>
-CLI subcommands: create, rename, delete, list
-Post-create commands: lazyworktree create --exec '<command>'
-For CLI command details, see: man lazyworktree or lazyworktree --help
-
-**{{HELP_CONFIGURATION}}Configuration & Overrides**
-Configuration is read from multiple sources (in order of precedence):
-1. CLI overrides (highest): lazyworktree --config=lw.key=value
-2. Git local config: git config --local lw.key value
-3. Git global config: git config --global lw.key value
-4. YAML file: ~/.config/lazyworktree/config.yaml
-5. Built-in defaults (lowest)
-
-Example: lazyworktree --config=lw.theme=nord --config=lw.auto_fetch_prs=true
-
-Custom themes: define custom_themes in the configuration file. Without a base theme, all 11 colour fields are required.
-Custom commands can set new_tab: true to open in a new terminal tab (Kitty with remote control enabled, WezTerm, or iTerm).
-For command-style diff tools such as lumen, set git_pager_command_mode: true.
-
-**{{HELP_ICON_CONFIGURATION}}Icon Configuration**
-- icon_set: Choose icon set ("nerd-font-v3", "text"). Default: "nerd-font-v3". Applies to file icons, UI indicators, and help headings. The text set uses plain labels.
-- If icons render as placeholder glyphs, set icon_set: text or install a font patched with Nerd Font.
-- disable_pr: Disable all PR/MR fetching and display. Default: false.
-
-{{HELP_TIP}}Tip: PR data is not fetched by default for speed.
-       Use the command palette and choose "Fetch PR data (p)" to refresh it on demand.`
+- Ctrl+D / Ctrl+U: Scroll half page down / up `
 
 	replacer := strings.NewReplacer(
 		"{{HELP_TITLE}}", iconPrefix(UIIconHelpTitle, showIcons),
