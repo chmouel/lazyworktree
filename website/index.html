@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LazyWorktree | Beautiful Git Worktree Management</title>
+    <title>LazyWorktree | Git Worktree TUI</title>
     <meta
       name="description"
-      content="LazyWorktree is a keyboard-driven TUI for Git worktrees. Create, inspect, and navigate worktrees with speed and clarity."
+      content="LazyWorktree is a keyboard-driven TUI for Git worktrees. Create, inspect, and switch between worktrees without leaving the terminal."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -48,12 +48,12 @@
 
     <main>
       <section class="hero reveal">
-        <p class="kicker">Terminal-first Git worktree control</p>
-        <h1>Easy worktree management for the terminal.</h1>
+        <p class="kicker">A TUI for git worktrees</p>
+        <h1>A lazier way to manage worktrees.</h1>
         <p class="hero-copy">
-          LazyWorktree is a fast TUI for creating, reviewing, and switching Git
-          worktrees. It combines Vim-style navigation, PR and CI visibility, and
-          deep Git tooling in one focused interface.
+          LazyWorktree lets you create, switch, and manage Git worktrees from a
+          keyboard-driven TUI. It shows PR status, CI checks, and diffs
+          alongside your worktree list.
         </p>
         <div class="hero-actions">
           <a
@@ -106,7 +106,7 @@ $ lazyworktree</code></pre>
       <section id="features" class="features reveal">
         <div class="section-heading">
           <p class="kicker">Features</p>
-          <h2>Manage your worktree with Ease.</h2>
+          <h2>What it does</h2>
         </div>
         <div class="feature-grid">
           <article class="feature-card">
@@ -117,45 +117,59 @@ $ lazyworktree</code></pre>
             </p>
           </article>
           <article class="feature-card">
-            <h3>Powerful creation modes</h3>
+            <h3>Create from anything</h3>
             <p>
               Create from branch, commit, PR/MR, issue, or custom menu item with
               optional branch automation.
             </p>
           </article>
           <article class="feature-card">
-            <h3>Deep Git tooling</h3>
+            <h3>Git operations</h3>
             <p>
-              Stage, unstage, commit, diff, sync, push, and cherry-pick without
-              leaving the interface.
+              Stage, commit, diff, push, sync, and cherry-pick -- all from
+              within the TUI.
             </p>
           </article>
           <article class="feature-card">
-            <h3>CI visibility</h3>
+            <h3>CI checks</h3>
             <p>
-              Display checks, open job pages, inspect logs in pager, and restart
-              GitHub Actions jobs.
+              See check status, read logs, open job pages, and restart GitHub
+              Actions runs.
             </p>
           </article>
           <article class="feature-card">
-            <h3>Session aware</h3>
+            <h3>tmux / zellij sessions</h3>
             <p>
-              Manage tmux or zellij sessions per worktree with configurable
-              session prefixes.
+              Each worktree can get its own tmux or zellij session, with
+              configurable prefixes.
             </p>
           </article>
           <article class="feature-card">
-            <h3>Extensible automation</h3>
+            <h3>Hooks and custom commands</h3>
             <p>
               Run init and terminate hooks via <code>.wt</code> and add custom
               command bindings.
             </p>
           </article>
           <article class="feature-card">
-            <h3>Taskboard from notes</h3>
+            <h3>Worktree notes</h3>
+            <p>
+              Attach markdown notes to any worktree and view them rendered in
+              the info pane.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3>Taskboard</h3>
             <p>
               Turn markdown checkbox notes into a grouped Taskboard and toggle
               progress without leaving the TUI.
+            </p>
+          </article>
+          <article class="feature-card">
+            <h3>Configuration</h3>
+            <p>
+              Set options via CLI flags, git config, or a YAML file. Local
+              settings override global ones.
             </p>
           </article>
         </div>
@@ -218,7 +232,7 @@ brew install lazyworktree --cask</code></pre>
       <section id="screenshots" class="docs reveal">
         <div class="section-heading">
           <p class="kicker">Screenshots</p>
-          <h2>Visual tour of themes and workflows.</h2>
+          <h2>What it looks like</h2>
         </div>
         <div class="gallery">
           <figure class="preview-card">
@@ -281,10 +295,10 @@ brew install lazyworktree --cask</code></pre>
       </section>
 
       <section class="cta reveal">
-        <h2>Bring calm to your busiest repositories.</h2>
+        <h2>Give it a go.</h2>
         <p>
-          LazyWorktree keeps each branch isolated, visible, and easy to manage
-          from the keyboard.
+          It's open source, installs in seconds, and works with any Git repo
+          that uses worktrees.
         </p>
         <div class="hero-actions">
           <a
