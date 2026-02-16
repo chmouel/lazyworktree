@@ -240,15 +240,22 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 
 	labelStyle := lipgloss.NewStyle().Foreground(m.theme.Cyan).Bold(true)
 	valueStyle := lipgloss.NewStyle().Foreground(m.theme.TextFg)
+	sectionStyle := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true)
+	keyWidth := lipgloss.Width("Last Accessed:")
+	keyStyle := labelStyle.Width(keyWidth)
 
-	infoLines := []string{
-		fmt.Sprintf("%s %s", labelStyle.Render("Path:"), valueStyle.Render(wt.Path)),
-		fmt.Sprintf("%s %s", labelStyle.Render("Branch:"), valueStyle.Render(wt.Branch)),
+	addField := func(lines []string, key, value string) []string {
+		return append(lines, fmt.Sprintf("%s %s", keyStyle.Render(key), value))
 	}
+
+	infoLines := make([]string, 0, 32)
+	infoLines = addField(infoLines, "Path:", valueStyle.Render(wt.Path))
+	infoLines = addField(infoLines, "Branch:", valueStyle.Render(wt.Branch))
+
 	if wt.LastSwitchedTS > 0 {
 		accessTime := time.Unix(wt.LastSwitchedTS, 0)
 		relTime := formatRelativeTime(accessTime)
-		infoLines = append(infoLines, fmt.Sprintf("%s %s", labelStyle.Render("Last Accessed:"), valueStyle.Render(relTime)))
+		infoLines = addField(infoLines, "Last Accessed:", valueStyle.Render(relTime))
 	}
 	if wt.Ahead > 0 || wt.Behind > 0 {
 		aheadStyle := lipgloss.NewStyle().Foreground(m.theme.Cyan)
@@ -260,11 +267,11 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		if wt.Behind > 0 {
 			parts = append(parts, behindStyle.Render(fmt.Sprintf("%s%d", behindIndicator(m.config.IconsEnabled()), wt.Behind)))
 		}
-		infoLines = append(infoLines, fmt.Sprintf("%s %s", labelStyle.Render("Divergence:"), strings.Join(parts, " ")))
+		infoLines = addField(infoLines, "Divergence:", strings.Join(parts, " "))
 	}
 	if note, ok := m.getWorktreeNote(wt.Path); ok {
 		infoLines = append(infoLines, "")
-		infoLines = append(infoLines, labelStyle.Render("Annotation:"))
+		infoLines = append(infoLines, sectionStyle.Render("Annotation:"))
 		for _, line := range strings.Split(note.Note, "\n") {
 			infoLines = append(infoLines, "  "+valueStyle.Render(line))
 		}
@@ -276,7 +283,6 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		if m.config.IconsEnabled() {
 			prPrefix = iconWithSpace(getIconPR()) + prPrefix
 		}
-		prLabel := prLabelStyle.Render(prPrefix)
 		numStyle := lipgloss.NewStyle().Foreground(m.theme.TextFg)
 		stateColor := m.theme.SuccessFg // default to success for OPEN
 		switch wt.PR.State {
@@ -286,9 +292,12 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 			stateColor = m.theme.ErrorFg
 		}
 		stateStyle := lipgloss.NewStyle().Foreground(stateColor)
-		infoLines = append(infoLines, fmt.Sprintf("%s %s %s [%s]",
-			prLabel,
-			numStyle.Render(fmt.Sprintf("#%d", wt.PR.Number)),
+		prNumber := fmt.Sprintf("#%d", wt.PR.Number)
+		prNumber = osc8Hyperlink(prNumber, wt.PR.URL)
+		infoLines = append(infoLines, "")
+		infoLines = append(infoLines, prLabelStyle.Render(prPrefix))
+		infoLines = append(infoLines, fmt.Sprintf("  %s %s [%s]",
+			numStyle.Render(prNumber),
 			wt.PR.Title,
 			stateStyle.Render(wt.PR.State)))
 		// Author line with bot indicator if applicable
@@ -303,57 +312,62 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 			if wt.PR.AuthorIsBot {
 				authorText = iconPrefix(UIIconBot, m.config.IconsEnabled()) + authorText
 			}
-			infoLines = append(infoLines, fmt.Sprintf("     by %s", grayStyle.Render(authorText)))
+			infoLines = append(infoLines, fmt.Sprintf("  by %s", grayStyle.Render(authorText)))
 		}
 		// URL styled with cyan for consistency
 		urlStyle := lipgloss.NewStyle().Foreground(m.theme.Cyan).Underline(true)
-		infoLines = append(infoLines, fmt.Sprintf("     %s", urlStyle.Render(wt.PR.URL)))
+		infoLines = append(infoLines, fmt.Sprintf("  %s", urlStyle.Render(wt.PR.URL)))
 	} else if wt.PR == nil && !m.config.DisablePR {
 		// Show PR status/error when PR is nil
 		grayStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
 		errorStyle := lipgloss.NewStyle().Foreground(m.theme.ErrorFg)
+		prLabelStyle := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true)
+		prPrefix := "PR:"
+		if m.config.IconsEnabled() {
+			prPrefix = iconWithSpace(getIconPR()) + prPrefix
+		}
 
-		infoLines = append(infoLines, "") // blank line
+		infoLines = append(infoLines, "")
+		infoLines = append(infoLines, prLabelStyle.Render(prPrefix))
 
 		switch wt.PRFetchStatus {
 		case models.PRFetchStatusLoaded:
 			// This shouldn't happen (PR is nil but status is loaded) - show debug info
-			infoLines = append(infoLines, errorStyle.Render("PR Status: Loaded but nil (bug)"))
+			infoLines = append(infoLines, errorStyle.Render("  PR Status: Loaded but nil (bug)"))
 
 		case models.PRFetchStatusError:
-			labelStyle := lipgloss.NewStyle().Foreground(m.theme.TextFg).Bold(true)
-			infoLines = append(infoLines, labelStyle.Render("PR Status:"))
-			infoLines = append(infoLines, errorStyle.Render("  Fetch failed"))
+			infoLines = append(infoLines, valueStyle.Bold(true).Render("  PR Status:"))
+			infoLines = append(infoLines, errorStyle.Render("    Fetch failed"))
 
 			// Provide helpful error messages based on error content
 			switch {
 			case strings.Contains(wt.PRFetchError, "not found") || strings.Contains(wt.PRFetchError, "PATH"):
-				infoLines = append(infoLines, grayStyle.Render("  gh/glab CLI not found"))
-				infoLines = append(infoLines, grayStyle.Render("  Install from https://cli.github.com"))
+				infoLines = append(infoLines, grayStyle.Render("    gh/glab CLI not found"))
+				infoLines = append(infoLines, grayStyle.Render("    Install from https://cli.github.com"))
 			case strings.Contains(wt.PRFetchError, "auth") || strings.Contains(wt.PRFetchError, "401"):
-				infoLines = append(infoLines, grayStyle.Render("  Authentication failed"))
-				infoLines = append(infoLines, grayStyle.Render("  Run 'gh auth login' or 'glab auth login'"))
+				infoLines = append(infoLines, grayStyle.Render("    Authentication failed"))
+				infoLines = append(infoLines, grayStyle.Render("    Run 'gh auth login' or 'glab auth login'"))
 			case wt.PRFetchError != "":
-				infoLines = append(infoLines, grayStyle.Render(fmt.Sprintf("  %s", wt.PRFetchError)))
+				infoLines = append(infoLines, grayStyle.Render(fmt.Sprintf("    %s", wt.PRFetchError)))
 			}
 
 		case models.PRFetchStatusNoPR:
 			switch {
 			case m.prDataLoaded && wt.HasUpstream:
 				// Fetch was attempted, no error, no PR found - this is expected
-				infoLines = append(infoLines, grayStyle.Render("No PR for this branch"))
+				infoLines = append(infoLines, grayStyle.Render("  No PR for this branch"))
 			case !wt.HasUpstream:
 				// No upstream, so no PR possible
-				infoLines = append(infoLines, grayStyle.Render("Branch has no upstream"))
+				infoLines = append(infoLines, grayStyle.Render("  Branch has no upstream"))
 			}
 
 		case models.PRFetchStatusFetching:
-			infoLines = append(infoLines, grayStyle.Render("Fetching PR data..."))
+			infoLines = append(infoLines, grayStyle.Render("  Fetching PR data..."))
 
 		default:
 			// Not fetched yet
 			if !m.prDataLoaded {
-				infoLines = append(infoLines, grayStyle.Render("Press 'p' to fetch PR data"))
+				infoLines = append(infoLines, grayStyle.Render("  Press 'p' to fetch PR data"))
 			}
 		}
 	}
@@ -362,7 +376,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 	if !m.config.DisablePR {
 		if cachedChecks, _, ok := m.cache.ciCache.Get(wt.Branch); ok && len(cachedChecks) > 0 {
 			infoLines = append(infoLines, "") // blank line before CI
-			infoLines = append(infoLines, labelStyle.Render("CI Checks:"))
+			infoLines = append(infoLines, sectionStyle.Render("CI Checks:"))
 
 			greenStyle := lipgloss.NewStyle().Foreground(m.theme.SuccessFg)
 			redStyle := lipgloss.NewStyle().Foreground(m.theme.ErrorFg)
