@@ -1,5 +1,5 @@
-// Package main provides CLI flag definitions for lazyworktree.
-package main
+// Package bootstrap provides CLI flag definitions for lazyworktree.
+package bootstrap
 
 import (
 	urfavecli "github.com/urfave/cli/v3"

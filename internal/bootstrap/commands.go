@@ -1,5 +1,5 @@
-// Package main provides CLI command definitions for lazyworktree.
-package main
+// Package bootstrap provides CLI command definitions for lazyworktree.
+package bootstrap
 
 import (
 	"context"

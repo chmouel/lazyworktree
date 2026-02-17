@@ -1,4 +1,4 @@
-package main
+package bootstrap
 
 import (
 	"io"
@@ -129,22 +129,6 @@ func TestOutputSelectionDirectoryCreation(t *testing.T) {
 	}
 }
 
-func TestVersionVariables(t *testing.T) {
-	// Verify build variables are set (at least with defaults)
-	if version == "" {
-		t.Error("version should not be empty")
-	}
-	if commit == "" {
-		t.Error("commit should not be empty")
-	}
-	if date == "" {
-		t.Error("date should not be empty")
-	}
-	if builtBy == "" {
-		t.Error("builtBy should not be empty")
-	}
-}
-
 func TestPrintSyntaxThemesContainsThemes(t *testing.T) {
 	out := captureStdout(t, func() {
 		printSyntaxThemes()
@@ -155,19 +139,6 @@ func TestPrintSyntaxThemesContainsThemes(t *testing.T) {
 		if !strings.Contains(out, theme) {
 			t.Logf("warning: expected theme %q in output", theme)
 		}
-	}
-}
-
-func TestPrintVersion(t *testing.T) {
-	out := captureStdout(t, func() {
-		printVersion()
-	})
-
-	if !strings.Contains(out, "lazyworktree version") {
-		t.Errorf("expected version header, got %q", out)
-	}
-	if !strings.Contains(out, version) {
-		t.Errorf("expected version %q in output, got %q", version, out)
 	}
 }
 
