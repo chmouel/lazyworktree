@@ -33,6 +33,12 @@ var annotationKeywordSpecs = []annotationKeywordSpec{
 		TextIcon:  "[ ]",
 	},
 	{
+		Canonical: "DONE",
+		Aliases:   []string{"DONE"},
+		NerdIcon:  "",
+		TextIcon:  "[x]",
+	},
+	{
 		Canonical: "HACK",
 		Aliases:   []string{"HACK"},
 		NerdIcon:  "",
@@ -117,6 +123,8 @@ func (m *Model) annotationKeywordStyle(spec annotationKeywordSpec) lipgloss.Styl
 		return style.Foreground(m.theme.WarnFg)
 	case "TODO":
 		return style.Foreground(m.theme.Cyan)
+	case "DONE":
+		return style.Foreground(m.theme.SuccessFg)
 	case "NOTE":
 		return style.Foreground(m.theme.SuccessFg)
 	case "PERF", "TEST":

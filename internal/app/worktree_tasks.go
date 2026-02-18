@@ -12,7 +12,10 @@ import (
 	"github.com/chmouel/lazyworktree/internal/models"
 )
 
-var markdownTaskLineRE = regexp.MustCompile(`^(\s*[-*+]\s+\[)([ xX])(\]\s*)(.*)$`)
+var (
+	markdownTaskLineRE = regexp.MustCompile(`^(\s*[-*+]\s+\[)([ xX])(\]\s*)(.*)$`)
+	todoKeywordLineRE  = regexp.MustCompile(`^(\s*)(TODO|DONE)(:?\s*)(.*)$`)
+)
 
 type worktreeTaskRef struct {
 	ID           string
@@ -20,6 +23,7 @@ type worktreeTaskRef struct {
 	LineIndex    int
 	Checked      bool
 	Text         string
+	IsKeyword    bool
 }
 
 func (m *Model) showTaskboard() tea.Cmd {
@@ -146,6 +150,13 @@ func extractTaskRefs(worktreePath, noteText string) []worktreeTaskRef {
 
 	for i, line := range lines {
 		checked, text, ok := parseMarkdownTaskLine(line)
+		isKeyword := false
+		if !ok {
+			checked, text, ok = parseTodoKeywordLine(line)
+			if ok {
+				isKeyword = true
+			}
+		}
 		if !ok {
 			continue
 		}
@@ -156,6 +167,7 @@ func extractTaskRefs(worktreePath, noteText string) []worktreeTaskRef {
 			LineIndex:    i,
 			Checked:      checked,
 			Text:         text,
+			IsKeyword:    isKeyword,
 		})
 	}
 
@@ -182,7 +194,13 @@ func (m *Model) toggleTaskInWorktreeNote(ref worktreeTaskRef) bool {
 		return false
 	}
 
-	next, changed := toggleMarkdownTaskLine(note.Note, ref.LineIndex)
+	var next string
+	var changed bool
+	if ref.IsKeyword {
+		next, changed = toggleTodoKeywordLine(note.Note, ref.LineIndex)
+	} else {
+		next, changed = toggleMarkdownTaskLine(note.Note, ref.LineIndex)
+	}
 	if !changed {
 		return false
 	}
@@ -214,5 +232,45 @@ func toggleMarkdownTaskLine(noteText string, lineIndex int) (string, bool) {
 		replacement = " "
 	}
 	lines[lineIndex] = line[:checkStart] + replacement + line[checkEnd:]
+	return strings.Join(lines, "\n"), true
+}
+
+func parseTodoKeywordLine(line string) (checked bool, text string, ok bool) {
+	parts := todoKeywordLineRE.FindStringSubmatch(line)
+	if len(parts) != 5 {
+		return false, "", false
+	}
+	checked = parts[2] == "DONE"
+	text = strings.TrimSpace(parts[4])
+	if text == "" {
+		text = "(untitled task)"
+	}
+	return checked, text, true
+}
+
+func toggleTodoKeywordLine(noteText string, lineIndex int) (string, bool) {
+	normalized := strings.ReplaceAll(noteText, "\r\n", "\n")
+	lines := strings.Split(normalized, "\n")
+	if lineIndex < 0 || lineIndex >= len(lines) {
+		return noteText, false
+	}
+
+	line := lines[lineIndex]
+	idx := todoKeywordLineRE.FindStringSubmatchIndex(line)
+	if len(idx) < 6 {
+		return noteText, false
+	}
+
+	kwStart := idx[4]
+	kwEnd := idx[5]
+	keyword := line[kwStart:kwEnd]
+
+	var replacement string
+	if keyword == "TODO" {
+		replacement = "DONE"
+	} else {
+		replacement = "TODO"
+	}
+	lines[lineIndex] = line[:kwStart] + replacement + line[kwEnd:]
 	return strings.Join(lines, "\n"), true
 }
