@@ -57,14 +57,14 @@ func TestDetectBackgroundNonTerminal(t *testing.T) {
 	// Skip if we are running in a real terminal to avoid escape sequences in test output
 	// Check /dev/tty first since that's what DetectBackground uses
 	if tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0); err == nil {
-		isTerm := term.IsTerminal(int(tty.Fd()))
+		isTerm := term.IsTerminal(int(tty.Fd())) //#nosec G115 -- fd conversion is safe on supported platforms
 		_ = tty.Close()
 		if isTerm {
 			t.Skip("skipping terminal detection test in interactive mode to avoid escape sequences")
 		}
 	}
 	// Also check stdout as a fallback
-	if term.IsTerminal(int(os.Stdout.Fd())) {
+	if term.IsTerminal(int(os.Stdout.Fd())) { //#nosec G115 -- fd conversion is safe on supported platforms
 		t.Skip("skipping terminal detection test in interactive mode to avoid escape sequences")
 	}
 	// Check if TERM is set (indicates we're in a terminal environment)
@@ -107,14 +107,14 @@ func TestDetectBackgroundTimeout(t *testing.T) {
 	// Skip if we are running in a real terminal to avoid escape sequences in test output
 	// Check /dev/tty first since that's what DetectBackground uses
 	if tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0); err == nil {
-		isTerm := term.IsTerminal(int(tty.Fd()))
+		isTerm := term.IsTerminal(int(tty.Fd())) //#nosec G115 -- fd conversion is safe on supported platforms
 		_ = tty.Close()
 		if isTerm {
 			t.Skip("skipping terminal detection test in interactive mode to avoid escape sequences")
 		}
 	}
 	// Also check stdout as a fallback
-	if term.IsTerminal(int(os.Stdout.Fd())) {
+	if term.IsTerminal(int(os.Stdout.Fd())) { //#nosec G115 -- fd conversion is safe on supported platforms
 		t.Skip("skipping terminal detection test in interactive mode to avoid escape sequences")
 	}
 	// Check if TERM is set (indicates we're in a terminal environment)
@@ -150,14 +150,14 @@ func TestDetectBackgroundInvalidTTY(t *testing.T) {
 	// Skip if we are running in a real terminal to avoid escape sequences in test output
 	// Check /dev/tty first since that's what DetectBackground uses
 	if tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0); err == nil {
-		isTerm := term.IsTerminal(int(tty.Fd()))
+		isTerm := term.IsTerminal(int(tty.Fd())) //#nosec G115 -- fd conversion is safe on supported platforms
 		_ = tty.Close()
 		if isTerm {
 			t.Skip("skipping terminal detection test in interactive mode to avoid escape sequences")
 		}
 	}
 	// Also check stdout as a fallback
-	if term.IsTerminal(int(os.Stdout.Fd())) {
+	if term.IsTerminal(int(os.Stdout.Fd())) { //#nosec G115 -- fd conversion is safe on supported platforms
 		t.Skip("skipping terminal detection test in interactive mode to avoid escape sequences")
 	}
 	// Check if TERM is set (indicates we're in a terminal environment)

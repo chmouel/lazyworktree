@@ -1207,7 +1207,7 @@ func TestStageUnstagedFile(t *testing.T) {
 
 	var gotCmd *exec.Cmd
 	m.commandRunner = func(ctx context.Context, name string, args ...string) *exec.Cmd {
-		gotCmd = exec.CommandContext(ctx, name, args...)
+		gotCmd = exec.CommandContext(ctx, name, args...) //#nosec G204,G702 -- test mock with controlled args
 		return gotCmd
 	}
 
@@ -1254,7 +1254,7 @@ func TestUnstageStagedFile(t *testing.T) {
 
 	var gotCmd *exec.Cmd
 	m.commandRunner = func(ctx context.Context, name string, args ...string) *exec.Cmd {
-		gotCmd = exec.CommandContext(ctx, name, args...)
+		gotCmd = exec.CommandContext(ctx, name, args...) //#nosec G204,G702 -- test mock with controlled args
 		return gotCmd
 	}
 
@@ -1295,7 +1295,7 @@ func TestStageMixedStatusFile(t *testing.T) {
 
 	var gotCmd *exec.Cmd
 	m.commandRunner = func(ctx context.Context, name string, args ...string) *exec.Cmd {
-		gotCmd = exec.CommandContext(ctx, name, args...)
+		gotCmd = exec.CommandContext(ctx, name, args...) //#nosec G204,G702 -- test mock with controlled args
 		return gotCmd
 	}
 
@@ -1354,7 +1354,7 @@ func TestStageDirectoryAllUnstaged(t *testing.T) {
 
 	var gotCmd *exec.Cmd
 	m.commandRunner = func(ctx context.Context, name string, args ...string) *exec.Cmd {
-		gotCmd = exec.CommandContext(ctx, name, args...)
+		gotCmd = exec.CommandContext(ctx, name, args...) //#nosec G204,G702 -- test mock with controlled args
 		return gotCmd
 	}
 
@@ -1400,7 +1400,7 @@ func TestStageDirectoryAllStaged(t *testing.T) {
 
 	var gotCmd *exec.Cmd
 	m.commandRunner = func(ctx context.Context, name string, args ...string) *exec.Cmd {
-		gotCmd = exec.CommandContext(ctx, name, args...)
+		gotCmd = exec.CommandContext(ctx, name, args...) //#nosec G204,G702 -- test mock with controlled args
 		return gotCmd
 	}
 
@@ -1442,7 +1442,7 @@ func TestStageDirectoryMixed(t *testing.T) {
 
 	var gotCmd *exec.Cmd
 	m.commandRunner = func(ctx context.Context, name string, args ...string) *exec.Cmd {
-		gotCmd = exec.CommandContext(ctx, name, args...)
+		gotCmd = exec.CommandContext(ctx, name, args...) //#nosec G204,G702 -- test mock with controlled args
 		return gotCmd
 	}
 
@@ -3671,7 +3671,7 @@ func TestCICheckEnterOpensURL(t *testing.T) {
 	// Capture command
 	var capturedCmd *exec.Cmd
 	m.commandRunner = func(ctx context.Context, name string, args ...string) *exec.Cmd {
-		capturedCmd = exec.CommandContext(ctx, name, args...)
+		capturedCmd = exec.CommandContext(ctx, name, args...) //#nosec G204,G702 -- test mock with controlled args
 		return capturedCmd
 	}
 	m.startCommand = func(cmd *exec.Cmd) error {
@@ -3727,7 +3727,7 @@ func TestCICheckCtrlVShowsLogs(t *testing.T) {
 	// Capture command
 	var capturedCmd *exec.Cmd
 	m.commandRunner = func(ctx context.Context, name string, args ...string) *exec.Cmd {
-		capturedCmd = exec.CommandContext(ctx, name, args...)
+		capturedCmd = exec.CommandContext(ctx, name, args...) //#nosec G204,G702 -- test mock with controlled args
 		return capturedCmd
 	}
 	m.startCommand = func(cmd *exec.Cmd) error {

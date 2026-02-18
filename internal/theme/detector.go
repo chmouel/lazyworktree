@@ -24,7 +24,7 @@ func DetectBackground(timeout time.Duration) (string, error) {
 		_ = tty.Close()
 	}()
 
-	fd := int(tty.Fd())
+	fd := int(tty.Fd()) //#nosec G115 -- fd conversion is safe on supported platforms
 	if !term.IsTerminal(fd) {
 		return DefaultDark(), fmt.Errorf("not a terminal")
 	}

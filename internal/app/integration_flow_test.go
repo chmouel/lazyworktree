@@ -30,7 +30,7 @@ type commandRecorder struct {
 }
 
 func (r *commandRecorder) runner(_ context.Context, name string, args ...string) *exec.Cmd {
-	return exec.Command(name, args...)
+	return exec.Command(name, args...) //#nosec G204,G702 -- test helper with controlled args
 }
 
 func (r *commandRecorder) exec(cmd *exec.Cmd, _ tea.ExecCallback) tea.Cmd {
@@ -363,7 +363,7 @@ func TestIntegrationPaletteSelectsActiveTmuxSession(t *testing.T) {
 			return exec.Command("printf", "%s", mockOutput)
 		}
 		// For other commands, return the actual command
-		return exec.Command(name, args...)
+		return exec.Command(name, args...) //#nosec G204,G702 -- test mock with controlled args
 	}
 
 	recorder := &commandRecorder{}

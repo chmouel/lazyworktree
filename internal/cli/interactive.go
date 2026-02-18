@@ -173,7 +173,7 @@ func buildGenericPreviewScript[T selectableItem](items []T) string {
 		preview := item.FormatPreview()
 		// Escape single quotes for the shell
 		preview = strings.ReplaceAll(preview, "'", "'\\''")
-		sb.WriteString(fmt.Sprintf("%d) echo '%s';; ", item.ItemNumber(), preview))
+		fmt.Fprintf(&sb, "%d) echo '%s';; ", item.ItemNumber(), preview)
 	}
 	sb.WriteString("*) echo 'No preview available';; esac")
 	return sb.String()

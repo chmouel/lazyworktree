@@ -16,7 +16,7 @@ func runGitConfig(args []string, repoPath string) (string, error) {
 		return gitConfigMock(args, repoPath)
 	}
 
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) //#nosec G204 -- controlled git command execution
 	if repoPath != "" {
 		cmd.Dir = repoPath
 	}

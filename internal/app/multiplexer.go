@@ -38,7 +38,7 @@ type (
 
 func cleanupZellijLayouts(paths []string) {
 	for _, path := range paths {
-		_ = os.Remove(path)
+		_ = os.Remove(path) //#nosec G703 -- controlled temp file cleanup
 	}
 }
 
@@ -206,7 +206,7 @@ func buildZellijScript(sessionName string, zellijCfg *config.TmuxCommand, layout
 
 	var b strings.Builder
 	b.WriteString("set -e\n")
-	b.WriteString(fmt.Sprintf("session=%s\n", shellQuote(sessionName)))
+	fmt.Fprintf(&b, "session=%s\n", shellQuote(sessionName))
 	b.WriteString("base_session=$session\n")
 	b.WriteString("session_exists() {\n")
 	b.WriteString("  zellij list-sessions --short --no-formatting 2>/dev/null | grep -Fxq \"$1\"\n")
@@ -238,7 +238,7 @@ func buildZellijScript(sessionName string, zellijCfg *config.TmuxCommand, layout
 	if len(layoutPaths) > 0 {
 		b.WriteString("if [ \"$created\" = \"true\" ]; then\n")
 		for _, layoutPath := range layoutPaths {
-			b.WriteString(fmt.Sprintf("  ZELLIJ_SESSION_NAME=\"$session\" zellij action new-tab --layout %s\n", shellQuote(layoutPath)))
+			fmt.Fprintf(&b, "  ZELLIJ_SESSION_NAME=\"$session\" zellij action new-tab --layout %s\n", shellQuote(layoutPath))
 		}
 		b.WriteString("  ZELLIJ_SESSION_NAME=\"$session\" zellij action go-to-tab 1\n")
 		b.WriteString("  ZELLIJ_SESSION_NAME=\"$session\" zellij action close-tab\n")
@@ -251,13 +251,13 @@ func buildZellijScript(sessionName string, zellijCfg *config.TmuxCommand, layout
 func buildZellijTabLayout(window resolvedTmuxWindow) string {
 	var b strings.Builder
 	b.WriteString("layout {\n")
-	b.WriteString(fmt.Sprintf("    tab name=%s {\n", kdlQuote(window.Name)))
+	fmt.Fprintf(&b, "    tab name=%s {\n", kdlQuote(window.Name))
 	b.WriteString("        pane {\n")
 	if window.Cwd != "" {
-		b.WriteString(fmt.Sprintf("            cwd %s\n", kdlQuote(window.Cwd)))
+		fmt.Fprintf(&b, "            cwd %s\n", kdlQuote(window.Cwd))
 	}
-	b.WriteString(fmt.Sprintf("            command %s\n", kdlQuote("bash")))
-	b.WriteString(fmt.Sprintf("            args %s %s\n", kdlQuote("-lc"), kdlQuote(window.Command)))
+	fmt.Fprintf(&b, "            command %s\n", kdlQuote("bash"))
+	fmt.Fprintf(&b, "            args %s %s\n", kdlQuote("-lc"), kdlQuote(window.Command))
 	b.WriteString("        }\n")
 	b.WriteString("    }\n")
 	b.WriteString("}\n")
@@ -274,12 +274,12 @@ func writeZellijLayouts(windows []resolvedTmuxWindow) ([]string, error) {
 		}
 		if _, err := layoutFile.WriteString(buildZellijTabLayout(window)); err != nil {
 			_ = layoutFile.Close()
-			_ = os.Remove(layoutFile.Name())
+			_ = os.Remove(layoutFile.Name()) //#nosec G703 -- controlled temp file cleanup
 			cleanupZellijLayouts(paths)
 			return nil, err
 		}
 		if err := layoutFile.Close(); err != nil {
-			_ = os.Remove(layoutFile.Name())
+			_ = os.Remove(layoutFile.Name()) //#nosec G703 -- controlled temp file cleanup
 			cleanupZellijLayouts(paths)
 			return nil, err
 		}

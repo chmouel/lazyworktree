@@ -2,6 +2,7 @@ package log
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -130,7 +131,7 @@ func TestWrite(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 				for j := 0; j < messagesPerGoroutine; j++ {
-					msg := []byte(strings.Join([]string{"goroutine", string(rune(id)), "message", string(rune(j))}, " "))
+					msg := []byte(fmt.Sprintf("goroutine %d message %d", id, j))
 					_, _ = globalDebugLogger.Write(msg)
 				}
 			}(i)

@@ -1187,7 +1187,7 @@ func TestFetchGitLabCIInvalidJSON(t *testing.T) {
 func runGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) //#nosec G204 -- test helper with controlled args
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
 	if err != nil {

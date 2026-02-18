@@ -33,7 +33,7 @@ const (
 func (c *commandCapture) runner(_ context.Context, name string, args ...string) *exec.Cmd {
 	c.name = name
 	c.args = append([]string{}, args...)
-	return exec.Command(name, args...)
+	return exec.Command(name, args...) //#nosec G204,G702 -- test helper with controlled args
 }
 
 func (c *commandCapture) exec(cmd *exec.Cmd, _ tea.ExecCallback) tea.Cmd {
@@ -677,7 +677,7 @@ func setupCommitDiffRepo(t *testing.T) (string, string) {
 
 func runGitCommand(t *testing.T, dir string, args ...string) string {
 	t.Helper()
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) //#nosec G204 -- test helper with controlled args
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
