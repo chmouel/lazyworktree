@@ -50,6 +50,32 @@ func TestNoteViewScreenScrollKeys(t *testing.T) {
 	}
 }
 
+func TestNoteViewScreenEditExternalClosesAndCallsCallback(t *testing.T) {
+	s := NewNoteViewScreen("Notes", "line one", 120, 40, theme.Dracula())
+	called := false
+	s.OnEditExternal = func() tea.Cmd {
+		called = true
+		return nil
+	}
+
+	next, _ := s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'E'}})
+	if next != nil {
+		t.Fatal("expected screen to close on edit external")
+	}
+	if !called {
+		t.Fatal("expected edit external callback to be called")
+	}
+}
+
+func TestNoteViewScreenEditExternalNoCallbackIsNoop(t *testing.T) {
+	s := NewNoteViewScreen("Notes", "line one", 120, 40, theme.Dracula())
+
+	next, _ := s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'E'}})
+	if next != s {
+		t.Fatal("expected screen to remain when no OnEditExternal callback is set")
+	}
+}
+
 func TestNoteViewScreenWrapsLongLines(t *testing.T) {
 	content := strings.Repeat("a", 240)
 	s := NewNoteViewScreen("Notes", content, 90, 20, theme.Dracula())

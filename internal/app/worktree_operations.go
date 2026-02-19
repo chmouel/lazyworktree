@@ -604,8 +604,51 @@ func (m *Model) showWorktreeNoteViewer(worktreePath, noteText string) tea.Cmd {
 			return openNoteEditorMsg{worktreePath: worktreePath}
 		}
 	}
+	viewer.OnEditExternal = func() tea.Cmd {
+		return m.openNoteInExternalEditor(worktreePath, noteText)
+	}
 	m.state.ui.screenManager.Push(viewer)
 	return nil
+}
+
+func (m *Model) openNoteInExternalEditor(worktreePath, noteText string) tea.Cmd {
+	editor := m.editorCommand()
+	if strings.TrimSpace(editor) == "" {
+		m.showInfo("No editor configured. Set editor in config or $EDITOR.", nil)
+		return nil
+	}
+
+	tmpFile, err := os.CreateTemp("", "lwt-note-*.md")
+	if err != nil {
+		m.showInfo(fmt.Sprintf("Failed to create temp file: %v", err), nil)
+		return nil
+	}
+	tmpPath := tmpFile.Name()
+	if _, err := tmpFile.WriteString(noteText); err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpPath) //nolint:gosec // tmpPath is from os.CreateTemp, not user input
+		m.showInfo(fmt.Sprintf("Failed to write temp file: %v", err), nil)
+		return nil
+	}
+	_ = tmpFile.Close()
+
+	cmdStr := fmt.Sprintf("%s %s", editor, shellQuote(tmpPath))
+	// #nosec G204 -- command is constructed from user config and controlled inputs
+	c := m.commandRunner(m.ctx, "bash", "-c", cmdStr)
+
+	return m.execProcess(c, func(err error) tea.Msg {
+		defer func() { _ = os.Remove(tmpPath) }()
+		if err != nil {
+			return errMsg{err: err}
+		}
+		// #nosec G304 -- tmpPath is created by os.CreateTemp above, not user-controlled
+		content, readErr := os.ReadFile(tmpPath)
+		if readErr != nil {
+			return errMsg{err: readErr}
+		}
+		m.setWorktreeNote(worktreePath, string(content))
+		return openNoteExternalEditorResultMsg{worktreePath: worktreePath}
+	})
 }
 
 func (m *Model) showWorktreeNoteEditor(worktreePath string) tea.Cmd {

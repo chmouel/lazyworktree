@@ -93,7 +93,7 @@ When CI checks are displayed in the info panel:
 - Tab / Shift+Tab: Move focus to the "Include current file changes" checkbox
 - Space: Toggle "Include current file changes"
 - i: Open selected worktree notes (viewer if present, editor if empty)
-- Note viewer: j/k scroll, Ctrl+D/Ctrl+U half-page, g/G top/bottom, e edit, q/Esc close
+- Note viewer: j/k scroll, Ctrl+D/Ctrl+U half-page, g/G top/bottom, e edit, E edit in external editor, q/Esc close
 - Note editor: Ctrl+S saves, Enter adds a new line, Esc cancels
 - T: Open Taskboard (grouped by worktree from markdown checkbox notes)
 - Taskboard: a adds a new task, Enter/Space toggles selected checkbox task, f filters tasks, q/Esc closes

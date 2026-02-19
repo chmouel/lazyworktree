@@ -19,8 +19,9 @@ type NoteViewScreen struct {
 	Height   int
 	Thm      *theme.Theme
 
-	OnEdit  func() tea.Cmd
-	OnClose func() tea.Cmd
+	OnEdit         func() tea.Cmd
+	OnEditExternal func() tea.Cmd
+	OnClose        func() tea.Cmd
 }
 
 // NewNoteViewScreen creates a scrollable notes viewer modal.
@@ -69,6 +70,11 @@ func (s *NoteViewScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	case "e":
 		if s.OnEdit != nil {
 			return nil, s.OnEdit()
+		}
+		return s, nil
+	case "E":
+		if s.OnEditExternal != nil {
+			return nil, s.OnEditExternal()
 		}
 		return s, nil
 	case "j", "down":
@@ -120,7 +126,7 @@ func (s *NoteViewScreen) View() string {
 		lipgloss.Left,
 		titleStyle.Render(s.Title),
 		s.Viewport.View(),
-		footerStyle.Render("e edit • q close • j/k scroll • Ctrl+D/U half page • g/G top/bottom"),
+		footerStyle.Render("e edit • E editor • q close • j/k scroll • Ctrl+D/U half page • g/G top/bottom"),
 	)
 
 	return boxStyle.Render(content)

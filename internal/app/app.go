@@ -223,6 +223,9 @@ type (
 	openNoteEditorMsg struct {
 		worktreePath string
 	}
+	openNoteExternalEditorResultMsg struct {
+		worktreePath string
+	}
 )
 
 type commitLogEntry struct {
@@ -687,6 +690,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case openNoteEditorMsg:
 		return m, m.showWorktreeNoteEditor(msg.worktreePath)
+
+	case openNoteExternalEditorResultMsg:
+		m.state.ui.screenManager.Pop()
+		existing, _ := m.getWorktreeNote(msg.worktreePath)
+		cmd := m.showWorktreeNoteViewer(msg.worktreePath, existing.Note)
+		m.updateTable()
+		return m, cmd
 
 	case customCreateResultMsg:
 		m.loading = false
