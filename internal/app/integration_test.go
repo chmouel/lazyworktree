@@ -214,7 +214,9 @@ func TestHelpScreen(t *testing.T) {
 	teatest.WaitFor(
 		t, tm.Output(),
 		func(bts []byte) bool {
-			return bytes.Contains(bts, []byte("Help")) || bytes.Contains(bts, []byte("Worktree"))
+			return bytes.Contains(bts, []byte("Help")) ||
+				bytes.Contains(bts, []byte("Worktree")) ||
+				bytes.Contains(bts, []byte("Tips & Shortcuts"))
 		},
 		teatest.WithCheckInterval(100*time.Millisecond),
 		teatest.WithDuration(2*time.Second),

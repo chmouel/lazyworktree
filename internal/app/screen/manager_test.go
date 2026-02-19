@@ -170,7 +170,7 @@ func TestInfoScreenUpdate(t *testing.T) {
 
 func TestLoadingScreenTick(t *testing.T) {
 	thm := theme.Dracula()
-	s := NewLoadingScreen("Loading...", thm, nil)
+	s := NewLoadingScreen("Loading...", TipOperationGeneral, thm, nil, false)
 
 	if s.FrameIdx != 0 {
 		t.Errorf("expected initial frame index 0, got %d", s.FrameIdx)
@@ -184,7 +184,7 @@ func TestLoadingScreenTick(t *testing.T) {
 
 func TestLoadingScreenDoesNotRespondToKeys(t *testing.T) {
 	thm := theme.Dracula()
-	s := NewLoadingScreen("Loading...", thm, nil)
+	s := NewLoadingScreen("Loading...", TipOperationGeneral, thm, nil, false)
 
 	updated, _ := s.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if updated != s {

@@ -2,49 +2,172 @@ package screen
 
 import (
 	"math/rand/v2"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/chmouel/lazyworktree/internal/theme"
+	"github.com/muesli/reflow/wrap"
 )
 
-// LoadingTips is a list of helpful tips shown during loading.
-var LoadingTips = []string{
-	"Press '?' to view the help guide anytime.",
-	"Use '/' to search in almost any list view.",
-	"Press 'c' to create a worktree from a branch, PR, or issue.",
-	"Use 'D' to delete a worktree (and optionally its branch).",
-	"Press 'g' to open LazyGit in the current worktree.",
-	"Switch between panes using '1', '2', or '3'.",
-	"Zoom into a pane with '='.",
-	"Press ':' or 'Ctrl+P' to open the Command Palette.",
-	"Use 'r' to refresh the worktree list manually.",
-	"Press 's' to cycle sorting modes.",
-	"Use 'o' to open the related PR/MR in your browser.",
-	"Press 'R' to fetch all remotes.",
-	"Use 'S' to synchronise with upstream (pull then push).",
-	"Press 'P' to push to the upstream branch.",
-	"Use 'p' to fetch PR/MR status from GitHub or GitLab.",
-	"Press 'f' to filter the focused pane.",
-	"Use Tab to cycle to the next pane.",
-	"Press 'A' to absorb a worktree into main (merge + delete).",
-	"Use 'X' to prune merged worktrees automatically.",
-	"Press '!' to run an arbitrary command in the selected worktree.",
-	"Use 'm' to rename a worktree.",
-	"In the Status pane, press 'e' to open a file in your editor.",
-	"In the Status pane, press 's' to stage or unstage files.",
-	"In the Log pane, press 'C' to cherry-pick a commit to another worktree.",
-	"Press Enter on a worktree to jump there and cd into it.",
-	"Generate shell completions with: lazyworktree --completion <shell>.",
+// TipCategory classifies loading tips by area of functionality.
+type TipCategory string
+
+// TipOperation identifies the operation currently running.
+type TipOperation string
+
+const (
+	// TipCategoryNavigation groups navigation-focused tips.
+	TipCategoryNavigation TipCategory = "navigation"
+	// TipCategoryWorktree groups worktree-management tips.
+	TipCategoryWorktree TipCategory = "worktree"
+	// TipCategoryRepo groups repository-operation tips.
+	TipCategoryRepo TipCategory = "repo"
+	// TipCategoryTools groups tool-integration tips.
+	TipCategoryTools TipCategory = "tools"
+	// TipCategoryTips groups generic guidance tips.
+	TipCategoryTips TipCategory = "tips"
+
+	// TipOperationGeneral is used when no specific operation context is available.
+	TipOperationGeneral TipOperation = "general"
+	// TipOperationCreate is used during worktree creation flows.
+	TipOperationCreate TipOperation = "create"
+	// TipOperationRefresh is used during refresh operations.
+	TipOperationRefresh TipOperation = "refresh"
+	// TipOperationFetch is used during fetch operations.
+	TipOperationFetch TipOperation = "fetch"
+	// TipOperationSync is used during synchronisation operations.
+	TipOperationSync TipOperation = "sync"
+	// TipOperationPush is used during push operations.
+	TipOperationPush TipOperation = "push"
+	// TipOperationRerun is used during CI rerun operations.
+	TipOperationRerun TipOperation = "rerun"
+	// TipOperationCommand is used during command execution operations.
+	TipOperationCommand TipOperation = "command"
+)
+
+// Tip defines a single loading tip.
+type Tip struct {
+	ID         string
+	Text       string
+	Category   TipCategory
+	Operations []TipOperation
+	Priority   int
+	ShowInHelp bool
 }
 
-// LoadingScreen displays a modal with a spinner and a random tip.
+// LoadingTips is the built-in catalogue of loading tips.
+var LoadingTips = []Tip{
+	{ID: "help", Text: "Press '?' to open the help guide at any time.", Category: TipCategoryTips, Operations: []TipOperation{TipOperationGeneral}, Priority: 1, ShowInHelp: true},
+	{ID: "search", Text: "Use '/' for incremental search in the focused pane.", Category: TipCategoryNavigation, Operations: []TipOperation{TipOperationGeneral, TipOperationRefresh}, Priority: 1, ShowInHelp: true},
+	{ID: "filter", Text: "Press 'f' to filter the focused pane; press Esc to clear an active filter.", Category: TipCategoryNavigation, Operations: []TipOperation{TipOperationGeneral, TipOperationRefresh}, Priority: 1, ShowInHelp: true},
+	{ID: "create", Text: "Press 'c' to create a worktree from a branch, PR/MR, issue, or custom flow.", Category: TipCategoryWorktree, Operations: []TipOperation{TipOperationGeneral, TipOperationCreate}, Priority: 2, ShowInHelp: true},
+	{ID: "layout", Text: "Press 'L' to toggle between default and top pane layouts.", Category: TipCategoryNavigation, Operations: []TipOperation{TipOperationGeneral, TipOperationRefresh}, Priority: 1, ShowInHelp: true},
+	{ID: "panes", Text: "Use '1', '2', '3', '[', ']', or Tab to move between panes quickly.", Category: TipCategoryNavigation, Operations: []TipOperation{TipOperationGeneral}, Priority: 1, ShowInHelp: true},
+	{ID: "zoom", Text: "Press '=' to zoom the focused pane, then press '=' again to unzoom.", Category: TipCategoryNavigation, Operations: []TipOperation{TipOperationGeneral}, Priority: 1, ShowInHelp: false},
+	{ID: "palette", Text: "Press ':' or Ctrl+P to open the Command Palette, including active tmux and zellij sessions.", Category: TipCategoryTools, Operations: []TipOperation{TipOperationGeneral, TipOperationCommand}, Priority: 1, ShowInHelp: true},
+	{ID: "notes", Text: "Press 'i' to open worktree notes; existing notes open in the viewer first.", Category: TipCategoryWorktree, Operations: []TipOperation{TipOperationGeneral, TipOperationCreate}, Priority: 1, ShowInHelp: true},
+	{ID: "taskboard", Text: "Press 'T' to open Taskboard and toggle markdown checkbox tasks across worktrees.", Category: TipCategoryWorktree, Operations: []TipOperation{TipOperationGeneral, TipOperationCreate}, Priority: 1, ShowInHelp: true},
+	{ID: "sync", Text: "Use 'S' to synchronise with upstream (pull then push) when the worktree is clean.", Category: TipCategoryRepo, Operations: []TipOperation{TipOperationGeneral, TipOperationSync}, Priority: 2, ShowInHelp: true},
+	{ID: "push", Text: "Use 'P' to push the current branch to its upstream; set upstream when prompted.", Category: TipCategoryRepo, Operations: []TipOperation{TipOperationGeneral, TipOperationPush}, Priority: 2, ShowInHelp: false},
+	{ID: "fetch", Text: "Press 'R' to fetch all remotes and refresh upstream tracking information.", Category: TipCategoryRepo, Operations: []TipOperation{TipOperationGeneral, TipOperationFetch}, Priority: 2, ShowInHelp: false},
+	{ID: "refresh", Text: "Press 'r' to refresh worktrees and, on GitHub/GitLab, refresh PR and CI data.", Category: TipCategoryRepo, Operations: []TipOperation{TipOperationGeneral, TipOperationRefresh}, Priority: 2, ShowInHelp: false},
+	{ID: "ci", Text: "Press 'v' to open CI checks, Enter to open a job, and Ctrl+v to view logs in the pager.", Category: TipCategoryRepo, Operations: []TipOperation{TipOperationGeneral, TipOperationRefresh, TipOperationRerun}, Priority: 2, ShowInHelp: true},
+	{ID: "status-jump", Text: "In the Status pane, use Ctrl+Left and Ctrl+Right to jump between folders.", Category: TipCategoryNavigation, Operations: []TipOperation{TipOperationGeneral, TipOperationRefresh}, Priority: 1, ShowInHelp: true},
+	{ID: "run", Text: "Press '!' to run a command in the selected worktree with command history support.", Category: TipCategoryTools, Operations: []TipOperation{TipOperationGeneral, TipOperationCommand}, Priority: 1, ShowInHelp: false},
+	{ID: "lazygit", Text: "Press 'g' to open LazyGit in the selected worktree.", Category: TipCategoryTools, Operations: []TipOperation{TipOperationGeneral}, Priority: 1, ShowInHelp: false},
+	{ID: "jump", Text: "Press Enter on a worktree to jump there and change directory via shell integration.", Category: TipCategoryWorktree, Operations: []TipOperation{TipOperationGeneral, TipOperationCreate}, Priority: 1, ShowInHelp: false},
+}
+
+var lastLoadingTipID string
+
+// TipOperationFromContext maps app loading context to a tip operation.
+func TipOperationFromContext(loadingOperation, message string) TipOperation {
+	switch strings.ToLower(strings.TrimSpace(loadingOperation)) {
+	case string(TipOperationPush):
+		return TipOperationPush
+	case string(TipOperationSync):
+		return TipOperationSync
+	case string(TipOperationRerun):
+		return TipOperationRerun
+	}
+
+	lower := strings.ToLower(message)
+	switch {
+	case strings.Contains(lower, "refresh"):
+		return TipOperationRefresh
+	case strings.Contains(lower, "fetch"):
+		return TipOperationFetch
+	case strings.Contains(lower, "push"):
+		return TipOperationPush
+	case strings.Contains(lower, "sync") || strings.Contains(lower, "synchron") || strings.Contains(lower, "updating"):
+		return TipOperationSync
+	case strings.Contains(lower, "create"):
+		return TipOperationCreate
+	case strings.Contains(lower, "running"):
+		return TipOperationCommand
+	default:
+		return TipOperationGeneral
+	}
+}
+
+// SelectLoadingTip selects a contextual tip and avoids immediate repeats when possible.
+func SelectLoadingTip(operation TipOperation, previousTipID string) Tip {
+	if len(LoadingTips) == 0 {
+		return Tip{}
+	}
+
+	contextual := make([]Tip, 0, len(LoadingTips))
+	fallback := make([]Tip, 0, len(LoadingTips))
+
+	for _, tip := range LoadingTips {
+		fallback = append(fallback, tip)
+		if slices.Contains(tip.Operations, operation) {
+			contextual = append(contextual, tip)
+		}
+	}
+
+	pool := contextual
+	if len(pool) == 0 {
+		pool = fallback
+	}
+
+	if len(pool) > 1 && previousTipID != "" {
+		filtered := make([]Tip, 0, len(pool)-1)
+		for _, tip := range pool {
+			if tip.ID != previousTipID {
+				filtered = append(filtered, tip)
+			}
+		}
+		if len(filtered) > 0 {
+			pool = filtered
+		}
+	}
+
+	return pool[rand.IntN(len(pool))] //nolint:gosec
+}
+
+// HelpTips returns curated tips for the help screen.
+func HelpTips() []string {
+	lines := make([]string, 0, len(LoadingTips))
+	for _, tip := range LoadingTips {
+		if tip.ShowInHelp {
+			lines = append(lines, "- "+tip.Text)
+		}
+	}
+	return lines
+}
+
+// LoadingScreen displays a modal with a spinner and a contextual tip.
 type LoadingScreen struct {
 	Message        string
 	FrameIdx       int
 	BorderColorIdx int
 	Tip            string
+	TipID          string
+	Operation      TipOperation
 	Thm            *theme.Theme
 	SpinnerFrames  []string
 	ShowIcons      bool
@@ -57,20 +180,23 @@ func DefaultSpinnerFrames() []string {
 
 // NewLoadingScreen creates a loading modal with the given message.
 // spinnerFrames should be provided by the caller; if nil, text fallback is used.
-func NewLoadingScreen(message string, thm *theme.Theme, spinnerFrames []string) *LoadingScreen {
+func NewLoadingScreen(message string, operation TipOperation, thm *theme.Theme, spinnerFrames []string, showIcons bool) *LoadingScreen {
 	frames := spinnerFrames
 	if len(frames) == 0 {
 		frames = DefaultSpinnerFrames()
 	}
 
-	// Pick a random tip (cryptographic randomness not needed for UI tips)
-	tip := LoadingTips[rand.IntN(len(LoadingTips))] //nolint:gosec
+	tip := SelectLoadingTip(operation, lastLoadingTipID)
+	lastLoadingTipID = tip.ID
 
 	return &LoadingScreen{
 		Message:       message,
-		Tip:           tip,
+		Tip:           tip.Text,
+		TipID:         tip.ID,
+		Operation:     operation,
 		Thm:           thm,
 		SpinnerFrames: frames,
+		ShowIcons:     showIcons,
 	}
 }
 
@@ -107,10 +233,31 @@ func (s *LoadingScreen) Tick() {
 	s.BorderColorIdx = (s.BorderColorIdx + 1) % len(colours)
 }
 
-// View renders the loading modal with spinner, message, and a random tip.
+func formatTipBody(text string, width, maxLines int) string {
+	if width <= 0 || maxLines <= 0 {
+		return ""
+	}
+
+	wrapped := wrap.String(text, width)
+	lines := strings.Split(wrapped, "\n")
+	if len(lines) <= maxLines {
+		return strings.Join(lines, "\n")
+	}
+
+	lines = lines[:maxLines]
+	truncateWidth := width - 1
+	if truncateWidth < 1 {
+		truncateWidth = 1
+	}
+	truncatedLine := ansi.Truncate(lines[maxLines-1], truncateWidth, "")
+	lines[maxLines-1] = truncatedLine + "…"
+	return strings.Join(lines, "\n")
+}
+
+// View renders the loading modal with spinner, message, and a contextual tip.
 func (s *LoadingScreen) View() string {
 	width := 60
-	height := 9
+	height := 10
 
 	colours := s.loadingBorderColors()
 	borderColour := colours[s.BorderColorIdx%len(colours)]
@@ -122,39 +269,39 @@ func (s *LoadingScreen) View() string {
 		Width(width).
 		Height(height)
 
-	// Spinner animation
 	spinnerFrame := s.SpinnerFrames[s.FrameIdx%len(s.SpinnerFrames)]
 	spinnerStyle := lipgloss.NewStyle().
 		Foreground(s.Thm.Accent).
 		Bold(true)
 
-	// Message styling
 	messageStyle := lipgloss.NewStyle().
 		Foreground(s.Thm.TextFg).
 		Bold(true)
 
-	// Separator line
-	separatorStyle := lipgloss.NewStyle().
-		Foreground(s.Thm.BorderDim)
+	separatorStyle := lipgloss.NewStyle().Foreground(s.Thm.BorderDim)
 	separator := separatorStyle.Render(strings.Repeat("-", width-6))
 
-	// Tip styling - truncate to fit on one line
-	tipText := s.Tip
-	maxTipLen := width - 12 // "Tip: " prefix + padding
-	if len(tipText) > maxTipLen {
-		tipText = tipText[:maxTipLen-3] + "..."
-	}
+	tipLabelStyle := lipgloss.NewStyle().
+		Foreground(s.Thm.Cyan).
+		Bold(true)
 	tipStyle := lipgloss.NewStyle().
 		Foreground(s.Thm.MutedFg).
 		Italic(true)
 
-	// Layout: spinner, message, separator, tip
+	tipLabel := "Tip"
+	if s.ShowIcons {
+		tipLabel = labelWithIcon(UIIconTip, "Tip", s.ShowIcons)
+		tipLabel = strings.TrimSpace(tipLabel)
+	}
+	tipBody := formatTipBody(s.Tip, width-8, 2)
+
 	content := lipgloss.JoinVertical(lipgloss.Center,
 		spinnerStyle.Render(spinnerFrame),
 		"",
 		messageStyle.Render(s.Message),
 		separator,
-		tipStyle.Render("Tip: "+tipText),
+		tipLabelStyle.Render(tipLabel+":"),
+		tipStyle.Render(tipBody),
 	)
 
 	return boxStyle.Render(content)

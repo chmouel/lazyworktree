@@ -26,6 +26,29 @@ type HelpScreen struct {
 	ShowIcons   bool
 }
 
+const (
+	helpDefaultWidth  = 80
+	helpDefaultHeight = 30
+	helpMinWidth      = 60
+	helpMinHeight     = 20
+	helpMarginX       = 4
+	helpMarginY       = 2
+)
+
+func helpDimensions(maxWidth, maxHeight int) (int, int) {
+	width := helpDefaultWidth
+	height := helpDefaultHeight
+
+	if maxWidth > 0 {
+		width = maxInt(helpMinWidth, maxWidth-helpMarginX)
+	}
+	if maxHeight > 0 {
+		height = maxInt(helpMinHeight, maxHeight-helpMarginY)
+	}
+
+	return width, height
+}
+
 // NewHelpScreen initializes help content with the available screen size.
 func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.CustomCommand, thm *theme.Theme, showIcons bool) *HelpScreen {
 	helpTextTemplate := `{{HELP_TITLE}}LazyWorktree Help Guide
@@ -136,6 +159,9 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 **{{HELP_BACKGROUND_REFRESH}}Background Refresh**
 - Configured via auto_refresh and refresh_interval in the configuration file
 
+**{{HELP_TIPS}}Tips & Shortcuts**
+{{HELP_TIP_LINES}}
+
 **{{HELP_FILTERING_SEARCH}}Filtering & Search**
 - f: Filter focused pane
 - Selection menus: press f to show the filter, Esc returns to the list
@@ -166,6 +192,8 @@ Search Mode:
 
 - Ctrl+D / Ctrl+U: Scroll half page down / up `
 
+	helpTipLines := strings.Join(HelpTips(), "\n")
+
 	replacer := strings.NewReplacer(
 		"{{HELP_TITLE}}", iconPrefix(UIIconHelpTitle, showIcons),
 		"{{HELP_NAV}}", iconPrefix(UIIconNavigation, showIcons),
@@ -178,13 +206,14 @@ Search Mode:
 		"{{HELP_VIEWING_TOOLS}}", iconPrefix(UIIconViewingTools, showIcons),
 		"{{HELP_REPO_OPS}}", iconPrefix(UIIconRepoOps, showIcons),
 		"{{HELP_BACKGROUND_REFRESH}}", iconPrefix(UIIconBackgroundRefresh, showIcons),
+		"{{HELP_TIPS}}", iconPrefix(UIIconTip, showIcons),
+		"{{HELP_TIP_LINES}}", helpTipLines,
 		"{{HELP_FILTERING_SEARCH}}", iconPrefix(UIIconFilterSearch, showIcons),
 		"{{HELP_STATUS_INDICATORS}}", iconPrefix(UIIconStatusIndicators, showIcons),
 		"{{HELP_HELP_NAVIGATION}}", iconPrefix(UIIconHelpNavigation, showIcons),
 		"{{HELP_SHELL_COMPLETION}}", iconPrefix(UIIconShellCompletion, showIcons),
 		"{{HELP_CONFIGURATION}}", iconPrefix(UIIconConfiguration, showIcons),
 		"{{HELP_ICON_CONFIGURATION}}", iconPrefix(UIIconIconConfiguration, showIcons),
-		"{{HELP_TIP}}", iconPrefix(UIIconTip, showIcons),
 		"{{STATUS_CLEAN}}", statusIndicator(true, showIcons),
 		"{{STATUS_DIRTY}}", statusIndicator(false, showIcons),
 		"{{STATUS_AHEAD}}", aheadIndicator(showIcons),
@@ -213,14 +242,7 @@ Search Mode:
 		}
 	}
 
-	width := 80
-	height := 30
-	if maxWidth > 0 {
-		width = minInt(100, maxInt(60, int(float64(maxWidth)*0.75)))
-	}
-	if maxHeight > 0 {
-		height = minInt(40, maxInt(20, int(float64(maxHeight)*0.7)))
-	}
+	width, height := helpDimensions(maxWidth, maxHeight)
 
 	vp := viewport.New(width, maxInt(5, height-3))
 	fullLines := strings.Split(helpText, "\n")
@@ -328,14 +350,7 @@ func (s *HelpScreen) refreshContent() {
 
 // SetSize updates the help screen dimensions (useful on terminal resize).
 func (s *HelpScreen) SetSize(maxWidth, maxHeight int) {
-	width := 80
-	height := 30
-	if maxWidth > 0 {
-		width = minInt(100, maxInt(60, int(float64(maxWidth)*0.75)))
-	}
-	if maxHeight > 0 {
-		height = minInt(40, maxInt(20, int(float64(maxHeight)*0.7)))
-	}
+	width, height := helpDimensions(maxWidth, maxHeight)
 	s.Width = width
 	s.Height = height
 

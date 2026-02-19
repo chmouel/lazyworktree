@@ -378,7 +378,7 @@ func TestNewConfirmScreenWithDefault(t *testing.T) {
 
 func TestNewLoadingScreen(t *testing.T) {
 	thm := theme.Dracula()
-	screen := appscreen.NewLoadingScreen("Loading data...", thm, appscreen.DefaultSpinnerFrames())
+	screen := appscreen.NewLoadingScreen("Loading data...", appscreen.TipOperationGeneral, thm, appscreen.DefaultSpinnerFrames(), false)
 
 	if screen.Message != "Loading data..." {
 		t.Errorf("expected message 'Loading data...', got %q", screen.Message)
@@ -399,7 +399,7 @@ func TestNewLoadingScreen(t *testing.T) {
 
 func TestLoadingScreenTick(t *testing.T) {
 	thm := theme.Dracula()
-	screen := appscreen.NewLoadingScreen("Loading...", thm, appscreen.DefaultSpinnerFrames())
+	screen := appscreen.NewLoadingScreen("Loading...", appscreen.TipOperationGeneral, thm, appscreen.DefaultSpinnerFrames(), false)
 
 	// Initial state
 	if screen.FrameIdx != 0 || screen.BorderColorIdx != 0 {
@@ -425,7 +425,7 @@ func TestLoadingScreenTick(t *testing.T) {
 
 func TestLoadingScreenView(t *testing.T) {
 	thm := theme.Dracula()
-	screen := appscreen.NewLoadingScreen("Fetching PR data...", thm, appscreen.DefaultSpinnerFrames())
+	screen := appscreen.NewLoadingScreen("Fetching PR data...", appscreen.TipOperationFetch, thm, appscreen.DefaultSpinnerFrames(), false)
 
 	view := screen.View()
 
@@ -452,22 +452,22 @@ func TestLoadingScreenTipTruncation(t *testing.T) {
 	// Create a screen and manually set a very long tip
 	screen := &appscreen.LoadingScreen{
 		Message:       "Loading...",
-		Tip:           "This is an extremely long tip that should definitely be truncated because it exceeds the maximum allowed length for display in the modal",
+		Tip:           strings.Repeat("very long tip segment ", 12),
 		Thm:           thm,
 		SpinnerFrames: appscreen.DefaultSpinnerFrames(),
 	}
 
 	view := screen.View()
 
-	// The tip should be truncated and end with "..."
-	if !strings.Contains(view, "...") {
+	// The tip should be truncated and end with an ellipsis.
+	if !strings.Contains(view, "…") {
 		t.Error("expected long tip to be truncated with ellipsis")
 	}
 }
 
 func TestLoadingScreenBorderColors(t *testing.T) {
 	thm := theme.Dracula()
-	screen := appscreen.NewLoadingScreen("Loading...", thm, appscreen.DefaultSpinnerFrames())
+	screen := appscreen.NewLoadingScreen("Loading...", appscreen.TipOperationGeneral, thm, appscreen.DefaultSpinnerFrames(), false)
 
 	colors := screen.LoadingBorderColours()
 	if len(colors) != 4 {
@@ -479,5 +479,41 @@ func TestLoadingScreenBorderColors(t *testing.T) {
 	}
 	if colors[3] != thm.Accent {
 		t.Error("expected last color to be accent")
+	}
+}
+
+func TestSelectLoadingTipContextual(t *testing.T) {
+	tip := appscreen.SelectLoadingTip(appscreen.TipOperationRerun, "")
+	if tip.ID == "" {
+		t.Fatal("expected a tip to be selected")
+	}
+	if !strings.Contains(strings.ToLower(tip.Text), "ci") {
+		t.Fatalf("expected rerun tip to be CI-related, got %q", tip.Text)
+	}
+}
+
+func TestSelectLoadingTipAvoidsImmediateRepeat(t *testing.T) {
+	tip := appscreen.SelectLoadingTip(appscreen.TipOperationGeneral, "help")
+	if tip.ID == "help" {
+		t.Fatalf("expected selected tip to avoid immediate repeat, got %q", tip.ID)
+	}
+}
+
+func TestTipOperationFromContext(t *testing.T) {
+	if got := appscreen.TipOperationFromContext("sync", ""); got != appscreen.TipOperationSync {
+		t.Fatalf("expected sync operation, got %q", got)
+	}
+	if got := appscreen.TipOperationFromContext("", "Fetching remotes..."); got != appscreen.TipOperationFetch {
+		t.Fatalf("expected fetch operation, got %q", got)
+	}
+}
+
+func TestHelpTips(t *testing.T) {
+	lines := appscreen.HelpTips()
+	if len(lines) == 0 {
+		t.Fatal("expected at least one help tip")
+	}
+	if !strings.HasPrefix(lines[0], "- ") {
+		t.Fatalf("expected help tip lines to be bullet points, got %q", lines[0])
 	}
 }
