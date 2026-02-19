@@ -96,7 +96,7 @@ When CI checks are displayed in the info panel:
 - Note viewer: j/k scroll, Ctrl+D/Ctrl+U half-page, g/G top/bottom, e edit, q/Esc close
 - Note editor: Ctrl+S saves, Enter adds a new line, Esc cancels
 - T: Open Taskboard (grouped by worktree from markdown checkbox notes)
-- Taskboard: Enter/Space toggles selected checkbox task, f filters tasks, q/Esc closes
+- Taskboard: a adds a new task, Enter/Space toggles selected checkbox task, f filters tasks, q/Esc closes
 - Worktrees with non-empty notes show a note marker beside the name
 - worktree_notes_path can store notes in one shared JSON file with repo-relative keys for easier synchronisation
 - In the Info pane, notes render Markdown for headings, bold text, inline code, lists, quotes, links, and fenced code blocks

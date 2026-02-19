@@ -43,6 +43,9 @@ type TaskboardScreen struct {
 
 	OnToggle func(itemID string) tea.Cmd
 	OnClose  func() tea.Cmd
+	OnAdd    func(worktreePath string) tea.Cmd
+
+	DefaultWorktreePath string
 }
 
 // NewTaskboardScreen creates a grouped taskboard modal.
@@ -113,6 +116,11 @@ func (s *TaskboardScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 
 	if !s.FilterActive {
 		switch keyStr {
+		case "a":
+			if s.OnAdd != nil {
+				return s, s.OnAdd(s.currentWorktreePath())
+			}
+			return s, nil
 		case "f":
 			s.FilterActive = true
 			s.FilterInput.Focus()
@@ -226,7 +234,7 @@ func (s *TaskboardScreen) View() string {
 	if s.FilterActive {
 		filterLine = fmt.Sprintf("%s %s", filterLabelStyle.Render("Filter:"), filterValueStyle.Render(s.FilterInput.View()))
 	}
-	footerHelp := "f filter • Enter/Space toggle • j/k move • q close"
+	footerHelp := "a add • f filter • Enter/Space toggle • j/k move • q close"
 	if s.FilterActive {
 		footerHelp = "Type to filter • Enter apply • Esc stop filter • q close"
 	}
@@ -266,6 +274,18 @@ func (s *TaskboardScreen) toggleSelected() tea.Cmd {
 		return s.OnToggle(item.ID)
 	}
 	return nil
+}
+
+func (s *TaskboardScreen) currentWorktreePath() string {
+	if s.Cursor >= 0 && s.Cursor < len(s.Filtered) && s.Filtered[s.Cursor].WorktreePath != "" {
+		return s.Filtered[s.Cursor].WorktreePath
+	}
+	for _, item := range s.Filtered {
+		if item.WorktreePath != "" {
+			return item.WorktreePath
+		}
+	}
+	return s.DefaultWorktreePath
 }
 
 func (s *TaskboardScreen) flipTaskState(taskID string) {

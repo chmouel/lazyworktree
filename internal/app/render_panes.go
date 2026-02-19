@@ -41,7 +41,7 @@ var annotationKeywordSpecs = []annotationKeywordSpec{
 	{
 		Canonical: "TODO_CHECKBOX",
 		Aliases:   []string{"TODO_CHECKBOX"},
-		NerdIcon:  " TODO", // U+F0131, checkbox blank circle outline
+		NerdIcon:  " TODO", // U+F0131, checkbox blank circle outline
 		TextIcon:  "[ ]",
 	},
 	{
@@ -133,14 +133,12 @@ func (m *Model) annotationKeywordStyle(spec annotationKeywordSpec) lipgloss.Styl
 		return style.Foreground(m.theme.ErrorFg)
 	case "WARN", "HACK":
 		return style.Foreground(m.theme.WarnFg)
-	case "TODO":
-		return style.Foreground(m.theme.Cyan)
 	case "DONE":
 		return style.Foreground(m.theme.SuccessFg)
-	case "TODO_CHECKBOX":
+	case "TODO", "TODO_CHECKBOX":
 		return style.Foreground(m.theme.WarnFg)
 	case "DONE_CHECKBOX":
-		return style.Foreground(m.theme.SuccessFg).Strikethrough(true).Bold(false)
+		return style.Foreground(m.theme.SuccessFg)
 	case "NOTE":
 		return style.Foreground(m.theme.SuccessFg)
 	case "PERF", "TEST":
@@ -158,6 +156,7 @@ func (m *Model) renderAnnotationKeywords(line string, valueStyle lipgloss.Style)
 
 	var b strings.Builder
 	last := 0
+	var lastSpec *annotationKeywordSpec
 	for _, idx := range matches {
 		if len(idx) < 6 {
 			continue
@@ -171,7 +170,11 @@ func (m *Model) renderAnnotationKeywords(line string, valueStyle lipgloss.Style)
 		colonEnd := idx[5]
 
 		if matchStart > last {
-			b.WriteString(valueStyle.Render(line[last:matchStart]))
+			if lastSpec != nil && lastSpec.Canonical == "DONE" {
+				b.WriteString(lipgloss.NewStyle().Foreground(m.theme.MutedFg).Strikethrough(true).Render(line[last:matchStart]))
+			} else {
+				b.WriteString(valueStyle.Render(line[last:matchStart]))
+			}
 		}
 
 		alias := line[kwStart:kwEnd]
@@ -187,11 +190,16 @@ func (m *Model) renderAnnotationKeywords(line string, valueStyle lipgloss.Style)
 			token += ":"
 		}
 		b.WriteString(m.annotationKeywordStyle(spec).Render(token))
+		lastSpec = &spec
 		last = matchEnd
 	}
 
 	if last < len(line) {
-		b.WriteString(valueStyle.Render(line[last:]))
+		if lastSpec != nil && lastSpec.Canonical == "DONE" {
+			b.WriteString(lipgloss.NewStyle().Foreground(m.theme.MutedFg).Strikethrough(true).Render(line[last:]))
+		} else {
+			b.WriteString(valueStyle.Render(line[last:]))
+		}
 	}
 	return b.String()
 }
@@ -431,7 +439,15 @@ func (m *Model) renderMarkdownNoteLines(noteText string, valueStyle lipgloss.Sty
 			icon := m.annotationKeywordIcon(spec)
 			style := m.annotationKeywordStyle(spec)
 			indentStr := strings.Repeat("  ", indent)
-			styledLine := style.Render(iconWithSpace(icon) + text)
+
+			iconPart := style.Render(iconWithSpace(icon))
+			var textPart string
+			if checked {
+				textPart = lipgloss.NewStyle().Foreground(m.theme.MutedFg).Strikethrough(true).Render(text)
+			} else {
+				textPart = valueStyle.Render(text)
+			}
+			styledLine := iconPart + textPart
 
 			rendered = append(rendered, "  "+indentStr+styledLine)
 			continue

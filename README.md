@@ -182,7 +182,8 @@ whilst lowercase tags remain unchanged.
 Press `T` to open Taskboard, a Kanban-lite view grouped by worktree. Taskboard
 collects only markdown checkbox items from notes (for example, `- [ ] draft
 release notes` and `- [x] update changelog`). Use `j`/`k` to move, `Enter` or
-`Space` to toggle completion, `f` to filter, and `q`/`Esc` to close.
+`Space` to toggle completion, `a` to add a new task, `f` to filter, and
+`q`/`Esc` to close.
 
 **Log Pane** (when focused on commit log):
 
@@ -868,18 +869,19 @@ lazyworktree exec --key=t
 ```
 
 The `exec` command:
-- Uses `--workspace` (or `-w`) to specify the target worktree by name or path
-- Auto-detects the worktree from the current directory if `--workspace` is not provided
-- Accepts either a shell command as a positional argument, or `--key` to trigger a custom command
-- Sets `WORKTREE_*` environment variables (same as custom commands in the TUI)
-- Supports all custom command types: shell, tmux, zellij, and show-output
-- Note: `new-tab` commands are not supported in CLI mode
+
+* Uses `--workspace` (or `-w`) to specify the target worktree by name or path
+* Auto-detects the worktree from the current directory if `--workspace` is not provided
+* Accepts either a shell command as a positional argument, or `--key` to trigger a custom command
+* Sets `WORKTREE_*` environment variables (same as custom commands in the TUI)
+* Supports all custom command types: shell, tmux, zellij, and show-output
+* Note: `new-tab` commands are not supported in CLI mode
 
 ## Screenshots
 
-### Light Theme (dracula-light theme)
+### TODO List (dracula)
 
-<img width="3730" height="2484" alt="image" src="https://github.com/user-attachments/assets/ab19a23a-852c-46c3-a6f4-a27d8519f89a" />
+<img width="3730" height="2484" alt="image" src="./website/assets/screenshot-todolist.png" />
 
 ### Command Palette (nord)
 
@@ -900,6 +902,10 @@ The `exec` command:
 ### Create a branch from a Issue (clean-light)
 
 <https://github.com/user-attachments/assets/a733b95f-cd11-48a9-be58-810866aff1a2>
+
+### Light Theme (dracula-light theme)
+
+<img width="3730" height="2484" alt="image" src="https://github.com/user-attachments/assets/ab19a23a-852c-46c3-a6f4-a27d8519f89a" />
 
 ## How does it compare?
 

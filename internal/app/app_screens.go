@@ -38,7 +38,11 @@ func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.ui.screenManager.Pop()
 		}
 	} else {
-		m.state.ui.screenManager.Set(scr)
+		// Only update if the current screen hasn't already changed (e.g. a
+		// callback pushed a new screen via screenManager.Push).
+		if m.state.ui.screenManager.Current() == current {
+			m.state.ui.screenManager.Set(scr)
+		}
 	}
 	return m, cmd
 }

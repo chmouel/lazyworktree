@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -28,10 +29,6 @@ type worktreeTaskRef struct {
 
 func (m *Model) showTaskboard() tea.Cmd {
 	items, refs := m.buildTaskboardData()
-	if len(items) == 0 {
-		m.showInfo("No tasks found.\n\nPress i on a worktree and add markdown checkboxes such as:\n- [ ] Review commit log", nil)
-		return nil
-	}
 
 	taskboard := appscreen.NewTaskboardScreen(
 		items,
@@ -40,6 +37,15 @@ func (m *Model) showTaskboard() tea.Cmd {
 		m.state.view.WindowHeight,
 		m.theme,
 	)
+
+	if len(items) == 0 {
+		taskboard.NoResults = "No tasks yet — press a to add one."
+	}
+
+	// Set default worktree path from the currently selected worktree.
+	if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
+		taskboard.DefaultWorktreePath = m.state.data.filteredWts[m.state.data.selectedIndex].Path
+	}
 
 	taskboard.OnToggle = func(itemID string) tea.Cmd {
 		ref, ok := refs[itemID]
@@ -62,6 +68,26 @@ func (m *Model) showTaskboard() tea.Cmd {
 	}
 	taskboard.OnClose = func() tea.Cmd {
 		return nil
+	}
+	taskboard.OnAdd = func(worktreePath string) tea.Cmd {
+		inputScr := appscreen.NewInputScreen("Add task", "Describe the task…", "", m.theme, m.config.IconsEnabled())
+		inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
+			text := strings.TrimSpace(value)
+			if text == "" {
+				return nil
+			}
+			m.appendTaskToWorktreeNote(worktreePath, text)
+			m.updateTable()
+			if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
+				m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+			}
+			nextItems, nextRefs := m.buildTaskboardData()
+			refs = nextRefs
+			taskboard.SetItems(nextItems, "")
+			return nil
+		}
+		m.state.ui.screenManager.Push(inputScr)
+		return textinput.Blink
 	}
 
 	m.state.ui.screenManager.Push(taskboard)
@@ -206,6 +232,17 @@ func (m *Model) toggleTaskInWorktreeNote(ref worktreeTaskRef) bool {
 	}
 	m.setWorktreeNote(ref.WorktreePath, next)
 	return true
+}
+
+func (m *Model) appendTaskToWorktreeNote(path, text string) {
+	note, ok := m.getWorktreeNote(path)
+	var updated string
+	if ok && strings.TrimSpace(note.Note) != "" {
+		updated = strings.TrimRight(note.Note, "\n") + "\n- [ ] " + text
+	} else {
+		updated = "- [ ] " + text
+	}
+	m.setWorktreeNote(path, updated)
 }
 
 func toggleMarkdownTaskLine(noteText string, lineIndex int) (string, bool) {

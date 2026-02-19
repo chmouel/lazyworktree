@@ -137,3 +137,65 @@ func TestTaskboardScreenNoResultsView(t *testing.T) {
 		t.Fatalf("expected empty-state message in view, got %q", view)
 	}
 }
+
+func TestTaskboardScreenAddKeyTriggersOnAdd(t *testing.T) {
+	s := NewTaskboardScreen(testTaskboardItems(), "Taskboard", 120, 40, theme.Dracula())
+	called := false
+	var calledPath string
+	s.OnAdd = func(worktreePath string) tea.Cmd {
+		called = true
+		calledPath = worktreePath
+		return nil
+	}
+
+	// Cursor starts at index 1 (first task in wt-a)
+	next, _ := s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	if next == nil {
+		t.Fatal("expected screen to remain active")
+	}
+	if !called {
+		t.Fatal("expected OnAdd callback to be called")
+	}
+	if calledPath != "/tmp/wt-a" {
+		t.Fatalf("expected worktree path /tmp/wt-a, got %q", calledPath)
+	}
+}
+
+func TestTaskboardScreenAddKeyNoopWithoutCallback(t *testing.T) {
+	s := NewTaskboardScreen(testTaskboardItems(), "Taskboard", 120, 40, theme.Dracula())
+	next, cmd := s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	if next == nil {
+		t.Fatal("expected screen to remain active")
+	}
+	if cmd != nil {
+		t.Fatal("expected nil command when OnAdd is nil")
+	}
+}
+
+func TestTaskboardScreenEmptyListUsesDefaultWorktreePath(t *testing.T) {
+	s := NewTaskboardScreen(nil, "Taskboard", 120, 40, theme.Dracula())
+	s.DefaultWorktreePath = "/tmp/default-wt"
+	called := false
+	var calledPath string
+	s.OnAdd = func(worktreePath string) tea.Cmd {
+		called = true
+		calledPath = worktreePath
+		return nil
+	}
+
+	s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	if !called {
+		t.Fatal("expected OnAdd callback to be called on empty list")
+	}
+	if calledPath != "/tmp/default-wt" {
+		t.Fatalf("expected default worktree path /tmp/default-wt, got %q", calledPath)
+	}
+}
+
+func TestTaskboardScreenAddFooterHelpText(t *testing.T) {
+	s := NewTaskboardScreen(testTaskboardItems(), "Taskboard", 120, 40, theme.Dracula())
+	view := s.View()
+	if !strings.Contains(view, "a add") {
+		t.Fatal("expected footer to contain 'a add'")
+	}
+}

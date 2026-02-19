@@ -64,20 +64,22 @@ func TestToggleMarkdownTaskLinePreservesFormatting(t *testing.T) {
 	}
 }
 
-func TestShowTaskboardNoTasksShowsInfo(t *testing.T) {
+func TestShowTaskboardNoTasksShowsTaskboard(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
 	m.state.data.worktrees = []*models.WorktreeInfo{
 		{Path: "/tmp/wt-a", Branch: "feat-a"},
 	}
+	m.state.data.filteredWts = m.state.data.worktrees
+	m.state.data.selectedIndex = 0
 	m.setWorktreeNote("/tmp/wt-a", "Just prose, no checkboxes.")
 
 	cmd := m.showTaskboard()
 	if cmd != nil {
 		t.Fatal("expected nil command for no-task flow")
 	}
-	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInfo {
-		t.Fatalf("expected info screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeTaskboard {
+		t.Fatalf("expected taskboard screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
 	}
 }
 
@@ -306,5 +308,95 @@ func TestHandleBuiltInKeyTaskboardShortcut(t *testing.T) {
 	_, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
 	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeTaskboard {
 		t.Fatalf("expected taskboard screen on T shortcut, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+}
+
+func TestTaskboardAddKeyOpensInputScreen(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wtPath := "/tmp/wt-add"
+	m.state.data.worktrees = []*models.WorktreeInfo{{Path: wtPath, Branch: "feat-a"}}
+	m.state.data.filteredWts = m.state.data.worktrees
+	m.state.data.selectedIndex = 0
+	m.setWorktreeNote(wtPath, "- [ ] Existing task")
+
+	cmd := m.showTaskboard()
+	if cmd != nil {
+		t.Fatalf("expected nil command, got %v", cmd)
+	}
+	if m.state.ui.screenManager.Type() != appscreen.TypeTaskboard {
+		t.Fatalf("expected taskboard screen, got %v", m.state.ui.screenManager.Type())
+	}
+
+	// Press 'a' — should push an InputScreen on top of the taskboard.
+	updated, _ := m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	m = updated.(*Model)
+
+	if !m.state.ui.screenManager.IsActive() {
+		t.Fatal("expected screen manager to be active after pressing 'a'")
+	}
+	if m.state.ui.screenManager.Type() != appscreen.TypeInput {
+		t.Fatalf("expected InputScreen on top after pressing 'a', got %v", m.state.ui.screenManager.Type())
+	}
+}
+
+func TestAppendTaskToWorktreeNoteNewNote(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wtPath := "/tmp/wt-new"
+
+	m.appendTaskToWorktreeNote(wtPath, "Write tests")
+
+	note, ok := m.getWorktreeNote(wtPath)
+	if !ok {
+		t.Fatal("expected note to exist after append")
+	}
+	if note.Note != "- [ ] Write tests" {
+		t.Fatalf("expected '- [ ] Write tests', got %q", note.Note)
+	}
+}
+
+func TestAppendTaskToWorktreeNoteExistingNote(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wtPath := "/tmp/wt-existing"
+	m.setWorktreeNote(wtPath, "## Notes\n- [ ] First task")
+
+	m.appendTaskToWorktreeNote(wtPath, "Second task")
+
+	note, ok := m.getWorktreeNote(wtPath)
+	if !ok {
+		t.Fatal("expected note to exist after append")
+	}
+	lines := strings.Split(note.Note, "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d: %q", len(lines), note.Note)
+	}
+	if lines[0] != "## Notes" {
+		t.Fatalf("expected heading preserved, got %q", lines[0])
+	}
+	if lines[2] != "- [ ] Second task" {
+		t.Fatalf("expected appended task, got %q", lines[2])
+	}
+}
+
+func TestAppendTaskToWorktreeNoteTrailingNewlines(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wtPath := "/tmp/wt-trailing"
+	m.setWorktreeNote(wtPath, "- [ ] First task\n\n")
+
+	m.appendTaskToWorktreeNote(wtPath, "Second task")
+
+	note, ok := m.getWorktreeNote(wtPath)
+	if !ok {
+		t.Fatal("expected note to exist after append")
+	}
+	// Should not have double blank lines
+	if strings.Contains(note.Note, "\n\n\n") {
+		t.Fatalf("expected no triple newlines, got %q", note.Note)
+	}
+	if !strings.HasSuffix(note.Note, "- [ ] Second task") {
+		t.Fatalf("expected note to end with appended task, got %q", note.Note)
 	}
 }
