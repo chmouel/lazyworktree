@@ -34,6 +34,7 @@ as emacs!).
 * Command palette with MRU-based navigation.
 * Custom commands: define keybindings, tmux/zellij layouts, and per-repo workflows.
 * Init/terminate hooks via `.wt` files with TOFU security.
+* Simple per-worktree notes and todo editor with markdown support and external editor integration.
 * Taskboard: view markdown checkbox tasks grouped by worktree and toggle completion.
 * Shell integration: jump into worktrees and return to the last-used one.
 * Automatic branch naming via scripts (e.g., LLM tools).
