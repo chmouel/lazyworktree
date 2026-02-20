@@ -91,8 +91,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	keyStr := msg.String()
-	switch keyStr {
-	case keyEnter:
+	if keyStr == keyEnter {
 		m.state.view.ShowingSearch = false
 		m.state.ui.filterInput.Blur()
 		m.restoreFocusAfterSearch()
