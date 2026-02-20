@@ -12,7 +12,7 @@ Shell integration scripts are available for Bash, Zsh, and Fish.
 # Add to .bashrc
 source /path/to/lazyworktree/shell/functions.bash
 
-jt() { worktree_jump ~/path/to/your/main/repo "$@"; }
+jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
 ```
 
 **Option B:** Download the helper:
@@ -24,7 +24,7 @@ curl -sL https://raw.githubusercontent.com/chmouel/lazyworktree/refs/heads/main/
 # Add to .bashrc
 source ~/.shell/functions/lazyworktree.bash
 
-jt() { worktree_jump ~/path/to/your/main/repo "$@"; }
+jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
 ```
 
 **With completion:**
@@ -32,15 +32,15 @@ jt() { worktree_jump ~/path/to/your/main/repo "$@"; }
 ```bash
 source /path/to/lazyworktree/shell/functions.bash
 
-jt() { worktree_jump ~/path/to/your/main/repo "$@"; }
-_jt() { _worktree_jump ~/path/to/your/main/repo; }
+jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
+_jt() { _worktree_jump $(git rev-parse --show-toplevel); }
 complete -o nospace -F _jt jt
 ```
 
 To add a shortcut to the last-selected worktree:
 
 ```bash
-alias pl='worktree_go_last ~/path/to/your/main/repo'
+alias pl='worktree_go_last $(git rev-parse --show-toplevel)'
 ```
 
 ## Zsh
@@ -51,7 +51,7 @@ alias pl='worktree_go_last ~/path/to/your/main/repo'
 # Add to .zshrc
 source /path/to/lazyworktree/shell/functions.zsh
 
-jt() { worktree_jump ~/path/to/your/main/repo "$@"; }
+jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
 ```
 
 **Option B:** Download the helper:
@@ -63,7 +63,7 @@ curl -sL https://raw.githubusercontent.com/chmouel/lazyworktree/refs/heads/main/
 # Add to .zshrc
 source ~/.shell/functions/lazyworktree.zsh
 
-jt() { worktree_jump ~/path/to/your/main/repo "$@"; }
+jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
 ```
 
 **With completion:**
@@ -71,15 +71,15 @@ jt() { worktree_jump ~/path/to/your/main/repo "$@"; }
 ```bash
 source /path/to/lazyworktree/shell/functions.zsh
 
-jt() { worktree_jump ~/path/to/your/main/repo "$@"; }
-_jt() { _worktree_jump ~/path/to/your/main/repo; }
+jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
+_jt() { _worktree_jump $(git rev-parse --show-toplevel); }
 compdef _jt jt
 ```
 
 To add a shortcut to the last-selected worktree:
 
 ```bash
-alias pl='worktree_go_last ~/path/to/your/main/repo'
+alias pl='worktree_go_last $(git rev-parse --show-toplevel)'
 ```
 
 ## Fish
@@ -91,7 +91,7 @@ alias pl='worktree_go_last ~/path/to/your/main/repo'
 source /path/to/lazyworktree/shell/functions.fish
 
 function jt
-    worktree_jump ~/path/to/your/main/repo $argv
+    worktree_jump $(git rev-parse --show-toplevel) $argv
 end
 ```
 
@@ -103,7 +103,7 @@ curl -sL https://raw.githubusercontent.com/chmouel/lazyworktree/refs/heads/main/
 
 # Add to ~/.config/fish/config.fish
 function jt
-    worktree_jump ~/path/to/your/main/repo $argv
+    worktree_jump $(git rev-parse --show-toplevel) $argv
 end
 ```
 
@@ -113,17 +113,17 @@ end
 source /path/to/lazyworktree/shell/functions.fish
 
 function jt
-    worktree_jump ~/path/to/your/main/repo $argv
+    worktree_jump $(git rev-parse --show-toplevel) $argv
 end
 
-complete -c jt -f -a '(_worktree_jump ~/path/to/your/main/repo)'
+complete -c jt -f -a '(_worktree_jump $(git rev-parse --show-toplevel))'
 ```
 
 To add a shortcut to the last-selected worktree:
 
 ```fish
 function pl
-    worktree_go_last ~/path/to/your/main/repo
+    worktree_go_last $(git rev-parse --show-toplevel)
 end
 ```
 
