@@ -2666,15 +2666,13 @@ func TestHandleCachedWorktreesIgnoredWhenLoaded(t *testing.T) {
 }
 
 func TestHandleCachedWorktreesFiltersStaleEntries(t *testing.T) {
-	requireGitRepo(t)
-
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
+	validPath := filepath.Join(cfg.WorktreeDir, "main")
+	mockGitWorktreeList(t, m, validPath)
 
-	// Create cached worktrees with paths that don't exist in git
-	// When git service is active, validation filters out invalid entries
-	// Since we're in a real git repo, the fake paths will be filtered out
 	wts := []*models.WorktreeInfo{
+		{Path: validPath, Branch: "main"},
 		{Path: "/nonexistent/path1", Branch: "branch1"},
 		{Path: "/nonexistent/path2", Branch: "branch2"},
 	}
@@ -2683,29 +2681,19 @@ func TestHandleCachedWorktreesFiltersStaleEntries(t *testing.T) {
 	updated, _ := m.handleCachedWorktrees(msg)
 	updatedModel := updated.(*Model)
 
-	// In a real git repo, fake paths are filtered out
-	if len(updatedModel.state.data.worktrees) != 0 {
-		t.Fatalf("expected 0 worktrees (filtered out), got %d", len(updatedModel.state.data.worktrees))
+	if len(updatedModel.state.data.worktrees) != 1 {
+		t.Fatalf("expected 1 worktree after stale filtering, got %d", len(updatedModel.state.data.worktrees))
+	}
+	if updatedModel.state.data.worktrees[0].Path != validPath {
+		t.Fatalf("expected retained worktree path %q, got %q", validPath, updatedModel.state.data.worktrees[0].Path)
 	}
 }
 
 func TestHandleCachedWorktreesNormalisesPaths(t *testing.T) {
-	requireGitRepo(t)
-
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-
-	validPaths := m.getValidWorktreePaths()
-	if len(validPaths) == 0 {
-		t.Skip("no git worktrees detected")
-	}
-
-	var repoPath string
-	for path := range validPaths {
-		repoPath = path
-		break
-	}
-
+	repoPath := filepath.Join(cfg.WorktreeDir, "main")
+	mockGitWorktreeList(t, m, repoPath)
 	dirtyPath := repoPath + string(os.PathSeparator)
 	msg := cachedWorktreesMsg{worktrees: []*models.WorktreeInfo{
 		{Path: dirtyPath, Branch: "main"},

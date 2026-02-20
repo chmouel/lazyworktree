@@ -1,30 +1,37 @@
 package app
 
 import (
-	"bytes"
+	"context"
+	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
 )
 
-func hasGitRepo(t *testing.T) bool {
+func mockGitWorktreeList(t *testing.T, m *Model, paths ...string) {
 	t.Helper()
-	if _, err := exec.LookPath("git"); err != nil {
-		return false
+	if m.state.services.git == nil {
+		t.Fatal("git service must be initialised for mock setup")
 	}
-	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-	if err := cmd.Run(); err != nil {
-		return false
-	}
-	return strings.TrimSpace(out.String()) == "true"
+
+	porcelain := gitWorktreeListPorcelain(paths...)
+	m.state.services.git.SetCommandRunner(func(_ context.Context, name string, args ...string) *exec.Cmd {
+		cmd := strings.Join(append([]string{name}, args...), " ")
+		if cmd == "git worktree list --porcelain" {
+			// #nosec G204 -- test helper with controlled command and fixture output.
+			return exec.Command("bash", "-lc", "cat <<'EOF'\n"+porcelain+"EOF")
+		}
+		return exec.Command("bash", "-lc", "exit 1")
+	})
 }
 
-func requireGitRepo(t *testing.T) {
-	t.Helper()
-	if !hasGitRepo(t) {
-		t.Skip("git not available or not in a git worktree")
+func gitWorktreeListPorcelain(paths ...string) string {
+	var builder strings.Builder
+	for i, path := range paths {
+		builder.WriteString("worktree ")
+		builder.WriteString(path)
+		builder.WriteString("\n")
+		fmt.Fprintf(&builder, "branch refs/heads/test-%d\n\n", i)
 	}
+	return builder.String()
 }

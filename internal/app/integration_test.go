@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -531,52 +532,83 @@ func TestCommitScreenRawEscapeKey(t *testing.T) {
 // TestWorktreeLoadingFlow tests the complete flow from cache to loaded state
 func TestWorktreeLoadingFlow(t *testing.T) {
 	t.Parallel()
-	cfg := &config.AppConfig{
-		WorktreeDir: t.TempDir(),
-	}
-	m := NewModel(cfg, "")
-	hasRepo := hasGitRepo(t)
-	if !hasRepo {
-		m.state.services.git = nil
-	}
 
-	// First, load cached worktrees
-	cachedMsg := cachedWorktreesMsg{worktrees: []*models.WorktreeInfo{
-		{Path: "/tmp/wt1", Branch: "main"},
-	}}
-	updated, _ := m.handleCachedWorktrees(cachedMsg)
-	m = updated.(*Model)
+	t.Run("with git validation", func(t *testing.T) {
+		cfg := &config.AppConfig{
+			WorktreeDir: t.TempDir(),
+		}
+		m := NewModel(cfg, "")
+		mockGitWorktreeList(t, m, filepath.Join(cfg.WorktreeDir, "valid"))
 
-	if hasRepo {
+		cachedMsg := cachedWorktreesMsg{worktrees: []*models.WorktreeInfo{
+			{Path: "/tmp/wt1", Branch: "main"},
+		}}
+		updated, _ := m.handleCachedWorktrees(cachedMsg)
+		m = updated.(*Model)
+
 		if len(m.state.data.worktrees) != 0 {
 			t.Fatalf("expected cached worktrees to be filtered, got %d", len(m.state.data.worktrees))
 		}
-	} else {
+		if m.worktreesLoaded {
+			t.Error("expected worktreesLoaded to be false after cached load")
+		}
+
+		loadedMsg := worktreesLoadedMsg{
+			worktrees: []*models.WorktreeInfo{
+				{Path: "/tmp/wt1", Branch: "main"},
+				{Path: "/tmp/wt2", Branch: "feat"},
+			},
+			err: nil,
+		}
+		updated, _ = m.handleWorktreesLoaded(loadedMsg)
+		m = updated.(*Model)
+
+		if !m.worktreesLoaded {
+			t.Error("expected worktreesLoaded to be true after load")
+		}
+		if len(m.state.data.worktrees) != 2 {
+			t.Fatalf("expected 2 worktrees after load, got %d", len(m.state.data.worktrees))
+		}
+	})
+
+	t.Run("without git service", func(t *testing.T) {
+		cfg := &config.AppConfig{
+			WorktreeDir: t.TempDir(),
+		}
+		m := NewModel(cfg, "")
+		m.state.services.git = nil
+		m.repoKey = "test-repo"
+
+		cachedMsg := cachedWorktreesMsg{worktrees: []*models.WorktreeInfo{
+			{Path: "/tmp/wt1", Branch: "main"},
+		}}
+		updated, _ := m.handleCachedWorktrees(cachedMsg)
+		m = updated.(*Model)
+
 		if len(m.state.data.worktrees) != 1 {
 			t.Fatalf("expected cached worktrees without git validation, got %d", len(m.state.data.worktrees))
 		}
-	}
-	if m.worktreesLoaded {
-		t.Error("expected worktreesLoaded to be false after cached load")
-	}
+		if m.worktreesLoaded {
+			t.Error("expected worktreesLoaded to be false after cached load")
+		}
 
-	// Then load actual worktrees
-	loadedMsg := worktreesLoadedMsg{
-		worktrees: []*models.WorktreeInfo{
-			{Path: "/tmp/wt1", Branch: "main"},
-			{Path: "/tmp/wt2", Branch: "feat"},
-		},
-		err: nil,
-	}
-	updated, _ = m.handleWorktreesLoaded(loadedMsg)
-	m = updated.(*Model)
+		loadedMsg := worktreesLoadedMsg{
+			worktrees: []*models.WorktreeInfo{
+				{Path: "/tmp/wt1", Branch: "main"},
+				{Path: "/tmp/wt2", Branch: "feat"},
+			},
+			err: nil,
+		}
+		updated, _ = m.handleWorktreesLoaded(loadedMsg)
+		m = updated.(*Model)
 
-	if !m.worktreesLoaded {
-		t.Error("expected worktreesLoaded to be true after load")
-	}
-	if len(m.state.data.worktrees) != 2 {
-		t.Fatalf("expected 2 worktrees after load, got %d", len(m.state.data.worktrees))
-	}
+		if !m.worktreesLoaded {
+			t.Error("expected worktreesLoaded to be true after load")
+		}
+		if len(m.state.data.worktrees) != 2 {
+			t.Fatalf("expected 2 worktrees after load, got %d", len(m.state.data.worktrees))
+		}
+	})
 }
 
 // TestPRFetchingFlow tests PR data loading flow

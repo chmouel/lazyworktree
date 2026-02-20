@@ -233,8 +233,6 @@ func TestPagerCommandFallbacksToLess(t *testing.T) {
 }
 
 func TestFindOrphanedWorktreeDirs(t *testing.T) {
-	requireGitRepo(t)
-
 	// Create a temp directory structure
 	tempDir := t.TempDir()
 	repoDir := filepath.Join(tempDir, "test-repo")
@@ -264,22 +262,17 @@ func TestFindOrphanedWorktreeDirs(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.repoKey = "test-repo"
+	mockGitWorktreeList(t, m, validDir)
 
-	// When running inside a git repo, getValidWorktreePaths returns valid worktree paths
-	// The test directories we created are NOT in that list, so they are orphans
 	orphans := m.findOrphanedWorktreeDirs()
 
-	// We expect 2 orphan directories (valid-worktree and orphan-dir)
-	// .hidden-dir should be excluded, regular-file.txt should be excluded
-	if len(orphans) != 2 {
-		t.Fatalf("expected 2 orphans, got %d: %v", len(orphans), orphans)
+	// validDir is registered in mocked git output and should not be listed.
+	// .hidden-dir and regular-file.txt should be ignored as non-orphan candidates.
+	if len(orphans) != 1 {
+		t.Fatalf("expected 1 orphan, got %d: %v", len(orphans), orphans)
 	}
-
-	// Verify hidden directories are not included
-	for _, orphan := range orphans {
-		if filepath.Base(orphan) == ".hidden-dir" {
-			t.Fatal("hidden directory should not be included in orphans")
-		}
+	if orphans[0] != orphanDir {
+		t.Fatalf("expected orphan path %q, got %q", orphanDir, orphans[0])
 	}
 }
 
