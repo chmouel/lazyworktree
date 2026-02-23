@@ -1,0 +1,261 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1771817336386,
+  "projectRoot": "/home/sam/dev/git-repo/lazyworktree",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Go",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "go.mod"
+        ]
+      },
+      {
+        "name": "C/C++",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "Makefile"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "go",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "make build",
+    "testCommand": "make test",
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "Casks": {
+      "path": "Casks",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1771817336381,
+      "keyFiles": [
+        "lazyworktree.rb"
+      ]
+    },
+    "cmd": {
+      "path": "cmd",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1771817336384,
+      "keyFiles": []
+    },
+    "hack": {
+      "path": "hack",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1771817336384,
+      "keyFiles": [
+        "check-british-spelling.sh",
+        "check-no-hardcoded-colors.sh",
+        "make-release.sh",
+        "update-release-note.sh"
+      ]
+    },
+    "internal": {
+      "path": "internal",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1771817336384,
+      "keyFiles": []
+    },
+    "shell": {
+      "path": "shell",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1771817336384,
+      "keyFiles": [
+        "README.md",
+        "functions.bash",
+        "functions.fish",
+        "functions.zsh"
+      ]
+    },
+    "website": {
+      "path": "website",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1771817336385,
+      "keyFiles": [
+        "app.js",
+        "favicon.png",
+        "index.html",
+        "styles.css"
+      ]
+    },
+    "internal/app": {
+      "path": "internal/app",
+      "purpose": "Application code",
+      "fileCount": 62,
+      "lastAccessed": 1771817336385,
+      "keyFiles": [
+        "access_history_test.go",
+        "app.go",
+        "app_diff.go"
+      ]
+    },
+    "internal/config": {
+      "path": "internal/config",
+      "purpose": "Configuration files",
+      "fileCount": 5,
+      "lastAccessed": 1771817336386,
+      "keyFiles": [
+        "config.go",
+        "config_test.go",
+        "custom_themes_test.go"
+      ]
+    },
+    "internal/models": {
+      "path": "internal/models",
+      "purpose": "Data models",
+      "fileCount": 3,
+      "lastAccessed": 1771817336386,
+      "keyFiles": [
+        "models.go",
+        "models_test.go",
+        "status.go"
+      ]
+    },
+    "website/assets": {
+      "path": "website/assets",
+      "purpose": "Static assets",
+      "fileCount": 10,
+      "lastAccessed": 1771817336386,
+      "keyFiles": [
+        "ci-runs.png",
+        "logo.png",
+        "screenshot-annotations.png"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "internal/app/renderer.go",
+      "accessCount": 8,
+      "lastAccessed": 1771820185574,
+      "type": "file"
+    },
+    {
+      "path": "internal/app",
+      "accessCount": 4,
+      "lastAccessed": 1771820173316,
+      "type": "directory"
+    },
+    {
+      "path": "internal/app/render_components.go",
+      "accessCount": 2,
+      "lastAccessed": 1771817495466,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/render_panes.go",
+      "accessCount": 2,
+      "lastAccessed": 1771817496153,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/app_status_test.go",
+      "accessCount": 2,
+      "lastAccessed": 1771820177086,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/layout.go",
+      "accessCount": 1,
+      "lastAccessed": 1771817447042,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/screen/screen.go",
+      "accessCount": 1,
+      "lastAccessed": 1771817451077,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/screen/ui_helpers.go",
+      "accessCount": 1,
+      "lastAccessed": 1771817451213,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/screen/confirm.go",
+      "accessCount": 1,
+      "lastAccessed": 1771817456012,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/screen/palette.go",
+      "accessCount": 1,
+      "lastAccessed": 1771817456358,
+      "type": "file"
+    },
+    {
+      "path": "internal/theme/theme.go",
+      "accessCount": 1,
+      "lastAccessed": 1771817459274,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/screen/input.go",
+      "accessCount": 1,
+      "lastAccessed": 1771817460006,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/screen/help.go",
+      "accessCount": 1,
+      "lastAccessed": 1771817460236,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/screen/textarea.go",
+      "accessCount": 1,
+      "lastAccessed": 1771817463061,
+      "type": "file"
+    },
+    {
+      "path": "internal/app/screen/info.go",
+      "accessCount": 1,
+      "lastAccessed": 1771817463324,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 1,
+      "lastAccessed": 1771817632555,
+      "type": "directory"
+    },
+    {
+      "path": "internal/app/renderer_test.go",
+      "accessCount": 1,
+      "lastAccessed": 1771820197154,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

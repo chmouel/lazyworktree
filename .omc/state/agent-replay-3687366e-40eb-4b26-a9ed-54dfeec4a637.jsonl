@@ -1,0 +1,2 @@
+{"t":0,"agent":"a319f07","agent_type":"debugger","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a319f07","agent_type":"debugger","event":"agent_stop","success":true,"duration_ms":64883}

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"gofumpt -l -w ./internal/app/renderer.go\",\"description\":\"Run gofumpt formatter on the changed file\"}",
+  "error": "Exit code 127\n/bin/bash: line 1: gofumpt: command not found\n\n/bin/bash: line 1: gofumpt: command not found",
+  "timestamp": "2026-02-23T04:15:43.373Z",
+  "retry_count": 2
+}

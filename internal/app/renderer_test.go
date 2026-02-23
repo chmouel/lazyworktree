@@ -33,7 +33,7 @@ func TestOverlayPopupPreservesBaseWhenEmpty(t *testing.T) {
 	m := &Model{}
 
 	assert.Equal(t, "hello", m.overlayPopup("hello", "", 0))
-	assert.Equal(t, "", m.overlayPopup("", "popup", 0))
+	assert.Empty(t, m.overlayPopup("", "popup", 0))
 }
 
 func TestOverlayPopupCentresPopup(t *testing.T) {
