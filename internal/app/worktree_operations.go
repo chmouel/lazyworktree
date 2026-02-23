@@ -174,14 +174,14 @@ func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranc
 		}
 
 		// Check if worktree path already exists
-		targetPath := filepath.Join(m.getWorktreeDir(), newBranch)
+		targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
 		if _, err := os.Stat(targetPath); err == nil {
 			inputScr.ErrorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
 			return nil
 		}
 
 		inputScr.ErrorMsg = ""
-		if err := os.MkdirAll(m.getWorktreeDir(), 0o750); err != nil {
+		if err := os.MkdirAll(m.getRepoWorktreeDir(), 0o750); err != nil {
 			return func() tea.Msg { return errMsg{err: fmt.Errorf("failed to create worktree directory: %w", err)} }
 		}
 
@@ -350,7 +350,7 @@ func (m *Model) handleCreateFromCurrentReady(msg createFromCurrentReadyMsg) tea.
 			return nil
 		}
 
-		targetPath := filepath.Join(m.getWorktreeDir(), newBranch)
+		targetPath := filepath.Join(m.getRepoWorktreeDir(), newBranch)
 		if m.worktreePathExists(targetPath) {
 			inputScr.ErrorMsg = fmt.Sprintf("Path already exists: %s", targetPath)
 			return nil
@@ -395,7 +395,7 @@ func (m *Model) handleCreateFromCurrentReady(msg createFromCurrentReadyMsg) tea.
 // executeCreateWithChanges creates a worktree and moves changes from the current worktree.
 func (m *Model) executeCreateWithChanges(wt *models.WorktreeInfo, currentBranch, newBranch, targetPath string) tea.Cmd {
 	return func() tea.Msg {
-		if err := m.ensureWorktreeDir(m.getWorktreeDir()); err != nil {
+		if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
 			return errMsg{err: err}
 		}
 
@@ -469,7 +469,7 @@ func (m *Model) executeCreateWithChanges(wt *models.WorktreeInfo, currentBranch,
 // executeCreateWithoutChanges creates a worktree without moving changes.
 func (m *Model) executeCreateWithoutChanges(currentBranch, newBranch, targetPath string) tea.Cmd {
 	return func() tea.Msg {
-		if err := m.ensureWorktreeDir(m.getWorktreeDir()); err != nil {
+		if err := m.ensureWorktreeDir(m.getRepoWorktreeDir()); err != nil {
 			return errMsg{err: err}
 		}
 

@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -751,5 +752,87 @@ func TestShowCreateFromCurrentNoWorktree(t *testing.T) {
 	}
 	if errMsg.err == nil {
 		t.Error("expected error to be set")
+	}
+}
+
+func TestCreateFromCurrentTargetPathIncludesRepoKey(t *testing.T) {
+	worktreeDir := t.TempDir()
+	cfg := &config.AppConfig{WorktreeDir: worktreeDir}
+	m := NewModel(cfg, "")
+	m.repoKey = "myorg/myrepo"
+
+	worktree := &models.WorktreeInfo{Path: "/tmp/branch", Branch: "feature/x"}
+	msg := createFromCurrentReadyMsg{
+		currentWorktree:   worktree,
+		currentBranch:     "feature/x",
+		hasChanges:        false,
+		defaultBranchName: "feature-x-random",
+	}
+	m.handleCreateFromCurrentReady(msg)
+
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInput {
+		t.Fatal("expected input screen")
+	}
+	inputScr := m.state.ui.screenManager.Current().(*appscreen.InputScreen)
+
+	// Create the target path to trigger path-exists validation
+	branchName := "test-branch"
+	targetDir := filepath.Join(worktreeDir, "myorg", "myrepo", branchName)
+	if err := os.MkdirAll(targetDir, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	// Submit with the branch name that already exists on disk
+	inputScr.OnSubmit(branchName, false)
+	if !strings.Contains(inputScr.ErrorMsg, "Path already exists") {
+		t.Fatalf("expected path exists error containing org/repo layout, got %q", inputScr.ErrorMsg)
+	}
+	// Verify the error message path includes the repo key (org/repo)
+	if !strings.Contains(inputScr.ErrorMsg, filepath.Join("myorg", "myrepo")) {
+		t.Fatalf("target path should include repo key (org/repo layout), got %q", inputScr.ErrorMsg)
+	}
+}
+
+func TestCreateFromChangesTargetPathIncludesRepoKey(t *testing.T) {
+	worktreeDir := t.TempDir()
+	cfg := &config.AppConfig{WorktreeDir: worktreeDir}
+	m := NewModel(cfg, "")
+	m.repoKey = "myorg/myrepo"
+	m.setWindowSize(120, 40)
+
+	wt := &models.WorktreeInfo{
+		Path:   "/tmp/test-worktree",
+		Branch: mainWorktreeName,
+	}
+
+	msg := createFromChangesReadyMsg{
+		worktree:      wt,
+		currentBranch: mainWorktreeName,
+	}
+
+	cmd := m.handleCreateFromChangesReady(msg)
+	if cmd == nil {
+		t.Fatal("expected command")
+	}
+
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInput {
+		t.Fatal("expected input screen")
+	}
+	inputScr := m.state.ui.screenManager.Current().(*appscreen.InputScreen)
+
+	// Create the target path to trigger path-exists validation
+	branchName := "changes-branch"
+	targetDir := filepath.Join(worktreeDir, "myorg", "myrepo", branchName)
+	if err := os.MkdirAll(targetDir, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	// Submit with the branch name that already exists on disk
+	inputScr.OnSubmit(branchName, false)
+	if !strings.Contains(inputScr.ErrorMsg, "Path already exists") {
+		t.Fatalf("expected path exists error containing org/repo layout, got %q", inputScr.ErrorMsg)
+	}
+	if !strings.Contains(inputScr.ErrorMsg, filepath.Join("myorg", "myrepo")) {
+		t.Fatalf("target path should include repo key (org/repo layout), got %q", inputScr.ErrorMsg)
 	}
 }
