@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/chmouel/lazyworktree/internal/app/screen"
 )
 
@@ -85,7 +86,9 @@ func (m *Model) View() string {
 	return baseView
 }
 
-// overlayPopup overlays a popup on top of the base view.
+// overlayPopup overlays a popup on top of the base view, preserving
+// the portions of the base that fall outside the popup bounds so that
+// underlying box borders remain visible.
 func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 	if base == "" || popup == "" {
 		return base
@@ -102,9 +105,6 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 	popupWidth := lipgloss.Width(popupLines[0])
 
 	leftPad := maxInt((baseWidth-popupWidth)/2, 0)
-	leftSpace := strings.Repeat(" ", leftPad)
-	rightPad := maxInt(baseWidth-popupWidth-leftPad, 0)
-	rightSpace := strings.Repeat(" ", rightPad)
 
 	for i, line := range popupLines {
 		row := marginTop + i
@@ -112,8 +112,15 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 			break
 		}
 
-		// Main popup line
-		baseLines[row] = leftSpace + line + rightSpace
+		// Preserve left and right portions of the base line using
+		// ANSI-aware truncation so box borders stay intact.
+		leftPart := ansi.Truncate(baseLines[row], leftPad, "")
+		if w := lipgloss.Width(leftPart); w < leftPad {
+			leftPart += strings.Repeat(" ", leftPad-w)
+		}
+		rightPart := ansi.TruncateLeft(baseLines[row], leftPad+popupWidth, "")
+
+		baseLines[row] = leftPart + line + rightPart
 	}
 
 	return strings.Join(baseLines, "\n")
