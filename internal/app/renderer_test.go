@@ -51,5 +51,5 @@ func TestOverlayPopupCentresPopup(t *testing.T) {
 	// Row 0 is untouched.
 	assert.Equal(t, baseLine, lines[0])
 	// Row 1 has the popup centred: 8 dots + ABCD + 8 dots = 20.
-        assert.Equal(t, "........ABCD........", lines[1])
+	assert.Equal(t, "........ABCD........", lines[1])
 }
