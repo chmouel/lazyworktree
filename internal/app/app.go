@@ -828,6 +828,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.showInfo(message, nil)
 		return m, nil
 
+	case zellijPaneCreatedMsg:
+		m.showInfo(fmt.Sprintf("Pane added to session %q (%s).", msg.sessionName, msg.direction), nil)
+		return m, nil
+
 	case terminalTabReadyMsg:
 		if msg.err != nil {
 			m.showInfo(fmt.Sprintf("Terminal tab error: %v", msg.err), nil)

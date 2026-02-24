@@ -172,24 +172,24 @@ func TestZellijSessionReadyAttachesDirectly(t *testing.T) {
 	}
 }
 
-func TestZellijSessionReadyShowsInfoWhenInsideZellij(t *testing.T) {
+func TestZellijPaneCreatedShowsInfo(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
 
-	updated, cmd := m.Update(zellijSessionReadyMsg{sessionName: "wt_test", attach: true, insideZellij: true})
+	updated, cmd := m.Update(zellijPaneCreatedMsg{sessionName: "my-session", direction: "right"})
 	model := updated.(*Model)
 	if !model.state.ui.screenManager.IsActive() || model.state.ui.screenManager.Type() != appscreen.TypeInfo {
 		t.Fatalf("expected info screen, got active=%v type=%v", model.state.ui.screenManager.IsActive(), model.state.ui.screenManager.Type())
 	}
 	infoScr := model.state.ui.screenManager.Current().(*appscreen.InfoScreen)
 	if cmd != nil {
-		t.Fatal("expected no command when inside zellij")
+		t.Fatal("expected no command after pane creation")
 	}
-	if !strings.Contains(infoScr.Message, "zellij attach 'wt_test'") {
-		t.Errorf("expected attach message, got %q", infoScr.Message)
+	if !strings.Contains(infoScr.Message, "my-session") || !strings.Contains(infoScr.Message, "right") {
+		t.Errorf("expected pane created message with session and direction, got %q", infoScr.Message)
 	}
 }
 
@@ -729,11 +729,20 @@ func TestOpenTmuxSessionNewTabClearsTmuxEnv(t *testing.T) {
 func TestOpenZellijSession(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
 	wt := &models.WorktreeInfo{Path: t.TempDir(), Branch: "feature"}
 
 	if cmd := m.openZellijSession(nil, wt); cmd != nil {
 		t.Fatal("expected nil command for nil zellij config")
 	}
+
+	if _, err := exec.LookPath("zellij"); err != nil {
+		t.Skip("zellij not available in test environment")
+	}
+
+	// Ensure we are not inside a zellij session for this test
+	t.Setenv("ZELLIJ", "")
+	t.Setenv("ZELLIJ_SESSION_NAME", "")
 
 	badCfg := &config.TmuxCommand{SessionName: "session"}
 	if msg := m.openZellijSession(&config.CustomCommand{Zellij: badCfg}, wt)(); msg == nil {
@@ -793,5 +802,241 @@ func TestOpenZellijSession(t *testing.T) {
 	}
 	if execProcessCalled {
 		t.Fatal("execProcess must not be called when new_tab is set")
+	}
+}
+
+func TestGetAllZellijSessions(t *testing.T) {
+	tests := []struct {
+		name          string
+		mockOutput    string
+		mockErr       bool
+		expectedNames []string
+	}{
+		{
+			name:          "returns all active sessions sorted",
+			mockOutput:    "gamma\nalpha\nbeta\n",
+			expectedNames: []string{"alpha", "beta", "gamma"},
+		},
+		{
+			name:          "filters EXITED sessions",
+			mockOutput:    "active-session\nexited-one (EXITED)\nanother-active\n",
+			expectedNames: []string{"active-session", "another-active"},
+		},
+		{
+			name:          "handles empty output",
+			mockOutput:    "",
+			expectedNames: nil,
+		},
+		{
+			name:          "handles only whitespace",
+			mockOutput:    "  \n  \n",
+			expectedNames: nil,
+		},
+		{
+			name:          "handles single session",
+			mockOutput:    "my-session\n",
+			expectedNames: []string{"my-session"},
+		},
+		{
+			name:          "command fails",
+			mockErr:       true,
+			expectedNames: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+			m := NewModel(cfg, "")
+
+			m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
+				if tt.mockErr {
+					return exec.Command("false")
+				}
+				if runtime.GOOS == osWindows {
+					// #nosec G204 -- test mock data
+					return exec.Command("cmd", "/c", "echo "+tt.mockOutput)
+				}
+				// #nosec G204 -- test mock data
+				return exec.Command("printf", "%s", tt.mockOutput)
+			}
+
+			got := m.getAllZellijSessions()
+			if !reflect.DeepEqual(got, tt.expectedNames) {
+				t.Fatalf("expected %v, got %v", tt.expectedNames, got)
+			}
+		})
+	}
+}
+
+func TestShowZellijPaneSelectorSingleSession(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+	wt := &models.WorktreeInfo{Path: t.TempDir(), Branch: "feature"}
+
+	// Mock: return a single session
+	m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
+		if runtime.GOOS == osWindows {
+			return exec.Command("cmd", "/c", "echo only-session")
+		}
+		return exec.Command("printf", "%s", "only-session\n")
+	}
+
+	cmd := m.showZellijPaneSelector(wt)
+	if cmd != nil {
+		t.Fatal("expected nil command from showZellijPaneSelector")
+	}
+
+	// Should push the direction picker directly (skip session picker)
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected list selection screen (direction picker), got active=%v type=%v",
+			m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+	listScr := m.state.ui.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if listScr.Title != "Select pane direction" {
+		t.Fatalf("expected direction picker, got title %q", listScr.Title)
+	}
+	if len(listScr.Items) != 2 {
+		t.Fatalf("expected 2 direction items, got %d", len(listScr.Items))
+	}
+}
+
+func TestShowZellijPaneSelectorMultipleSessions(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+	wt := &models.WorktreeInfo{Path: t.TempDir(), Branch: "feature"}
+
+	t.Setenv("ZELLIJ_SESSION_NAME", "session-b")
+
+	// Mock: return multiple sessions
+	m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
+		if runtime.GOOS == osWindows {
+			return exec.Command("cmd", "/c", "echo session-a\nsession-b\nsession-c")
+		}
+		return exec.Command("printf", "%s", "session-a\nsession-b\nsession-c\n")
+	}
+
+	cmd := m.showZellijPaneSelector(wt)
+	if cmd != nil {
+		t.Fatal("expected nil command from showZellijPaneSelector")
+	}
+
+	// Should push the session picker
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected list selection screen (session picker), got active=%v type=%v",
+			m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+	listScr := m.state.ui.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if listScr.Title != "Select zellij session" {
+		t.Fatalf("expected session picker, got title %q", listScr.Title)
+	}
+	if len(listScr.Items) != 3 {
+		t.Fatalf("expected 3 session items, got %d", len(listScr.Items))
+	}
+	// Current session should be pre-selected
+	if listScr.Cursor != 1 {
+		t.Fatalf("expected cursor at index 1 (session-b), got %d", listScr.Cursor)
+	}
+}
+
+func TestZellijNewPaneCmdSuccess(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	var capturedArgs []string
+	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
+		capturedArgs = append([]string{name}, args...)
+		return exec.Command("true")
+	}
+
+	cmd := m.zellijNewPaneCmd("my-session", "right", "/tmp/worktree")
+	msg := cmd()
+	paneMsg, ok := msg.(zellijPaneCreatedMsg)
+	if !ok {
+		t.Fatalf("expected zellijPaneCreatedMsg, got %T: %v", msg, msg)
+	}
+	if paneMsg.sessionName != "my-session" {
+		t.Fatalf("expected session name %q, got %q", "my-session", paneMsg.sessionName)
+	}
+	if paneMsg.direction != "right" {
+		t.Fatalf("expected direction %q, got %q", "right", paneMsg.direction)
+	}
+
+	// Verify captured command arguments
+	expected := []string{"zellij", "action", "new-pane", "--direction", "right", "--cwd", "/tmp/worktree"}
+	if !reflect.DeepEqual(capturedArgs, expected) {
+		t.Fatalf("expected args %v, got %v", expected, capturedArgs)
+	}
+}
+
+func TestOpenZellijSessionZellijNotInstalled(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+	wt := &models.WorktreeInfo{Path: t.TempDir(), Branch: "feature"}
+
+	// Override PATH so zellij cannot be found
+	t.Setenv("PATH", t.TempDir())
+
+	zellijCfg := &config.TmuxCommand{
+		SessionName: "session",
+		Windows:     []config.TmuxWindow{{Name: "shell"}},
+	}
+	cmd := m.openZellijSession(&config.CustomCommand{Zellij: zellijCfg}, wt)
+	if cmd != nil {
+		t.Fatal("expected nil command when zellij is not installed")
+	}
+
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v",
+			m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+	infoScr := m.state.ui.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "zellij is not installed") {
+		t.Errorf("expected 'not installed' message, got %q", infoScr.Message)
+	}
+}
+
+func TestOpenZellijSessionInsideZellijShowsPaneSelector(t *testing.T) {
+	if _, err := exec.LookPath("zellij"); err != nil {
+		t.Skip("zellij not available in test environment")
+	}
+
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+	wt := &models.WorktreeInfo{Path: t.TempDir(), Branch: "feature"}
+
+	// Simulate being inside a zellij session
+	t.Setenv("ZELLIJ", "0")
+	t.Setenv("ZELLIJ_SESSION_NAME", "current-session")
+
+	// Mock: return the current session
+	m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
+		if runtime.GOOS == osWindows {
+			return exec.Command("cmd", "/c", "echo current-session")
+		}
+		return exec.Command("printf", "%s", "current-session\n")
+	}
+
+	zellijCfg := &config.TmuxCommand{
+		SessionName: "session",
+		Windows:     []config.TmuxWindow{{Name: "shell"}},
+	}
+	cmd := m.openZellijSession(&config.CustomCommand{Zellij: zellijCfg}, wt)
+	if cmd != nil {
+		t.Fatal("expected nil command (pane selector pushed to screen)")
+	}
+
+	// Should show direction picker directly (single session)
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected list selection screen, got active=%v type=%v",
+			m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+	listScr := m.state.ui.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if listScr.Title != "Select pane direction" {
+		t.Fatalf("expected direction picker, got title %q", listScr.Title)
 	}
 }
