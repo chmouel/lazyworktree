@@ -222,7 +222,7 @@ func TestBuildZellijScriptAddsLayoutsAsTabs(t *testing.T) {
 	if !strings.Contains(script, "new-tab --layout '/tmp/layout1'") || !strings.Contains(script, "new-tab --layout '/tmp/layout2'") {
 		t.Fatalf("expected both layouts as new-tab actions, got %q", script)
 	}
-	if !strings.Contains(script, "while ! zellij list-sessions --short --no-formatting 2>/dev/null | grep -v EXITED | grep -Fxq \"$session\"; do") {
+	if !strings.Contains(script, "while ! zellij list-sessions --no-formatting 2>/dev/null | grep -v EXITED | sed 's/ \\[.*//' | grep -Fxq \"$session\"; do") {
 		t.Fatalf("expected wait loop for session readiness, got %q", script)
 	}
 	if !strings.Contains(script, "if [ $tries -ge 50 ]") {
@@ -758,48 +758,73 @@ func TestOpenZellijSession(t *testing.T) {
 	t.Setenv("ZELLIJ", "")
 	t.Setenv("ZELLIJ_SESSION_NAME", "")
 
-	badCfg := &config.TmuxCommand{SessionName: "session"}
-	if msg := m.openZellijSession(&config.CustomCommand{Zellij: badCfg}, wt)(); msg == nil {
-		t.Fatal("expected error message for empty windows")
-	}
-
-	called := false
-	m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
-		called = true
-		return exec.Command("true")
-	}
-	m.execProcess = func(_ *exec.Cmd, cb tea.ExecCallback) tea.Cmd {
-		return func() tea.Msg {
-			return cb(nil)
-		}
-	}
-
 	cfgGood := &config.TmuxCommand{
 		SessionName: "session",
 		Attach:      true,
 		OnExists:    "switch",
 		Windows:     []config.TmuxWindow{{Name: "shell"}},
 	}
+
+	// No sessions: mock commandRunner to return empty list, then verify execProcess is used
+	// (zellijAttachNewSessionCmd uses execProcess for zellij attach --create)
+	m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
+		return exec.Command("true")
+	}
+	var execProcessCmd *exec.Cmd
+	m.execProcess = func(c *exec.Cmd, _ tea.ExecCallback) tea.Cmd {
+		execProcessCmd = c
+		return func() tea.Msg { return nil }
+	}
 	cmd := m.openZellijSession(&config.CustomCommand{Zellij: cfgGood}, wt)
 	if cmd == nil {
-		t.Fatal("expected zellij command")
+		t.Fatal("expected command for no-sessions case (zellijAttachNewSessionCmd)")
 	}
-	msg := cmd()
-	ready, ok := msg.(zellijSessionReadyMsg)
-	if !ok {
-		t.Fatalf("expected zellijSessionReadyMsg, got %T", msg)
-	}
-	if !called {
-		t.Fatal("expected command runner to be called")
-	}
-	if ready.sessionName != "session" {
-		t.Fatalf("unexpected session name: %q", ready.sessionName)
-	}
-	if !ready.attach {
-		t.Fatal("expected attach to be true")
+	if execProcessCmd == nil {
+		t.Fatal("expected execProcess to be called for new session creation")
 	}
 
-	// new_tab: should return terminalTabReadyMsg instead of zellijSessionReadyMsg
+	// With sessions: mock commandRunner to return sessions, should push session picker
+	m.commandRunner = func(_ context.Context, _ string, args ...string) *exec.Cmd {
+		// list-sessions returns existing sessions
+		if len(args) > 0 && args[0] == "list-sessions" {
+			if runtime.GOOS == osWindows {
+				return windowsMockOutputCmd("existing-session [Created 1h ago]\n")
+			}
+			return exec.Command("printf", "%s", "existing-session [Created 1h ago]\n")
+		}
+		return exec.Command("true")
+	}
+	cmd = m.openZellijSession(&config.CustomCommand{Zellij: cfgGood}, wt)
+	if cmd != nil {
+		t.Fatal("expected nil command (session picker pushed to screen manager)")
+	}
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected list selection screen (session picker), got active=%v type=%v",
+			m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+	listScr := m.state.ui.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if listScr.Title != "Select zellij session" {
+		t.Fatalf("expected session picker, got title %q", listScr.Title)
+	}
+
+	// Simulate selecting a session: should push direction picker
+	selectCmd := listScr.OnSelect(appscreen.SelectionItem{ID: "existing-session", Label: "existing-session"})
+	if selectCmd != nil {
+		t.Fatal("expected nil command from session selection (direction picker pushed)")
+	}
+	if m.state.ui.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected direction picker screen, got type=%v", m.state.ui.screenManager.Type())
+	}
+	dirScr := m.state.ui.screenManager.Current().(*appscreen.ListSelectionScreen)
+	if dirScr.Title != "Select pane direction" {
+		t.Fatalf("expected direction picker, got title %q", dirScr.Title)
+	}
+
+	// Pop both screens for the next subtest
+	m.state.ui.screenManager.Pop()
+	m.state.ui.screenManager.Pop()
+
+	// new_tab: should return terminalTabReadyMsg instead of pushing a screen
 	// and must NOT invoke execProcess (which would suspend the TUI).
 	execProcessCalled := false
 	m.execProcess = func(_ *exec.Cmd, _ tea.ExecCallback) tea.Cmd {
@@ -819,6 +844,71 @@ func TestOpenZellijSession(t *testing.T) {
 	}
 }
 
+func TestZellijAttachNewSessionCmd(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	var capturedCmd *exec.Cmd
+	m.execProcess = func(c *exec.Cmd, cb tea.ExecCallback) tea.Cmd {
+		capturedCmd = c
+		return func() tea.Msg { return cb(nil) }
+	}
+	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
+		return exec.Command(name, args...) //#nosec G204,G702 -- test mock with controlled args
+	}
+
+	cmd := m.zellijAttachNewSessionCmd("my-session", "/tmp/worktree")
+	if cmd == nil {
+		t.Fatal("expected command")
+	}
+	if capturedCmd == nil {
+		t.Fatal("expected execProcess to be called")
+	}
+	if capturedCmd.Args[0] != "zellij" || capturedCmd.Args[1] != "attach" || capturedCmd.Args[2] != "--create" || capturedCmd.Args[3] != "my-session" {
+		t.Fatalf("expected zellij attach --create my-session, got %v", capturedCmd.Args)
+	}
+	if capturedCmd.Dir != "/tmp/worktree" {
+		t.Fatalf("expected Dir to be /tmp/worktree, got %q", capturedCmd.Dir)
+	}
+}
+
+func TestZellijCreateExternalPaneCmd(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	var capturedArgs []string
+	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
+		capturedArgs = append([]string{name}, args...)
+		c := exec.Command("true") //#nosec G204 -- test mock
+		return c
+	}
+
+	t.Setenv("SHELL", "/bin/zsh")
+	cmd := m.zellijCreateExternalPaneCmd("my-session", "right", "/tmp/worktree")
+	if cmd == nil {
+		t.Fatal("expected command")
+	}
+	msg := cmd()
+
+	// Verify the command args
+	expectedArgs := []string{"zellij", "action", "new-pane", "--direction", "right", "--cwd", "/tmp/worktree", "--", "/bin/zsh"}
+	if !reflect.DeepEqual(capturedArgs, expectedArgs) {
+		t.Fatalf("expected args %v, got %v", expectedArgs, capturedArgs)
+	}
+
+	// On success, should return zellijPaneCreatedMsg (no attach, TUI stays active)
+	paneMsg, ok := msg.(zellijPaneCreatedMsg)
+	if !ok {
+		t.Fatalf("expected zellijPaneCreatedMsg, got %T", msg)
+	}
+	if paneMsg.sessionName != "my-session" {
+		t.Fatalf("expected sessionName 'my-session', got %q", paneMsg.sessionName)
+	}
+	if paneMsg.direction != "right" {
+		t.Fatalf("expected direction 'right', got %q", paneMsg.direction)
+	}
+}
+
 func TestGetAllZellijSessions(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -828,12 +918,12 @@ func TestGetAllZellijSessions(t *testing.T) {
 	}{
 		{
 			name:          "returns all active sessions sorted",
-			mockOutput:    "gamma\nalpha\nbeta\n",
+			mockOutput:    "gamma [Created 1h ago]\nalpha [Created 2h ago]\nbeta [Created 30m ago]\n",
 			expectedNames: []string{"alpha", "beta", "gamma"},
 		},
 		{
 			name:          "filters EXITED sessions",
-			mockOutput:    "active-session\nexited-one (EXITED)\nanother-active\n",
+			mockOutput:    "active-session [Created 1h ago]\nexited-one [Created 2h ago] (EXITED - attach to resurrect)\nanother-active [Created 30m ago]\n",
 			expectedNames: []string{"active-session", "another-active"},
 		},
 		{
@@ -848,7 +938,7 @@ func TestGetAllZellijSessions(t *testing.T) {
 		},
 		{
 			name:          "handles single session",
-			mockOutput:    "my-session\n",
+			mockOutput:    "my-session [Created 5m ago]\n",
 			expectedNames: []string{"my-session"},
 		},
 		{
@@ -892,9 +982,9 @@ func TestShowZellijPaneSelectorSingleSession(t *testing.T) {
 	// Mock: return a single session
 	m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
 		if runtime.GOOS == osWindows {
-			return windowsMockOutputCmd("only-session\n")
+			return windowsMockOutputCmd("only-session [Created 1h ago]\n")
 		}
-		return exec.Command("printf", "%s", "only-session\n")
+		return exec.Command("printf", "%s", "only-session [Created 1h ago]\n")
 	}
 
 	cmd := m.showZellijPaneSelector(wt)
@@ -927,9 +1017,9 @@ func TestShowZellijPaneSelectorMultipleSessions(t *testing.T) {
 	// Mock: return multiple sessions
 	m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
 		if runtime.GOOS == osWindows {
-			return windowsMockOutputCmd("session-a\nsession-b\nsession-c")
+			return windowsMockOutputCmd("session-a [Created 1h ago]\nsession-b [Created 2h ago]\nsession-c [Created 30m ago]")
 		}
-		return exec.Command("printf", "%s", "session-a\nsession-b\nsession-c\n")
+		return exec.Command("printf", "%s", "session-a [Created 1h ago]\nsession-b [Created 2h ago]\nsession-c [Created 30m ago]\n")
 	}
 
 	cmd := m.showZellijPaneSelector(wt)
@@ -978,8 +1068,12 @@ func TestZellijNewPaneCmdSuccess(t *testing.T) {
 		t.Fatalf("expected direction %q, got %q", "right", paneMsg.direction)
 	}
 
-	// Verify captured command arguments
-	expected := []string{"zellij", "action", "new-pane", "--direction", "right", "--cwd", "/tmp/worktree"}
+	// Verify captured command arguments include explicit shell via -- $SHELL
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "bash"
+	}
+	expected := []string{"zellij", "action", "new-pane", "--direction", "right", "--cwd", "/tmp/worktree", "--", shell}
 	if !reflect.DeepEqual(capturedArgs, expected) {
 		t.Fatalf("expected args %v, got %v", expected, capturedArgs)
 	}
@@ -1030,9 +1124,9 @@ func TestOpenZellijSessionInsideZellijShowsPaneSelector(t *testing.T) {
 	// Mock: return the current session
 	m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
 		if runtime.GOOS == osWindows {
-			return windowsMockOutputCmd("current-session\n")
+			return windowsMockOutputCmd("current-session [Created 1h ago]\n")
 		}
-		return exec.Command("printf", "%s", "current-session\n")
+		return exec.Command("printf", "%s", "current-session [Created 1h ago]\n")
 	}
 
 	zellijCfg := &config.TmuxCommand{

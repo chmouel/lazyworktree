@@ -37,10 +37,6 @@ type (
 	}
 )
 
-func cleanupZellijLayouts(paths []string) {
-	multiplexer.CleanupZellijLayouts(paths)
-}
-
 func buildZellijInfoMessage(sessionName string) string {
 	quoted := multiplexer.ShellQuote(sessionName)
 	return fmt.Sprintf("zellij session ready.\n\nAttach with:\n\n  zellij attach %s", quoted)
@@ -65,9 +61,9 @@ func (m *Model) getZellijActiveSessions() []string {
 		return nil
 	}
 
-	// Query zellij for session list
+	// Query zellij for session list (not --short, because --short strips the EXITED marker)
 	// #nosec G204 -- static command with format string
-	cmd := m.commandRunner(m.ctx, "zellij", "list-sessions", "--short", "--no-formatting")
+	cmd := m.commandRunner(m.ctx, "zellij", "list-sessions", "--no-formatting")
 	output, err := cmd.Output()
 	if err != nil {
 		// zellij not running or no sessions
@@ -75,6 +71,7 @@ func (m *Model) getZellijActiveSessions() []string {
 	}
 
 	// Parse output and filter for worktree session prefix, excluding exited sessions
+	// Full output format: "session_name [Created ...]" or "session_name [Created ...] (EXITED ...)"
 	var sessions []string
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	for _, line := range lines {
@@ -82,9 +79,14 @@ func (m *Model) getZellijActiveSessions() []string {
 		if line == "" || strings.Contains(line, "EXITED") {
 			continue
 		}
-		if strings.HasPrefix(line, m.config.SessionPrefix) {
-			// Strip worktree prefix
-			sessionName := strings.TrimPrefix(line, m.config.SessionPrefix)
+		// Extract session name before the first " ["
+		name := line
+		if idx := strings.Index(line, " ["); idx >= 0 {
+			name = line[:idx]
+		}
+		name = strings.TrimSpace(name)
+		if name != "" && strings.HasPrefix(name, m.config.SessionPrefix) {
+			sessionName := strings.TrimPrefix(name, m.config.SessionPrefix)
 			if sessionName != "" {
 				sessions = append(sessions, sessionName)
 			}
@@ -98,9 +100,10 @@ func (m *Model) getZellijActiveSessions() []string {
 
 // getAllZellijSessions queries zellij for all active sessions (not filtered by prefix).
 // Returns sorted session names with EXITED sessions excluded.
+// Uses full output (not --short) because --short strips the EXITED marker.
 func (m *Model) getAllZellijSessions() []string {
 	// #nosec G204 -- static command arguments
-	cmd := m.commandRunner(m.ctx, "zellij", "list-sessions", "--short", "--no-formatting")
+	cmd := m.commandRunner(m.ctx, "zellij", "list-sessions", "--no-formatting")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil
@@ -113,7 +116,16 @@ func (m *Model) getAllZellijSessions() []string {
 		if line == "" || strings.Contains(line, "EXITED") {
 			continue
 		}
-		sessions = append(sessions, line)
+		// Full output format: "session_name [Created ...]"
+		// Extract session name before the first " ["
+		name := line
+		if idx := strings.Index(line, " ["); idx >= 0 {
+			name = line[:idx]
+		}
+		name = strings.TrimSpace(name)
+		if name != "" {
+			sessions = append(sessions, name)
+		}
 	}
 
 	sort.Strings(sessions)
@@ -359,14 +371,99 @@ func (m *Model) showZellijDirectionPicker(sessionName string, wt *models.Worktre
 // zellijNewPaneCmd runs `zellij action new-pane` to add a pane in the given direction.
 func (m *Model) zellijNewPaneCmd(sessionName, direction, cwd string) tea.Cmd {
 	return func() tea.Msg {
-		// #nosec G204 -- session name and direction come from user selection
-		c := m.commandRunner(m.ctx, "zellij", "action", "new-pane", "--direction", direction, "--cwd", cwd)
+		shell := os.Getenv("SHELL")
+		if shell == "" {
+			shell = "bash"
+		}
+		// #nosec G204 -- session name, direction and shell come from user env/selection
+		c := m.commandRunner(m.ctx, "zellij", "action", "new-pane", "--direction", direction, "--cwd", cwd, "--", shell)
 		c.Env = append(os.Environ(), "ZELLIJ_SESSION_NAME="+sessionName)
 		if err := c.Run(); err != nil {
 			return errMsg{err: fmt.Errorf("failed to create zellij pane: %w", err)}
 		}
 		return zellijPaneCreatedMsg{sessionName: sessionName, direction: direction}
 	}
+}
+
+// zellijCreateExternalPaneCmd creates a pane in an existing zellij session from outside zellij.
+// Sets ZELLIJ_SESSION_NAME so zellij action can target the session.
+// The TUI remains active; only the pane is created in the target session.
+func (m *Model) zellijCreateExternalPaneCmd(sessionName, direction, cwd string) tea.Cmd {
+	return func() tea.Msg {
+		shell := os.Getenv("SHELL")
+		if shell == "" {
+			shell = "bash"
+		}
+		// #nosec G204 -- session name, direction, cwd, shell come from user env/selection
+		c := m.commandRunner(m.ctx, "zellij", "action", "new-pane", "--direction", direction, "--cwd", cwd, "--", shell)
+		c.Env = append(os.Environ(), "ZELLIJ_SESSION_NAME="+sessionName)
+		if err := c.Run(); err != nil {
+			return errMsg{err: fmt.Errorf("failed to create zellij pane: %w", err)}
+		}
+		return zellijPaneCreatedMsg{sessionName: sessionName, direction: direction}
+	}
+}
+
+// zellijAttachNewSessionCmd attaches to a new zellij session with the worktree cwd.
+// Uses --create so the initial pane opens directly in the worktree directory (single pane).
+func (m *Model) zellijAttachNewSessionCmd(sessionName, cwd string) tea.Cmd {
+	// #nosec G204 -- session name comes from user configuration
+	c := m.commandRunner(m.ctx, "zellij", "attach", "--create", sessionName)
+	c.Dir = cwd
+	return m.execProcess(c, func(err error) tea.Msg {
+		if err != nil {
+			return errMsg{err: err}
+		}
+		return refreshCompleteMsg{}
+	})
+}
+
+// showZellijDirectionPickerExternal shows a direction picker for outside-zellij pane creation.
+// After selection, creates the pane in the target session without attaching (TUI stays active).
+func (m *Model) showZellijDirectionPickerExternal(sessionName string, wt *models.WorktreeInfo) {
+	items := []appscreen.SelectionItem{
+		{ID: "right", Label: "Right", Description: "Split pane to the right"},
+		{ID: "down", Label: "Down", Description: "Split pane downward"},
+	}
+	scr := appscreen.NewListSelectionScreen(
+		items,
+		"Select pane direction",
+		"",
+		"",
+		m.state.view.WindowWidth, m.state.view.WindowHeight,
+		"right",
+		m.theme,
+	)
+	scr.OnSelect = func(item appscreen.SelectionItem) tea.Cmd {
+		return m.zellijCreateExternalPaneCmd(sessionName, item.ID, wt.Path)
+	}
+	m.state.ui.screenManager.Push(scr)
+}
+
+// showZellijSessionPickerWithAttach shows a session picker for outside-zellij use.
+// On selection, shows a direction picker to create a pane with the worktree cwd, then attaches.
+func (m *Model) showZellijSessionPickerWithAttach(sessions []string, wt *models.WorktreeInfo) {
+	items := make([]appscreen.SelectionItem, len(sessions))
+	for i, s := range sessions {
+		items[i] = appscreen.SelectionItem{
+			ID:    s,
+			Label: s,
+		}
+	}
+	scr := appscreen.NewListSelectionScreen(
+		items,
+		"Select zellij session",
+		"Filter sessions...",
+		"No sessions found.",
+		m.state.view.WindowWidth, m.state.view.WindowHeight,
+		"",
+		m.theme,
+	)
+	scr.OnSelect = func(item appscreen.SelectionItem) tea.Cmd {
+		m.showZellijDirectionPickerExternal(item.ID, wt)
+		return nil
+	}
+	m.state.ui.screenManager.Push(scr)
 }
 
 func (m *Model) openZellijSession(customCmd *config.CustomCommand, wt *models.WorktreeInfo) tea.Cmd {
@@ -380,12 +477,13 @@ func (m *Model) openZellijSession(customCmd *config.CustomCommand, wt *models.Wo
 		return nil
 	}
 
-	// When inside zellij, use the new-pane flow instead of creating a background session
+	// When inside zellij, use the new-pane flow
 	insideZellij := os.Getenv("ZELLIJ") != "" || os.Getenv("ZELLIJ_SESSION_NAME") != ""
 	if insideZellij {
 		return m.showZellijPaneSelector(wt)
 	}
 
+	// When outside zellij, create/reuse a session and add a pane, then attach
 	zellijCfg := customCmd.Zellij
 	env := m.buildCommandEnv(wt.Branch, wt.Path)
 	sessionName := strings.TrimSpace(expandWithEnv(zellijCfg.SessionName, env))
@@ -394,27 +492,22 @@ func (m *Model) openZellijSession(customCmd *config.CustomCommand, wt *models.Wo
 	}
 	sessionName = sanitizeZellijSessionName(sessionName)
 
-	resolved, ok := resolveTmuxWindows(zellijCfg.Windows, env, wt.Path)
-	if !ok {
-		return func() tea.Msg {
-			return errMsg{err: fmt.Errorf("failed to resolve zellij windows")}
-		}
-	}
-
-	layoutPaths, err := writeZellijLayouts(resolved)
-	if err != nil {
-		return func() tea.Msg {
-			return errMsg{err: err}
-		}
-	}
-
-	// When new_tab is set, run the entire zellij script (create + attach +
-	// layout cleanup) in a new terminal tab so the TUI is never suspended.
+	// When new_tab is set, run in a new terminal tab
 	if customCmd.NewTab {
+		resolved, ok := resolveTmuxWindows(zellijCfg.Windows, env, wt.Path)
+		if !ok {
+			return func() tea.Msg {
+				return errMsg{err: fmt.Errorf("failed to resolve zellij windows")}
+			}
+		}
+		layoutPaths, err := writeZellijLayouts(resolved)
+		if err != nil {
+			return func() tea.Msg {
+				return errMsg{err: err}
+			}
+		}
 		script := buildZellijScript(sessionName, zellijCfg, layoutPaths)
-		// Append attach so the new tab connects to the session.
 		script += fmt.Sprintf("zellij attach %s\n", multiplexer.ShellQuote(sessionName))
-		// Cleanup layout temp files inside the new tab process.
 		for _, lp := range layoutPaths {
 			script += fmt.Sprintf("rm -f %s\n", multiplexer.ShellQuote(lp))
 		}
@@ -425,43 +518,14 @@ func (m *Model) openZellijSession(customCmd *config.CustomCommand, wt *models.Wo
 		return m.openTerminalTab(c, wt)
 	}
 
-	sessionFile, err := os.CreateTemp("", "lazyworktree-zellij-")
-	if err != nil {
-		cleanupZellijLayouts(layoutPaths)
-		return func() tea.Msg {
-			return errMsg{err: err}
-		}
-	}
-	sessionPath := sessionFile.Name()
-	if closeErr := sessionFile.Close(); closeErr != nil {
-		cleanupZellijLayouts(layoutPaths)
-		return func() tea.Msg {
-			return errMsg{err: closeErr}
-		}
+	// Check for existing sessions
+	sessions := m.getAllZellijSessions()
+	if len(sessions) == 0 {
+		// No sessions: create and attach directly (single pane with worktree cwd)
+		return m.zellijAttachNewSessionCmd(sessionName, wt.Path)
 	}
 
-	scriptCfg := *zellijCfg
-	scriptCfg.Attach = false
-	env["LW_ZELLIJ_SESSION_FILE"] = sessionPath
-	script := buildZellijScript(sessionName, &scriptCfg, layoutPaths)
-	// #nosec G204 -- command is built from user-configured zellij session settings.
-	c := m.commandRunner(m.ctx, "bash", "-lc", script)
-	c.Dir = wt.Path
-	c.Env = append(os.Environ(), envMapToList(env)...)
-
-	return m.execProcess(c, func(err error) tea.Msg {
-		defer func() {
-			_ = os.Remove(sessionPath)
-			cleanupZellijLayouts(layoutPaths)
-		}()
-		if err != nil {
-			return errMsg{err: err}
-		}
-		finalSession := readTmuxSessionFile(sessionPath, sessionName)
-		return zellijSessionReadyMsg{
-			sessionName:  finalSession,
-			attach:       zellijCfg.Attach,
-			insideZellij: false,
-		}
-	})
+	// Sessions exist: let user pick a session, then direction, then create pane and attach
+	m.showZellijSessionPickerWithAttach(sessions, wt)
+	return nil
 }
