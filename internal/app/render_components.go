@@ -10,22 +10,37 @@ import (
 
 // renderHeader renders the application header.
 func (m *Model) renderHeader(layout layoutDims) string {
-	// Create a "toolbar" style header with visual flair
-	headerStyle := lipgloss.NewStyle().
-		Background(m.theme.AccentDim).
-		Foreground(m.theme.TextFg).
-		Bold(true).
-		Width(layout.width).
-		Padding(0, 2).Align(lipgloss.Center)
+	showIcons := m.config.IconsEnabled()
 
-	// Add decorative icon to title
-	title := "Lazyworktree"
+	appText := "Lazyworktree"
+	if showIcons {
+		appText = " " + appText // Tree icon
+	}
+	appStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Accent).
+		Bold(true)
+
 	repoKey := strings.TrimSpace(m.repoKey)
-	content := title
+	repoStr := ""
 	if repoKey != "" && repoKey != "unknown" && !strings.HasPrefix(repoKey, "local-") {
-		content = fmt.Sprintf("%s  •  %s", content, repoKey)
+		repoText := repoKey
+		if showIcons {
+			repoText = " " + repoText // Repo icon
+		}
+		repoStyle := lipgloss.NewStyle().
+			Foreground(m.theme.TextFg).
+			Background(m.theme.BorderDim). // Clean bubble background
+			Padding(0, 1)
+		repoStr = "   " + repoStyle.Render(repoText)
 	}
 
+	headerStyle := lipgloss.NewStyle().
+		Background(m.theme.AccentDim).
+		Width(layout.width).
+		Padding(0, 2).
+		Align(lipgloss.Center)
+
+	content := appStyle.Render(appText) + repoStr
 	return headerStyle.Render(content)
 }
 
@@ -35,7 +50,7 @@ func (m *Model) renderFilter(layout layoutDims) string {
 		Foreground(m.theme.AccentFg).
 		Background(m.theme.Accent).
 		Bold(true).
-		Padding(0, 1) // Pill effect
+		Padding(0, 1) // bubble effect
 	filterStyle := lipgloss.NewStyle().
 		Foreground(m.theme.TextFg).
 		Padding(0, 1)
@@ -134,12 +149,12 @@ func (m *Model) renderFooter(layout layoutDims) string {
 
 // renderKeyHint renders a single key hint with enhanced styling.
 func (m *Model) renderKeyHint(key, label string) string {
-	// Enhanced key hints with pill/badge styling
+	// Enhanced key hints with bubble/badge styling
 	keyStyle := lipgloss.NewStyle().
 		Foreground(m.theme.AccentFg).
 		Background(m.theme.Accent).
 		Bold(true).
-		Padding(0, 1) // Add padding for pill effect
+		Padding(0, 1) // Add padding for bubble effect
 	labelStyle := lipgloss.NewStyle().Foreground(m.theme.Accent)
 	return fmt.Sprintf("%s %s", keyStyle.Render(key), labelStyle.Render(label))
 }
@@ -170,12 +185,21 @@ func (m *Model) renderPaneBlock(index int, title string, focused bool, width, he
 		numStr = fmt.Sprintf("(%d)", index)
 	}
 
-	numStyle := lipgloss.NewStyle().Foreground(m.theme.TextFg)
-	titleStyle := lipgloss.NewStyle().Foreground(m.theme.TextFg)
+	// bubble styling for title
+	bubbleBg := m.theme.BorderDim
+	bubbleFg := m.theme.TextFg
+	isBold := false
+
 	if focused {
-		numStyle = numStyle.Foreground(m.theme.Accent).Bold(true)
-		titleStyle = titleStyle.Foreground(m.theme.Accent).Bold(true)
+		bubbleBg = m.theme.Accent
+		bubbleFg = m.theme.AccentFg
+		isBold = true
 	}
+
+	bubbleStyle := lipgloss.NewStyle().Background(bubbleBg).Foreground(bubbleFg).Bold(isBold)
+	leftEdge := lipgloss.NewStyle().Foreground(bubbleBg).Render("")
+	rightEdge := lipgloss.NewStyle().Foreground(bubbleBg).Render("")
+	titleText := fmt.Sprintf(" %s %s ", numStr, title)
 
 	filterIndicator := ""
 	paneIdx := index - 1
@@ -211,7 +235,7 @@ func (m *Model) renderPaneBlock(index int, title string, focused bool, width, he
 	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
 	borderLine := borderStyle.Render(border.Top)
 
-	styledTitleBlock := borderLine + numStyle.Render(numStr) + borderLine + titleStyle.Render(title) + borderLine
+	styledTitleBlock := borderLine + leftEdge + bubbleStyle.Render(titleText) + rightEdge + borderLine
 
 	topLeft := border.TopLeft
 	topRight := border.TopRight
