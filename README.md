@@ -169,6 +169,8 @@ Zsh helpers are in `shell/functions.zsh`. See [./shell/README.md](./shell/README
 | `[` | Cycle to previous pane |
 | `=` | Toggle zoom for focused pane (full screen) |
 | `L` | Toggle layout (default / top) |
+| `y` | Copy to clipboard (context-aware: path, file path, or SHA; uses OSC52, works over SSH) |
+| `Y` | Copy selected worktree branch name to clipboard |
 
 **Notes Viewer and Editor**
 
