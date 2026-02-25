@@ -142,6 +142,8 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 - o: Open PR/MR in browser (or root repo in editor if main branch with merged/closed/no PR)
 - g: Open LazyGit (or go to top in diff pane)
 - =: Toggle zoom for focused pane
+- y: Copy to clipboard (context-aware: path in worktrees pane, file path in status pane, SHA in log pane; uses OSC52, works over SSH)
+- Y: Copy selected worktree branch name to clipboard
 - : / Ctrl+P: Command Palette
 - ?: Show this help
 

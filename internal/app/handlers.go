@@ -618,6 +618,12 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.showCherryPick()
 
+	case "y":
+		return m, m.yankContextual()
+
+	case "Y":
+		return m, m.yankBranch()
+
 	case "L":
 		if m.state.view.Layout == state.LayoutDefault {
 			m.state.view.Layout = state.LayoutTop

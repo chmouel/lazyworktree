@@ -114,6 +114,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 		}
 		hints = append(hints, m.customFooterHints()...)
 		hints = append(hints,
+			m.renderKeyHint("y", "Copy"),
 			m.renderKeyHint("q", "Quit"),
 			m.renderKeyHint("?", "Help"),
 			m.renderKeyHint("ctrl+p", "Palette"),

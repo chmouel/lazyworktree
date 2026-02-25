@@ -462,6 +462,15 @@ Toggle layout between default (worktrees left, status/log stacked right) and
 top (worktrees full-width top, status/log side-by-side bottom).
 .
 .TP
+.B y
+Copy to clipboard (context-aware: worktree path in pane 1, file path in
+status pane, commit SHA in log pane). Uses OSC52, works over SSH.
+.
+.TP
+.B Y
+Copy the selected worktree's branch name to the clipboard.
+.
+.TP
 .B ?
 Show help screen.
 .

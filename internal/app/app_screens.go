@@ -277,6 +277,12 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 		},
 	})
 
+	commands.RegisterClipboardActions(registry, commands.ClipboardHandlers{
+		CopyPath:   m.yankContextual,
+		CopyBranch: m.yankBranch,
+		CopyPRURL:  m.yankPRURL,
+	})
+
 	commands.RegisterSettingsActions(registry, commands.SettingsHandlers{
 		Theme: m.showThemeSelection,
 		Taskboard: func() tea.Cmd {

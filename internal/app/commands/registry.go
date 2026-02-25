@@ -207,6 +207,22 @@ func RegisterNavigationActions(r *Registry, h NavigationHandlers) {
 	)
 }
 
+// ClipboardHandlers holds callbacks for clipboard actions.
+type ClipboardHandlers struct {
+	CopyPath   func() tea.Cmd
+	CopyBranch func() tea.Cmd
+	CopyPRURL  func() tea.Cmd
+}
+
+// RegisterClipboardActions registers clipboard actions.
+func RegisterClipboardActions(r *Registry, h ClipboardHandlers) {
+	r.Register(
+		CommandAction{ID: "copy-path", Label: "Copy path / file / SHA", Description: "Copy context-aware content (path, file, or commit SHA)", Section: sectionNavigation, Shortcut: "y", Icon: IconNavigation, Handler: h.CopyPath},
+		CommandAction{ID: "copy-branch", Label: "Copy branch name", Description: "Copy selected worktree branch name", Section: sectionNavigation, Shortcut: "Y", Icon: IconNavigation, Handler: h.CopyBranch},
+		CommandAction{ID: "copy-pr-url", Label: "Copy PR/MR URL", Description: "Copy selected worktree PR/MR URL", Section: sectionNavigation, Icon: IconNavigation, Handler: h.CopyPRURL},
+	)
+}
+
 // SettingsHandlers holds callbacks for settings actions.
 type SettingsHandlers struct {
 	Theme     func() tea.Cmd
