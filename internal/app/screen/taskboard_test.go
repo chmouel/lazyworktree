@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
@@ -56,7 +56,7 @@ func TestTaskboardScreenNavigationSkipsSections(t *testing.T) {
 		t.Fatalf("expected initial cursor at first task index 1, got %d", s.Cursor)
 	}
 
-	next, _ := s.Update(tea.KeyMsg{Type: tea.KeyDown})
+	next, _ := s.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	updated, ok := next.(*TaskboardScreen)
 	if !ok {
 		t.Fatal("expected taskboard screen")
@@ -65,7 +65,7 @@ func TestTaskboardScreenNavigationSkipsSections(t *testing.T) {
 		t.Fatalf("expected cursor to skip section and land at 3, got %d", updated.Cursor)
 	}
 
-	next, _ = updated.Update(tea.KeyMsg{Type: tea.KeyUp})
+	next, _ = updated.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	updated, ok = next.(*TaskboardScreen)
 	if !ok {
 		t.Fatal("expected taskboard screen")
@@ -78,17 +78,17 @@ func TestTaskboardScreenNavigationSkipsSections(t *testing.T) {
 func TestTaskboardScreenFilter(t *testing.T) {
 	s := NewTaskboardScreen(testTaskboardItems(), "Taskboard", 120, 40, theme.Dracula())
 
-	next, _ := s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+	next, _ := s.Update(tea.KeyPressMsg{Code: 'f', Text: string('f')})
 	updated := next.(*TaskboardScreen)
 	if !updated.FilterActive {
 		t.Fatal("expected filter mode to be active")
 	}
 
-	next, _ = updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+	next, _ = updated.Update(tea.KeyPressMsg{Code: 'f', Text: string('f')})
 	updated = next.(*TaskboardScreen)
-	next, _ = updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	next, _ = updated.Update(tea.KeyPressMsg{Code: 'i', Text: string('i')})
 	updated = next.(*TaskboardScreen)
-	next, _ = updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	next, _ = updated.Update(tea.KeyPressMsg{Code: 'x', Text: string('x')})
 	updated = next.(*TaskboardScreen)
 
 	if len(updated.Filtered) != 2 {
@@ -109,7 +109,7 @@ func TestTaskboardScreenToggleCallbackAndState(t *testing.T) {
 		return nil
 	}
 
-	next, _ := s.Update(tea.KeyMsg{Type: tea.KeySpace})
+	next, _ := s.Update(tea.KeyPressMsg{Code: ' ', Text: " "})
 	updated := next.(*TaskboardScreen)
 
 	if !called {
@@ -149,7 +149,7 @@ func TestTaskboardScreenAddKeyTriggersOnAdd(t *testing.T) {
 	}
 
 	// Cursor starts at index 1 (first task in wt-a)
-	next, _ := s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	next, _ := s.Update(tea.KeyPressMsg{Code: 'a', Text: string('a')})
 	if next == nil {
 		t.Fatal("expected screen to remain active")
 	}
@@ -163,7 +163,7 @@ func TestTaskboardScreenAddKeyTriggersOnAdd(t *testing.T) {
 
 func TestTaskboardScreenAddKeyNoopWithoutCallback(t *testing.T) {
 	s := NewTaskboardScreen(testTaskboardItems(), "Taskboard", 120, 40, theme.Dracula())
-	next, cmd := s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	next, cmd := s.Update(tea.KeyPressMsg{Code: 'a', Text: string('a')})
 	if next == nil {
 		t.Fatal("expected screen to remain active")
 	}
@@ -183,7 +183,7 @@ func TestTaskboardScreenEmptyListUsesDefaultWorktreePath(t *testing.T) {
 		return nil
 	}
 
-	s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	s.Update(tea.KeyPressMsg{Code: 'a', Text: string('a')})
 	if !called {
 		t.Fatal("expected OnAdd callback to be called on empty list")
 	}

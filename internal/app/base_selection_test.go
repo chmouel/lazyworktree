@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -567,7 +567,7 @@ func TestHandleScreenKeyKeepsNewScreenOnSelection(t *testing.T) {
 	}
 	baseScreen.Cursor = idx
 
-	_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyEnter})
+	_, _ = m.handleScreenKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 
 	if !m.state.ui.screenManager.IsActive() {
 		t.Fatal("expected a screen to remain active after selection")

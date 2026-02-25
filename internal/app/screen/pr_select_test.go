@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
@@ -96,7 +96,7 @@ func TestPRSelectionScreenFilterToggle(t *testing.T) {
 		t.Fatal("expected filter to be inactive by default")
 	}
 
-	next, _ := scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+	next, _ := scr.Update(tea.KeyPressMsg{Code: 'f', Text: string('f')})
 	nextScr, ok := next.(*PRSelectionScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return PR selection screen after f")
@@ -106,7 +106,7 @@ func TestPRSelectionScreenFilterToggle(t *testing.T) {
 		t.Fatal("expected filter to be active after f")
 	}
 
-	next, _ = scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	next, _ = scr.Update(tea.KeyPressMsg{Code: '2', Text: string('2')})
 	nextScr, ok = next.(*PRSelectionScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return PR selection screen after typing")
@@ -116,7 +116,7 @@ func TestPRSelectionScreenFilterToggle(t *testing.T) {
 		t.Fatalf("expected filtered results to include only #2, got %v", scr.Filtered)
 	}
 
-	next, _ = scr.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	next, _ = scr.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	nextScr, ok = next.(*PRSelectionScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return PR selection screen after Esc")
@@ -179,7 +179,7 @@ func TestPRSelectionScreenCallbacks(t *testing.T) {
 		return nil
 	}
 
-	result, _ := scr.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	result, _ := scr.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if result != nil {
 		t.Error("expected screen to close (return nil) on Enter")
 	}
@@ -198,7 +198,7 @@ func TestPRSelectionScreenCallbacks(t *testing.T) {
 		return nil
 	}
 
-	result, _ = scr.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	result, _ = scr.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if result != nil {
 		t.Error("expected screen to close (return nil) on Esc")
 	}
@@ -363,7 +363,7 @@ func TestPRSelectionScreenAttachedPRSelectable(t *testing.T) {
 	}
 
 	// Select the attached PR
-	result, _ := scr.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	result, _ := scr.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 
 	// Screen should close and delegate handling to OnSelect
 	if result != nil {
@@ -387,7 +387,7 @@ func TestPRSelectionScreenStatusMessageClearedOnNavigation(t *testing.T) {
 	scr.StatusMessage = "Some error message"
 
 	// Navigate down
-	scr.Update(tea.KeyMsg{Type: tea.KeyDown})
+	scr.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 
 	// Status message should be cleared
 	if scr.StatusMessage != "" {
@@ -398,7 +398,7 @@ func TestPRSelectionScreenStatusMessageClearedOnNavigation(t *testing.T) {
 	scr.StatusMessage = "Another message"
 
 	// Navigate up
-	scr.Update(tea.KeyMsg{Type: tea.KeyUp})
+	scr.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 
 	// Status message should be cleared
 	if scr.StatusMessage != "" {

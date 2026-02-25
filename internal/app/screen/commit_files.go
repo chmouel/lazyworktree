@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
@@ -87,7 +87,7 @@ func NewCommitFilesScreen(sha, wtPath string, files []models.CommitFile, meta Co
 	ti.Placeholder = placeholderFilterFiles
 	ti.CharLimit = 100
 	ti.Prompt = "> "
-	ti.Width = width - 6
+	ti.SetWidth(width - 6)
 
 	screen := &CommitFilesScreen{
 		CommitSHA:     sha,
@@ -315,7 +315,7 @@ func (s *CommitFilesScreen) ToggleCollapse(path string) {
 }
 
 // Update handles key events for the commit files screen.
-func (s *CommitFilesScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *CommitFilesScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	maxVisible := s.Height - 8 // Account for header, footer, borders
 	keyStr := msg.String()
 
@@ -456,7 +456,7 @@ func (s *CommitFilesScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 				s.ScrollOffset = s.Cursor
 			}
 		}
-	case keyCtrlD, " ":
+	case keyCtrlD, "space":
 		s.Cursor = minInt(s.Cursor+maxVisible/2, len(s.TreeFlat)-1)
 		if s.Cursor >= s.ScrollOffset+maxVisible {
 			s.ScrollOffset = s.Cursor - maxVisible + 1

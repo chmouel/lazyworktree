@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/models"
 )

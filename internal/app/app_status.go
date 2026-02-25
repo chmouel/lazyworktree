@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/table"
+	"charm.land/bubbles/v2/table"
 	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -164,9 +164,9 @@ func (m *Model) rebuildStatusContentWithHighlight() {
 	}
 
 	// Auto-scroll to keep selected item visible
-	viewportHeight := m.state.ui.statusViewport.Height
+	viewportHeight := m.state.ui.statusViewport.Height()
 	if viewportHeight > 0 && m.state.services.statusTree.Index >= 0 {
-		currentOffset := m.state.ui.statusViewport.YOffset
+		currentOffset := m.state.ui.statusViewport.YOffset()
 		if m.state.services.statusTree.Index < currentOffset {
 			m.state.ui.statusViewport.SetYOffset(m.state.services.statusTree.Index)
 		} else if m.state.services.statusTree.Index >= currentOffset+viewportHeight {

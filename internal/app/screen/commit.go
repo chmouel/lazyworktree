@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
@@ -32,7 +32,7 @@ type CommitScreen struct {
 
 // NewCommitScreen configures the commit detail viewer for the selected SHA.
 func NewCommitScreen(meta CommitMeta, stat, diff string, useDelta bool, thm *theme.Theme) *CommitScreen {
-	vp := viewport.New(110, 60)
+	vp := viewport.New(viewport.WithWidth(110), viewport.WithHeight(60))
 
 	s := &CommitScreen{
 		Meta:     meta,
@@ -54,7 +54,7 @@ func (s *CommitScreen) Type() Type {
 
 // Update handles scrolling and closing events for the commit screen.
 // Returns nil to signal that the screen should be closed.
-func (s *CommitScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *CommitScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	switch msg.String() {
 	case keyQ, keyEsc, keyEscRaw, keyCtrlC:
 		return nil, nil
@@ -64,7 +64,7 @@ func (s *CommitScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	case "k", "up":
 		s.Viewport.ScrollUp(1)
 		return s, nil
-	case "ctrl+d", " ":
+	case "ctrl+d", "space":
 		s.Viewport.HalfPageDown()
 		return s, nil
 	case "ctrl+u":
@@ -131,7 +131,7 @@ func (s *CommitScreen) renderHeader() string {
 
 // View renders the commit screen.
 func (s *CommitScreen) View() string {
-	width := max(100, s.Viewport.Width)
+	width := max(100, s.Viewport.Width())
 
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).

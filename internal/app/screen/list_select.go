@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/chmouel/lazyworktree/internal/theme"
@@ -77,7 +77,7 @@ func NewListSelectionScreen(items []SelectionItem, title, placeholder, noResults
 	ti.CharLimit = 100
 	ti.Prompt = "> "
 	ti.Blur()
-	ti.Width = width - 4
+	ti.SetWidth(width - 4)
 
 	cursor := 0
 	if len(items) == 0 {
@@ -115,7 +115,7 @@ func (s *ListSelectionScreen) Type() Type {
 }
 
 // Update handles keyboard input and returns nil to signal the screen should close.
-func (s *ListSelectionScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *ListSelectionScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
 	maxVisible := s.maxVisible()
 	keyStr := msg.String()

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -132,20 +132,20 @@ func TestHandleBuiltInKeyAnnotate(t *testing.T) {
 	m.state.data.selectedIndex = 0
 
 	m.state.view.FocusedPane = 1
-	_, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'i', Text: string('i')})
 	if m.state.ui.screenManager.IsActive() {
 		t.Fatal("did not expect screen when pane is not worktree pane")
 	}
 
 	m.state.view.FocusedPane = 0
-	_, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'i', Text: string('i')})
 	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeTextarea {
 		t.Fatalf("expected textarea screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
 	}
 
 	m.state.ui.screenManager.Pop()
 	m.setWorktreeNote(path, "existing note")
-	_, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'i', Text: string('i')})
 	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeNoteView {
 		t.Fatalf("expected note viewer screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
 	}
@@ -164,7 +164,7 @@ func TestAnnotateWorktreeCtrlSSaves(t *testing.T) {
 	scr := m.state.ui.screenManager.Current().(*appscreen.TextareaScreen)
 	scr.Input.SetValue("one line\ntwo line")
 
-	updated, _ := m.handleScreenKey(tea.KeyMsg{Type: tea.KeyCtrlS})
+	updated, _ := m.handleScreenKey(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
 	m = updated.(*Model)
 
 	if m.state.ui.screenManager.IsActive() {
@@ -193,7 +193,7 @@ func TestAnnotateWorktreeViewerEOpensEditor(t *testing.T) {
 		t.Fatalf("expected note viewer, got %v", m.state.ui.screenManager.Type())
 	}
 
-	updated, cmd := m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	updated, cmd := m.handleScreenKey(tea.KeyPressMsg{Code: 'e', Text: string('e')})
 	m = updated.(*Model)
 
 	if m.state.ui.screenManager.IsActive() {

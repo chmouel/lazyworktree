@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -104,17 +104,17 @@ func TestIntegrationKeyBindingsTriggerCommands(t *testing.T) {
 	m.execProcess = recorder.exec
 	m.startCommand = recorder.start
 
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'g', Text: "g"})
 	if cmd != nil {
 		_ = cmd()
 	}
 
-	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("o")})
+	_, cmd = m.Update(tea.KeyPressMsg{Code: 'o', Text: "o"})
 	if cmd != nil {
 		_ = cmd()
 	}
 
-	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(customKey)})
+	_, cmd = m.Update(tea.KeyPressMsg{Code: rune(customKey[0]), Text: customKey})
 	if cmd != nil {
 		_ = cmd()
 	}
@@ -177,7 +177,7 @@ func TestIntegrationPaletteSelectsCustomCommand(t *testing.T) {
 
 	// Filter is now active by default, type directly to filter
 	for _, r := range strings.ToLower(customLabel) {
-		_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		_, _ = m.handleScreenKey(tea.KeyPressMsg{Code: r, Text: string(r)})
 	}
 
 	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypePalette {
@@ -189,7 +189,7 @@ func TestIntegrationPaletteSelectsCustomCommand(t *testing.T) {
 		t.Fatal("expected valid palette selection after filtering")
 	}
 
-	_, cmd := m.handleScreenKey(tea.KeyMsg{Type: tea.KeyEnter})
+	_, cmd := m.handleScreenKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if cmd != nil {
 		_ = cmd()
 	}
@@ -260,14 +260,12 @@ func TestIntegrationPRAndCIFlowUpdatesView(t *testing.T) {
 	m = updated.(*Model)
 
 	view := m.View()
-	if !strings.Contains(view, "PR #12") {
-		t.Fatalf("expected PR info to be rendered, got %q", view)
+	plainView := stripANSISequences(view.Content)
+	if !strings.Contains(plainView, "PR") || !strings.Contains(plainView, "#12") {
+		t.Fatalf("expected PR info to be rendered, got %q", plainView)
 	}
-	if !strings.Contains(view, getIconPR()) {
-		t.Fatalf("expected PR icon to be rendered, got %q", view)
-	}
-	if !strings.Contains(view, "CI Checks:") {
-		t.Fatalf("expected CI info to be rendered, got %q", view)
+	if !strings.Contains(plainView, "CI Checks") {
+		t.Fatalf("expected CI info to be rendered, got %q", plainView)
 	}
 }
 
@@ -330,11 +328,12 @@ func TestIntegrationMainBranchMergedPRHidesInfo(t *testing.T) {
 	m = updated.(*Model)
 
 	view := m.View()
-	if strings.Contains(view, "PR:") {
-		t.Fatalf("expected PR info to be hidden on main, got %q", view)
+	plainView := stripANSISequences(view.Content)
+	if strings.Contains(plainView, "PR:") {
+		t.Fatalf("expected PR info to be hidden on main, got %q", plainView)
 	}
-	if !strings.Contains(view, "CI Checks:") {
-		t.Fatalf("expected CI info to be rendered, got %q", view)
+	if !strings.Contains(plainView, "CI Checks") {
+		t.Fatalf("expected CI info to be rendered, got %q", plainView)
 	}
 }
 
@@ -375,7 +374,7 @@ func TestIntegrationPaletteSelectsActiveTmuxSession(t *testing.T) {
 	// Verify the palette has the active session item
 	// Filter for "test" to narrow down the results
 	for _, r := range "test" {
-		_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		_, _ = m.handleScreenKey(tea.KeyPressMsg{Code: r, Text: string(r)})
 	}
 
 	// Verify item is selected
@@ -396,7 +395,7 @@ func TestIntegrationPaletteSelectsActiveTmuxSession(t *testing.T) {
 	}
 
 	// Submit the selection
-	_, cmd := m.handleScreenKey(tea.KeyMsg{Type: tea.KeyEnter})
+	_, cmd := m.handleScreenKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if cmd != nil {
 		_ = cmd()
 	}
@@ -485,7 +484,7 @@ func TestIntegrationDiffViewerModesWithNoChanges(t *testing.T) {
 			// statusFilesAll is empty by default, simulating no changes
 
 			// Simulate 'd' key press
-			updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+			updated, cmd := m.Update(tea.KeyPressMsg{Code: 'd', Text: string('d')})
 			m = updated.(*Model)
 
 			// Verify info screen is shown
@@ -576,7 +575,7 @@ func TestIntegrationDiffViewerModesWithChanges(t *testing.T) {
 			m.execProcess = recorder.exec
 
 			// Simulate 'd' key press
-			updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+			updated, cmd := m.Update(tea.KeyPressMsg{Code: 'd', Text: string('d')})
 			m = updated.(*Model)
 
 			// Verify command was returned

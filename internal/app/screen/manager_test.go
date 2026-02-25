@@ -3,7 +3,7 @@ package screen
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
@@ -113,7 +113,7 @@ func TestConfirmScreenUpdate(t *testing.T) {
 	s := NewConfirmScreen("test", thm)
 
 	// Test tab navigation
-	updated, _ := s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	updated, _ := s.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
 	if updated.(*ConfirmScreen).SelectedButton != 1 {
 		t.Error("expected button to move right")
 	}
@@ -125,7 +125,7 @@ func TestConfirmScreenUpdate(t *testing.T) {
 		confirmCalled = true
 		return nil
 	}
-	updated, _ = s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	updated, _ = s.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
 	if updated != nil {
 		t.Error("expected nil screen after confirm")
 	}
@@ -140,7 +140,7 @@ func TestConfirmScreenUpdate(t *testing.T) {
 		cancelCalled = true
 		return nil
 	}
-	updated, _ = s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	updated, _ = s.Update(tea.KeyPressMsg{Code: 'n', Text: "n"})
 	if updated != nil {
 		t.Error("expected nil screen after cancel")
 	}
@@ -159,7 +159,7 @@ func TestInfoScreenUpdate(t *testing.T) {
 		closeCalled = true
 		return nil
 	}
-	updated, _ := s.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, _ := s.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if updated != nil {
 		t.Error("expected nil screen after enter")
 	}
@@ -186,7 +186,7 @@ func TestLoadingScreenDoesNotRespondToKeys(t *testing.T) {
 	thm := theme.Dracula()
 	s := NewLoadingScreen("Loading...", TipOperationGeneral, thm, nil, false)
 
-	updated, _ := s.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, _ := s.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if updated != s {
 		t.Error("expected loading screen to return itself on key input")
 	}

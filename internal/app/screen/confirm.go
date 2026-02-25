@@ -3,8 +3,8 @@ package screen
 import (
 	"fmt"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
@@ -55,7 +55,7 @@ func (s *ConfirmScreen) Type() Type {
 
 // Update processes keyboard events for the confirmation dialog.
 // Returns nil to signal that the screen should be closed.
-func (s *ConfirmScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *ConfirmScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	key := msg.String()
 	switch key {
 	case keyTab, "right", "l":

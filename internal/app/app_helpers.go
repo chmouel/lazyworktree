@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/app/util"

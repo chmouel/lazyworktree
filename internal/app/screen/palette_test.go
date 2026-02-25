@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,7 +23,7 @@ func TestCommandPaletteFilterToggle(t *testing.T) {
 	}
 
 	// Type directly to filter (filter is already active)
-	next, _ := scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+	next, _ := scr.Update(tea.KeyPressMsg{Code: 'b', Text: string('b')})
 	nextScr, ok := next.(*CommandPaletteScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return command palette screen after typing")
@@ -34,7 +34,7 @@ func TestCommandPaletteFilterToggle(t *testing.T) {
 	}
 
 	// Esc exits filter mode but preserves filter text
-	next, _ = scr.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	next, _ = scr.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	nextScr, ok = next.(*CommandPaletteScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return command palette screen after Esc")
@@ -90,7 +90,7 @@ func TestCommandPaletteFilterHidesEmptySections(t *testing.T) {
 	}
 
 	scr := NewCommandPaletteScreen(items, 100, 24, theme.Dracula())
-	next, _ := scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
+	next, _ := scr.Update(tea.KeyPressMsg{Code: 'w', Text: string('w')})
 	nextScr, ok := next.(*CommandPaletteScreen)
 	require.True(t, ok)
 	require.NotNil(t, nextScr)

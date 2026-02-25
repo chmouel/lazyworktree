@@ -3,9 +3,9 @@ package screen
 import (
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/theme"
 	"github.com/muesli/reflow/wrap"
 )
@@ -54,13 +54,13 @@ func (s *NoteViewScreen) Resize(maxWidth, maxHeight int) {
 	if maxHeight > 0 {
 		s.Height = clampInt(int(float64(maxHeight)*0.8), 18, 42)
 	}
-	s.Viewport.Width = maxInt(1, s.Width-6)
-	s.Viewport.Height = maxInt(3, s.Height-6)
+	s.Viewport.SetWidth(maxInt(1, s.Width-6))
+	s.Viewport.SetHeight(maxInt(3, s.Height-6))
 	s.setViewportContent()
 }
 
 // Update handles navigation, close, and edit actions.
-func (s *NoteViewScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *NoteViewScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	switch msg.String() {
 	case keyQ, keyEsc, keyEscRaw, keyCtrlC:
 		if s.OnClose != nil {
@@ -83,7 +83,7 @@ func (s *NoteViewScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	case "k", "up":
 		s.Viewport.ScrollUp(1)
 		return s, nil
-	case "ctrl+d", " ":
+	case "ctrl+d", "space":
 		s.Viewport.HalfPageDown()
 		return s, nil
 	case "ctrl+u":
@@ -138,8 +138,8 @@ func (s *NoteViewScreen) SetTheme(thm *theme.Theme) {
 }
 
 func (s *NoteViewScreen) setViewportContent() {
-	if s.Viewport.Width <= 0 {
+	if s.Viewport.Width() <= 0 {
 		return
 	}
-	s.Viewport.SetContent(wrap.String(s.Content, s.Viewport.Width))
+	s.Viewport.SetContent(wrap.String(s.Content, s.Viewport.Width()))
 }

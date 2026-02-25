@@ -2,9 +2,10 @@
 package theme
 
 import (
+	"image/color"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // CustomThemeData represents custom theme data without importing config package.
@@ -26,17 +27,17 @@ type CustomThemeData struct {
 
 // Theme defines all colors used in the application UI.
 type Theme struct {
-	Accent    lipgloss.Color
-	AccentFg  lipgloss.Color // Foreground color for text on Accent background
-	AccentDim lipgloss.Color
-	Border    lipgloss.Color
-	BorderDim lipgloss.Color
-	MutedFg   lipgloss.Color
-	TextFg    lipgloss.Color
-	SuccessFg lipgloss.Color
-	WarnFg    lipgloss.Color
-	ErrorFg   lipgloss.Color
-	Cyan      lipgloss.Color
+	Accent    color.Color
+	AccentFg  color.Color // Foreground color for text on Accent background
+	AccentDim color.Color
+	Border    color.Color
+	BorderDim color.Color
+	MutedFg   color.Color
+	TextFg    color.Color
+	SuccessFg color.Color
+	WarnFg    color.Color
+	ErrorFg   color.Color
+	Cyan      color.Color
 }
 
 // Theme names.

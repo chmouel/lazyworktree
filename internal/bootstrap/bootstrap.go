@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/app"
 	"github.com/chmouel/lazyworktree/internal/buildinfo"
 	"github.com/chmouel/lazyworktree/internal/config"
@@ -157,7 +157,7 @@ func runTUI(_ context.Context, cmd *cli.Command) error {
 	}
 
 	model := app.NewModel(cfg, "")
-	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	p := tea.NewProgram(model)
 
 	_, err = p.Run()
 	model.Close()

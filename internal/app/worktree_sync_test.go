@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
@@ -42,7 +42,7 @@ func TestPushToUpstreamRunsGitPush(t *testing.T) {
 		return exec.Command("printf", "")
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'P'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'P', Text: string('P')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -88,7 +88,7 @@ func TestPushToUpstreamPromptsForUpstream(t *testing.T) {
 	}
 	m.state.data.selectedIndex = 0
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'P'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'P', Text: string('P')})
 	if cmd == nil {
 		t.Fatal("expected input command to be returned")
 	}
@@ -160,7 +160,7 @@ func TestPushToUpstreamBlocksWithLocalChanges(t *testing.T) {
 	}
 	m.state.data.selectedIndex = 0
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'P'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'P', Text: string('P')})
 	if cmd != nil {
 		t.Fatal("expected no command when local changes exist")
 	}
@@ -189,7 +189,7 @@ func TestPushToUpstreamRejectsOtherBranch(t *testing.T) {
 	}
 	m.state.data.selectedIndex = 0
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'P'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'P', Text: string('P')})
 	if cmd == nil {
 		t.Fatal("expected input command to be returned")
 	}
@@ -223,7 +223,7 @@ func TestPushToUpstreamRejectsConfiguredOtherBranch(t *testing.T) {
 	}
 	m.state.data.selectedIndex = 0
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'P'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'P', Text: string('P')})
 	if cmd != nil {
 		t.Fatal("expected no command when upstream is for another branch")
 	}
@@ -266,7 +266,7 @@ func TestSyncWithUpstreamRunsPullThenPush(t *testing.T) {
 		return exec.Command("printf", "")
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'S'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'S', Text: string('S')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -319,7 +319,7 @@ func TestSyncWithUpstreamPromptsForUpstream(t *testing.T) {
 	}
 	m.state.data.selectedIndex = 0
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'S'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'S', Text: string('S')})
 	if cmd == nil {
 		t.Fatal("expected input command to be returned")
 	}
@@ -397,7 +397,7 @@ func TestSyncWithUpstreamBlocksWithLocalChanges(t *testing.T) {
 	}
 	m.state.data.selectedIndex = 0
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'S'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'S', Text: string('S')})
 	if cmd != nil {
 		t.Fatal("expected no command when local changes exist")
 	}
@@ -427,7 +427,7 @@ func TestSyncWithUpstreamRejectsConfiguredOtherBranch(t *testing.T) {
 	}
 	m.state.data.selectedIndex = 0
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'S'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'S', Text: string('S')})
 	if cmd != nil {
 		t.Fatal("expected no command when upstream is for another branch")
 	}
@@ -470,7 +470,7 @@ func TestSyncWithUpstreamUsesRebasePull(t *testing.T) {
 		return exec.Command("printf", "")
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'S'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'S', Text: string('S')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -527,7 +527,7 @@ func TestSyncWithNoPRDoesNormalSync(t *testing.T) {
 		return exec.Command("printf", "")
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'S'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'S', Text: string('S')})
 	if cmd == nil {
 		t.Fatal("expected sync command to be returned")
 	}
@@ -578,7 +578,7 @@ func TestSyncPREmptyBaseBranchDoesNormalSync(t *testing.T) {
 		return exec.Command("printf", "")
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'S'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'S', Text: string('S')})
 	if cmd == nil {
 		t.Fatal("expected sync command to be returned")
 	}
@@ -766,7 +766,7 @@ func TestConfirmYesCallsUpdateFromBase(t *testing.T) {
 	}
 
 	// Simulate user pressing YES (y key)
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'y', Text: string('y')})
 
 	if cmd == nil {
 		t.Fatal("expected command to be returned from confirmAction")
@@ -824,7 +824,7 @@ func TestConfirmNoDoesNormalSync(t *testing.T) {
 	}
 
 	// Simulate user pressing NO (n key)
-	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	newModel, cmd := m.Update(tea.KeyPressMsg{Code: 'n', Text: string('n')})
 	_ = newModel.(*Model)
 
 	if cmd == nil {

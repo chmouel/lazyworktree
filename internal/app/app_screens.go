@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/table"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/table"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/app/commands"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/state"
@@ -26,7 +26,7 @@ func (m *Model) showInfo(message string, action tea.Cmd) {
 	m.state.ui.screenManager.Push(infoScreen)
 }
 
-func (m *Model) handleScreenKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleScreenKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if !m.state.ui.screenManager.IsActive() {
 		return m, nil
 	}
@@ -393,8 +393,12 @@ func (m *Model) UpdateTheme(themeName string) {
 	m.state.ui.spinner.Style = lipgloss.NewStyle().Foreground(thm.Accent)
 
 	// Update filter input styles
-	m.state.ui.filterInput.PromptStyle = lipgloss.NewStyle().Foreground(thm.Accent)
-	m.state.ui.filterInput.TextStyle = lipgloss.NewStyle().Foreground(thm.TextFg)
+	filterStyles := m.state.ui.filterInput.Styles()
+	filterStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(thm.Accent)
+	filterStyles.Blurred.Prompt = lipgloss.NewStyle().Foreground(thm.Accent)
+	filterStyles.Focused.Text = lipgloss.NewStyle().Foreground(thm.TextFg)
+	filterStyles.Blurred.Text = lipgloss.NewStyle().Foreground(thm.TextFg)
+	m.state.ui.filterInput.SetStyles(filterStyles)
 
 	// Update other screens if they exist
 	if loadingScreen := m.loadingScreen(); loadingScreen != nil {

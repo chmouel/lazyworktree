@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
@@ -54,10 +54,13 @@ func NewInputScreen(prompt, placeholder, value string, thm *theme.Theme, showIco
 	ti.Focus()
 	ti.CharLimit = 200
 	ti.Prompt = ""
-	ti.TextStyle = lipgloss.NewStyle().Foreground(thm.TextFg)
+	styles := ti.Styles()
+	styles.Focused.Text = lipgloss.NewStyle().Foreground(thm.TextFg)
+	styles.Blurred.Text = lipgloss.NewStyle().Foreground(thm.TextFg)
+	ti.SetStyles(styles)
 
 	// Fixed width to match modal style (60 - padding/border = 52 for input)
-	ti.Width = 52
+	ti.SetWidth(52)
 
 	return &InputScreen{
 		Prompt:       prompt,
@@ -99,7 +102,7 @@ func (s *InputScreen) Type() Type {
 
 // Update handles keyboard input for the input screen.
 // Returns nil to signal the screen should be closed.
-func (s *InputScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *InputScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
 	keyStr := msg.String()
 
@@ -118,7 +121,7 @@ func (s *InputScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 			return s, nil
 		}
 
-	case " ":
+	case "space":
 		// Only toggle checkbox if it's enabled AND focused
 		if s.CheckboxEnabled && s.CheckboxFocused {
 			s.CheckboxChecked = !s.CheckboxChecked
@@ -193,7 +196,7 @@ func (s *InputScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	}
 
 	// Reset history browsing when user types
-	if msg.Type == tea.KeyRunes || msg.Type == tea.KeyBackspace || msg.Type == tea.KeyDelete {
+	if msg.Text != "" || msg.Code == tea.KeyBackspace || msg.Code == tea.KeyDelete {
 		s.HistoryIndex = -1
 	}
 

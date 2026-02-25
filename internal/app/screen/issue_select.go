@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
@@ -45,7 +45,7 @@ func NewIssueSelectionScreen(issues []*models.IssueInfo, maxWidth, maxHeight int
 	ti.CharLimit = 100
 	ti.Prompt = "> "
 	ti.Blur()
-	ti.Width = width - 4
+	ti.SetWidth(width - 4)
 
 	return &IssueSelectionScreen{
 		Issues:       issues,
@@ -67,7 +67,7 @@ func (s *IssueSelectionScreen) Type() Type {
 }
 
 // Update handles keyboard input and returns nil to signal the screen should close.
-func (s *IssueSelectionScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *IssueSelectionScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
 	maxVisible := s.Height - 6
 	if !s.FilterActive {

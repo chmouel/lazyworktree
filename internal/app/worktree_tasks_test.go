@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -103,7 +103,7 @@ func TestShowTaskboardAndToggleTask(t *testing.T) {
 		t.Fatalf("expected taskboard screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
 	}
 
-	updated, _ := m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	updated, _ := m.handleScreenKey(tea.KeyPressMsg{Code: ' ', Text: string(' ')})
 	m = updated.(*Model)
 
 	note, ok := m.getWorktreeNote(wtPath)
@@ -282,7 +282,7 @@ func TestShowTaskboardWithTodoLines(t *testing.T) {
 	}
 
 	// Toggle the first item (TODO keyword) via space key
-	updated, _ := m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	updated, _ := m.handleScreenKey(tea.KeyPressMsg{Code: ' ', Text: string(' ')})
 	m = updated.(*Model)
 
 	note, ok := m.getWorktreeNote(wtPath)
@@ -305,7 +305,7 @@ func TestHandleBuiltInKeyTaskboardShortcut(t *testing.T) {
 	m.state.data.worktrees = []*models.WorktreeInfo{{Path: wtPath, Branch: "feat-a"}}
 	m.setWorktreeNote(wtPath, "- [ ] Open taskboard")
 
-	_, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'T', Text: string('T')})
 	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeTaskboard {
 		t.Fatalf("expected taskboard screen on T shortcut, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
 	}
@@ -329,7 +329,7 @@ func TestTaskboardAddKeyOpensInputScreen(t *testing.T) {
 	}
 
 	// Press 'a' — should push an InputScreen on top of the taskboard.
-	updated, _ := m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	updated, _ := m.handleScreenKey(tea.KeyPressMsg{Code: 'a', Text: string('a')})
 	m = updated.(*Model)
 
 	if !m.state.ui.screenManager.IsActive() {

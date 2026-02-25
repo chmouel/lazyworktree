@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/bubbles/viewport"
+	"charm.land/bubbles/v2/viewport"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
@@ -294,7 +294,7 @@ func TestRenderZoomedRightTopPane(t *testing.T) {
 
 	m.infoContent = "Test info"
 	m.statusContent = "Test status content"
-	m.state.ui.statusViewport = viewport.New(50, 20)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(50), viewport.WithHeight(20))
 
 	layout := layoutDims{
 		rightWidth:          80,

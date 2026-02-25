@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
@@ -66,7 +66,7 @@ func NewTaskboardScreen(items []TaskboardItem, title string, maxWidth, maxHeight
 	ti.CharLimit = 100
 	ti.Prompt = "/ "
 	ti.Blur()
-	ti.Width = max(20, s.Width-8)
+	ti.SetWidth(max(20, s.Width-8))
 	s.FilterInput = ti
 
 	s.applyFilter()
@@ -89,8 +89,8 @@ func (s *TaskboardScreen) Resize(maxWidth, maxHeight int) {
 	if maxHeight > 0 {
 		s.Height = clampInt(int(float64(maxHeight)*0.85), 20, 44)
 	}
-	if s.FilterInput.Width > 0 {
-		s.FilterInput.Width = max(20, s.Width-8)
+	if s.FilterInput.Width() > 0 {
+		s.FilterInput.SetWidth(max(20, s.Width-8))
 	}
 }
 
@@ -110,7 +110,7 @@ func (s *TaskboardScreen) SetItems(items []TaskboardItem, preferredID string) {
 }
 
 // Update handles keyboard input.
-func (s *TaskboardScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *TaskboardScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
 	keyStr := msg.String()
 
@@ -130,7 +130,7 @@ func (s *TaskboardScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 				return nil, s.OnClose()
 			}
 			return nil, nil
-		case keyEnter, " ":
+		case keyEnter, "space":
 			return s, s.toggleSelected()
 		case "up", "k", "ctrl+k":
 			s.moveCursor(-1)

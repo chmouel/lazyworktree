@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/table"
+	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -33,29 +33,27 @@ func TestHandleMouseDoesNotPanic(t *testing.T) {
 	m.state.view.WindowHeight = 40
 
 	// Test mouse wheel events
-	mouseMsg := tea.MouseMsg{
-		Action: tea.MouseActionPress,
-		Button: tea.MouseButtonWheelUp,
+	wheelMsg := tea.MouseWheelMsg{
+		Button: tea.MouseWheelUp,
 		X:      10,
 		Y:      5,
 	}
 
-	result, _ := m.handleMouse(mouseMsg)
+	result, _ := m.handleMouseWheel(wheelMsg)
 	if result == nil {
-		t.Fatal("handleMouse returned nil model")
+		t.Fatal("handleMouseWheel returned nil model")
 	}
 
 	// Test mouse click
-	mouseMsg = tea.MouseMsg{
-		Action: tea.MouseActionPress,
-		Button: tea.MouseButtonLeft,
+	clickMsg := tea.MouseClickMsg{
+		Button: tea.MouseLeft,
 		X:      10,
 		Y:      5,
 	}
 
-	result, _ = m.handleMouse(mouseMsg)
+	result, _ = m.handleMouseClick(clickMsg)
 	if result == nil {
-		t.Fatal("handleMouse returned nil model")
+		t.Fatal("handleMouseClick returned nil model")
 	}
 }
 

@@ -3,20 +3,26 @@ package app
 import (
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/chmouel/lazyworktree/internal/app/screen"
 )
 
 // View renders the active screen for the Bubble Tea program.
-func (m *Model) View() string {
+func (m *Model) View() tea.View {
+	v := tea.NewView("")
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+
 	if m.quitting {
-		return ""
+		return v
 	}
 
 	// Wait for window size before rendering full UI
 	if m.state.view.WindowWidth == 0 || m.state.view.WindowHeight == 0 {
-		return "Loading..."
+		v.SetContent("Loading...")
+		return v
 	}
 
 	// Always render base layout first to allow overlays
@@ -50,40 +56,49 @@ func (m *Model) View() string {
 			// Full-screen replacement for welcome/trust screens
 			content := scr.View()
 			if m.state.view.WindowWidth > 0 && m.state.view.WindowHeight > 0 {
-				return lipgloss.Place(m.state.view.WindowWidth, m.state.view.WindowHeight, lipgloss.Center, lipgloss.Center, content)
+				v.SetContent(lipgloss.Place(m.state.view.WindowWidth, m.state.view.WindowHeight, lipgloss.Center, lipgloss.Center, content))
+				return v
 			}
-			return content
+			v.SetContent(content)
+			return v
 		case screen.TypeCommit:
 			// Resize viewport to fit window
 			if cs, ok := scr.(*screen.CommitScreen); ok {
 				vpWidth := max(80, int(float64(m.state.view.WindowWidth)*0.95))
 				vpHeight := max(20, int(float64(m.state.view.WindowHeight)*0.85))
-				cs.Viewport.Width = vpWidth
-				cs.Viewport.Height = vpHeight
+				cs.Viewport.SetWidth(vpWidth)
+				cs.Viewport.SetHeight(vpHeight)
 			}
-			return m.overlayPopup(baseView, scr.View(), 2)
+			v.SetContent(m.overlayPopup(baseView, scr.View(), 2))
+			return v
 		case screen.TypeNoteView:
 			if ns, ok := scr.(*screen.NoteViewScreen); ok {
 				ns.Resize(m.state.view.WindowWidth, m.state.view.WindowHeight)
 			}
-			return m.overlayPopup(baseView, scr.View(), 2)
+			v.SetContent(m.overlayPopup(baseView, scr.View(), 2))
+			return v
 		case screen.TypeTaskboard:
 			if ts, ok := scr.(*screen.TaskboardScreen); ok {
 				ts.Resize(m.state.view.WindowWidth, m.state.view.WindowHeight)
 			}
-			return m.overlayPopup(baseView, scr.View(), 2)
+			v.SetContent(m.overlayPopup(baseView, scr.View(), 2))
+			return v
 		case screen.TypePRSelect:
 			// PR selection screen with 2-margin popup
-			return m.overlayPopup(baseView, scr.View(), 2)
+			v.SetContent(m.overlayPopup(baseView, scr.View(), 2))
+			return v
 		case screen.TypePalette:
-			return m.overlayPopup(baseView, scr.View(), 3)
+			v.SetContent(m.overlayPopup(baseView, scr.View(), 3))
+			return v
 		default:
 			// Default: overlay popup
-			return m.overlayPopup(baseView, scr.View(), 3)
+			v.SetContent(m.overlayPopup(baseView, scr.View(), 3))
+			return v
 		}
 	}
 
-	return baseView
+	v.SetContent(baseView)
+	return v
 }
 
 // overlayPopup overlays a popup on top of the base view, preserving

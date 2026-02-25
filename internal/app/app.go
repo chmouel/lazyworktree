@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/table"
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/table"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/app/state"
@@ -454,7 +454,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	// Don't set Foreground on Cell - let Selected style's foreground take effect
 	t.SetStyles(s)
 
-	statusVp := viewport.New(40, 5)
+	statusVp := viewport.New(viewport.WithWidth(40), viewport.WithHeight(5))
 	statusVp.SetContent("Loading...")
 
 	logColumns := []table.Column{
@@ -471,9 +471,13 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 
 	filterInput := textinput.New()
 	filterInput.Placeholder = filterWorktreesPlaceholder
-	filterInput.Width = 50
-	filterInput.PromptStyle = lipgloss.NewStyle().Foreground(thm.Accent)
-	filterInput.TextStyle = lipgloss.NewStyle().Foreground(thm.TextFg)
+	filterInput.SetWidth(50)
+	filterStyles := filterInput.Styles()
+	filterStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(thm.Accent)
+	filterStyles.Blurred.Prompt = lipgloss.NewStyle().Foreground(thm.Accent)
+	filterStyles.Focused.Text = lipgloss.NewStyle().Foreground(thm.TextFg)
+	filterStyles.Blurred.Text = lipgloss.NewStyle().Foreground(thm.TextFg)
+	filterInput.SetStyles(filterStyles)
 
 	sp := spinner.New()
 	sp.Spinner = spinner.MiniDot
@@ -595,8 +599,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.setWindowSize(msg.Width, msg.Height)
 		return m, nil
 
-	case tea.MouseMsg:
-		return m.handleMouse(msg)
+	case tea.MouseClickMsg:
+		return m.handleMouseClick(msg)
+
+	case tea.MouseWheelMsg:
+		return m.handleMouseWheel(msg)
 
 	case spinner.TickMsg:
 		m.state.ui.spinner, cmd = m.state.ui.spinner.Update(msg)
@@ -605,7 +612,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		m.debugf("key: %s screen=%s focus=%d filter=%t", msg.String(), m.state.ui.screenManager.Type().String(), m.state.view.FocusedPane, m.state.view.ShowingFilter)
 		if m.state.ui.screenManager.IsActive() {
 			return m.handleScreenKey(msg)

@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
+	lipgloss "charm.land/lipgloss/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -416,13 +417,13 @@ func TestUpdateTheme(t *testing.T) {
 	m.setWindowSize(120, 40)
 
 	// Verify initial theme (Dracula accent is #BD93F9)
-	if string(m.theme.Accent) != "#BD93F9" {
+	if m.theme.Accent != lipgloss.Color("#BD93F9") {
 		t.Fatalf("expected initial dracula accent, got %v", m.theme.Accent)
 	}
 
 	// Update to clean-light (Clean-Light accent is #c6dbe5)
 	m.UpdateTheme("clean-light")
-	if string(m.theme.Accent) != "#c6dbe5" {
+	if m.theme.Accent != lipgloss.Color("#c6dbe5") {
 		t.Fatalf("expected clean-light accent, got %v", m.theme.Accent)
 	}
 }
@@ -497,7 +498,7 @@ func TestThemeSelectionCancelSaveKeepsAppliedThemeAndClosesFlow(t *testing.T) {
 	}
 	listScreen.OnCursorChange(item)
 
-	if string(m.theme.Accent) != "#c6dbe5" {
+	if m.theme.Accent != lipgloss.Color("#c6dbe5") {
 		t.Fatalf("expected clean-light accent after preview, got %v", m.theme.Accent)
 	}
 
@@ -510,12 +511,12 @@ func TestThemeSelectionCancelSaveKeepsAppliedThemeAndClosesFlow(t *testing.T) {
 		t.Fatalf("expected confirm screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
 	}
 
-	_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	_, _ = m.handleScreenKey(tea.KeyPressMsg{Code: 'n', Text: string('n')})
 
 	if m.config.Theme != "dracula" {
 		t.Fatalf("expected config theme to remain dracula, got %q", m.config.Theme)
 	}
-	if string(m.theme.Accent) != "#c6dbe5" {
+	if m.theme.Accent != lipgloss.Color("#c6dbe5") {
 		t.Fatalf("expected selected theme to stay applied, got accent %v", m.theme.Accent)
 	}
 	if m.state.ui.screenManager.IsActive() {
@@ -542,13 +543,13 @@ func TestThemeSelectionListCancelRestoresOriginalTheme(t *testing.T) {
 		t.Fatal("expected clean-light in theme selection list")
 	}
 	listScreen.OnCursorChange(item)
-	if string(m.theme.Accent) != "#c6dbe5" {
+	if m.theme.Accent != lipgloss.Color("#c6dbe5") {
 		t.Fatalf("expected clean-light accent after preview, got %v", m.theme.Accent)
 	}
 
-	_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyEsc})
+	_, _ = m.handleScreenKey(tea.KeyPressMsg{Code: tea.KeyEscape})
 
-	if string(m.theme.Accent) != "#BD93F9" {
+	if m.theme.Accent != lipgloss.Color("#BD93F9") {
 		t.Fatalf("expected original dracula theme restored, got accent %v", m.theme.Accent)
 	}
 	if m.state.ui.screenManager.IsActive() {
@@ -582,12 +583,12 @@ func TestThemeSelectionConfirmSavePersistsTheme(t *testing.T) {
 		t.Fatalf("expected confirm screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
 	}
 
-	_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	_, _ = m.handleScreenKey(tea.KeyPressMsg{Code: 'y', Text: string('y')})
 
 	if m.config.Theme != "clean-light" {
 		t.Fatalf("expected config theme to persist as clean-light, got %q", m.config.Theme)
 	}
-	if string(m.theme.Accent) != "#c6dbe5" {
+	if m.theme.Accent != lipgloss.Color("#c6dbe5") {
 		t.Fatalf("expected clean-light to stay applied, got accent %v", m.theme.Accent)
 	}
 	if m.originalTheme != "" {
@@ -597,8 +598,8 @@ func TestThemeSelectionConfirmSavePersistsTheme(t *testing.T) {
 		t.Fatalf("expected to return to list selection screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
 	}
 
-	_, _ = m.handleScreenKey(tea.KeyMsg{Type: tea.KeyEsc})
-	if string(m.theme.Accent) != "#c6dbe5" {
+	_, _ = m.handleScreenKey(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.theme.Accent != lipgloss.Color("#c6dbe5") {
 		t.Fatalf("expected persisted theme to remain after exiting picker, got accent %v", m.theme.Accent)
 	}
 }
@@ -959,21 +960,21 @@ func TestRenderScreenVariants(t *testing.T) {
 	commitScr := appscreen.NewCommitScreen(appscreen.CommitMeta{SHA: "abc123"}, "stat", "diff", false, m.theme)
 	m.state.ui.screenManager.Push(commitScr)
 	out := m.View()
-	if out == "" {
+	if out.Content == "" {
 		t.Fatal("expected commit screen to render")
 	}
 	m.state.ui.screenManager.Pop()
 
 	confirmScr := appscreen.NewConfirmScreen("Confirm?", m.theme)
 	m.state.ui.screenManager.Push(confirmScr)
-	if out = m.View(); out == "" {
+	if out = m.View(); out.Content == "" {
 		t.Fatal("expected confirm screen to render")
 	}
 	m.state.ui.screenManager.Pop()
 
 	infoScr := appscreen.NewInfoScreen("Info", m.theme)
 	m.state.ui.screenManager.Push(infoScr)
-	if out = m.View(); out == "" {
+	if out = m.View(); out.Content == "" {
 		t.Fatal("expected info screen to render")
 	}
 	m.state.ui.screenManager.Pop()
@@ -981,7 +982,7 @@ func TestRenderScreenVariants(t *testing.T) {
 	// TrustScreen is now managed by screenManager
 	trustScr := appscreen.NewTrustScreen("/tmp/.wt.yaml", []string{"cmd"}, m.theme)
 	m.state.ui.screenManager.Push(trustScr)
-	if out = m.View(); out == "" {
+	if out = m.View(); out.Content == "" {
 		t.Fatal("expected trust screen to render")
 	}
 	m.state.ui.screenManager.Pop()
@@ -989,7 +990,7 @@ func TestRenderScreenVariants(t *testing.T) {
 	// WelcomeScreen is now managed by screenManager
 	welcomeScr := appscreen.NewWelcomeScreen("/tmp", "/tmp/wt", m.theme)
 	m.state.ui.screenManager.Push(welcomeScr)
-	if out = m.View(); out == "" {
+	if out = m.View(); out.Content == "" {
 		t.Fatal("expected welcome screen to render")
 	}
 	m.state.ui.screenManager.Pop()
@@ -997,26 +998,26 @@ func TestRenderScreenVariants(t *testing.T) {
 	paletteItems := []appscreen.PaletteItem{{ID: "help", Label: "Help"}}
 	paletteScr := appscreen.NewCommandPaletteScreen(paletteItems, 100, 40, m.theme)
 	m.state.ui.screenManager.Push(paletteScr)
-	if out = m.View(); out == "" {
+	if out = m.View(); out.Content == "" {
 		t.Fatal("expected palette screen to render")
 	}
 	m.state.ui.screenManager.Pop()
 
 	// No active screen should still render something
-	if out = m.View(); out == "" {
+	if out = m.View(); out.Content == "" {
 		t.Fatal("expected view to render something")
 	}
 
 	inputScr := appscreen.NewInputScreen("Prompt", "Placeholder", "value", m.theme, m.config.IconsEnabled())
 	m.state.ui.screenManager.Push(inputScr)
-	if out = m.View(); out == "" {
+	if out = m.View(); out.Content == "" {
 		t.Fatal("expected input screen to render")
 	}
 	m.state.ui.screenManager.Pop()
 
 	listScreen := appscreen.NewListSelectionScreen([]appscreen.SelectionItem{{ID: "a", Label: "A"}}, "Select", "", "", 120, 40, "", m.theme)
 	m.state.ui.screenManager.Push(listScreen)
-	if out = m.View(); out == "" {
+	if out = m.View(); out.Content == "" {
 		t.Fatal("expected list selection screen to render")
 	}
 }

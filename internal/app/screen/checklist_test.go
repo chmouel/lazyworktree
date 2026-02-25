@@ -3,7 +3,7 @@ package screen
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
@@ -18,7 +18,7 @@ func TestChecklistScreenFilterToggle(t *testing.T) {
 		t.Fatal("expected filter to be inactive by default")
 	}
 
-	next, _ := scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+	next, _ := scr.Update(tea.KeyPressMsg{Code: 'f', Text: string('f')})
 	nextScr, ok := next.(*ChecklistScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return checklist screen after f")
@@ -28,7 +28,7 @@ func TestChecklistScreenFilterToggle(t *testing.T) {
 		t.Fatal("expected filter to be active after f")
 	}
 
-	next, _ = scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	next, _ = scr.Update(tea.KeyPressMsg{Code: 't', Text: string('t')})
 	nextScr, ok = next.(*ChecklistScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return checklist screen after typing")
@@ -38,7 +38,7 @@ func TestChecklistScreenFilterToggle(t *testing.T) {
 		t.Fatalf("expected filtered results to include only 'two', got %v", scr.Filtered)
 	}
 
-	next, _ = scr.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	next, _ = scr.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	nextScr, ok = next.(*ChecklistScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return checklist screen after Esc")
