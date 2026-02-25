@@ -64,8 +64,9 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - Enter: Jump to selected worktree (exit and cd)
 - q: Quit application
 
-**{{HELP_STATUS_PANE}}Status Pane (when focused)**
-- j / k: Navigate CI checks (when visible)
+**{{HELP_STATUS_PANE}}Info Pane (when focused)**
+- j / k: Scroll info content
+- n / p: Navigate CI checks (when visible)
 - Enter: Open selected CI check URL in browser
 - PR number in the info panel is clickable in terminals that support OSC-8 hyperlinks
 - Ctrl+v: View selected CI check logs in pager (when CI check is selected)

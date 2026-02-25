@@ -526,8 +526,34 @@ func (m *Model) renderRightPane(layout layoutDims) string {
 func (m *Model) renderRightTopPane(layout layoutDims) string {
 	focused := m.state.view.FocusedPane == 1
 
-	infoBox := m.renderInnerBox("Info", m.infoContent, layout.rightInnerWidth, layout.rightTopInnerHeight)
-	return m.renderPaneBlock(2, "Status", focused, layout.rightWidth, layout.rightTopHeight, infoBox)
+	infoBox := m.renderInfoBox(layout.rightInnerWidth, layout.rightTopInnerHeight)
+	return m.renderPaneBlock(2, "Info", focused, layout.rightWidth, layout.rightTopHeight, infoBox)
+}
+
+// renderInfoBox renders the Info content using a viewport for scrolling.
+func (m *Model) renderInfoBox(width, height int) string {
+	content := m.infoContent
+	if content == "" {
+		content = "No data available."
+	}
+
+	titleStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg).Bold(true)
+	innerBoxStyle := m.baseInnerBoxStyle()
+
+	// Title takes 1 line
+	vpWidth := maxInt(1, width-innerBoxStyle.GetHorizontalFrameSize())
+	vpHeight := maxInt(1, height-innerBoxStyle.GetVerticalFrameSize()-1)
+
+	m.state.ui.infoViewport.SetWidth(vpWidth)
+	m.state.ui.infoViewport.SetHeight(vpHeight)
+	m.state.ui.infoViewport.SetContent(content)
+
+	boxContent := lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render("Info"), m.state.ui.infoViewport.View())
+
+	return innerBoxStyle.
+		Width(width).
+		Height(height).
+		Render(boxContent)
 }
 
 // renderRightMiddlePane renders the right middle pane (git status file tree).
@@ -583,8 +609,8 @@ func (m *Model) renderBottomPane(layout layoutDims) string {
 func (m *Model) renderBottomLeftPane(layout layoutDims) string {
 	focused := m.state.view.FocusedPane == 1
 
-	infoBox := m.renderInnerBox("Info", m.infoContent, layout.bottomLeftInnerWidth, layout.bottomLeftInnerHeight)
-	return m.renderPaneBlock(2, "Status", focused, layout.bottomLeftWidth, layout.bottomHeight, infoBox)
+	infoBox := m.renderInfoBox(layout.bottomLeftInnerWidth, layout.bottomLeftInnerHeight)
+	return m.renderPaneBlock(2, "Info", focused, layout.bottomLeftWidth, layout.bottomHeight, infoBox)
 }
 
 // renderBottomMiddlePane renders the git status pane in the bottom middle of the top layout.
@@ -618,7 +644,7 @@ func (m *Model) renderZoomedLeftPane(layout layoutDims) string {
 
 // renderZoomedRightTopPane renders the zoomed right top pane (info only).
 func (m *Model) renderZoomedRightTopPane(layout layoutDims) string {
-	infoBox := m.renderInnerBox("Info", m.infoContent, layout.rightInnerWidth, layout.rightTopInnerHeight)
+	infoBox := m.renderInfoBox(layout.rightInnerWidth, layout.rightTopInnerHeight)
 	return m.renderPaneBlock(2, "Status", true, layout.rightWidth, layout.bodyHeight, infoBox)
 }
 
@@ -689,11 +715,6 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 			parts = append(parts, behindStyle.Render(fmt.Sprintf("%s%d", behindIndicator(m.config.IconsEnabled()), wt.Behind)))
 		}
 		infoLines = addField(infoLines, "Divergence:", strings.Join(parts, " "))
-	}
-	if note, ok := m.getWorktreeNote(wt.Path); ok {
-		infoLines = append(infoLines, "")
-		infoLines = append(infoLines, sectionStyle.Render("Notes:"))
-		infoLines = append(infoLines, m.renderMarkdownNoteLines(note.Note, valueStyle)...)
 	}
 	hidePRDetails := wt.PR != nil && wt.IsMain && (wt.PR.State == prStateMerged || wt.PR.State == prStateClosed)
 	if wt.PR != nil && !hidePRDetails && !m.config.DisablePR {
@@ -772,7 +793,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 				if isMainBranch {
 					infoLines = append(infoLines, grayStyle.Render("  Main branch usually has no PR"))
 				} else {
-					infoLines = append(infoLines, grayStyle.Render("  Press 'p' to fetch PR data"))
+					infoLines = append(infoLines, grayStyle.Render("  Press 'r' to refresh and fetch PR data"))
 				}
 			}
 		}
@@ -809,6 +830,12 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 				infoLines = append(infoLines, line)
 			}
 		}
+	}
+
+	if note, ok := m.getWorktreeNote(wt.Path); ok {
+		infoLines = append(infoLines, "")
+		infoLines = append(infoLines, sectionStyle.Render("Notes:"))
+		infoLines = append(infoLines, m.renderMarkdownNoteLines(note.Note, valueStyle)...)
 	}
 
 	return strings.Join(infoLines, "\n")

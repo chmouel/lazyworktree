@@ -33,7 +33,7 @@ func (m *Model) openCICheckSelection() tea.Cmd {
 	// Get CI checks from cache
 	checks, _, ok := m.cache.ciCache.Get(wt.Branch)
 	if !ok || len(checks) == 0 {
-		m.showInfo("No CI checks available. Press 'p' to fetch PR data first.", nil)
+		m.showInfo("No CI checks available. Press 'r' to refresh and fetch PR data first.", nil)
 		return nil
 	}
 

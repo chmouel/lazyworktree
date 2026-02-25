@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/muesli/reflow/wrap"
 )
 
 // renderHeader renders the application header.
@@ -113,9 +112,10 @@ func (m *Model) renderFooter(layout layoutDims) string {
 			m.renderKeyHint("?", "Help"),
 		)
 
-	case 1: // Status pane (info + CI)
+	case 1: // Info pane (info + CI)
 		hints = []string{
-			m.renderKeyHint("j/k", "CI Checks"),
+			m.renderKeyHint("j/k", "Scroll"),
+			m.renderKeyHint("n/p", "CI Checks"),
 			m.renderKeyHint("Enter", "Open URL"),
 			m.renderKeyHint("Ctrl+v", "CI Logs"),
 			m.renderKeyHint("Tab", "Switch Pane"),
@@ -264,26 +264,6 @@ func (m *Model) renderPaneBlock(index int, title string, focused bool, width, he
 	finalTopBorder := styledTopLeft + styledTitleBlock + filterIndicator + zoomIndicator + styledRemaining + styledTopRight
 
 	return lipgloss.JoinVertical(lipgloss.Left, finalTopBorder, styledContent)
-}
-
-// renderInnerBox renders a bordered inner box with title and content.
-func (m *Model) renderInnerBox(title, content string, width, height int) string {
-	if content == "" {
-		content = "No data available."
-	}
-
-	titleStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg).Bold(true)
-
-	style := m.baseInnerBoxStyle().Width(width)
-	if height > 0 {
-		style = style.Height(height)
-	}
-
-	innerWidth := maxInt(1, width-style.GetHorizontalFrameSize())
-	wrappedContent := wrap.String(content, innerWidth)
-	boxContent := lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render(title), wrappedContent)
-
-	return style.Render(boxContent)
 }
 
 // renderCIStatusPill renders a CI aggregate status as a powerline pill.
