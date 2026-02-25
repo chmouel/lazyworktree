@@ -244,7 +244,7 @@ func (s *PRSelectionScreen) View() string {
 	// Layout: [icon] #number author CI title
 	prNumWidth := 6
 	authorWidth := min(12, max(8, (s.Width-30)/5))
-	ciWidth := 2
+	ciWidth := 6
 	iconWidth := 0
 	if s.ShowIcons {
 		iconWidth = 3
@@ -356,27 +356,17 @@ func (s *PRSelectionScreen) View() string {
 	return boxStyle.Render(content)
 }
 
-// renderPRLine renders a PR line with colored CI status icon.
-func (s *PRSelectionScreen) renderPRLine(baseStyle lipgloss.Style, iconPrefix, prNum, author, ciIcon, title, ciStatus string, isDraft bool) string {
-	// Style for CI icon based on status
-	var ciStyle lipgloss.Style
+// renderPRLine renders a PR line with bubble-styled CI status icon.
+func (s *PRSelectionScreen) renderPRLine(baseStyle lipgloss.Style, iconPrefix, prNum, author, _, title, ciStatus string, isDraft bool) string {
+	// For draft PRs, show a muted "D" without a bubble
+	var ciBubble string
 	if isDraft {
-		ciStyle = lipgloss.NewStyle().Foreground(s.Thm.MutedFg)
+		ciBubble = lipgloss.NewStyle().Foreground(s.Thm.MutedFg).Render("D")
 	} else {
-		switch ciStatus {
-		case "success":
-			ciStyle = lipgloss.NewStyle().Foreground(s.Thm.SuccessFg)
-		case "failure":
-			ciStyle = lipgloss.NewStyle().Foreground(s.Thm.ErrorFg)
-		case "pending":
-			ciStyle = lipgloss.NewStyle().Foreground(s.Thm.WarnFg)
-		default:
-			ciStyle = lipgloss.NewStyle().Foreground(s.Thm.MutedFg)
-		}
+		ciBubble = renderCIBubble(s.Thm, ciStatus, s.ShowIcons)
 	}
 
-	// Build the line with colored CI icon
-	line := fmt.Sprintf("%s%s %s %s %s", iconPrefix, prNum, author, ciStyle.Render(ciIcon), title)
+	line := fmt.Sprintf("%s%s %s %s %s", iconPrefix, prNum, author, ciBubble, title)
 	return baseStyle.Render(line)
 }
 

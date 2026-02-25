@@ -1,5 +1,12 @@
 package screen
 
+import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
+	"github.com/chmouel/lazyworktree/internal/theme"
+)
+
 // UIIcon identifies UI-specific icons.
 type UIIcon int
 
@@ -164,6 +171,31 @@ func disclosureIndicator(collapsed, showIcons bool) string {
 		return "▶"
 	}
 	return "▼"
+}
+
+// renderCIBubble renders a CI status icon as a pill-shaped bubble for the screen package.
+// When selected is true, returns the plain icon (parent applies full-line selection style).
+func renderCIBubble(thm *theme.Theme, conclusion string, showIcons bool) string {
+	icon := getCIStatusIcon(conclusion, false, showIcons)
+	bg, fg := ciConclusionColors(thm, conclusion)
+	bubbleStyle := lipgloss.NewStyle().Background(bg).Foreground(fg)
+	leftEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b6")
+	rightEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b4")
+	return leftEdge + bubbleStyle.Render(" "+icon+" ") + rightEdge
+}
+
+// ciConclusionColors returns (background, foreground) theme colours for a CI conclusion.
+func ciConclusionColors(thm *theme.Theme, conclusion string) (color.Color, color.Color) {
+	switch conclusion {
+	case "success":
+		return thm.SuccessFg, thm.AccentFg
+	case "failure":
+		return thm.ErrorFg, thm.AccentFg
+	case "pending", "":
+		return thm.WarnFg, thm.AccentFg
+	default: // skipped, cancelled, etc.
+		return thm.BorderDim, thm.TextFg
+	}
 }
 
 func getCIStatusIcon(ciStatus string, isDraft, showIcons bool) string {

@@ -10,7 +10,6 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -41,30 +40,10 @@ func (m *Model) openCICheckSelection() tea.Cmd {
 	// Build selection items from CI checks
 	items := make([]appscreen.SelectionItem, 0, len(checks))
 
-	// Styled CI status icons (same pattern as render_panes.go)
-	greenStyle := lipgloss.NewStyle().Foreground(m.theme.SuccessFg)
-	redStyle := lipgloss.NewStyle().Foreground(m.theme.ErrorFg)
-	yellowStyle := lipgloss.NewStyle().Foreground(m.theme.WarnFg)
-	grayStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
-
 	for i, check := range checks {
-		var style lipgloss.Style
-		switch check.Conclusion {
-		case "success":
-			style = greenStyle
-		case "failure":
-			style = redStyle
-		case "skipped", "cancelled":
-			style = grayStyle
-		case "pending", "":
-			style = yellowStyle
-		default:
-			style = grayStyle
-		}
-
-		icon := getCIStatusIcon(check.Conclusion, false, m.config.IconsEnabled())
-		styledIcon := style.Render(icon)
-		label := fmt.Sprintf("%s %s", styledIcon, check.Name)
+		symbol := getCIStatusIcon(check.Conclusion, false, m.config.IconsEnabled())
+		iconStyle := m.ciIconStyle(check.Conclusion)
+		label := fmt.Sprintf("%s %s", iconStyle.Render(symbol), check.Name)
 
 		items = append(items, appscreen.SelectionItem{
 			ID:    fmt.Sprintf("%d", i),
