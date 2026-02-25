@@ -507,14 +507,8 @@ func (m *Model) renderBody(layout layoutDims) string {
 
 // renderLeftPane renders the left pane (worktree table).
 func (m *Model) renderLeftPane(layout layoutDims) string {
-	title := m.renderPaneTitle(1, "Worktrees", m.state.view.FocusedPane == 0, layout.leftInnerWidth)
-	tableView := m.state.ui.worktreeTable.View()
-	content := lipgloss.JoinVertical(lipgloss.Left, title, tableView)
-	return m.paneStyle(m.state.view.FocusedPane == 0).
-		Width(layout.leftWidth).
-		Height(layout.bodyHeight).
-		MaxHeight(layout.bodyHeight).
-		Render(content)
+	focused := m.state.view.FocusedPane == 0
+	return m.renderPaneBlock(1, "Worktrees", focused, layout.leftWidth, layout.bodyHeight, m.state.ui.worktreeTable.View())
 }
 
 // renderRightPane renders the right pane container (status + log).
@@ -527,15 +521,15 @@ func (m *Model) renderRightPane(layout layoutDims) string {
 
 // renderRightTopPane renders the right top pane (status viewport).
 func (m *Model) renderRightTopPane(layout layoutDims) string {
-	title := m.renderPaneTitle(2, "Status", m.state.view.FocusedPane == 1, layout.rightInnerWidth)
+	focused := m.state.view.FocusedPane == 1
 
 	// Constrain info box height to prevent overflow when CI checks are numerous
 	innerBoxStyle := m.baseInnerBoxStyle()
 	minStatusBoxRendered := 3 + innerBoxStyle.GetVerticalFrameSize()
-	maxInfoBoxHeight := maxInt(3, layout.rightTopInnerHeight-lipgloss.Height(title)-minStatusBoxRendered)
+	maxInfoBoxHeight := maxInt(3, layout.rightTopInnerHeight-1-minStatusBoxRendered)
 	infoBox := m.renderInnerBox("Info", m.infoContent, layout.rightInnerWidth, maxInfoBoxHeight)
 
-	statusBoxHeight := maxInt(layout.rightTopInnerHeight-lipgloss.Height(title)-lipgloss.Height(infoBox)-2, 3)
+	statusBoxHeight := maxInt(layout.rightTopInnerHeight-1-lipgloss.Height(infoBox)-2, 3)
 	statusViewportWidth := maxInt(1, layout.rightInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
 	statusViewportHeight := maxInt(1, statusBoxHeight-innerBoxStyle.GetVerticalFrameSize())
 	m.state.ui.statusViewport.SetWidth(statusViewportWidth)
@@ -548,26 +542,16 @@ func (m *Model) renderRightTopPane(layout layoutDims) string {
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
-		title,
 		infoBox,
 		statusBox,
 	)
-	return m.paneStyle(m.state.view.FocusedPane == 1).
-		Width(layout.rightWidth).
-		Height(layout.rightTopHeight).
-		MaxHeight(layout.rightTopHeight).
-		Render(content)
+	return m.renderPaneBlock(2, "Status", focused, layout.rightWidth, layout.rightTopHeight, content)
 }
 
 // renderRightBottomPane renders the right bottom pane (log table).
 func (m *Model) renderRightBottomPane(layout layoutDims) string {
-	title := m.renderPaneTitle(3, "Log", m.state.view.FocusedPane == 2, layout.rightInnerWidth)
-	content := lipgloss.JoinVertical(lipgloss.Left, title, m.state.ui.logTable.View())
-	return m.paneStyle(m.state.view.FocusedPane == 2).
-		Width(layout.rightWidth).
-		Height(layout.rightBottomHeight).
-		MaxHeight(layout.rightBottomHeight).
-		Render(content)
+	focused := m.state.view.FocusedPane == 2
+	return m.renderPaneBlock(3, "Log", focused, layout.rightWidth, layout.rightBottomHeight, m.state.ui.logTable.View())
 }
 
 // renderTopLayoutBody renders the body for the top layout mode.
@@ -580,14 +564,8 @@ func (m *Model) renderTopLayoutBody(layout layoutDims) string {
 
 // renderTopPane renders the full-width worktree pane at the top.
 func (m *Model) renderTopPane(layout layoutDims) string {
-	title := m.renderPaneTitle(1, "Worktrees", m.state.view.FocusedPane == 0, layout.topInnerWidth)
-	tableView := m.state.ui.worktreeTable.View()
-	content := lipgloss.JoinVertical(lipgloss.Left, title, tableView)
-	return m.paneStyle(m.state.view.FocusedPane == 0).
-		Width(layout.width).
-		Height(layout.topHeight).
-		MaxHeight(layout.topHeight).
-		Render(content)
+	focused := m.state.view.FocusedPane == 0
+	return m.renderPaneBlock(1, "Worktrees", focused, layout.width, layout.topHeight, m.state.ui.worktreeTable.View())
 }
 
 // renderBottomPane renders the bottom pane container (status + log side by side).
@@ -602,14 +580,14 @@ func (m *Model) renderBottomPane(layout layoutDims) string {
 
 // renderBottomLeftPane renders the status pane in the bottom left of the top layout.
 func (m *Model) renderBottomLeftPane(layout layoutDims) string {
-	title := m.renderPaneTitle(2, "Status", m.state.view.FocusedPane == 1, layout.bottomLeftInnerWidth)
+	focused := m.state.view.FocusedPane == 1
 
 	innerBoxStyle := m.baseInnerBoxStyle()
 	minStatusBoxRendered := 3 + innerBoxStyle.GetVerticalFrameSize()
-	maxInfoBoxHeight := maxInt(3, layout.bottomLeftInnerHeight-lipgloss.Height(title)-minStatusBoxRendered)
+	maxInfoBoxHeight := maxInt(3, layout.bottomLeftInnerHeight-1-minStatusBoxRendered)
 	infoBox := m.renderInnerBox("Info", m.infoContent, layout.bottomLeftInnerWidth, maxInfoBoxHeight)
 
-	statusBoxHeight := maxInt(layout.bottomLeftInnerHeight-lipgloss.Height(title)-lipgloss.Height(infoBox)-2, 3)
+	statusBoxHeight := maxInt(layout.bottomLeftInnerHeight-1-lipgloss.Height(infoBox)-2, 3)
 	statusViewportWidth := maxInt(1, layout.bottomLeftInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
 	statusViewportHeight := maxInt(1, statusBoxHeight-innerBoxStyle.GetVerticalFrameSize())
 	m.state.ui.statusViewport.SetWidth(statusViewportWidth)
@@ -622,51 +600,32 @@ func (m *Model) renderBottomLeftPane(layout layoutDims) string {
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
-		title,
 		infoBox,
 		statusBox,
 	)
-	return m.paneStyle(m.state.view.FocusedPane == 1).
-		Width(layout.bottomLeftWidth).
-		Height(layout.bottomHeight).
-		MaxHeight(layout.bottomHeight).
-		Render(content)
+	return m.renderPaneBlock(2, "Status", focused, layout.bottomLeftWidth, layout.bottomHeight, content)
 }
 
 // renderBottomRightPane renders the log pane in the bottom right of the top layout.
 func (m *Model) renderBottomRightPane(layout layoutDims) string {
-	title := m.renderPaneTitle(3, "Log", m.state.view.FocusedPane == 2, layout.bottomRightInnerWidth)
-	content := lipgloss.JoinVertical(lipgloss.Left, title, m.state.ui.logTable.View())
-	return m.paneStyle(m.state.view.FocusedPane == 2).
-		Width(layout.bottomRightWidth).
-		Height(layout.bottomHeight).
-		MaxHeight(layout.bottomHeight).
-		Render(content)
+	focused := m.state.view.FocusedPane == 2
+	return m.renderPaneBlock(3, "Log", focused, layout.bottomRightWidth, layout.bottomHeight, m.state.ui.logTable.View())
 }
 
 // renderZoomedLeftPane renders the zoomed left pane.
 func (m *Model) renderZoomedLeftPane(layout layoutDims) string {
-	title := m.renderPaneTitle(1, "Worktrees", true, layout.leftInnerWidth)
-	tableView := m.state.ui.worktreeTable.View()
-	content := lipgloss.JoinVertical(lipgloss.Left, title, tableView)
-	return m.paneStyle(true).
-		Width(layout.leftWidth).
-		Height(layout.bodyHeight).
-		MaxHeight(layout.bodyHeight).
-		Render(content)
+	return m.renderPaneBlock(1, "Worktrees", true, layout.leftWidth, layout.bodyHeight, m.state.ui.worktreeTable.View())
 }
 
 // renderZoomedRightTopPane renders the zoomed right top pane.
 func (m *Model) renderZoomedRightTopPane(layout layoutDims) string {
-	title := m.renderPaneTitle(2, "Status", true, layout.rightInnerWidth)
-
 	// Constrain info box height to prevent overflow when CI checks are numerous
 	innerBoxStyle := m.baseInnerBoxStyle()
 	minStatusBoxRendered := 3 + innerBoxStyle.GetVerticalFrameSize()
-	maxInfoBoxHeight := maxInt(3, layout.rightTopInnerHeight-lipgloss.Height(title)-minStatusBoxRendered)
+	maxInfoBoxHeight := maxInt(3, layout.rightTopInnerHeight-1-minStatusBoxRendered)
 	infoBox := m.renderInnerBox("Info", m.infoContent, layout.rightInnerWidth, maxInfoBoxHeight)
 
-	statusBoxHeight := maxInt(layout.rightTopInnerHeight-lipgloss.Height(title)-lipgloss.Height(infoBox)-2, 3)
+	statusBoxHeight := maxInt(layout.rightTopInnerHeight-1-lipgloss.Height(infoBox)-2, 3)
 	statusViewportWidth := maxInt(1, layout.rightInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
 	statusViewportHeight := maxInt(1, statusBoxHeight-innerBoxStyle.GetVerticalFrameSize())
 	m.state.ui.statusViewport.SetWidth(statusViewportWidth)
@@ -679,26 +638,15 @@ func (m *Model) renderZoomedRightTopPane(layout layoutDims) string {
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
-		title,
 		infoBox,
 		statusBox,
 	)
-	return m.paneStyle(true).
-		Width(layout.rightWidth).
-		Height(layout.bodyHeight).
-		MaxHeight(layout.bodyHeight).
-		Render(content)
+	return m.renderPaneBlock(2, "Status", true, layout.rightWidth, layout.bodyHeight, content)
 }
 
 // renderZoomedRightBottomPane renders the zoomed right bottom pane.
 func (m *Model) renderZoomedRightBottomPane(layout layoutDims) string {
-	title := m.renderPaneTitle(3, "Log", true, layout.rightInnerWidth)
-	content := lipgloss.JoinVertical(lipgloss.Left, title, m.state.ui.logTable.View())
-	return m.paneStyle(true).
-		Width(layout.rightWidth).
-		Height(layout.bodyHeight).
-		MaxHeight(layout.bodyHeight).
-		Render(content)
+	return m.renderPaneBlock(3, "Log", true, layout.rightWidth, layout.bodyHeight, m.state.ui.logTable.View())
 }
 
 // buildInfoContent builds the info content string for a worktree.
