@@ -105,6 +105,30 @@ func TestClosePersistsCurrentSelection(t *testing.T) {
 	}
 }
 
+func TestFocusBlurUpdatesState(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	if !m.state.view.TerminalFocused {
+		t.Fatal("expected TerminalFocused to be true by default")
+	}
+
+	// Blur
+	result, _ := m.Update(tea.BlurMsg{})
+	updated := result.(*Model)
+	if updated.state.view.TerminalFocused {
+		t.Fatal("expected TerminalFocused false after BlurMsg")
+	}
+
+	// Focus
+	result, _ = updated.Update(tea.FocusMsg{})
+	updated = result.(*Model)
+	if !updated.state.view.TerminalFocused {
+		t.Fatal("expected TerminalFocused true after FocusMsg")
+	}
+}
+
 func TestGetSelectedPath(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),

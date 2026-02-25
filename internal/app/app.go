@@ -507,13 +507,14 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 		cancel:   cancel,
 		state: modelState{
 			view: &state.ViewState{
-				FilterTarget: state.FilterTargetWorktrees,
-				SearchTarget: state.SearchTargetWorktrees,
-				FocusedPane:  0,
-				ZoomedPane:   -1,
-				WindowWidth:  80,
-				WindowHeight: 24,
-				Layout:       layoutMode,
+				FilterTarget:    state.FilterTargetWorktrees,
+				SearchTarget:    state.SearchTargetWorktrees,
+				FocusedPane:     0,
+				ZoomedPane:      -1,
+				WindowWidth:     80,
+				WindowHeight:    24,
+				Layout:          layoutMode,
+				TerminalFocused: true,
 			},
 		},
 		infoContent:   errNoWorktreeSelected,
@@ -597,6 +598,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.debugf("window: %dx%d", msg.Width, msg.Height)
 		m.setWindowSize(msg.Width, msg.Height)
+		return m, nil
+
+	case tea.FocusMsg:
+		m.state.view.TerminalFocused = true
+		m.debugf("terminal focused")
+		return m, m.refreshWorktrees()
+
+	case tea.BlurMsg:
+		m.state.view.TerminalFocused = false
+		m.debugf("terminal blurred")
 		return m, nil
 
 	case tea.MouseClickMsg:
@@ -912,8 +923,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.updateDetailsView()
 
 	case autoRefreshTickMsg:
+		// Keep scheduling ticks but skip git work when terminal is unfocused
 		if cmd := m.autoRefreshTick(); cmd != nil {
 			cmds = append(cmds, cmd)
+		}
+		if !m.state.view.TerminalFocused {
+			return m, tea.Batch(cmds...)
 		}
 		if cmd := m.refreshDetails(); cmd != nil {
 			cmds = append(cmds, cmd)

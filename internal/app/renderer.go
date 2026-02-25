@@ -14,6 +14,7 @@ func (m *Model) View() tea.View {
 	v := tea.NewView("")
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
+	v.ReportFocus = true
 	v.WindowTitle = m.windowTitle()
 
 	if m.quitting {
