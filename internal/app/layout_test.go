@@ -5,6 +5,7 @@ import (
 
 	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/config"
+	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -192,4 +193,96 @@ func TestZoomModeIgnoresTopLayout(t *testing.T) {
 	// Zoom mode should return early before top layout computation
 	assert.Equal(t, state.LayoutDefault, layout.layoutMode)
 	assert.Equal(t, 120, layout.leftWidth)
+}
+
+func TestDefaultLayoutWithNotes(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-layout", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "a note"}
+
+	layout := m.computeLayout()
+
+	assert.True(t, layout.hasNotes)
+	assert.Positive(t, layout.leftTopHeight)
+	assert.Positive(t, layout.leftBottomHeight)
+	assert.Positive(t, layout.leftTopInnerHeight)
+	assert.Positive(t, layout.leftBottomInnerHeight)
+
+	// Top + gap + bottom should equal body height
+	assert.Equal(t, layout.bodyHeight, layout.leftTopHeight+layout.gapY+layout.leftBottomHeight)
+}
+
+func TestDefaultLayoutWithoutNotes(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-no-notes", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+
+	layout := m.computeLayout()
+
+	assert.False(t, layout.hasNotes)
+	assert.Equal(t, layout.bodyHeight, layout.leftTopHeight)
+	assert.Equal(t, 0, layout.leftBottomHeight)
+}
+
+func TestTopLayoutWithNotes(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir(), Layout: "top"}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+	m.state.view.Layout = state.LayoutTop
+
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-top", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "a note"}
+
+	layout := m.computeLayout()
+
+	assert.Equal(t, state.LayoutTop, layout.layoutMode)
+	assert.True(t, layout.hasNotes)
+	assert.Positive(t, layout.notesRowHeight)
+	assert.Positive(t, layout.notesRowInnerHeight)
+	assert.Positive(t, layout.notesRowInnerWidth)
+
+	// All vertical sections must sum to the full body height.
+	assert.Equal(t, layout.bodyHeight, layout.topHeight+layout.gapY+layout.notesRowHeight+layout.gapY+layout.bottomHeight)
+}
+
+func TestNotesPaneFocusIncreasesSize(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-focus", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "a note"}
+
+	m.state.view.FocusedPane = 0
+	layoutUnfocused := m.computeLayout()
+
+	m.state.view.FocusedPane = 4
+	layoutFocused := m.computeLayout()
+
+	assert.Greater(t, layoutFocused.leftBottomHeight, layoutUnfocused.leftBottomHeight,
+		"notes pane should be larger when focused")
 }

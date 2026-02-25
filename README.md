@@ -164,6 +164,7 @@ Zsh helpers are in `shell/functions.zsh`. See [./shell/README.md](./shell/README
 | `2` | Focus Status pane (toggle zoom if focused) |
 | `3` | Focus Git Status pane (toggle zoom if focused) |
 | `4` | Focus Commit pane (toggle zoom if focused) |
+| `5` | Focus Notes pane (toggle zoom if focused; only visible when worktree has a note) |
 | `h`, `l` | Navigate left/right (h=worktree pane, l=cycle right panes) |
 | `Tab`, `]` | Cycle to next pane |
 | `[` | Cycle to previous pane |
@@ -396,7 +397,7 @@ git config --local --get-regexp "^lw\."
 **Worktree list and refresh**
 
 * `sort_mode`: `"switched"` (last accessed, default), `"active"` (commit date), or `"path"` (alphabetical).
-* `layout`: pane arrangement — `"default"` (worktrees left, status/git status/commit stacked right) or `"top"` (worktrees full-width top, status/git status/commit side-by-side bottom). Toggle at runtime with `L`.
+* `layout`: pane arrangement — `"default"` (worktrees left, status/git status/commit stacked right; notes pane splits the left column when a note exists) or `"top"` (worktrees full-width top, notes row below when a note exists, status/git status/commit side-by-side bottom). Toggle at runtime with `L`.
 * `auto_refresh`: background refresh of git metadata (default: true).
 * `ci_auto_refresh`: periodically refresh CI status for GitHub repositories (default: false).
 * `refresh_interval`: refresh frequency in seconds (default: 10).

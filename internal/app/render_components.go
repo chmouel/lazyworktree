@@ -68,7 +68,21 @@ func (m *Model) renderFooter(layout layoutDims) string {
 	// Context-aware hints based on focused pane
 	var hints []string
 
+	paneHint := "1-4"
+	if m.hasNoteForSelectedWorktree() {
+		paneHint = "1-5"
+	}
+
 	switch m.state.view.FocusedPane {
+	case 4: // Notes pane
+		hints = []string{
+			m.renderKeyHint("j/k", "Scroll"),
+			m.renderKeyHint("i", "Edit Note"),
+			m.renderKeyHint("Tab", "Switch Pane"),
+			m.renderKeyHint("q", "Quit"),
+			m.renderKeyHint("?", "Help"),
+		}
+
 	case 3: // Commit pane
 		if len(m.state.data.logEntries) > 0 {
 			hints = []string{
@@ -126,7 +140,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 
 	default: // Worktree table (pane 0)
 		hints = []string{
-			m.renderKeyHint("1-4", "Pane"),
+			m.renderKeyHint(paneHint, "Pane"),
 			m.renderKeyHint("c", "Create"),
 			m.renderKeyHint("f", "Filter"),
 			m.renderKeyHint("d", "Diff"),

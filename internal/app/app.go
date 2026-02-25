@@ -265,6 +265,7 @@ type uiState struct {
 	worktreeTable  table.Model
 	infoViewport   viewport.Model
 	statusViewport viewport.Model
+	notesViewport  viewport.Model
 	logTable       table.Model
 	filterInput    textinput.Model
 	spinner        spinner.Model
@@ -317,6 +318,7 @@ type Model struct {
 	loadingOperation          string // Tracks what operation is loading (push, sync, etc.)
 	infoContent               string
 	statusContent             string
+	notesContent              string
 
 	// Status tree view
 	ciCheckIndex int // Current selection in CI checks (-1 = none, 0+ = index)
@@ -455,6 +457,9 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	statusVp := viewport.New(viewport.WithWidth(40), viewport.WithHeight(5))
 	statusVp.SetContent("Loading...")
 
+	notesVp := viewport.New(viewport.WithWidth(40), viewport.WithHeight(5))
+	notesVp.SoftWrap = true
+
 	logColumns := []table.Column{
 		{Title: "SHA", Width: 8},
 		{Title: "Au", Width: 2},
@@ -541,6 +546,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	m.state.ui.worktreeTable = t
 	m.state.ui.infoViewport = infoVp
 	m.state.ui.statusViewport = statusVp
+	m.state.ui.notesViewport = notesVp
 	m.state.ui.logTable = logT
 	m.state.ui.filterInput = filterInput
 	m.state.ui.spinner = sp
@@ -824,6 +830,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.setLogEntries(msg.log, reset)
 		}
+		m.refreshSelectedWorktreeNotesPane()
 		// Trigger CI fetch if worktree has a PR and cache is stale
 		return m, m.maybeFetchCIStatus()
 

@@ -170,6 +170,8 @@ func (m *Model) handleGotoTop() (tea.Model, tea.Cmd) {
 		}
 	case 3:
 		m.state.ui.logTable.GotoTop()
+	case 4:
+		m.state.ui.notesViewport.GotoTop()
 	}
 	return m, nil
 }
@@ -190,6 +192,8 @@ func (m *Model) handleGotoBottom() (tea.Model, tea.Cmd) {
 		}
 	case 3:
 		m.state.ui.logTable.GotoBottom()
+	case 4:
+		m.state.ui.notesViewport.GotoBottom()
 	}
 	return m, nil
 }
@@ -222,6 +226,27 @@ func (m *Model) handlePrevFolder() (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// nextPane returns the next pane index in the given direction (+1 or -1),
+// including pane 4 (Notes) in the cycle when a note exists.
+func (m *Model) nextPane(current, direction int) int {
+	// Build ordered pane list: notes sits after worktrees (0) visually
+	panes := []int{0, 1, 2, 3}
+	if m.hasNoteForSelectedWorktree() {
+		panes = []int{0, 4, 1, 2, 3}
+	}
+	for i, p := range panes {
+		if p == current {
+			next := (i + direction + len(panes)) % len(panes)
+			return panes[next]
+		}
+	}
+	// Fallback: if current pane not found (e.g. 4 with no note), start from 0
+	if direction > 0 {
+		return panes[0]
+	}
+	return panes[len(panes)-1]
 }
 
 // handleBuiltInKey processes built-in keyboard shortcuts.
@@ -316,10 +341,34 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case "5":
+		if !m.hasNoteForSelectedWorktree() {
+			return m, nil
+		}
+		targetPane := 4
+		if m.state.view.FocusedPane == targetPane {
+			if m.state.view.ZoomedPane >= 0 {
+				m.state.view.ZoomedPane = -1
+			} else {
+				m.state.view.ZoomedPane = targetPane
+			}
+		} else {
+			m.state.view.ZoomedPane = -1
+			wasPane1 := m.state.view.FocusedPane == 1
+			if wasPane1 {
+				m.ciCheckIndex = -1
+			}
+			m.state.view.FocusedPane = targetPane
+			if wasPane1 {
+				m.rebuildStatusContentWithHighlight()
+			}
+		}
+		return m, nil
+
 	case keyTab, "]":
 		m.state.view.ZoomedPane = -1
 		wasPane1 := m.state.view.FocusedPane == 1
-		m.state.view.FocusedPane = (m.state.view.FocusedPane + 1) % 4
+		m.state.view.FocusedPane = m.nextPane(m.state.view.FocusedPane, 1)
 		if wasPane1 && m.state.view.FocusedPane != 1 {
 			m.ciCheckIndex = -1
 		}
@@ -337,7 +386,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "[":
 		m.state.view.ZoomedPane = -1
 		wasPane1 := m.state.view.FocusedPane == 1
-		m.state.view.FocusedPane = (m.state.view.FocusedPane - 1 + 4) % 4
+		m.state.view.FocusedPane = m.nextPane(m.state.view.FocusedPane, -1)
 		if wasPane1 && m.state.view.FocusedPane != 1 {
 			m.ciCheckIndex = -1
 		}
@@ -353,7 +402,8 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "h":
-		if m.state.view.Layout == state.LayoutTop {
+		switch {
+		case m.state.view.Layout == state.LayoutTop:
 			// Top layout: h navigates left among bottom panes, or up to top
 			switch m.state.view.FocusedPane {
 			case 1:
@@ -370,8 +420,15 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.state.view.ZoomedPane = -1
 				m.state.view.FocusedPane = 2
 				m.rebuildStatusContentWithHighlight()
+			case 4:
+				// Notes in top layout: go to worktrees (above)
+				m.state.view.ZoomedPane = -1
+				m.state.view.FocusedPane = 0
+				m.state.ui.worktreeTable.Focus()
 			}
-		} else if m.state.view.FocusedPane != 0 {
+		case m.state.view.FocusedPane == 0 || m.state.view.FocusedPane == 4:
+			// Default layout: worktrees and notes are already leftmost, no-op
+		default:
 			// Default layout: navigate left - go to pane 0 if not already there
 			m.state.view.ZoomedPane = -1
 			wasPane1 := m.state.view.FocusedPane == 1
@@ -401,6 +458,11 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.state.view.ZoomedPane = -1
 				m.state.view.FocusedPane = 3
 				m.state.ui.logTable.Focus()
+			case 4:
+				// Notes in top layout: go right to first bottom pane
+				m.state.view.ZoomedPane = -1
+				m.state.view.FocusedPane = 1
+				m.rebuildStatusContentWithHighlight()
 			}
 		} else {
 			// Default layout: navigate right - cycle through right panels (1, 2, 3)
@@ -415,6 +477,11 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.ciCheckIndex = -1
 				m.rebuildStatusContentWithHighlight()
 			case 2:
+				m.state.view.ZoomedPane = -1
+				m.state.view.FocusedPane = 3
+				m.state.ui.logTable.Focus()
+			case 4:
+				// Notes in default layout: go right to commit pane (same vertical level)
 				m.state.view.ZoomedPane = -1
 				m.state.view.FocusedPane = 3
 				m.state.ui.logTable.Focus()
@@ -452,6 +519,10 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, tea.Batch(moveCmd, m.openCommitView())
 		}
+		if m.state.view.FocusedPane == 4 {
+			m.state.ui.notesViewport.ScrollDown(1)
+			return m, nil
+		}
 		return m, nil
 
 	case keyCtrlK:
@@ -464,6 +535,10 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if !node.IsDir() {
 				return m, m.showFileDiff(*node.File)
 			}
+			return m, nil
+		}
+		if m.state.view.FocusedPane == 4 {
+			m.state.ui.notesViewport.ScrollUp(1)
 			return m, nil
 		}
 		return m, nil
@@ -490,6 +565,10 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if len(m.state.services.statusTree.TreeFlat) > 0 {
 				m.state.services.statusTree.Index = len(m.state.services.statusTree.TreeFlat) - 1
 			}
+			return m, nil
+		}
+		if m.state.view.FocusedPane == 4 {
+			m.state.ui.notesViewport.GotoBottom()
 			return m, nil
 		}
 		return m, nil
@@ -742,6 +821,8 @@ func (m *Model) handleNavigationDown(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 			m.rebuildStatusContentWithHighlight()
 		}
+	case 4:
+		m.state.ui.notesViewport.ScrollDown(1)
 	default:
 		m.state.ui.logTable, cmd = m.state.ui.logTable.Update(keyMsg)
 		cmds = append(cmds, cmd)
@@ -771,6 +852,8 @@ func (m *Model) handleNavigationUp(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 			m.rebuildStatusContentWithHighlight()
 		}
+	case 4:
+		m.state.ui.notesViewport.ScrollUp(1)
 	default:
 		m.state.ui.logTable, cmd = m.state.ui.logTable.Update(msg)
 		cmds = append(cmds, cmd)
@@ -898,6 +981,9 @@ func (m *Model) handlePageDown(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case 3:
 		m.state.ui.logTable, cmd = m.state.ui.logTable.Update(msg)
 		return m, cmd
+	case 4:
+		m.state.ui.notesViewport.HalfPageDown()
+		return m, nil
 	}
 	return m, nil
 }
@@ -916,6 +1002,9 @@ func (m *Model) handlePageUp(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case 3:
 		m.state.ui.logTable, cmd = m.state.ui.logTable.Update(msg)
 		return m, cmd
+	case 4:
+		m.state.ui.notesViewport.HalfPageUp()
+		return m, nil
 	}
 	return m, nil
 }
@@ -984,11 +1073,19 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	targetPane := -1
 
 	if layout.layoutMode == state.LayoutTop {
-		// Top layout: worktree at top (full width), status+git status+commit side-by-side at bottom
+		// Top layout: worktree at top (full width), optional notes row, status+git status+commit side-by-side at bottom
 		topY := headerOffset
 		topMaxY := headerOffset + layout.topHeight
 
-		bottomY := headerOffset + layout.topHeight + layout.gapY
+		notesY := topMaxY + layout.gapY
+		notesMaxY := notesY + layout.notesRowHeight
+
+		var bottomY int
+		if layout.hasNotes {
+			bottomY = notesMaxY + layout.gapY
+		} else {
+			bottomY = topMaxY + layout.gapY
+		}
 		bottomMaxY := headerOffset + layout.bodyHeight
 		bottomLeftMaxX := layout.bottomLeftWidth
 		bottomMiddleX := layout.bottomLeftWidth + layout.gapX
@@ -998,6 +1095,8 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		switch {
 		case mouseY >= topY && mouseY < topMaxY:
 			targetPane = 0
+		case layout.hasNotes && mouseY >= notesY && mouseY < notesMaxY:
+			targetPane = 4
 		case mouseX < bottomLeftMaxX && mouseY >= bottomY && mouseY < bottomMaxY:
 			targetPane = 1
 		case mouseX >= bottomMiddleX && mouseX < bottomMiddleMaxX && mouseY >= bottomY && mouseY < bottomMaxY:
@@ -1006,10 +1105,8 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 			targetPane = 3
 		}
 	} else {
-		// Default layout: worktree on left, status+git status+commit stacked on right
+		// Default layout: worktree on left (optionally split with notes), status+git status+commit stacked on right
 		leftMaxX := layout.leftWidth
-		leftY := headerOffset
-		leftMaxY := headerOffset + layout.bodyHeight
 
 		rightX := layout.leftWidth + layout.gapX
 		rightTopY := headerOffset
@@ -1022,15 +1119,30 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		rightBottomY := rightMiddleMaxY + layout.gapY
 		rightBottomMaxY := headerOffset + layout.bodyHeight
 
-		switch {
-		case mouseX < leftMaxX && mouseY >= leftY && mouseY < leftMaxY:
-			targetPane = 0
-		case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightTopY && mouseY < rightTopMaxY:
-			targetPane = 1
-		case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightMiddleY && mouseY < rightMiddleMaxY:
-			targetPane = 2
-		case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightBottomY && mouseY < rightBottomMaxY:
-			targetPane = 3
+		if layout.hasNotes && mouseX < leftMaxX {
+			// Left column is split: top = worktrees, bottom = notes
+			leftTopY := headerOffset
+			leftTopMaxY := headerOffset + layout.leftTopHeight
+			leftBottomY := leftTopMaxY + layout.gapY
+			leftBottomMaxY := headerOffset + layout.bodyHeight
+
+			switch {
+			case mouseY >= leftTopY && mouseY < leftTopMaxY:
+				targetPane = 0
+			case mouseY >= leftBottomY && mouseY < leftBottomMaxY:
+				targetPane = 4
+			}
+		} else {
+			switch {
+			case mouseX < leftMaxX && mouseY >= headerOffset && mouseY < headerOffset+layout.bodyHeight:
+				targetPane = 0
+			case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightTopY && mouseY < rightTopMaxY:
+				targetPane = 1
+			case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightMiddleY && mouseY < rightMiddleMaxY:
+				targetPane = 2
+			case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightBottomY && mouseY < rightBottomMaxY:
+				targetPane = 3
+			}
 		}
 	}
 
@@ -1059,6 +1171,9 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		var logPaneTopY int
 		if layout.layoutMode == state.LayoutTop {
 			logPaneTopY = headerOffset + layout.topHeight + layout.gapY
+			if layout.hasNotes {
+				logPaneTopY += layout.notesRowHeight + layout.gapY
+			}
 		} else {
 			logPaneTopY = headerOffset + layout.rightTopHeight + layout.gapY + layout.rightMiddleHeight + layout.gapY
 		}
@@ -1109,7 +1224,16 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 	if layout.layoutMode == state.LayoutTop {
 		topY := headerOffset
 		topMaxY := headerOffset + layout.topHeight
-		bottomY := headerOffset + layout.topHeight + layout.gapY
+
+		notesY := topMaxY + layout.gapY
+		notesMaxY := notesY + layout.notesRowHeight
+
+		var bottomY int
+		if layout.hasNotes {
+			bottomY = notesMaxY + layout.gapY
+		} else {
+			bottomY = topMaxY + layout.gapY
+		}
 		bottomMaxY := headerOffset + layout.bodyHeight
 		bottomLeftMaxX := layout.bottomLeftWidth
 		bottomMiddleX := layout.bottomLeftWidth + layout.gapX
@@ -1119,6 +1243,8 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 		switch {
 		case mouseY >= topY && mouseY < topMaxY:
 			targetPane = 0
+		case layout.hasNotes && mouseY >= notesY && mouseY < notesMaxY:
+			targetPane = 4
 		case mouseX < bottomLeftMaxX && mouseY >= bottomY && mouseY < bottomMaxY:
 			targetPane = 1
 		case mouseX >= bottomMiddleX && mouseX < bottomMiddleMaxX && mouseY >= bottomY && mouseY < bottomMaxY:
@@ -1128,8 +1254,6 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 		}
 	} else {
 		leftMaxX := layout.leftWidth
-		leftY := headerOffset
-		leftMaxY := headerOffset + layout.bodyHeight
 		rightX := layout.leftWidth + layout.gapX
 		rightTopY := headerOffset
 		rightTopMaxX := rightX + layout.rightWidth
@@ -1139,15 +1263,29 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 		rightBottomY := rightMiddleMaxY + layout.gapY
 		rightBottomMaxY := headerOffset + layout.bodyHeight
 
-		switch {
-		case mouseX < leftMaxX && mouseY >= leftY && mouseY < leftMaxY:
-			targetPane = 0
-		case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightTopY && mouseY < rightTopMaxY:
-			targetPane = 1
-		case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightMiddleY && mouseY < rightMiddleMaxY:
-			targetPane = 2
-		case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightBottomY && mouseY < rightBottomMaxY:
-			targetPane = 3
+		if layout.hasNotes && mouseX < leftMaxX {
+			leftTopY := headerOffset
+			leftTopMaxY := headerOffset + layout.leftTopHeight
+			leftBottomY := leftTopMaxY + layout.gapY
+			leftBottomMaxY := headerOffset + layout.bodyHeight
+
+			switch {
+			case mouseY >= leftTopY && mouseY < leftTopMaxY:
+				targetPane = 0
+			case mouseY >= leftBottomY && mouseY < leftBottomMaxY:
+				targetPane = 4
+			}
+		} else {
+			switch {
+			case mouseX < leftMaxX && mouseY >= headerOffset && mouseY < headerOffset+layout.bodyHeight:
+				targetPane = 0
+			case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightTopY && mouseY < rightTopMaxY:
+				targetPane = 1
+			case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightMiddleY && mouseY < rightMiddleMaxY:
+				targetPane = 2
+			case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightBottomY && mouseY < rightBottomMaxY:
+				targetPane = 3
+			}
 		}
 	}
 
@@ -1169,6 +1307,8 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 			}
 		case 3:
 			m.state.ui.logTable, _ = m.state.ui.logTable.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+		case 4:
+			m.state.ui.notesViewport.ScrollUp(3)
 		}
 
 	case tea.MouseWheelDown:
@@ -1188,6 +1328,8 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 			}
 		case 3:
 			m.state.ui.logTable, _ = m.state.ui.logTable.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+		case 4:
+			m.state.ui.notesViewport.ScrollDown(3)
 		}
 	}
 

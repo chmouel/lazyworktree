@@ -91,6 +91,7 @@ func (m *Model) setWorktreeNote(path, noteText string) {
 	if trimmed == "" {
 		delete(m.worktreeNotes, key)
 		m.saveWorktreeNotes()
+		m.refreshSelectedWorktreeNotesPane()
 		return
 	}
 
@@ -102,6 +103,7 @@ func (m *Model) setWorktreeNote(path, noteText string) {
 		delete(m.worktreeNotes, filepath.Clean(path))
 	}
 	m.saveWorktreeNotes()
+	m.refreshSelectedWorktreeNotesPane()
 }
 
 func (m *Model) deleteWorktreeNote(path string) {
@@ -130,6 +132,27 @@ func (m *Model) migrateWorktreeNote(oldPath, newPath string) {
 	note.UpdatedAt = time.Now().Unix()
 	m.worktreeNotes[m.worktreeNoteKey(newPath)] = note
 	m.saveWorktreeNotes()
+}
+
+func (m *Model) hasNoteForSelectedWorktree() bool {
+	wt := m.selectedWorktree()
+	if wt == nil {
+		return false
+	}
+	_, ok := m.getWorktreeNote(wt.Path)
+	return ok
+}
+
+func (m *Model) refreshSelectedWorktreeNotesPane() {
+	m.notesContent = m.buildNotesContent(m.selectedWorktree())
+
+	if m.state.view.FocusedPane == 4 && !m.hasNoteForSelectedWorktree() {
+		m.state.view.FocusedPane = 0
+		m.state.ui.worktreeTable.Focus()
+		if m.state.view.ZoomedPane == 4 {
+			m.state.view.ZoomedPane = -1
+		}
+	}
 }
 
 func (m *Model) pruneStaleWorktreeNotes(worktrees []*models.WorktreeInfo) {

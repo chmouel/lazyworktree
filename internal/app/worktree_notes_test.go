@@ -151,6 +151,22 @@ func TestHandleBuiltInKeyAnnotate(t *testing.T) {
 	}
 }
 
+func TestHandleBuiltInKeyAnnotateFromNotesPaneOpensEditor(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	path := "/tmp/wt"
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: path, Branch: "feat"}}
+	m.state.data.selectedIndex = 0
+	m.state.ui.worktreeTable.SetCursor(0)
+	m.setWorktreeNote(path, "existing note")
+
+	m.state.view.FocusedPane = 4
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'i', Text: string('i')})
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeTextarea {
+		t.Fatalf("expected textarea screen from notes pane, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+}
+
 func TestAnnotateWorktreeCtrlSSaves(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
@@ -176,6 +192,9 @@ func TestAnnotateWorktreeCtrlSSaves(t *testing.T) {
 	}
 	if note.Note != "one line\ntwo line" {
 		t.Fatalf("unexpected saved note: %q", note.Note)
+	}
+	if m.notesContent == "" || !strings.Contains(m.notesContent, "one line") || !strings.Contains(m.notesContent, "two line") {
+		t.Fatalf("expected notesContent to refresh after save, got %q", m.notesContent)
 	}
 }
 

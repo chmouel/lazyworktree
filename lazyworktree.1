@@ -457,13 +457,18 @@ Switch to Git Status pane (toggle zoom if already focused).
 Switch to Commit pane (toggle zoom if already focused).
 .
 .TP
+.B 5
+Switch to Notes pane (toggle zoom if already focused). Only visible when the
+selected worktree has a note. Tab cycling includes this pane when visible.
+.
+.TP
 .B =
 Toggle zoom for focused pane (full screen, press again to unzoom).
 .
 .TP
 .B L
-Toggle layout between default (worktrees left, status/git status/commit stacked right) and
-top (worktrees full-width top, status/git status/commit side-by-side bottom).
+Toggle layout between default (worktrees left with notes below when present, status/git status/commit stacked right) and
+top (worktrees full-width top, notes row below when present, status/git status/commit side-by-side bottom).
 .
 .TP
 .B y
@@ -758,7 +763,7 @@ lazyworktree provides comprehensive mouse support for improved navigation and in
 .
 .TP
 .B Click on pane
-Focus the clicked pane (Worktree, Status, Git Status, or Commit).
+Focus the clicked pane (Worktree, Status, Git Status, Commit, or Notes).
 .
 .TP
 .B Click on item
@@ -907,7 +912,7 @@ Note: The old \fBsort_by_active\fR option is still supported for backwards compa
 .B layout
 Pane arrangement.
 .br
-Options: \fBdefault\fR (worktrees left, status/log stacked right), \fBtop\fR (worktrees full-width top, status/log side-by-side bottom).
+Options: \fBdefault\fR (worktrees left with notes below when present, status/log stacked right), \fBtop\fR (worktrees full-width top, notes row below when present, status/log side-by-side bottom).
 .br
 Default: default
 .br

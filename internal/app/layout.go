@@ -27,6 +27,18 @@ type layoutDims struct {
 	rightMiddleInnerHeight int
 	rightBottomInnerHeight int
 
+	// Notes pane (default layout: left column split)
+	hasNotes              bool
+	leftTopHeight         int
+	leftBottomHeight      int
+	leftTopInnerHeight    int
+	leftBottomInnerHeight int
+
+	// Notes pane (top layout: dedicated row)
+	notesRowHeight      int
+	notesRowInnerHeight int
+	notesRowInnerWidth  int
+
 	// Top layout fields
 	layoutMode              state.LayoutMode
 	topHeight               int
@@ -73,6 +85,8 @@ func (m *Model) computeLayout() layoutDims {
 
 	bodyHeight := maxInt(height-headerHeight-footerHeight-filterHeight, 8)
 
+	hasNotes := m.hasNoteForSelectedWorktree()
+
 	// Handle zoom mode: zoomed pane gets full body area
 	if m.state.view.ZoomedPane >= 0 {
 		paneFrameX := m.basePaneStyle().GetHorizontalFrameSize()
@@ -90,11 +104,16 @@ func (m *Model) computeLayout() layoutDims {
 			bodyHeight:             bodyHeight,
 			gapX:                   0,
 			gapY:                   0,
+			hasNotes:               hasNotes,
 			leftWidth:              fullWidth,
 			rightWidth:             fullWidth,
 			leftInnerWidth:         fullInnerWidth,
 			rightInnerWidth:        fullInnerWidth,
 			leftInnerHeight:        fullInnerHeight,
+			leftTopHeight:          bodyHeight,
+			leftTopInnerHeight:     fullInnerHeight,
+			leftBottomHeight:       bodyHeight,
+			leftBottomInnerHeight:  fullInnerHeight,
 			rightTopHeight:         bodyHeight,
 			rightMiddleHeight:      bodyHeight,
 			rightBottomHeight:      bodyHeight,
@@ -110,7 +129,7 @@ func (m *Model) computeLayout() layoutDims {
 
 	leftRatio := 0.55
 	switch m.state.view.FocusedPane {
-	case 0:
+	case 0, 4:
 		leftRatio = 0.45
 	case 1, 2, 3:
 		leftRatio = 0.20
@@ -176,6 +195,26 @@ func (m *Model) computeLayout() layoutDims {
 	rightMiddleInnerHeight := maxInt(1, rightMiddleHeight-paneFrameY)
 	rightBottomInnerHeight := maxInt(1, rightBottomHeight-paneFrameY)
 
+	// Split left column for notes pane when a note exists
+	var leftTopHeight, leftBottomHeight, leftTopInnerHeight, leftBottomInnerHeight int
+	if hasNotes {
+		notesRatio := 0.30
+		if m.state.view.FocusedPane == 4 {
+			notesRatio = 0.50
+		}
+		leftBottomHeight = maxInt(4, int(float64(bodyHeight-gapY)*notesRatio))
+		leftTopHeight = bodyHeight - leftBottomHeight - gapY
+		if leftTopHeight < 4 {
+			leftTopHeight = 4
+			leftBottomHeight = bodyHeight - leftTopHeight - gapY
+		}
+		leftTopInnerHeight = maxInt(1, leftTopHeight-paneFrameY)
+		leftBottomInnerHeight = maxInt(1, leftBottomHeight-paneFrameY)
+	} else {
+		leftTopHeight = bodyHeight
+		leftTopInnerHeight = leftInnerHeight
+	}
+
 	return layoutDims{
 		width:                  width,
 		height:                 height,
@@ -185,11 +224,16 @@ func (m *Model) computeLayout() layoutDims {
 		bodyHeight:             bodyHeight,
 		gapX:                   gapX,
 		gapY:                   gapY,
+		hasNotes:               hasNotes,
 		leftWidth:              leftWidth,
 		rightWidth:             rightWidth,
 		leftInnerWidth:         leftInnerWidth,
 		rightInnerWidth:        rightInnerWidth,
 		leftInnerHeight:        leftInnerHeight,
+		leftTopHeight:          leftTopHeight,
+		leftBottomHeight:       leftBottomHeight,
+		leftTopInnerHeight:     leftTopInnerHeight,
+		leftBottomInnerHeight:  leftBottomInnerHeight,
 		rightTopHeight:         rightTopHeight,
 		rightMiddleHeight:      rightMiddleHeight,
 		rightBottomHeight:      rightBottomHeight,
@@ -208,10 +252,12 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 	paneFrameX := m.basePaneStyle().GetHorizontalFrameSize()
 	paneFrameY := m.basePaneStyle().GetVerticalFrameSize()
 
+	hasNotes := m.hasNoteForSelectedWorktree()
+
 	// Vertical split: top 30% / bottom 70% with focus adjustments
 	topRatio := 0.30
 	switch m.state.view.FocusedPane {
-	case 0:
+	case 0, 4:
 		topRatio = 0.45
 	case 1, 2, 3:
 		topRatio = 0.20
@@ -276,6 +322,29 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		}
 	}
 
+	// Notes row in top layout: insert between worktrees and bottom panes
+	var notesRowHeight, notesRowInnerHeight, notesRowInnerWidth int
+	if hasNotes {
+		notesRatio := 0.15
+		if m.state.view.FocusedPane == 4 {
+			notesRatio = 0.25
+		}
+		notesRowHeight = maxInt(4, int(float64(bodyHeight)*notesRatio))
+		// Re-budget: top + gap + notes + gap + bottom = bodyHeight
+		remaining := bodyHeight - notesRowHeight - gapY*2
+		topHeight = maxInt(4, int(float64(remaining)*topRatio/(topRatio+(1.0-topRatio))))
+		bottomHeight = remaining - topHeight
+		if bottomHeight < 6 {
+			bottomHeight = 6
+			topHeight = remaining - bottomHeight
+		}
+		if topHeight < 4 {
+			topHeight = 4
+		}
+		notesRowInnerHeight = maxInt(1, notesRowHeight-paneFrameY)
+		notesRowInnerWidth = maxInt(1, width-paneFrameX)
+	}
+
 	topInnerWidth := maxInt(1, width-paneFrameX)
 	topInnerHeight := maxInt(1, topHeight-paneFrameY)
 	bottomLeftInnerWidth := maxInt(1, bottomLeftWidth-paneFrameX)
@@ -295,6 +364,12 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		gapX:         gapX,
 		gapY:         gapY,
 		layoutMode:   state.LayoutTop,
+		hasNotes:     hasNotes,
+
+		// Notes row
+		notesRowHeight:      notesRowHeight,
+		notesRowInnerHeight: notesRowInnerHeight,
+		notesRowInnerWidth:  notesRowInnerWidth,
 
 		// Top layout fields
 		topHeight:               topHeight,
@@ -317,6 +392,10 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		leftInnerWidth:         topInnerWidth,
 		rightInnerWidth:        bottomLeftInnerWidth,
 		leftInnerHeight:        topInnerHeight,
+		leftTopHeight:          topHeight,
+		leftTopInnerHeight:     topInnerHeight,
+		leftBottomHeight:       notesRowHeight,
+		leftBottomInnerHeight:  notesRowInnerHeight,
 		rightTopHeight:         bottomHeight,
 		rightMiddleHeight:      bottomHeight,
 		rightBottomHeight:      bottomHeight,
@@ -346,7 +425,11 @@ func (m *Model) applyLayout(layout layoutDims) {
 		// Default layout or zoom mode
 		// Subtract 2 extra lines for safety margin
 		// Minimum height of 3 is required to prevent viewport slice bounds panic
-		tableHeight := maxInt(3, layout.leftInnerHeight-titleHeight-tableHeaderHeight-2)
+		wtInnerHeight := layout.leftInnerHeight
+		if layout.hasNotes && m.state.view.ZoomedPane < 0 {
+			wtInnerHeight = layout.leftTopInnerHeight
+		}
+		tableHeight := maxInt(3, wtInnerHeight-titleHeight-tableHeaderHeight-2)
 		m.state.ui.worktreeTable.SetWidth(layout.leftInnerWidth)
 		m.state.ui.worktreeTable.SetHeight(tableHeight)
 		m.updateTableColumns(layout.leftInnerWidth)

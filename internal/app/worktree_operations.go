@@ -573,7 +573,7 @@ func (m *Model) showRenameWorktree() tea.Cmd {
 
 // showAnnotateWorktree opens notes for the selected worktree.
 func (m *Model) showAnnotateWorktree() tea.Cmd {
-	if m.state.view.FocusedPane != 0 {
+	if m.state.view.FocusedPane != 0 && m.state.view.FocusedPane != 4 {
 		return nil
 	}
 	if m.state.data.selectedIndex < 0 || m.state.data.selectedIndex >= len(m.state.data.filteredWts) {
@@ -582,6 +582,9 @@ func (m *Model) showAnnotateWorktree() tea.Cmd {
 	}
 
 	wt := m.state.data.filteredWts[m.state.data.selectedIndex]
+	if m.state.view.FocusedPane == 4 {
+		return m.showWorktreeNoteEditor(wt.Path)
+	}
 	existing, hasNote := m.getWorktreeNote(wt.Path)
 	if hasNote {
 		return m.showWorktreeNoteViewer(wt.Path, existing.Note)

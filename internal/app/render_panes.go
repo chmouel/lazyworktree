@@ -479,6 +479,42 @@ func (m *Model) renderMarkdownNoteLines(noteText string, valueStyle lipgloss.Sty
 	return rendered
 }
 
+// buildNotesContent builds the notes content string for a worktree.
+func (m *Model) buildNotesContent(wt *models.WorktreeInfo) string {
+	if wt == nil {
+		return ""
+	}
+	note, ok := m.getWorktreeNote(wt.Path)
+	if !ok {
+		return ""
+	}
+	valueStyle := lipgloss.NewStyle().Foreground(m.theme.TextFg)
+	lines := m.renderMarkdownNoteLines(note.Note, valueStyle)
+	return strings.Join(lines, "\n")
+}
+
+// renderNotesBox renders the Notes content using a viewport for scrolling.
+func (m *Model) renderNotesBox(width, height int) string {
+	content := m.notesContent
+	if content == "" {
+		content = "No notes."
+	}
+
+	innerBoxStyle := m.baseInnerBoxStyle()
+
+	vpWidth := maxInt(1, width-innerBoxStyle.GetHorizontalFrameSize())
+	vpHeight := maxInt(1, height-innerBoxStyle.GetVerticalFrameSize())
+
+	m.state.ui.notesViewport.SetWidth(vpWidth)
+	m.state.ui.notesViewport.SetHeight(vpHeight)
+	m.state.ui.notesViewport.SetContent(content)
+
+	return innerBoxStyle.
+		Width(width).
+		Height(height).
+		Render(m.state.ui.notesViewport.View())
+}
+
 // renderBody renders the main body area with panes.
 func (m *Model) renderBody(layout layoutDims) string {
 	// Handle zoom mode: only render the zoomed pane (layout agnostic)
@@ -492,6 +528,8 @@ func (m *Model) renderBody(layout layoutDims) string {
 			return m.renderZoomedRightMiddlePane(layout)
 		case 3:
 			return m.renderZoomedRightBottomPane(layout)
+		case 4:
+			return m.renderZoomedNotesPane(layout)
 		}
 	}
 
@@ -507,8 +545,19 @@ func (m *Model) renderBody(layout layoutDims) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, gap, right)
 }
 
-// renderLeftPane renders the left pane (worktree table).
+// renderLeftPane renders the left pane (worktree table), optionally split with notes below.
 func (m *Model) renderLeftPane(layout layoutDims) string {
+	if layout.hasNotes {
+		wtFocused := m.state.view.FocusedPane == 0
+		wtPane := m.renderPaneBlock(1, "Worktrees", wtFocused, layout.leftWidth, layout.leftTopHeight, m.state.ui.worktreeTable.View())
+
+		notesFocused := m.state.view.FocusedPane == 4
+		notesBox := m.renderNotesBox(layout.leftInnerWidth, layout.leftBottomInnerHeight)
+		notesPane := m.renderPaneBlock(5, "Notes", notesFocused, layout.leftWidth, layout.leftBottomHeight, notesBox)
+
+		gap := strings.Repeat("\n", layout.gapY)
+		return lipgloss.JoinVertical(lipgloss.Left, wtPane, gap, notesPane)
+	}
 	focused := m.state.view.FocusedPane == 0
 	return m.renderPaneBlock(1, "Worktrees", focused, layout.leftWidth, layout.bodyHeight, m.state.ui.worktreeTable.View())
 }
@@ -585,6 +634,12 @@ func (m *Model) renderTopLayoutBody(layout layoutDims) string {
 	top := m.renderTopPane(layout)
 	bottom := m.renderBottomPane(layout)
 	gap := strings.Repeat("\n", layout.gapY)
+	if layout.hasNotes {
+		notesFocused := m.state.view.FocusedPane == 4
+		notesBox := m.renderNotesBox(layout.notesRowInnerWidth, layout.notesRowInnerHeight)
+		notesRow := m.renderPaneBlock(5, "Notes", notesFocused, layout.width, layout.notesRowHeight, notesBox)
+		return lipgloss.JoinVertical(lipgloss.Left, top, gap, notesRow, gap, bottom)
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, top, gap, bottom)
 }
 
@@ -667,6 +722,12 @@ func (m *Model) renderZoomedRightMiddlePane(layout layoutDims) string {
 // renderZoomedRightBottomPane renders the zoomed right bottom pane (commit log).
 func (m *Model) renderZoomedRightBottomPane(layout layoutDims) string {
 	return m.renderPaneBlock(4, "Commit", true, layout.rightWidth, layout.bodyHeight, m.state.ui.logTable.View())
+}
+
+// renderZoomedNotesPane renders the zoomed notes pane.
+func (m *Model) renderZoomedNotesPane(layout layoutDims) string {
+	notesBox := m.renderNotesBox(layout.leftInnerWidth, layout.leftTopInnerHeight)
+	return m.renderPaneBlock(5, "Notes", true, layout.leftWidth, layout.bodyHeight, notesBox)
 }
 
 // buildInfoContent builds the info content string for a worktree.
@@ -830,12 +891,6 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 				infoLines = append(infoLines, line)
 			}
 		}
-	}
-
-	if note, ok := m.getWorktreeNote(wt.Path); ok {
-		infoLines = append(infoLines, "")
-		infoLines = append(infoLines, sectionStyle.Render("Notes:"))
-		infoLines = append(infoLines, m.renderMarkdownNoteLines(note.Note, valueStyle)...)
 	}
 
 	return strings.Join(infoLines, "\n")

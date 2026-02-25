@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/services"
+	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/stretchr/testify/assert"
@@ -1976,6 +1977,43 @@ func TestMouseClickSelectsWorktree(t *testing.T) {
 	}
 	if m.state.data.selectedIndex != 1 {
 		t.Fatalf("expected selectedIndex to be 1, got %d", m.state.data.selectedIndex)
+	}
+}
+
+func TestMouseClickSelectsCommitRowInTopLayoutWithNotes(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+	m.state.view.Layout = state.LayoutTop
+
+	wtPath := filepath.Join(cfg.WorktreeDir, "wt-notes")
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: wtPath, Branch: "feat"}}
+	m.state.data.selectedIndex = 0
+	m.state.ui.worktreeTable.SetCursor(0)
+	m.setWorktreeNote(wtPath, "note text")
+
+	m.setLogEntries([]commitLogEntry{
+		{sha: "aaaaaaaa", message: "first"},
+		{sha: "bbbbbbbb", message: "second"},
+	}, true)
+
+	layout := m.computeLayout()
+	headerOffset := 1
+	commitPaneX := layout.bottomLeftWidth + layout.gapX + layout.bottomMiddleWidth + layout.gapX + 1
+	commitPaneTopY := headerOffset + layout.topHeight + layout.gapY + layout.notesRowHeight + layout.gapY
+	clickSecondRowY := commitPaneTopY + 5 // table content starts after pane chrome; +4 is first row
+
+	_, _ = m.handleMouseClick(tea.MouseClickMsg{
+		Button: tea.MouseLeft,
+		X:      commitPaneX,
+		Y:      clickSecondRowY,
+	})
+
+	if m.state.view.FocusedPane != 3 {
+		t.Fatalf("expected commit pane focus, got %d", m.state.view.FocusedPane)
+	}
+	if m.state.ui.logTable.Cursor() != 1 {
+		t.Fatalf("expected commit cursor 1, got %d", m.state.ui.logTable.Cursor())
 	}
 }
 
@@ -4343,4 +4381,171 @@ func TestDisablePRTableRowsExcludesPRColumn(t *testing.T) {
 	if len(rows) > 0 && len(rows[0]) > 3 {
 		t.Errorf("expected 3 columns when DisablePR is true, got %d", len(rows[0]))
 	}
+}
+
+func TestNextPaneWithoutNotes(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+
+	// Without notes, cycle is 0 -> 1 -> 2 -> 3 -> 0
+	assert.Equal(t, 1, m.nextPane(0, 1))
+	assert.Equal(t, 2, m.nextPane(1, 1))
+	assert.Equal(t, 3, m.nextPane(2, 1))
+	assert.Equal(t, 0, m.nextPane(3, 1))
+
+	// Reverse
+	assert.Equal(t, 3, m.nextPane(0, -1))
+	assert.Equal(t, 0, m.nextPane(1, -1))
+}
+
+func TestNextPaneWithNotes(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-notes", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "hello"}
+
+	// With notes, cycle is 0 -> 4 -> 1 -> 2 -> 3 -> 0
+	assert.Equal(t, 4, m.nextPane(0, 1))
+	assert.Equal(t, 1, m.nextPane(4, 1))
+	assert.Equal(t, 2, m.nextPane(1, 1))
+	assert.Equal(t, 3, m.nextPane(2, 1))
+	assert.Equal(t, 0, m.nextPane(3, 1))
+
+	// Reverse
+	assert.Equal(t, 3, m.nextPane(0, -1))
+	assert.Equal(t, 0, m.nextPane(4, -1))
+}
+
+func TestPaneKey5FocusNotesPane(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-k5", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "note text"}
+
+	m.state.view.FocusedPane = 0
+	m.state.view.ZoomedPane = -1
+
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '5', Text: "5"})
+	m = updated.(*Model)
+
+	assert.Equal(t, 4, m.state.view.FocusedPane)
+	assert.Equal(t, -1, m.state.view.ZoomedPane)
+
+	// Press 5 again to zoom
+	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: '5', Text: "5"})
+	m = updated.(*Model)
+
+	assert.Equal(t, 4, m.state.view.FocusedPane)
+	assert.Equal(t, 4, m.state.view.ZoomedPane)
+}
+
+func TestPaneKey5NoopWithoutNote(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-nk5", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+
+	m.state.view.FocusedPane = 0
+	m.state.view.ZoomedPane = -1
+
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '5', Text: "5"})
+	m = updated.(*Model)
+
+	// Should remain on pane 0 since no note exists
+	assert.Equal(t, 0, m.state.view.FocusedPane)
+}
+
+func TestNotesPaneScrollDownUp(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 4
+	m.state.ui.notesViewport.SetWidth(40)
+	m.state.ui.notesViewport.SetHeight(2)
+	m.state.ui.notesViewport.SetContent(strings.Repeat("line\n", 20))
+
+	start := m.state.ui.notesViewport.YOffset()
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: tea.KeyDown})
+	assert.Greater(t, m.state.ui.notesViewport.YOffset(), start, "j should scroll notes down")
+
+	m.state.ui.notesViewport.SetYOffset(5)
+	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: tea.KeyUp})
+	assert.Less(t, m.state.ui.notesViewport.YOffset(), 5, "k should scroll notes up")
+}
+
+func TestNotesPanePageDownUp(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 4
+	m.state.ui.notesViewport.SetWidth(40)
+	m.state.ui.notesViewport.SetHeight(2)
+	m.state.ui.notesViewport.SetContent(strings.Repeat("line\n", 20))
+
+	start := m.state.ui.notesViewport.YOffset()
+	_, _ = m.handlePageDown(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	assert.Greater(t, m.state.ui.notesViewport.YOffset(), start, "PageDown should scroll notes")
+
+	m.state.ui.notesViewport.SetYOffset(5)
+	_, _ = m.handlePageUp(tea.KeyPressMsg{Code: tea.KeyPgUp})
+	assert.Less(t, m.state.ui.notesViewport.YOffset(), 5, "PageUp should scroll notes up")
+}
+
+func TestNotesPaneGotoTopBottom(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 4
+	m.state.ui.notesViewport.SetWidth(40)
+	m.state.ui.notesViewport.SetHeight(2)
+	m.state.ui.notesViewport.SetContent(strings.Repeat("line\n", 20))
+
+	m.handleGotoBottom()
+	assert.Positive(t, m.state.ui.notesViewport.YOffset(), "G should go to bottom")
+
+	m.handleGotoTop()
+	assert.Equal(t, 0, m.state.ui.notesViewport.YOffset(), "gg should go to top")
+}
+
+func TestTabCycleIncludesNotesPaneWhenNoteExists(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-tab", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "a note"}
+	m.state.view.FocusedPane = 0
+	m.state.view.ZoomedPane = -1
+
+	// Tab from pane 0 should go to pane 4 (notes)
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = updated.(*Model)
+	assert.Equal(t, 4, m.state.view.FocusedPane)
+
+	// Tab from pane 4 should go to pane 1
+	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = updated.(*Model)
+	assert.Equal(t, 1, m.state.view.FocusedPane)
+}
+
+func TestHasNoteForSelectedWorktree(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-has", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+
+	assert.False(t, m.hasNoteForSelectedWorktree())
+
+	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "hello"}
+	assert.True(t, m.hasNoteForSelectedWorktree())
+
+	// Empty note should not count
+	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "  "}
+	assert.False(t, m.hasNoteForSelectedWorktree())
 }

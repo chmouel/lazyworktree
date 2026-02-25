@@ -150,7 +150,7 @@ func TestBuildInfoContentNoUpstreamHidesPRSection(t *testing.T) {
 	}
 }
 
-func TestBuildInfoContentAnnotationKeywordsUppercaseWithIconTextSet(t *testing.T) {
+func TestBuildNotesContentAnnotationKeywordsUppercaseWithIconTextSet(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	cfg.IconSet = "text"
@@ -164,11 +164,8 @@ func TestBuildInfoContentAnnotationKeywordsUppercaseWithIconTextSet(t *testing.T
 		Note: "please FIXME now and WARNING: review, TODO later, todo ignored",
 	}
 
-	info := m.buildInfoContent(wt)
-	plain := stripANSISequences(info)
-	if !strings.Contains(plain, "Notes:") {
-		t.Fatalf("expected notes section, got %q", plain)
-	}
+	notes := m.buildNotesContent(wt)
+	plain := stripANSISequences(notes)
 	if !strings.Contains(plain, "[!] FIXME") {
 		t.Fatalf("expected FIXME keyword badge, got %q", plain)
 	}
@@ -186,7 +183,7 @@ func TestBuildInfoContentAnnotationKeywordsUppercaseWithIconTextSet(t *testing.T
 	}
 }
 
-func TestBuildInfoContentAnnotationKeywordWordBoundary(t *testing.T) {
+func TestBuildNotesContentAnnotationKeywordWordBoundary(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	cfg.IconSet = "text"
@@ -200,8 +197,8 @@ func TestBuildInfoContentAnnotationKeywordWordBoundary(t *testing.T) {
 		Note: "methododo should stay untouched",
 	}
 
-	info := m.buildInfoContent(wt)
-	plain := stripANSISequences(info)
+	notes := m.buildNotesContent(wt)
+	plain := stripANSISequences(notes)
 	if strings.Contains(plain, "[ ] TODO") {
 		t.Fatalf("did not expect partial word match for TODO, got %q", plain)
 	}
@@ -210,7 +207,7 @@ func TestBuildInfoContentAnnotationKeywordWordBoundary(t *testing.T) {
 	}
 }
 
-func TestBuildInfoContentAnnotationKeywordsNerdFontIcons(t *testing.T) {
+func TestBuildNotesContentAnnotationKeywordsNerdFontIcons(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	cfg.IconSet = "nerd-font-v3"
@@ -224,8 +221,8 @@ func TestBuildInfoContentAnnotationKeywordsNerdFontIcons(t *testing.T) {
 		Note: "BUG and TEST:",
 	}
 
-	info := m.buildInfoContent(wt)
-	plain := stripANSISequences(info)
+	notes := m.buildNotesContent(wt)
+	plain := stripANSISequences(notes)
 	if !strings.Contains(plain, " BUG") {
 		t.Fatalf("expected BUG nerd-font icon badge, got %q", plain)
 	}
@@ -234,7 +231,7 @@ func TestBuildInfoContentAnnotationKeywordsNerdFontIcons(t *testing.T) {
 	}
 }
 
-func TestBuildInfoContentNotesRenderMarkdown(t *testing.T) {
+func TestBuildNotesContentRenderMarkdown(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	cfg.IconSet = "text"
@@ -248,16 +245,16 @@ func TestBuildInfoContentNotesRenderMarkdown(t *testing.T) {
 		Note: "# Heading\n**Implementation Notes:**\n- **Problem:** `create_comment` was called repeatedly\n1. second item\n> quoted line\n[docs](https://example.com/docs)\n```go\nTODO: inside code fence\n```",
 	}
 
-	info := m.buildInfoContent(wt)
+	notes := m.buildNotesContent(wt)
 	// Check the hyperlink URL is present (exact OSC8 formatting may vary with lipgloss styling)
-	if !strings.Contains(info, "https://example.com/docs") {
-		t.Fatalf("expected markdown link URL in output, got %q", info)
+	if !strings.Contains(notes, "https://example.com/docs") {
+		t.Fatalf("expected markdown link URL in output, got %q", notes)
 	}
-	if !strings.Contains(info, osc8OpenPrefix) {
-		t.Fatalf("expected OSC8 hyperlink prefix in output, got %q", info)
+	if !strings.Contains(notes, osc8OpenPrefix) {
+		t.Fatalf("expected OSC8 hyperlink prefix in output, got %q", notes)
 	}
 
-	plain := stripTerminalSequences(info)
+	plain := stripTerminalSequences(notes)
 	if strings.Contains(plain, "# Heading") {
 		t.Fatalf("expected heading marker to be stripped, got %q", plain)
 	}

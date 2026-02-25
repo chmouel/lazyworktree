@@ -56,7 +56,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 **{{HELP_NAV}}Navigation**
 - j / {{ARROW_DOWN}}: Move cursor down in lists and menus
 - k / {{ARROW_UP}}: Move cursor up in lists and menus
-- 1 / 2 / 3 / 4: Switch to pane (or toggle zoom if already focused)
+- 1 / 2 / 3 / 4 / 5: Switch to pane (or toggle zoom if already focused)
 - h / l: Left / Right pane
 - [ / ]: Previous / Next pane
 - Tab: Cycle to next pane
@@ -70,6 +70,14 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - Enter: Open selected CI check URL in browser
 - PR number in the info panel is clickable in terminals that support OSC-8 hyperlinks
 - Ctrl+v: View selected CI check logs in pager (when CI check is selected)
+
+**Notes Pane (pane 5, visible when worktree has a note)**
+- j / k: Scroll notes content
+- Ctrl+D / Ctrl+U: Half page down / up
+- g / G: Jump to top / bottom
+- i: Edit note
+- 5: Focus notes pane (or toggle zoom if already focused)
+- Tab includes pane 5 in the cycle when a note exists
 
 **{{HELP_CI_CHECKS}}Git Status Pane (when focused)**
 - j / k: Navigate files and directories
