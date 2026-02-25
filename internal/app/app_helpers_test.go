@@ -406,6 +406,67 @@ func TestSaveCacheFiltersInvalidEntries(t *testing.T) {
 	}
 }
 
+func TestWindowTitle(t *testing.T) {
+	tests := []struct {
+		name     string
+		repoKey  string
+		wts      []*models.WorktreeInfo
+		selIdx   int
+		expected string
+	}{
+		{
+			name:     "no repo key",
+			repoKey:  "",
+			expected: "Lazyworktree",
+		},
+		{
+			name:     "with repo key",
+			repoKey:  "org/repo",
+			expected: "Lazyworktree — org/repo",
+		},
+		{
+			name:    "with repo key and selected branch",
+			repoKey: "org/repo",
+			wts: []*models.WorktreeInfo{
+				{Path: "/tmp/wt", Branch: "feature-x"},
+			},
+			selIdx:   0,
+			expected: "Lazyworktree — org/repo [feature-x]",
+		},
+		{
+			name:     "local repo key excluded",
+			repoKey:  "local-abc",
+			expected: "Lazyworktree",
+		},
+		{
+			name:     "unknown repo key excluded",
+			repoKey:  "unknown",
+			expected: "Lazyworktree",
+		},
+		{
+			name:    "selected index out of range",
+			repoKey: "org/repo",
+			wts:     []*models.WorktreeInfo{},
+			selIdx:  5,
+			expected: "Lazyworktree — org/repo",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
+			m.repoKey = tt.repoKey
+			m.state.data.filteredWts = tt.wts
+			m.state.data.selectedIndex = tt.selIdx
+
+			got := m.windowTitle()
+			if got != tt.expected {
+				t.Errorf("windowTitle() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || s != "" && containsHelper(s, substr))
 }

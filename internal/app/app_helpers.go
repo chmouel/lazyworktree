@@ -331,6 +331,21 @@ func (m *Model) getRepoKey() string {
 	return m.repoKey
 }
 
+func (m *Model) windowTitle() string {
+	title := "Lazyworktree"
+	repoKey := strings.TrimSpace(m.repoKey)
+	if repoKey != "" && repoKey != "unknown" && !strings.HasPrefix(repoKey, "local-") {
+		title += " — " + repoKey
+	}
+	if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
+		wt := m.state.data.filteredWts[m.state.data.selectedIndex]
+		if wt.Branch != "" {
+			title += " [" + wt.Branch + "]"
+		}
+	}
+	return title
+}
+
 func (m *Model) getMainWorktreePath() string {
 	for _, wt := range m.state.data.worktrees {
 		if wt.IsMain {
