@@ -161,6 +161,8 @@ func (m *Model) handleGotoTop() (tea.Model, tea.Cmd) {
 		m.updateWorktreeArrows()
 		m.syncSelectedIndexFromCursor()
 		return m, m.debouncedUpdateDetailsView()
+	case 1:
+		m.state.ui.infoViewport.GotoTop()
 	case 2:
 		if len(m.state.services.statusTree.TreeFlat) > 0 {
 			m.state.services.statusTree.Index = 0
@@ -179,6 +181,8 @@ func (m *Model) handleGotoBottom() (tea.Model, tea.Cmd) {
 		m.updateWorktreeArrows()
 		m.syncSelectedIndexFromCursor()
 		return m, m.debouncedUpdateDetailsView()
+	case 1:
+		m.state.ui.infoViewport.GotoBottom()
 	case 2:
 		if len(m.state.services.statusTree.TreeFlat) > 0 {
 			m.state.services.statusTree.Index = len(m.state.services.statusTree.TreeFlat) - 1
@@ -477,6 +481,10 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handlePageUp(msg)
 
 	case "G":
+		if m.state.view.FocusedPane == 1 {
+			m.state.ui.infoViewport.GotoBottom()
+			return m, nil
+		}
 		if m.state.view.FocusedPane == 2 {
 			m.state.ui.statusViewport.GotoBottom()
 			if len(m.state.services.statusTree.TreeFlat) > 0 {
@@ -588,9 +596,17 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.startSearch(target)
 
 	case "n":
+		if m.state.view.FocusedPane == 1 {
+			return m.navigateCICheckDown()
+		}
 		return m, m.advanceSearchMatch(true)
 	case "N":
 		return m, m.advanceSearchMatch(false)
+	case "p":
+		if m.state.view.FocusedPane == 1 {
+			return m.navigateCICheckUp()
+		}
+		return m, nil
 
 	case "s":
 		// In git status pane: stage/unstage selected file or directory
@@ -717,22 +733,7 @@ func (m *Model) handleNavigationDown(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 		cmds = append(cmds, m.debouncedUpdateDetailsView())
 	case 1:
-		// Navigate CI checks only in the Status (info) pane
-		ciChecks, hasCIChecks := m.getCIChecksForCurrentWorktree()
-		if !hasCIChecks || (hasCIChecks && m.ciCheckIndex >= len(ciChecks)) {
-			if m.ciCheckIndex >= 0 {
-				m.ciCheckIndex = -1
-				m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
-			}
-		}
-		if hasCIChecks {
-			if m.ciCheckIndex == -1 {
-				m.ciCheckIndex = 0
-			} else if m.ciCheckIndex < len(ciChecks)-1 {
-				m.ciCheckIndex++
-			}
-			m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
-		}
+		m.state.ui.infoViewport.ScrollDown(1)
 	case 2:
 		// Navigate through status tree items (git status pane)
 		if len(m.state.services.statusTree.TreeFlat) > 0 {
@@ -761,21 +762,7 @@ func (m *Model) handleNavigationUp(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 		cmds = append(cmds, m.debouncedUpdateDetailsView())
 	case 1:
-		// Navigate CI checks only in the Status (info) pane
-		ciChecks, hasCIChecks := m.getCIChecksForCurrentWorktree()
-		if !hasCIChecks || (hasCIChecks && m.ciCheckIndex >= len(ciChecks)) {
-			if m.ciCheckIndex >= 0 {
-				m.ciCheckIndex = -1
-				m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
-			}
-		}
-		if hasCIChecks && m.ciCheckIndex > 0 {
-			m.ciCheckIndex--
-			m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
-		} else if hasCIChecks && m.ciCheckIndex == -1 {
-			m.ciCheckIndex = len(ciChecks) - 1
-			m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
-		}
+		m.state.ui.infoViewport.ScrollUp(1)
 	case 2:
 		// Navigate through status tree items (git status pane)
 		if len(m.state.services.statusTree.TreeFlat) > 0 {
@@ -902,6 +889,9 @@ func (m *Model) handlePageDown(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch m.state.view.FocusedPane {
+	case 1:
+		m.state.ui.infoViewport.HalfPageDown()
+		return m, nil
 	case 2:
 		m.state.ui.statusViewport.HalfPageDown()
 		return m, nil
@@ -917,6 +907,9 @@ func (m *Model) handlePageUp(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch m.state.view.FocusedPane {
+	case 1:
+		m.state.ui.infoViewport.HalfPageUp()
+		return m, nil
 	case 2:
 		m.state.ui.statusViewport.HalfPageUp()
 		return m, nil
@@ -1166,6 +1159,8 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 			m.updateWorktreeArrows()
 			m.syncSelectedIndexFromCursor()
 			cmds = append(cmds, m.debouncedUpdateDetailsView())
+		case 1:
+			m.state.ui.infoViewport.ScrollUp(3)
 		case 2:
 			// Navigate up through tree items in git status pane
 			if len(m.state.services.statusTree.TreeFlat) > 0 && m.state.services.statusTree.Index > 0 {
@@ -1183,6 +1178,8 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 			m.updateWorktreeArrows()
 			m.syncSelectedIndexFromCursor()
 			cmds = append(cmds, m.debouncedUpdateDetailsView())
+		case 1:
+			m.state.ui.infoViewport.ScrollDown(3)
 		case 2:
 			// Navigate down through tree items in git status pane
 			if len(m.state.services.statusTree.TreeFlat) > 0 && m.state.services.statusTree.Index < len(m.state.services.statusTree.TreeFlat)-1 {
@@ -1195,4 +1192,43 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+// navigateCICheckDown moves the CI check selection to the next check.
+func (m *Model) navigateCICheckDown() (tea.Model, tea.Cmd) {
+	ciChecks, hasCIChecks := m.getCIChecksForCurrentWorktree()
+	if !hasCIChecks {
+		return m, nil
+	}
+	if m.ciCheckIndex >= len(ciChecks) {
+		m.ciCheckIndex = -1
+		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+	}
+	if m.ciCheckIndex == -1 {
+		m.ciCheckIndex = 0
+	} else if m.ciCheckIndex < len(ciChecks)-1 {
+		m.ciCheckIndex++
+	}
+	m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+	return m, nil
+}
+
+// navigateCICheckUp moves the CI check selection to the previous check.
+func (m *Model) navigateCICheckUp() (tea.Model, tea.Cmd) {
+	ciChecks, hasCIChecks := m.getCIChecksForCurrentWorktree()
+	if !hasCIChecks {
+		return m, nil
+	}
+	if m.ciCheckIndex >= len(ciChecks) {
+		m.ciCheckIndex = -1
+		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+	}
+	switch {
+	case m.ciCheckIndex > 0:
+		m.ciCheckIndex--
+	case m.ciCheckIndex == -1:
+		m.ciCheckIndex = len(ciChecks) - 1
+	}
+	m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+	return m, nil
 }

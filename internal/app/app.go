@@ -263,6 +263,7 @@ const (
 
 type uiState struct {
 	worktreeTable  table.Model
+	infoViewport   viewport.Model
 	statusViewport viewport.Model
 	logTable       table.Model
 	filterInput    textinput.Model
@@ -448,6 +449,9 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	// Don't set Foreground on Cell - let Selected style's foreground take effect
 	t.SetStyles(s)
 
+	infoVp := viewport.New(viewport.WithWidth(40), viewport.WithHeight(5))
+	infoVp.SoftWrap = true
+
 	statusVp := viewport.New(viewport.WithWidth(40), viewport.WithHeight(5))
 	statusVp.SetContent("Loading...")
 
@@ -535,6 +539,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	m.cache.detailsCache = make(map[string]*detailsCacheEntry)
 
 	m.state.ui.worktreeTable = t
+	m.state.ui.infoViewport = infoVp
 	m.state.ui.statusViewport = statusVp
 	m.state.ui.logTable = logT
 	m.state.ui.filterInput = filterInput

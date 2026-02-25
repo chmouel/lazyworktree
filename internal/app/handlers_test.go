@@ -15,6 +15,7 @@ import (
 	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -51,6 +52,77 @@ func TestHandlePageDownUpOnStatusPane(t *testing.T) {
 	if m.state.ui.statusViewport.YOffset() >= 2 {
 		t.Fatalf("expected YOffset to decrease, got %d", m.state.ui.statusViewport.YOffset())
 	}
+}
+
+func TestHandlePageDownUpOnInfoPane(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 1
+	m.state.ui.infoViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(2))
+	m.state.ui.infoViewport.SetContent(strings.Repeat("line\n", 20))
+
+	start := m.state.ui.infoViewport.YOffset()
+	_, _ = m.handlePageDown(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	assert.Greater(t, m.state.ui.infoViewport.YOffset(), start, "PageDown should increase YOffset")
+
+	m.state.ui.infoViewport.SetYOffset(5)
+	_, _ = m.handlePageUp(tea.KeyPressMsg{Code: tea.KeyPgUp})
+	assert.Less(t, m.state.ui.infoViewport.YOffset(), 5, "PageUp should decrease YOffset")
+}
+
+func TestInfoViewportScrollDownUp(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 1
+	m.state.ui.infoViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(2))
+	m.state.ui.infoViewport.SetContent(strings.Repeat("line\n", 20))
+
+	// j/k should scroll when no CI checks
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+
+	start := m.state.ui.infoViewport.YOffset()
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: tea.KeyDown})
+	assert.Greater(t, m.state.ui.infoViewport.YOffset(), start, "j should scroll down in info pane without CI checks")
+
+	m.state.ui.infoViewport.SetYOffset(3)
+	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: tea.KeyUp})
+	assert.Less(t, m.state.ui.infoViewport.YOffset(), 3, "k should scroll up in info pane without CI checks")
+}
+
+func TestInfoViewportGotoBottom(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 1
+	m.state.ui.infoViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(2))
+	m.state.ui.infoViewport.SetContent(strings.Repeat("line\n", 20))
+
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: -1, Text: "G"})
+	assert.Positive(t, m.state.ui.infoViewport.YOffset(), "G should scroll to bottom in info pane")
+}
+
+func TestInfoViewportMouseWheel(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 1
+	m.state.ui.infoViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(2))
+	m.state.ui.infoViewport.SetContent(strings.Repeat("line\n", 20))
+
+	// Scroll down via mouse wheel
+	m.state.ui.infoViewport.ScrollDown(3)
+	assert.Positive(t, m.state.ui.infoViewport.YOffset(), "mouse wheel down should scroll info viewport")
+
+	prev := m.state.ui.infoViewport.YOffset()
+	m.state.ui.infoViewport.ScrollUp(3)
+	assert.Less(t, m.state.ui.infoViewport.YOffset(), prev, "mouse wheel up should scroll info viewport")
 }
 
 func TestHandleEnterKeySelectsWorktree(t *testing.T) {
@@ -3577,20 +3649,20 @@ func TestCICheckNavigationDown(t *testing.T) {
 	// Start navigating CI checks
 	m.ciCheckIndex = 0
 
-	// Navigate down
-	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
+	// Navigate down with n
+	_, _ = m.navigateCICheckDown()
 	if m.ciCheckIndex != 1 {
-		t.Fatalf("expected ciCheckIndex 1 after j, got %d", m.ciCheckIndex)
+		t.Fatalf("expected ciCheckIndex 1 after n, got %d", m.ciCheckIndex)
 	}
 
 	// Navigate down again
-	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
+	_, _ = m.navigateCICheckDown()
 	if m.ciCheckIndex != 2 {
-		t.Fatalf("expected ciCheckIndex 2 after second j, got %d", m.ciCheckIndex)
+		t.Fatalf("expected ciCheckIndex 2 after second n, got %d", m.ciCheckIndex)
 	}
 
 	// At last CI check, should stay at last check (no wrapping to file tree since it's a separate pane)
-	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
+	_, _ = m.navigateCICheckDown()
 	if m.ciCheckIndex != 2 {
 		t.Fatalf("expected ciCheckIndex to stay at 2, got %d", m.ciCheckIndex)
 	}
@@ -3624,21 +3696,21 @@ func TestCICheckNavigationUp(t *testing.T) {
 	// Start at first CI check
 	m.ciCheckIndex = 1
 
-	// Navigate up
-	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
+	// Navigate up with p
+	_, _ = m.navigateCICheckUp()
 	if m.ciCheckIndex != 0 {
-		t.Fatalf("expected ciCheckIndex 0 after k, got %d", m.ciCheckIndex)
+		t.Fatalf("expected ciCheckIndex 0 after p, got %d", m.ciCheckIndex)
 	}
 
 	// At first CI check, should stay at 0
-	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
+	_, _ = m.navigateCICheckUp()
 	if m.ciCheckIndex != 0 {
 		t.Fatalf("expected ciCheckIndex to stay at 0, got %d", m.ciCheckIndex)
 	}
 
 	// When ciCheckIndex is -1 (no CI check selected), navigating up should jump to last CI check
 	m.ciCheckIndex = -1
-	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
+	_, _ = m.navigateCICheckUp()
 	if m.ciCheckIndex != 2 {
 		t.Fatalf("expected ciCheckIndex 2 after jumping to last check, got %d", m.ciCheckIndex)
 	}
@@ -3823,8 +3895,8 @@ func TestCICheckSelectionResetWhenUnavailable(t *testing.T) {
 	m.cache.ciCache.Set("feat", checks)
 	m.ciCheckIndex = 5 // Out of bounds
 
-	// Navigate - should reset invalid index to -1 then advance to first check (0)
-	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
+	// Navigate with n - should reset invalid index to -1 then advance to first check (0)
+	_, _ = m.navigateCICheckDown()
 	if m.ciCheckIndex != 0 {
 		t.Fatalf("expected ciCheckIndex 0 after invalid index reset, got %d", m.ciCheckIndex)
 	}
@@ -3833,10 +3905,10 @@ func TestCICheckSelectionResetWhenUnavailable(t *testing.T) {
 	m.cache.ciCache.Clear()
 	m.ciCheckIndex = 0
 
-	// Navigate - should reset when no CI checks available
-	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
-	if m.ciCheckIndex != -1 {
-		t.Fatalf("expected ciCheckIndex -1 when no CI checks, got %d", m.ciCheckIndex)
+	// Navigate with n - should be no-op when no CI checks available
+	_, _ = m.navigateCICheckDown()
+	if m.ciCheckIndex != 0 {
+		t.Fatalf("expected ciCheckIndex 0 when no CI checks (no-op), got %d", m.ciCheckIndex)
 	}
 }
 
@@ -3852,13 +3924,108 @@ func TestCICheckNavigationWithNoChecks(t *testing.T) {
 		{Path: testWorktreePath, Branch: "feat"},
 	}
 
-	// No CI checks in cache - pane 1 only has CI checks, no file tree
+	// No CI checks in cache - navigateCICheckDown should be a no-op
 	m.ciCheckIndex = -1
 
-	// Navigation should do nothing on pane 1 with no CI checks
-	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
+	// Navigation with n should do nothing when no CI checks
+	_, _ = m.navigateCICheckDown()
 	if m.ciCheckIndex != -1 {
 		t.Fatalf("expected ciCheckIndex -1 with no CI checks, got %d", m.ciCheckIndex)
+	}
+}
+
+func TestInfoPaneJKScrollsViewport(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 1
+	m.state.data.selectedIndex = 0
+	m.state.data.filteredWts = []*models.WorktreeInfo{
+		{Path: testWorktreePath, Branch: "feat"},
+	}
+
+	// Add CI checks to cache — j/k should still scroll, not navigate CI checks
+	checks := []*models.CICheck{
+		{Name: "build", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/123"},
+		{Name: "test", Conclusion: "failure", Link: "https://github.com/owner/repo/actions/runs/456"},
+	}
+	m.cache.ciCache.Set("feat", checks)
+	m.ciCheckIndex = -1
+
+	// Press j — should scroll viewport, not change ciCheckIndex
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
+	if m.ciCheckIndex != -1 {
+		t.Fatalf("expected ciCheckIndex to remain -1 after j, got %d", m.ciCheckIndex)
+	}
+
+	// Press k — should scroll viewport, not change ciCheckIndex
+	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
+	if m.ciCheckIndex != -1 {
+		t.Fatalf("expected ciCheckIndex to remain -1 after k, got %d", m.ciCheckIndex)
+	}
+}
+
+func TestInfoPaneNPNavigatesCIChecks(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 1
+	m.state.data.selectedIndex = 0
+	m.state.data.filteredWts = []*models.WorktreeInfo{
+		{Path: testWorktreePath, Branch: "feat"},
+	}
+
+	checks := []*models.CICheck{
+		{Name: "build", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/123"},
+		{Name: "test", Conclusion: "failure", Link: "https://github.com/owner/repo/actions/runs/456"},
+		{Name: "lint", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/789"},
+	}
+	m.cache.ciCache.Set("feat", checks)
+	m.ciCheckIndex = -1
+
+	// Press n — should navigate to first CI check
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'n', Text: string('n')})
+	if m.ciCheckIndex != 0 {
+		t.Fatalf("expected ciCheckIndex 0 after n, got %d", m.ciCheckIndex)
+	}
+
+	// Press n again — should navigate to second CI check
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'n', Text: string('n')})
+	if m.ciCheckIndex != 1 {
+		t.Fatalf("expected ciCheckIndex 1 after second n, got %d", m.ciCheckIndex)
+	}
+
+	// Press p — should navigate back to first CI check
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'p', Text: string('p')})
+	if m.ciCheckIndex != 0 {
+		t.Fatalf("expected ciCheckIndex 0 after p, got %d", m.ciCheckIndex)
+	}
+}
+
+func TestNKeySearchAdvanceOutsidePane1(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 0
+	m.state.data.selectedIndex = 0
+	m.state.data.filteredWts = []*models.WorktreeInfo{
+		{Path: testWorktreePath, Branch: "feat"},
+	}
+
+	// Add CI checks to cache
+	checks := []*models.CICheck{
+		{Name: "build", Conclusion: "success", Link: "https://github.com/owner/repo/actions/runs/123"},
+	}
+	m.cache.ciCache.Set("feat", checks)
+	m.ciCheckIndex = -1
+
+	// Press n in pane 0 — should not navigate CI checks
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'n', Text: string('n')})
+	if m.ciCheckIndex != -1 {
+		t.Fatalf("expected ciCheckIndex to remain -1 when not in pane 1, got %d", m.ciCheckIndex)
 	}
 }
 

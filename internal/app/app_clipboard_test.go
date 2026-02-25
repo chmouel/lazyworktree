@@ -21,7 +21,7 @@ func TestYankContextual_Pane0_CopiesPath(t *testing.T) {
 	assert.NotNil(t, cmd, "expected a command to be returned")
 }
 
-func TestYankContextual_Pane2_CopiesSHA(t *testing.T) {
+func TestYankContextual_Pane3_CopiesSHA(t *testing.T) {
 	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
 	m.state.view.FocusedPane = 3
 	m.state.data.logEntries = []commitLogEntry{
@@ -32,7 +32,7 @@ func TestYankContextual_Pane2_CopiesSHA(t *testing.T) {
 	assert.NotNil(t, cmd, "expected a command to be returned")
 }
 
-func TestYankContextual_Pane1_CopiesFilePath(t *testing.T) {
+func TestYankContextual_Pane2_CopiesFilePath(t *testing.T) {
 	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
 	m.state.view.FocusedPane = 2
 	m.state.data.filteredWts = []*models.WorktreeInfo{
