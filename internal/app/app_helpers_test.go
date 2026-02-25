@@ -444,10 +444,10 @@ func TestWindowTitle(t *testing.T) {
 			expected: "Lazyworktree",
 		},
 		{
-			name:    "selected index out of range",
-			repoKey: "org/repo",
-			wts:     []*models.WorktreeInfo{},
-			selIdx:  5,
+			name:     "selected index out of range",
+			repoKey:  "org/repo",
+			wts:      []*models.WorktreeInfo{},
+			selIdx:   5,
 			expected: "Lazyworktree — org/repo",
 		},
 	}
