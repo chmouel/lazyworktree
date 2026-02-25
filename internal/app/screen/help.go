@@ -56,7 +56,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 **{{HELP_NAV}}Navigation**
 - j / {{ARROW_DOWN}}: Move cursor down in lists and menus
 - k / {{ARROW_UP}}: Move cursor up in lists and menus
-- 1 / 2 / 3: Switch to pane (or toggle zoom if already focused)
+- 1 / 2 / 3 / 4: Switch to pane (or toggle zoom if already focused)
 - h / l: Left / Right pane
 - [ / ]: Previous / Next pane
 - Tab: Cycle to next pane
@@ -65,10 +65,14 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - q: Quit application
 
 **{{HELP_STATUS_PANE}}Status Pane (when focused)**
-- j / k: Navigate files and directories, or CI checks (when visible)
-- Enter: Toggle directory collapse, show file diff, or open selected CI check URL
+- j / k: Navigate CI checks (when visible)
+- Enter: Open selected CI check URL in browser
 - PR number in the info panel is clickable in terminals that support OSC-8 hyperlinks
 - Ctrl+v: View selected CI check logs in pager (when CI check is selected)
+
+**{{HELP_CI_CHECKS}}Git Status Pane (when focused)**
+- j / k: Navigate files and directories
+- Enter: Toggle directory collapse or show file diff
 - e: Open selected file in editor
 - d: Show full diff (all files) in pager
 - s: Stage/unstage selected file or directory
@@ -76,18 +80,13 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - c: Commit staged changes
 - C: Stage all changes and commit
 - Ctrl+{{ARROW_LEFT}} / {{ARROW_RIGHT}}: Jump to previous / next folder
+- f: Filter files
 - /: Search file or directory names
 - Ctrl+D / Space: Half page down
 - Ctrl+U: Half page up
 - PageUp / PageDown: Half page up/down
 
-**{{HELP_CI_CHECKS}}CI Checks Navigation (in Status Pane)**
-When CI checks are displayed in the info panel:
-- j / k: Navigate through CI checks (wraps to/from file tree at boundaries)
-- Enter: Open selected CI check URL in browser
-- Ctrl+v: View selected CI check logs in pager
-
-**{{HELP_LOG}}Log Pane**
+**{{HELP_LOG}}Commit Pane**
 - j / k: Move between commits
 - Ctrl+J: Next commit and open file tree
 - Enter: Open commit file tree (browse changed files)

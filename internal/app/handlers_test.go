@@ -36,7 +36,7 @@ func TestHandlePageDownUpOnStatusPane(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(10), viewport.WithHeight(2))
 	m.state.ui.statusViewport.SetContent(strings.Repeat("line\n", 10))
 
@@ -345,7 +345,7 @@ func TestFilterStatusNarrowsList(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.setStatusFiles([]StatusFile{
 		{Filename: "app.go", Status: ".M"},
@@ -705,13 +705,13 @@ func TestFilterNavigationThroughMultipleFilteredItems(t *testing.T) {
 	}
 }
 
-// TestStatusFileNavigation tests j/k navigation through status tree items in pane 1.
+// TestStatusFileNavigation tests j/k navigation through status tree items in pane 2.
 func TestStatusFileNavigation(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	// Set up status files using setStatusFiles to build tree
@@ -764,7 +764,7 @@ func TestLogPaneCtrlJMovesNextCommit(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 2
+	m.state.view.FocusedPane = 3
 	m.state.ui.logTable.Focus()
 	m.state.data.filteredWts = []*models.WorktreeInfo{
 		{Path: t.TempDir(), Branch: testFeat},
@@ -806,7 +806,7 @@ func TestSearchLogSelectsNextMatch(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 2
+	m.state.view.FocusedPane = 3
 	m.state.data.logEntries = []commitLogEntry{
 		{sha: "abc123", authorInitials: "ab", message: "Fix bug in parser"},
 		{sha: "def456", authorInitials: "de", message: "Add new feature"},
@@ -852,7 +852,7 @@ func TestFilterLogNarrowsList(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 2
+	m.state.view.FocusedPane = 3
 	m.setLogEntries([]commitLogEntry{
 		{sha: "abc123", authorInitials: "ab", message: "Fix bug in parser"},
 		{sha: "def456", authorInitials: "de", message: "Add new feature"},
@@ -883,7 +883,7 @@ func TestStatusFileNavigationEmptyList(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.setStatusFiles(nil)
 	m.state.services.statusTree.Index = 0
@@ -900,13 +900,13 @@ func TestStatusFileNavigationEmptyList(t *testing.T) {
 	}
 }
 
-// TestStatusFileEnterShowsDiff tests that Enter on pane 1 triggers showFileDiff.
+// TestStatusFileEnterShowsDiff tests that Enter on pane 2 triggers showFileDiff.
 func TestStatusFileEnterShowsDiff(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	// Set up worktree and status files
@@ -947,7 +947,7 @@ func TestLogPaneDiffCommandModeUsesCommitRange(t *testing.T) {
 		GitPagerCommandMode: true,
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 2
+	m.state.view.FocusedPane = 3
 	m.state.data.filteredWts = []*models.WorktreeInfo{
 		{Path: testWorktreePath, Branch: testFeat},
 	}
@@ -982,7 +982,7 @@ func TestStatusFileEditOpensEditor(t *testing.T) {
 		Editor:      "nvim",
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1034,7 +1034,7 @@ func TestCommitAllChangesFromStatusPane(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1091,7 +1091,7 @@ func TestCommitStagedChangesFromStatusPane(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1144,7 +1144,7 @@ func TestCommitStagedChangesNoStagedFiles(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1196,7 +1196,7 @@ func TestStageUnstagedFile(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1243,7 +1243,7 @@ func TestUnstageStagedFile(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1284,7 +1284,7 @@ func TestStageMixedStatusFile(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
@@ -1342,7 +1342,7 @@ func TestStageDirectoryAllUnstaged(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.data.filteredWts = []*models.WorktreeInfo{
 		{Path: cfg.WorktreeDir, Branch: "feature"},
@@ -1388,7 +1388,7 @@ func TestStageDirectoryAllStaged(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.data.filteredWts = []*models.WorktreeInfo{
 		{Path: cfg.WorktreeDir, Branch: "feature"},
@@ -1430,7 +1430,7 @@ func TestStageDirectoryMixed(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.data.filteredWts = []*models.WorktreeInfo{
 		{Path: cfg.WorktreeDir, Branch: "feature"},
@@ -1637,7 +1637,7 @@ func TestStatusFileEnterNoFilesDoesNothing(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.data.statusFiles = nil
 
 	_, cmd := m.handleEnterKey()
@@ -1652,7 +1652,7 @@ func TestBuildStatusContentParsesFiles(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	// Simulated git status --porcelain=v2 output
@@ -1695,7 +1695,7 @@ func TestBuildStatusContentCleanTree(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.data.statusFiles = []StatusFile{{Filename: "old.go", Status: ".M"}}
 	m.state.data.statusFileIndex = 5
@@ -1719,7 +1719,7 @@ func TestSearchStatusSelectsMatch(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	// Note: tree sorts alphabetically, so README.md (R) comes before app.go (a)
 	m.setStatusFiles([]StatusFile{
@@ -1751,7 +1751,7 @@ func TestRenderStatusFilesHighlighting(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.setStatusFiles([]StatusFile{
 		{Filename: "file1.go", Status: ".M", IsUntracked: false},
@@ -1789,7 +1789,7 @@ func TestRenderStatusFilesIconsDisabled(t *testing.T) {
 	cfg.WorktreeDir = t.TempDir()
 	cfg.IconSet = "text"
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.setStatusFiles([]StatusFile{
 		{Filename: "file1.go", Status: ".M", IsUntracked: false},
@@ -1809,7 +1809,7 @@ func TestStatusTreeIndexClamping(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	// Set index out of range before parsing
@@ -1836,13 +1836,13 @@ func TestStatusTreeIndexClamping(t *testing.T) {
 	}
 }
 
-// TestMouseScrollNavigatesFiles tests that mouse scroll navigates tree items in pane 1.
+// TestMouseScrollNavigatesFiles tests that mouse scroll navigates tree items in pane 2.
 func TestMouseScrollNavigatesFiles(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.view.WindowWidth = 100
 	m.state.view.WindowHeight = 30
@@ -1857,8 +1857,8 @@ func TestMouseScrollNavigatesFiles(t *testing.T) {
 	// Scroll down should increment index
 	wheelMsg := tea.MouseWheelMsg{
 		Button: tea.MouseWheelDown,
-		X:      60, // Right side of screen (pane 1)
-		Y:      5,
+		X:      60, // Right side of screen (pane 2 - git status)
+		Y:      10, // Middle section of right pane (git status area)
 	}
 
 	_, _ = m.handleMouseWheel(wheelMsg)
@@ -2118,7 +2118,7 @@ func TestFlattenStatusTreeDepth(t *testing.T) {
 func TestDirectoryToggleUpdatesFlat(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.view.WindowWidth = 100
 	m.state.view.WindowHeight = 30
@@ -2178,7 +2178,7 @@ func TestEscClearsStatusFilter(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.services.filter.StatusFilterQuery = testFilterQuery
 
 	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyEscape})
@@ -2197,7 +2197,7 @@ func TestEscClearsLogFilter(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 2
+	m.state.view.FocusedPane = 3
 	m.state.services.filter.LogFilterQuery = testFilterQuery
 
 	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyEscape})
@@ -2246,6 +2246,9 @@ func TestHasActiveFilterForPane(t *testing.T) {
 	if m.hasActiveFilterForPane(2) {
 		t.Fatal("expected no active filter for pane 2")
 	}
+	if m.hasActiveFilterForPane(3) {
+		t.Fatal("expected no active filter for pane 3")
+	}
 
 	// Set worktree filter
 	m.state.services.filter.FilterQuery = testFilterQuery
@@ -2253,16 +2256,21 @@ func TestHasActiveFilterForPane(t *testing.T) {
 		t.Fatal("expected active filter for pane 0")
 	}
 
-	// Set status filter
-	m.state.services.filter.StatusFilterQuery = testFilterQuery
-	if !m.hasActiveFilterForPane(1) {
-		t.Fatal("expected active filter for pane 1")
+	// Pane 1 is info-only, no filter
+	if m.hasActiveFilterForPane(1) {
+		t.Fatal("expected no active filter for pane 1 (info-only)")
 	}
 
-	// Set log filter
-	m.state.services.filter.LogFilterQuery = testFilterQuery
+	// Set status filter (pane 2)
+	m.state.services.filter.StatusFilterQuery = testFilterQuery
 	if !m.hasActiveFilterForPane(2) {
 		t.Fatal("expected active filter for pane 2")
+	}
+
+	// Set log filter (pane 3)
+	m.state.services.filter.LogFilterQuery = testFilterQuery
+	if !m.hasActiveFilterForPane(3) {
+		t.Fatal("expected active filter for pane 3")
 	}
 
 	// Whitespace-only should not count as active
@@ -3347,7 +3355,7 @@ func TestHandleGotoTop(t *testing.T) {
 	})
 
 	t.Run("goto top on status pane", func(t *testing.T) {
-		m.state.view.FocusedPane = 1
+		m.state.view.FocusedPane = 2
 		m.state.services.statusTree.TreeFlat = []*StatusTreeNode{
 			{Path: "file1.txt", File: &StatusFile{Filename: "file1.txt"}},
 			{Path: "dir1", Children: []*StatusTreeNode{}},
@@ -3364,7 +3372,7 @@ func TestHandleGotoTop(t *testing.T) {
 	})
 
 	t.Run("goto top on log pane", func(t *testing.T) {
-		m.state.view.FocusedPane = 2
+		m.state.view.FocusedPane = 3
 		m.state.data.logEntries = []commitLogEntry{
 			{sha: "abc123", message: "commit 1"},
 			{sha: "def456", message: "commit 2"},
@@ -3406,7 +3414,7 @@ func TestHandleGotoBottom(t *testing.T) {
 	})
 
 	t.Run("goto bottom on status pane", func(t *testing.T) {
-		m.state.view.FocusedPane = 1
+		m.state.view.FocusedPane = 2
 		m.state.services.statusTree.TreeFlat = []*StatusTreeNode{
 			{Path: "file1.txt", File: &StatusFile{Filename: "file1.txt"}},
 			{Path: "dir1", Children: []*StatusTreeNode{}},
@@ -3423,7 +3431,7 @@ func TestHandleGotoBottom(t *testing.T) {
 	})
 
 	t.Run("goto bottom on empty status pane", func(t *testing.T) {
-		m.state.view.FocusedPane = 1
+		m.state.view.FocusedPane = 2
 		m.state.services.statusTree.TreeFlat = []*StatusTreeNode{}
 		m.state.services.statusTree.Index = 0
 		_, cmd := m.handleGotoBottom()
@@ -3434,7 +3442,7 @@ func TestHandleGotoBottom(t *testing.T) {
 	})
 
 	t.Run("goto bottom on log pane", func(t *testing.T) {
-		m.state.view.FocusedPane = 2
+		m.state.view.FocusedPane = 3
 		m.state.ui.logTable.SetCursor(0)
 		m.state.data.logEntries = []commitLogEntry{
 			{sha: "abc123", message: "commit 1"},
@@ -3456,7 +3464,7 @@ func TestHandleGotoBottom(t *testing.T) {
 func TestHandleNextFolder(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 
 	t.Run("empty status tree", func(t *testing.T) {
 		m.state.services.statusTree.TreeFlat = []*StatusTreeNode{}
@@ -3503,7 +3511,7 @@ func TestHandleNextFolder(t *testing.T) {
 func TestHandlePrevFolder(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 
 	t.Run("empty status tree", func(t *testing.T) {
 		m.state.services.statusTree.TreeFlat = []*StatusTreeNode{}
@@ -3581,16 +3589,10 @@ func TestCICheckNavigationDown(t *testing.T) {
 		t.Fatalf("expected ciCheckIndex 2 after second j, got %d", m.ciCheckIndex)
 	}
 
-	// At last CI check, should wrap to file tree
-	m.setStatusFiles([]StatusFile{
-		{Filename: "file1.go", Status: ".M", IsUntracked: false},
-	})
+	// At last CI check, should stay at last check (no wrapping to file tree since it's a separate pane)
 	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
-	if m.ciCheckIndex != -1 {
-		t.Fatalf("expected ciCheckIndex -1 after wrapping, got %d", m.ciCheckIndex)
-	}
-	if m.state.services.statusTree.Index != 0 {
-		t.Fatalf("expected statusTreeIndex 0 after wrapping, got %d", m.state.services.statusTree.Index)
+	if m.ciCheckIndex != 2 {
+		t.Fatalf("expected ciCheckIndex to stay at 2, got %d", m.ciCheckIndex)
 	}
 }
 
@@ -3634,12 +3636,11 @@ func TestCICheckNavigationUp(t *testing.T) {
 		t.Fatalf("expected ciCheckIndex to stay at 0, got %d", m.ciCheckIndex)
 	}
 
-	// Test wrapping from file tree to CI checks
+	// When ciCheckIndex is -1 (no CI check selected), navigating up should jump to last CI check
 	m.ciCheckIndex = -1
-	m.state.services.statusTree.Index = 0
 	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if m.ciCheckIndex != 2 {
-		t.Fatalf("expected ciCheckIndex 2 after wrapping from file tree, got %d", m.ciCheckIndex)
+		t.Fatalf("expected ciCheckIndex 2 after jumping to last check, got %d", m.ciCheckIndex)
 	}
 }
 
@@ -3822,10 +3823,10 @@ func TestCICheckSelectionResetWhenUnavailable(t *testing.T) {
 	m.cache.ciCache.Set("feat", checks)
 	m.ciCheckIndex = 5 // Out of bounds
 
-	// Navigate - should reset invalid index
+	// Navigate - should reset invalid index to -1 then advance to first check (0)
 	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
-	if m.ciCheckIndex != -1 {
-		t.Fatalf("expected ciCheckIndex -1 after invalid index, got %d", m.ciCheckIndex)
+	if m.ciCheckIndex != 0 {
+		t.Fatalf("expected ciCheckIndex 0 after invalid index reset, got %d", m.ciCheckIndex)
 	}
 
 	// Clear CI cache
@@ -3851,20 +3852,13 @@ func TestCICheckNavigationWithNoChecks(t *testing.T) {
 		{Path: testWorktreePath, Branch: "feat"},
 	}
 
-	// No CI checks in cache
-	m.setStatusFiles([]StatusFile{
-		{Filename: "file1.go", Status: ".M", IsUntracked: false},
-		{Filename: "file2.go", Status: "M.", IsUntracked: false},
-	})
-	m.state.services.statusTree.Index = 0
+	// No CI checks in cache - pane 1 only has CI checks, no file tree
+	m.ciCheckIndex = -1
 
-	// Navigation should work on file tree
+	// Navigation should do nothing on pane 1 with no CI checks
 	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
-	if m.state.services.statusTree.Index != 1 {
-		t.Fatalf("expected statusTreeIndex 1, got %d", m.state.services.statusTree.Index)
-	}
 	if m.ciCheckIndex != -1 {
-		t.Fatalf("expected ciCheckIndex -1, got %d", m.ciCheckIndex)
+		t.Fatalf("expected ciCheckIndex -1 with no CI checks, got %d", m.ciCheckIndex)
 	}
 }
 

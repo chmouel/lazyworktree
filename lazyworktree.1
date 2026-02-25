@@ -28,7 +28,7 @@ Worktree Management: Create, rename, delete, absorb, and prune merged worktrees
 .IP \(bu 2
 Cherry-pick Commits: Copy commits from one worktree to another via an interactive worktree picker
 .IP \(bu 2
-Commit Log Details: Log pane shows author initials alongside commit subjects
+Commit Log Details: Commit pane shows author initials alongside commit subjects
 .IP \(bu 2
 Base Selection: Select a base branch or commit from a list, or enter a reference when creating a worktree
 .IP \(bu 2
@@ -450,7 +450,11 @@ Switch to Status pane (toggle zoom if already focused).
 .
 .TP
 .B 3
-Switch to Log pane (toggle zoom if already focused).
+Switch to Git Status pane (toggle zoom if already focused).
+.
+.TP
+.B 4
+Switch to Commit pane (toggle zoom if already focused).
 .
 .TP
 .B =
@@ -458,13 +462,13 @@ Toggle zoom for focused pane (full screen, press again to unzoom).
 .
 .TP
 .B L
-Toggle layout between default (worktrees left, status/log stacked right) and
-top (worktrees full-width top, status/log side-by-side bottom).
+Toggle layout between default (worktrees left, status/git status/commit stacked right) and
+top (worktrees full-width top, status/git status/commit side-by-side bottom).
 .
 .TP
 .B y
-Copy to clipboard (context-aware: worktree path in pane 1, file path in
-status pane, commit SHA in log pane). Uses OSC52, works over SSH.
+Copy to clipboard (context-aware: worktree path in worktrees pane, file path in
+git status pane, commit SHA in commit pane). Uses OSC52, works over SSH.
 .
 .TP
 .B Y
@@ -481,11 +485,11 @@ Quit application.
 .SS Worktree Operations
 .TP
 .B Enter
-Jump to worktree (exit and cd), or open commit file tree in log pane.
+Jump to worktree (exit and cd), or open commit file tree in commit pane.
 .
 .TP
 .B d
-Show diff in pager for the selected worktree (or selected commit in the log pane).
+Show diff in pager for the selected worktree (or selected commit in the commit pane).
 .
 .TP
 .B c
@@ -540,8 +544,27 @@ Push to upstream branch. Current branch only, requires a clean worktree and prom
 Cycle sort mode (Path / Last Active / Last Switched).
 .
 .SS Status Pane
-The Status pane displays changed files in a collapsible tree view, grouped by directory. Directories are shown with expand/collapse indicators (▼/▶) and can be toggled with Enter. Files are sorted alphabetically within each directory level and include icons from the selected icon set when enabled.
+The Status pane displays PR info, CI checks, notes, and divergence status.
 In terminals that support OSC-8 hyperlinks, the PR/MR number in the info panel is clickable.
+.
+.TP
+.B j, k
+Navigate CI checks (when visible).
+.
+.TP
+.B Enter
+Open selected CI check URL in browser.
+.
+.TP
+.B Ctrl+v
+View selected CI check logs in pager.
+.
+.TP
+.B Ctrl+r
+Restart CI job (GitHub Actions only).
+.
+.SS Git Status Pane
+The Git Status pane displays changed files in a collapsible tree view, grouped by directory. Directories are shown with expand/collapse indicators and can be toggled with Enter. Files are sorted alphabetically within each directory level and include icons from the selected icon set when enabled.
 .
 .TP
 .B Enter
@@ -591,7 +614,7 @@ Half page up.
 .B PageUp, PageDown
 Half page up/down.
 .
-.SS Log Pane
+.SS Commit Pane
 .TP
 .B j, k, Up, Down
 Move between commits.
@@ -617,7 +640,7 @@ Move to next commit and open commit file tree.
 Search commit titles (incremental).
 .
 .SS Commit File Tree
-When pressing Enter on a commit in the log pane, a file tree view opens showing all files changed in that commit. The tree is collapsible by directory and includes icons from the selected icon set when enabled.
+When pressing Enter on a commit in the commit pane, a file tree view opens showing all files changed in that commit. The tree is collapsible by directory and includes icons from the selected icon set when enabled.
 .
 .TP
 .B j, k, Up, Down
@@ -735,7 +758,7 @@ lazyworktree provides comprehensive mouse support for improved navigation and in
 .
 .TP
 .B Click on pane
-Focus the clicked pane (Worktree, Status, or Log).
+Focus the clicked pane (Worktree, Status, Git Status, or Commit).
 .
 .TP
 .B Click on item

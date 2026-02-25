@@ -209,7 +209,7 @@ func TestIntegrationPRAndCIFlowUpdatesView(t *testing.T) {
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
 	m.repoConfigPath = testSkipPath
-	m.setWindowSize(120, 40)
+	m.setWindowSize(160, 60)
 
 	worktreePath := cfg.WorktreeDir + "/wt"
 	wt := &models.WorktreeInfo{
@@ -276,7 +276,7 @@ func TestIntegrationMainBranchMergedPRHidesInfo(t *testing.T) {
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
 	m.repoConfigPath = testSkipPath
-	m.setWindowSize(120, 40)
+	m.setWindowSize(160, 60)
 
 	worktreePath := cfg.WorktreeDir + "/wt"
 	wt := &models.WorktreeInfo{

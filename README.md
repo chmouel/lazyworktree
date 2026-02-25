@@ -162,13 +162,14 @@ Zsh helpers are in `shell/functions.zsh`. See [./shell/README.md](./shell/README
 | `q` | Quit |
 | `1` | Focus Worktree pane (toggle zoom if focused) |
 | `2` | Focus Status pane (toggle zoom if focused) |
-| `3` | Focus Log pane (toggle zoom if focused) |
+| `3` | Focus Git Status pane (toggle zoom if focused) |
+| `4` | Focus Commit pane (toggle zoom if focused) |
 | `h`, `l` | Navigate left/right (h=worktree pane, l=cycle right panes) |
 | `Tab`, `]` | Cycle to next pane |
 | `[` | Cycle to previous pane |
 | `=` | Toggle zoom for focused pane (full screen) |
 | `L` | Toggle layout (default / top) |
-| `y` | Copy to clipboard (context-aware: path, file path, or SHA; uses OSC52, works over SSH) |
+| `y` | Copy to clipboard (context-aware: path in worktrees, file path in git status, SHA in commit; uses OSC52, works over SSH) |
 | `Y` | Copy selected worktree branch name to clipboard |
 
 **Notes Viewer and Editor**
@@ -195,7 +196,7 @@ release notes` and `- [x] update changelog`). Use `j`/`k` to move, `Enter` or
 `Space` to toggle completion, `a` to add a new task, `f` to filter, and
 `q`/`Esc` to close.
 
-**Log Pane** (when focused on commit log):
+**Commit Pane** (when focused on commit log):
 
 | Key | Action |
 | --- | --- |
@@ -221,7 +222,18 @@ release notes` and `- [x] update changelog`). Use `j`/`k` to move, `Enter` or
 | `g`, `G` | Jump to top/bottom |
 | `q`, `Esc` | Return to commit log |
 
-**Status Pane** (when focused on status):
+**Status Pane** (when focused on status/info):
+
+Displays PR info, CI checks, notes, and divergence status.
+
+| Key | Action |
+| --- | --- |
+| `j/k` | Navigate CI checks (when visible) |
+| `Enter` | Open selected CI check URL in browser |
+| `Ctrl+v` | View selected CI check logs in pager |
+| `Ctrl+r` | Restart CI job (GitHub Actions only) |
+
+**Git Status Pane** (when focused on git status):
 
 Displays changed files in a collapsible tree view, grouped by directory (similar to lazygit).
 
@@ -241,14 +253,6 @@ Displays changed files in a collapsible tree view, grouped by directory (similar
 | `ctrl+d`, `Space` | Half page down |
 | `ctrl+u` | Half page up |
 | `PageUp`, `PageDown` | Half page up/down |
-
-**CI Status Pane** (when viewing CI checks):
-
-| Key | Action |
-|--- | --- |
-| `Enter` | Open CI job in browser |
-| `Ctrl+v` | View CI logs in pager |
-| `Ctrl+r` | Restart CI job (GitHub Actions only) |
 
 **Filter Mode:**
 
@@ -392,7 +396,7 @@ git config --local --get-regexp "^lw\."
 **Worktree list and refresh**
 
 * `sort_mode`: `"switched"` (last accessed, default), `"active"` (commit date), or `"path"` (alphabetical).
-* `layout`: pane arrangement — `"default"` (worktrees left, status/log stacked right) or `"top"` (worktrees full-width top, status/log side-by-side bottom). Toggle at runtime with `L`.
+* `layout`: pane arrangement — `"default"` (worktrees left, status/git status/commit stacked right) or `"top"` (worktrees full-width top, status/git status/commit side-by-side bottom). Toggle at runtime with `L`.
 * `auto_refresh`: background refresh of git metadata (default: true).
 * `ci_auto_refresh`: periodically refresh CI status for GitHub repositories (default: false).
 * `refresh_interval`: refresh frequency in seconds (default: 10).

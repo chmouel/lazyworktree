@@ -24,7 +24,7 @@ func (m *Model) inputLabel() string {
 func (m *Model) searchLabel() string {
 	showIcons := m.config.IconsEnabled()
 	switch m.state.view.SearchTarget {
-	case searchTargetStatus:
+	case searchTargetStatus, searchTargetGitStatus:
 		return labelWithIcon(UIIconSearch, "Search Files", showIcons)
 	case searchTargetLog:
 		return labelWithIcon(UIIconSearch, "Search Commits", showIcons)
@@ -36,7 +36,7 @@ func (m *Model) searchLabel() string {
 func (m *Model) filterLabel() string {
 	showIcons := m.config.IconsEnabled()
 	switch m.state.view.FilterTarget {
-	case filterTargetStatus:
+	case filterTargetStatus, filterTargetGitStatus:
 		return labelWithIcon(UIIconFilter, "Filter Files", showIcons)
 	case filterTargetLog:
 		return labelWithIcon(UIIconFilter, "Filter Commits", showIcons)
@@ -47,7 +47,7 @@ func (m *Model) filterLabel() string {
 
 func (m *Model) filterPlaceholder(target filterTarget) string {
 	switch target {
-	case filterTargetStatus:
+	case filterTargetStatus, filterTargetGitStatus:
 		return placeholderFilterFiles
 	case filterTargetLog:
 		return "Filter commits..."
@@ -77,7 +77,7 @@ func (m *Model) setFilterTarget(target filterTarget) {
 
 func (m *Model) searchPlaceholder(target searchTarget) string {
 	switch target {
-	case searchTargetStatus:
+	case searchTargetStatus, searchTargetGitStatus:
 		return searchFiles
 	case searchTargetLog:
 		return "Search commit titles..."
@@ -426,7 +426,7 @@ func (m *Model) findLogMatchIndex(query string, start int, forward bool) int {
 
 func (m *Model) applySearchQuery(query string) tea.Cmd {
 	switch m.state.view.SearchTarget {
-	case searchTargetStatus:
+	case searchTargetStatus, searchTargetGitStatus:
 		if idx := m.findStatusMatchIndex(query, 0, true); idx >= 0 {
 			m.state.services.statusTree.Index = idx
 			m.rebuildStatusContentWithHighlight()
@@ -451,7 +451,7 @@ func (m *Model) advanceSearchMatch(forward bool) tea.Cmd {
 		return nil
 	}
 	switch m.state.view.SearchTarget {
-	case searchTargetStatus:
+	case searchTargetStatus, searchTargetGitStatus:
 		start := m.state.services.statusTree.Index
 		if forward {
 			start++

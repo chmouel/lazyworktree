@@ -21,22 +21,27 @@ type layoutDims struct {
 	rightInnerWidth        int
 	leftInnerHeight        int
 	rightTopHeight         int
+	rightMiddleHeight      int
 	rightBottomHeight      int
 	rightTopInnerHeight    int
+	rightMiddleInnerHeight int
 	rightBottomInnerHeight int
 
 	// Top layout fields
-	layoutMode             state.LayoutMode
-	topHeight              int
-	topInnerWidth          int
-	topInnerHeight         int
-	bottomHeight           int
-	bottomLeftWidth        int
-	bottomRightWidth       int
-	bottomLeftInnerWidth   int
-	bottomRightInnerWidth  int
-	bottomLeftInnerHeight  int
-	bottomRightInnerHeight int
+	layoutMode              state.LayoutMode
+	topHeight               int
+	topInnerWidth           int
+	topInnerHeight          int
+	bottomHeight            int
+	bottomLeftWidth         int
+	bottomMiddleWidth       int
+	bottomRightWidth        int
+	bottomLeftInnerWidth    int
+	bottomMiddleInnerWidth  int
+	bottomRightInnerWidth   int
+	bottomLeftInnerHeight   int
+	bottomMiddleInnerHeight int
+	bottomRightInnerHeight  int
 }
 
 // setWindowSize updates the window dimensions and applies the layout.
@@ -91,8 +96,10 @@ func (m *Model) computeLayout() layoutDims {
 			rightInnerWidth:        fullInnerWidth,
 			leftInnerHeight:        fullInnerHeight,
 			rightTopHeight:         bodyHeight,
+			rightMiddleHeight:      bodyHeight,
 			rightBottomHeight:      bodyHeight,
 			rightTopInnerHeight:    fullInnerHeight,
+			rightMiddleInnerHeight: fullInnerHeight,
 			rightBottomInnerHeight: fullInnerHeight,
 		}
 	}
@@ -105,7 +112,7 @@ func (m *Model) computeLayout() layoutDims {
 	switch m.state.view.FocusedPane {
 	case 0:
 		leftRatio = 0.45
-	case 1, 2:
+	case 1, 2, 3:
 		leftRatio = 0.20
 	}
 
@@ -132,19 +139,31 @@ func (m *Model) computeLayout() layoutDims {
 		rightWidth = 0
 	}
 
-	topRatio := 0.70
+	// 3-way vertical split: Status / Git Status / Commit
+	// Two gaps between the 3 panes
+	var topRatio, midRatio float64
 	switch m.state.view.FocusedPane {
-	case 1: // Status focused → give more height to top pane
-		topRatio = 0.82
-	case 2: // Log focused → give more height to bottom pane
-		topRatio = 0.30
+	case 1: // Status focused
+		topRatio, midRatio = 0.50, 0.30
+	case 2: // Git Status focused
+		topRatio, midRatio = 0.20, 0.60
+	case 3: // Commit focused
+		topRatio, midRatio = 0.20, 0.20
+	default: // Worktrees focused
+		topRatio, midRatio = 0.30, 0.40
 	}
 
-	rightTopHeight := maxInt(int(float64(bodyHeight-gapY)*topRatio), 6)
-	rightBottomHeight := bodyHeight - rightTopHeight - gapY
+	availableHeight := bodyHeight - gapY*2
+	rightTopHeight := maxInt(4, int(float64(availableHeight)*topRatio))
+	rightMiddleHeight := maxInt(4, int(float64(availableHeight)*midRatio))
+	rightBottomHeight := availableHeight - rightTopHeight - rightMiddleHeight
 	if rightBottomHeight < 4 {
 		rightBottomHeight = 4
-		rightTopHeight = bodyHeight - rightBottomHeight - gapY
+		rightMiddleHeight = availableHeight - rightTopHeight - rightBottomHeight
+		if rightMiddleHeight < 4 {
+			rightMiddleHeight = 4
+			rightTopHeight = availableHeight - rightMiddleHeight - rightBottomHeight
+		}
 	}
 
 	paneFrameX := m.basePaneStyle().GetHorizontalFrameSize()
@@ -154,6 +173,7 @@ func (m *Model) computeLayout() layoutDims {
 	rightInnerWidth := maxInt(1, rightWidth-paneFrameX)
 	leftInnerHeight := maxInt(1, bodyHeight-paneFrameY)
 	rightTopInnerHeight := maxInt(1, rightTopHeight-paneFrameY)
+	rightMiddleInnerHeight := maxInt(1, rightMiddleHeight-paneFrameY)
 	rightBottomInnerHeight := maxInt(1, rightBottomHeight-paneFrameY)
 
 	return layoutDims{
@@ -171,14 +191,16 @@ func (m *Model) computeLayout() layoutDims {
 		rightInnerWidth:        rightInnerWidth,
 		leftInnerHeight:        leftInnerHeight,
 		rightTopHeight:         rightTopHeight,
+		rightMiddleHeight:      rightMiddleHeight,
 		rightBottomHeight:      rightBottomHeight,
 		rightTopInnerHeight:    rightTopInnerHeight,
+		rightMiddleInnerHeight: rightMiddleInnerHeight,
 		rightBottomInnerHeight: rightBottomInnerHeight,
 	}
 }
 
 // computeTopLayoutDims calculates dimensions for the top layout mode
-// where worktrees span the full width at top and status+log sit side-by-side at bottom.
+// where worktrees span the full width at top and status+git status+commit sit side-by-side at bottom.
 func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, filterHeight, bodyHeight int) layoutDims {
 	gapX := 1
 	gapY := 1
@@ -191,7 +213,7 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 	switch m.state.view.FocusedPane {
 	case 0:
 		topRatio = 0.45
-	case 1, 2:
+	case 1, 2, 3:
 		topRatio = 0.20
 	}
 
@@ -205,36 +227,62 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		topHeight = 4
 	}
 
-	// Bottom horizontal split: status 70% / log 30% with focus adjustments
-	statusRatio := 0.70
+	// Bottom 3-way horizontal split: Status / Git Status / Commit
+	// Two gaps between the 3 panes
+	var leftRatio, midRatio float64
 	switch m.state.view.FocusedPane {
-	case 1:
-		statusRatio = 0.80
-	case 2:
-		statusRatio = 0.40
+	case 1: // Status focused
+		leftRatio, midRatio = 0.50, 0.30
+	case 2: // Git Status focused
+		leftRatio, midRatio = 0.20, 0.60
+	case 3: // Commit focused
+		leftRatio, midRatio = 0.20, 0.20
+	default: // Worktrees focused
+		leftRatio, midRatio = 0.30, 0.40
 	}
 
-	bottomLeftWidth := maxInt(minLeftPaneWidth, int(float64(width-gapX)*statusRatio))
-	bottomRightWidth := width - bottomLeftWidth - gapX
+	availableWidth := width - gapX*2
+	bottomLeftWidth := maxInt(minLeftPaneWidth, int(float64(availableWidth)*leftRatio))
+	bottomMiddleWidth := maxInt(minRightPaneWidth, int(float64(availableWidth)*midRatio))
+	bottomRightWidth := availableWidth - bottomLeftWidth - bottomMiddleWidth
 	if bottomRightWidth < minRightPaneWidth {
 		bottomRightWidth = minRightPaneWidth
-		bottomLeftWidth = width - bottomRightWidth - gapX
+		bottomMiddleWidth = availableWidth - bottomLeftWidth - bottomRightWidth
+		if bottomMiddleWidth < minRightPaneWidth {
+			bottomMiddleWidth = minRightPaneWidth
+			bottomLeftWidth = availableWidth - bottomMiddleWidth - bottomRightWidth
+		}
 	}
 	if bottomLeftWidth < minLeftPaneWidth {
 		bottomLeftWidth = minLeftPaneWidth
 	}
-	if bottomLeftWidth+bottomRightWidth+gapX > width {
-		bottomRightWidth = width - bottomLeftWidth - gapX
-	}
-	if bottomRightWidth < 0 {
-		bottomRightWidth = 0
+
+	// Final clamp: ensure widths + gaps do not exceed total width
+	totalBottom := bottomLeftWidth + gapX + bottomMiddleWidth + gapX + bottomRightWidth
+	if totalBottom > width {
+		excess := totalBottom - width
+		// Shrink the widest pane first, then others
+		for excess > 0 && bottomRightWidth > 8 {
+			bottomRightWidth--
+			excess--
+		}
+		for excess > 0 && bottomMiddleWidth > 8 {
+			bottomMiddleWidth--
+			excess--
+		}
+		for excess > 0 && bottomLeftWidth > 8 {
+			bottomLeftWidth--
+			excess--
+		}
 	}
 
 	topInnerWidth := maxInt(1, width-paneFrameX)
 	topInnerHeight := maxInt(1, topHeight-paneFrameY)
 	bottomLeftInnerWidth := maxInt(1, bottomLeftWidth-paneFrameX)
+	bottomMiddleInnerWidth := maxInt(1, bottomMiddleWidth-paneFrameX)
 	bottomRightInnerWidth := maxInt(1, bottomRightWidth-paneFrameX)
 	bottomLeftInnerHeight := maxInt(1, bottomHeight-paneFrameY)
+	bottomMiddleInnerHeight := maxInt(1, bottomHeight-paneFrameY)
 	bottomRightInnerHeight := maxInt(1, bottomHeight-paneFrameY)
 
 	return layoutDims{
@@ -249,16 +297,19 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		layoutMode:   state.LayoutTop,
 
 		// Top layout fields
-		topHeight:              topHeight,
-		topInnerWidth:          topInnerWidth,
-		topInnerHeight:         topInnerHeight,
-		bottomHeight:           bottomHeight,
-		bottomLeftWidth:        bottomLeftWidth,
-		bottomRightWidth:       bottomRightWidth,
-		bottomLeftInnerWidth:   bottomLeftInnerWidth,
-		bottomRightInnerWidth:  bottomRightInnerWidth,
-		bottomLeftInnerHeight:  bottomLeftInnerHeight,
-		bottomRightInnerHeight: bottomRightInnerHeight,
+		topHeight:               topHeight,
+		topInnerWidth:           topInnerWidth,
+		topInnerHeight:          topInnerHeight,
+		bottomHeight:            bottomHeight,
+		bottomLeftWidth:         bottomLeftWidth,
+		bottomMiddleWidth:       bottomMiddleWidth,
+		bottomRightWidth:        bottomRightWidth,
+		bottomLeftInnerWidth:    bottomLeftInnerWidth,
+		bottomMiddleInnerWidth:  bottomMiddleInnerWidth,
+		bottomRightInnerWidth:   bottomRightInnerWidth,
+		bottomLeftInnerHeight:   bottomLeftInnerHeight,
+		bottomMiddleInnerHeight: bottomMiddleInnerHeight,
+		bottomRightInnerHeight:  bottomRightInnerHeight,
 
 		// Populate default-layout fields for zoom mode compatibility
 		leftWidth:              width,
@@ -267,8 +318,10 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		rightInnerWidth:        bottomLeftInnerWidth,
 		leftInnerHeight:        topInnerHeight,
 		rightTopHeight:         bottomHeight,
+		rightMiddleHeight:      bottomHeight,
 		rightBottomHeight:      bottomHeight,
 		rightTopInnerHeight:    bottomLeftInnerHeight,
+		rightMiddleInnerHeight: bottomMiddleInnerHeight,
 		rightBottomInnerHeight: bottomRightInnerHeight,
 	}
 }
@@ -279,7 +332,7 @@ func (m *Model) applyLayout(layout layoutDims) {
 	tableHeaderHeight := 1 // bubbles table has its own header
 
 	if layout.layoutMode == state.LayoutTop && m.state.view.ZoomedPane < 0 {
-		// Top layout: worktree uses full width at top, log uses bottom right
+		// Top layout: worktree uses full width at top, commit uses bottom right
 		tableHeight := maxInt(3, layout.topInnerHeight-titleHeight-tableHeaderHeight-2)
 		m.state.ui.worktreeTable.SetWidth(layout.topInnerWidth)
 		m.state.ui.worktreeTable.SetHeight(tableHeight)

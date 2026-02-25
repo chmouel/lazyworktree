@@ -32,8 +32,8 @@ func TestRenderCIStatusPill(t *testing.T) {
 			result := m.renderCIStatusPill(tt.conclusion)
 
 			// Should contain Powerline edges
-			assert.Contains(t, result, "\ue0b6", "pill should have left Powerline edge")
-			assert.Contains(t, result, "\ue0b4", "pill should have right Powerline edge")
+			assert.Contains(t, result, "\ue0b6", "should have left Powerline edge")
+			assert.Contains(t, result, "\ue0b4", "should have right Powerline edge")
 			// Should contain the text label
 			assert.Contains(t, result, tt.wantLabel)
 		})
@@ -63,8 +63,8 @@ func TestRenderPRStatePill(t *testing.T) {
 			result := m.renderPRStatePill(tt.state)
 
 			// Should contain Powerline edges
-			assert.Contains(t, result, "\ue0b6", "pill should have left Powerline edge")
-			assert.Contains(t, result, "\ue0b4", "pill should have right Powerline edge")
+			assert.Contains(t, result, "\ue0b6", "should have left Powerline edge")
+			assert.Contains(t, result, "\ue0b4", "should have right Powerline edge")
 			// Should contain the text label
 			assert.Contains(t, result, tt.wantLabel)
 		})

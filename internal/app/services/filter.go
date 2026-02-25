@@ -24,7 +24,7 @@ func NewFilterService(initialFilter string) *FilterService {
 // FilterQueryForTarget returns the filter query for the given target.
 func (f *FilterService) FilterQueryForTarget(target state.FilterTarget) string {
 	switch target {
-	case state.FilterTargetStatus:
+	case state.FilterTargetStatus, state.FilterTargetGitStatus:
 		return f.StatusFilterQuery
 	case state.FilterTargetLog:
 		return f.LogFilterQuery
@@ -36,7 +36,7 @@ func (f *FilterService) FilterQueryForTarget(target state.FilterTarget) string {
 // SetFilterQuery sets the filter query for the given target.
 func (f *FilterService) SetFilterQuery(target state.FilterTarget, query string) {
 	switch target {
-	case state.FilterTargetStatus:
+	case state.FilterTargetStatus, state.FilterTargetGitStatus:
 		f.StatusFilterQuery = query
 	case state.FilterTargetLog:
 		f.LogFilterQuery = query
@@ -48,7 +48,7 @@ func (f *FilterService) SetFilterQuery(target state.FilterTarget, query string) 
 // SearchQueryForTarget returns the search query for the given target.
 func (f *FilterService) SearchQueryForTarget(target state.SearchTarget) string {
 	switch target {
-	case state.SearchTargetStatus:
+	case state.SearchTargetStatus, state.SearchTargetGitStatus:
 		return f.StatusSearchQuery
 	case state.SearchTargetLog:
 		return f.LogSearchQuery
@@ -60,7 +60,7 @@ func (f *FilterService) SearchQueryForTarget(target state.SearchTarget) string {
 // SetSearchQuery sets the search query for the given target.
 func (f *FilterService) SetSearchQuery(target state.SearchTarget, query string) {
 	switch target {
-	case state.SearchTargetStatus:
+	case state.SearchTargetStatus, state.SearchTargetGitStatus:
 		f.StatusSearchQuery = query
 	case state.SearchTargetLog:
 		f.LogSearchQuery = query
@@ -75,8 +75,11 @@ func (f *FilterService) HasActiveFilterForPane(paneIndex int) bool {
 	case 0:
 		return strings.TrimSpace(f.FilterQuery) != ""
 	case 1:
-		return strings.TrimSpace(f.StatusFilterQuery) != ""
+		// Info-only pane, no filter
+		return false
 	case 2:
+		return strings.TrimSpace(f.StatusFilterQuery) != ""
+	case 3:
 		return strings.TrimSpace(f.LogFilterQuery) != ""
 	}
 	return false

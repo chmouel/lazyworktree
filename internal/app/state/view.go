@@ -7,6 +7,7 @@ type SearchTarget int
 const (
 	SearchTargetWorktrees SearchTarget = iota
 	SearchTargetStatus
+	SearchTargetGitStatus
 	SearchTargetLog
 )
 
@@ -17,6 +18,7 @@ type FilterTarget int
 const (
 	FilterTargetWorktrees FilterTarget = iota
 	FilterTargetStatus
+	FilterTargetGitStatus
 	FilterTargetLog
 )
 

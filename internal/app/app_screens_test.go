@@ -791,11 +791,11 @@ func TestShowCherryPickNotInLogPane(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 0 // Not in log pane
+	m.state.view.FocusedPane = 0 // Not in commit pane
 
 	cmd := m.showCherryPick()
 	if cmd != nil {
-		t.Error("Expected nil command when not in log pane")
+		t.Error("Expected nil command when not in commit pane")
 	}
 }
 
@@ -804,7 +804,7 @@ func TestShowCherryPickEmptyLogEntries(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 2 // Log pane
+	m.state.view.FocusedPane = 3 // Commit pane
 	m.state.data.logEntries = []commitLogEntry{}
 
 	cmd := m.showCherryPick()
@@ -818,7 +818,7 @@ func TestShowCherryPickNoOtherWorktrees(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 2 // Log pane
+	m.state.view.FocusedPane = 3 // Commit pane
 	m.state.data.logEntries = []commitLogEntry{
 		{sha: "abc1234", message: "Test commit"},
 	}
@@ -843,7 +843,7 @@ func TestShowCherryPickCreatesListSelection(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 2 // Log pane
+	m.state.view.FocusedPane = 3 // Commit pane
 	m.state.data.logEntries = []commitLogEntry{
 		{sha: "abc1234", message: "Test commit"},
 	}
@@ -879,7 +879,7 @@ func TestShowCherryPickExcludesSourceWorktree(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 2
+	m.state.view.FocusedPane = 3
 	m.state.data.logEntries = []commitLogEntry{
 		{sha: "abc1234", message: "Test commit"},
 	}
@@ -912,7 +912,7 @@ func TestShowCherryPickMarksDirtyWorktrees(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.state.view.FocusedPane = 2
+	m.state.view.FocusedPane = 3
 	m.state.data.logEntries = []commitLogEntry{
 		{sha: "abc1234", message: "Test commit"},
 	}

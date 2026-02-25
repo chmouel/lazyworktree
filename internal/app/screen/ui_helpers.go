@@ -173,8 +173,7 @@ func disclosureIndicator(collapsed, showIcons bool) string {
 	return "▼"
 }
 
-// renderCIBubble renders a CI status icon as a pill-shaped bubble for the screen package.
-// When selected is true, returns the plain icon (parent applies full-line selection style).
+// renderCIBubble renders a CI status icon as a powerline pill for the screen package.
 func renderCIBubble(thm *theme.Theme, conclusion string, showIcons bool) string {
 	icon := getCIStatusIcon(conclusion, false, showIcons)
 	bg, fg := ciConclusionColors(thm, conclusion)

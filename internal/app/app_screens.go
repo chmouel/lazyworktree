@@ -235,9 +235,9 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 		Filter: func() tea.Cmd {
 			target := filterTargetWorktrees
 			switch m.state.view.FocusedPane {
-			case 1:
-				target = filterTargetStatus
 			case 2:
+				target = filterTargetGitStatus
+			case 3:
 				target = filterTargetLog
 			}
 			return m.startFilter(target)
@@ -245,9 +245,9 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 		Search: func() tea.Cmd {
 			target := searchTargetWorktrees
 			switch m.state.view.FocusedPane {
-			case 1:
-				target = searchTargetStatus
 			case 2:
+				target = searchTargetGitStatus
+			case 3:
 				target = searchTargetLog
 			}
 			return m.startSearch(target)
@@ -266,7 +266,7 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 		},
 		FocusLog: func() tea.Cmd {
 			m.state.view.ZoomedPane = -1
-			m.state.view.FocusedPane = 2
+			m.state.view.FocusedPane = 3
 			m.state.ui.logTable.Focus()
 			return nil
 		},
@@ -494,8 +494,8 @@ func (m *Model) customFooterHints() []string {
 }
 
 func (m *Model) showCherryPick() tea.Cmd {
-	// Validate: log pane must be focused
-	if m.state.view.FocusedPane != 2 {
+	// Validate: commit pane must be focused
+	if m.state.view.FocusedPane != 3 {
 		return nil
 	}
 

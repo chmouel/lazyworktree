@@ -23,7 +23,7 @@ func TestYankContextual_Pane0_CopiesPath(t *testing.T) {
 
 func TestYankContextual_Pane2_CopiesSHA(t *testing.T) {
 	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
-	m.state.view.FocusedPane = 2
+	m.state.view.FocusedPane = 3
 	m.state.data.logEntries = []commitLogEntry{
 		{sha: "abc123def", message: "test commit"},
 	}
@@ -34,7 +34,7 @@ func TestYankContextual_Pane2_CopiesSHA(t *testing.T) {
 
 func TestYankContextual_Pane1_CopiesFilePath(t *testing.T) {
 	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = 2
 	m.state.data.filteredWts = []*models.WorktreeInfo{
 		{Path: "/tmp/wt", Branch: "main"},
 	}

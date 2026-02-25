@@ -43,8 +43,8 @@ func TestComputeTopLayout(t *testing.T) {
 			// Top height + gap + bottom height should equal body height
 			assert.Equal(t, layout.bodyHeight, layout.topHeight+layout.gapY+layout.bottomHeight)
 
-			// Bottom left + gap + bottom right should equal total width
-			assert.Equal(t, tt.width, layout.bottomLeftWidth+layout.gapX+layout.bottomRightWidth)
+			// Bottom left + gaps + bottom middle + bottom right should equal total width
+			assert.Equal(t, tt.width, layout.bottomLeftWidth+layout.gapX+layout.bottomMiddleWidth+layout.gapX+layout.bottomRightWidth)
 
 			// Minimum constraints
 			assert.GreaterOrEqual(t, layout.topHeight, 4)
@@ -54,8 +54,10 @@ func TestComputeTopLayout(t *testing.T) {
 			assert.Positive(t, layout.topInnerWidth)
 			assert.Positive(t, layout.topInnerHeight)
 			assert.Positive(t, layout.bottomLeftInnerWidth)
+			assert.Positive(t, layout.bottomMiddleInnerWidth)
 			assert.Positive(t, layout.bottomRightInnerWidth)
 			assert.Positive(t, layout.bottomLeftInnerHeight)
+			assert.Positive(t, layout.bottomMiddleInnerHeight)
 			assert.Positive(t, layout.bottomRightInnerHeight)
 		})
 	}
@@ -75,7 +77,7 @@ func TestComputeTopLayoutFocusDynamic(t *testing.T) {
 	}{
 		{name: "worktree focused", focusedPane: 0},
 		{name: "status focused", focusedPane: 1},
-		{name: "log focused", focusedPane: 2},
+		{name: "commit focused", focusedPane: 3},
 	}
 
 	for _, tt := range tests {
@@ -98,8 +100,8 @@ func TestComputeTopLayoutFocusDynamic(t *testing.T) {
 			case 1:
 				// Status focused: bottom left (status) should be wider
 				assert.Greater(t, layout.bottomLeftWidth, layout.bottomRightWidth)
-			case 2:
-				// Log focused: bottom right (log) should get more space
+			case 3:
+				// Commit focused: bottom right (commit) should get more space than others
 				assert.Greater(t, layout.bottomRightWidth, layout.bottomLeftWidth)
 			}
 		})

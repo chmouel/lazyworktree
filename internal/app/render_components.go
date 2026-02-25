@@ -70,7 +70,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 	var hints []string
 
 	switch m.state.view.FocusedPane {
-	case 2: // Log pane
+	case 3: // Commit pane
 		if len(m.state.data.logEntries) > 0 {
 			hints = []string{
 				m.renderKeyHint("Enter", "View Commit"),
@@ -93,7 +93,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 			}
 		}
 
-	case 1: // Status pane
+	case 2: // Git Status pane
 		hints = []string{
 			m.renderKeyHint("j/k", "Scroll"),
 		}
@@ -101,6 +101,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 			hints = append(hints,
 				m.renderKeyHint("Enter", "Show Diff"),
 				m.renderKeyHint("e", "Edit File"),
+				m.renderKeyHint("s", "Stage"),
 			)
 		}
 		hints = append(hints,
@@ -112,9 +113,20 @@ func (m *Model) renderFooter(layout layoutDims) string {
 			m.renderKeyHint("?", "Help"),
 		)
 
+	case 1: // Status pane (info + CI)
+		hints = []string{
+			m.renderKeyHint("j/k", "CI Checks"),
+			m.renderKeyHint("Enter", "Open URL"),
+			m.renderKeyHint("Ctrl+v", "CI Logs"),
+			m.renderKeyHint("Tab", "Switch Pane"),
+			m.renderKeyHint("r", "Refresh"),
+			m.renderKeyHint("q", "Quit"),
+			m.renderKeyHint("?", "Help"),
+		}
+
 	default: // Worktree table (pane 0)
 		hints = []string{
-			m.renderKeyHint("1-3", "Pane"),
+			m.renderKeyHint("1-4", "Pane"),
 			m.renderKeyHint("c", "Create"),
 			m.renderKeyHint("f", "Filter"),
 			m.renderKeyHint("d", "Diff"),
@@ -274,8 +286,7 @@ func (m *Model) renderInnerBox(title, content string, width, height int) string 
 	return style.Render(boxContent)
 }
 
-// renderCIStatusPill renders a CI aggregate status as a text label inside a pill.
-// Uses Powerline edges and maps conclusion to an uppercase label.
+// renderCIStatusPill renders a CI aggregate status as a powerline pill.
 func (m *Model) renderCIStatusPill(conclusion string) string {
 	label := ciConclusionLabel(conclusion)
 	bg, fg := m.ciConclusionColors(conclusion)
@@ -326,7 +337,7 @@ func (m *Model) ciConclusionColors(conclusion string) (color.Color, color.Color)
 		return m.theme.ErrorFg, m.theme.AccentFg
 	case "pending", "":
 		return m.theme.WarnFg, m.theme.AccentFg
-	default: // skipped, cancelled, etc.
+	default:
 		return m.theme.BorderDim, m.theme.TextFg
 	}
 }
@@ -345,7 +356,7 @@ func (m *Model) prStateColors(state string) (color.Color, color.Color) {
 	}
 }
 
-// renderPRStatePill renders a PR state as a Powerline pill bubble.
+// renderPRStatePill renders a PR state as a powerline pill.
 func (m *Model) renderPRStatePill(state string) string {
 	bg, fg := m.prStateColors(state)
 	bubbleStyle := lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(true)

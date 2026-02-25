@@ -16,7 +16,7 @@ func (m *Model) yankContextual() tea.Cmd {
 			m.showInfo(fmt.Sprintf("Copied path: %s", wt.Path), nil)
 			return tea.SetClipboard(wt.Path)
 		}
-	case 1: // Status: copy selected file path
+	case 2: // Git Status: copy selected file path
 		if len(m.state.services.statusTree.TreeFlat) > 0 &&
 			m.state.services.statusTree.Index >= 0 &&
 			m.state.services.statusTree.Index < len(m.state.services.statusTree.TreeFlat) {
@@ -33,7 +33,7 @@ func (m *Model) yankContextual() tea.Cmd {
 				return tea.SetClipboard(absPath)
 			}
 		}
-	case 2: // Log: copy selected commit SHA
+	case 3: // Commit: copy selected commit SHA
 		cursor := m.state.ui.logTable.Cursor()
 		if len(m.state.data.logEntries) > 0 && cursor >= 0 && cursor < len(m.state.data.logEntries) {
 			sha := m.state.data.logEntries[cursor].sha

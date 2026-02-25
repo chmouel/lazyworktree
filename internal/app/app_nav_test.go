@@ -317,7 +317,7 @@ func TestRenderZoomedRightBottomPane(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.state.view.WindowWidth = 100
 	m.state.view.WindowHeight = 40
-	m.state.view.ZoomedPane = 2
+	m.state.view.ZoomedPane = 3
 
 	m.state.data.logEntries = []commitLogEntry{
 		{sha: "abc123", message: "commit 1"},
@@ -337,7 +337,7 @@ func TestRenderZoomedRightBottomPane(t *testing.T) {
 	if result == "" {
 		t.Error("expected non-empty render result")
 	}
-	if !strings.Contains(result, "Log") {
-		t.Error("expected render to contain 'Log' title")
+	if !strings.Contains(result, "Commit") {
+		t.Error("expected render to contain 'Commit' title")
 	}
 }
