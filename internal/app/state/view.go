@@ -31,13 +31,14 @@ const (
 
 // ViewState holds UI-related state for the model.
 type ViewState struct {
-	ShowingFilter bool
-	FilterTarget  FilterTarget
-	ShowingSearch bool
-	SearchTarget  SearchTarget
-	FocusedPane   int
-	ZoomedPane    int
-	WindowWidth   int
-	WindowHeight  int
-	Layout        LayoutMode
+	ShowingFilter    bool
+	FilterTarget     FilterTarget
+	ShowingSearch    bool
+	SearchTarget     SearchTarget
+	FocusedPane      int
+	ZoomedPane       int
+	WindowWidth      int
+	WindowHeight     int
+	Layout           LayoutMode
+	TerminalFocused  bool
 }
