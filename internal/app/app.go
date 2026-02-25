@@ -155,6 +155,7 @@ type (
 		branch     string
 		targetPath string
 		note       string
+		pr         *models.PRInfo
 		err        error
 	}
 	openIssuesLoadedMsg struct {
@@ -358,6 +359,8 @@ type Model struct {
 
 	// Post-refresh selection (e.g. after creating worktree)
 	pendingSelectWorktreePath string
+	pendingPR                 *models.PRInfo
+	pendingPRPath             string
 
 	// Trust / repo commands
 	repoConfig     *config.RepoConfig
@@ -644,9 +647,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.clearLoadingScreen()
 		if msg.err != nil {
 			m.pendingSelectWorktreePath = ""
+			m.pendingPR = nil
+			m.pendingPRPath = ""
 			m.showInfo(fmt.Sprintf("Failed to create worktree from PR/MR #%d: %v", msg.prNumber, msg.err), nil)
 			return m, nil
 		}
+		m.pendingPR = msg.pr
+		m.pendingPRPath = msg.targetPath
 		if strings.TrimSpace(msg.note) != "" {
 			m.setWorktreeNote(msg.targetPath, msg.note)
 		}
