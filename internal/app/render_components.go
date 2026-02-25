@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -271,6 +272,86 @@ func (m *Model) renderInnerBox(title, content string, width, height int) string 
 	boxContent := lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render(title), wrappedContent)
 
 	return style.Render(boxContent)
+}
+
+// renderCIStatusPill renders a CI aggregate status as a text label inside a pill.
+// Uses Powerline edges and maps conclusion to an uppercase label.
+func (m *Model) renderCIStatusPill(conclusion string) string {
+	label := ciConclusionLabel(conclusion)
+	bg, fg := m.ciConclusionColors(conclusion)
+	bubbleStyle := lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(true)
+	leftEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b6")
+	rightEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b4")
+	return leftEdge + bubbleStyle.Render(" "+label+" ") + rightEdge
+}
+
+// ciConclusionLabel maps a CI conclusion to an uppercase display label.
+func ciConclusionLabel(conclusion string) string {
+	switch conclusion {
+	case "success":
+		return "SUCCESS"
+	case "failure":
+		return "FAILED"
+	case "pending", "":
+		return "PENDING"
+	case "skipped":
+		return "SKIPPED"
+	case "cancelled":
+		return "CANCELLED"
+	default:
+		return strings.ToUpper(conclusion)
+	}
+}
+
+// ciIconStyle returns a foreground-only style for a CI conclusion icon.
+func (m *Model) ciIconStyle(conclusion string) lipgloss.Style {
+	switch conclusion {
+	case "success":
+		return lipgloss.NewStyle().Foreground(m.theme.SuccessFg)
+	case "failure":
+		return lipgloss.NewStyle().Foreground(m.theme.ErrorFg)
+	case "pending", "":
+		return lipgloss.NewStyle().Foreground(m.theme.WarnFg)
+	default: // skipped, cancelled, etc.
+		return lipgloss.NewStyle().Foreground(m.theme.MutedFg)
+	}
+}
+
+// ciConclusionColors returns (background, foreground) theme colours for a CI conclusion.
+func (m *Model) ciConclusionColors(conclusion string) (color.Color, color.Color) {
+	switch conclusion {
+	case "success":
+		return m.theme.SuccessFg, m.theme.AccentFg
+	case "failure":
+		return m.theme.ErrorFg, m.theme.AccentFg
+	case "pending", "":
+		return m.theme.WarnFg, m.theme.AccentFg
+	default: // skipped, cancelled, etc.
+		return m.theme.BorderDim, m.theme.TextFg
+	}
+}
+
+// prStateColors returns (background, foreground) theme colours for a PR state.
+func (m *Model) prStateColors(state string) (color.Color, color.Color) {
+	switch state {
+	case prStateOpen:
+		return m.theme.SuccessFg, m.theme.AccentFg
+	case prStateMerged:
+		return m.theme.Accent, m.theme.AccentFg
+	case prStateClosed:
+		return m.theme.ErrorFg, m.theme.AccentFg
+	default:
+		return m.theme.BorderDim, m.theme.TextFg
+	}
+}
+
+// renderPRStatePill renders a PR state as a Powerline pill bubble.
+func (m *Model) renderPRStatePill(state string) string {
+	bg, fg := m.prStateColors(state)
+	bubbleStyle := lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(true)
+	leftEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b6")
+	rightEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b4")
+	return leftEdge + bubbleStyle.Render(" "+state+" ") + rightEdge
 }
 
 // basePaneStyle returns the base style for panes.

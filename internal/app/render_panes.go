@@ -716,18 +716,10 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 			}
 			authorText = renderStyle.Render(authorText)
 		}
-		stateColor := m.theme.SuccessFg // default to success for OPEN
-		switch wt.PR.State {
-		case prStateMerged:
-			stateColor = m.theme.Accent
-		case prStateClosed:
-			stateColor = m.theme.ErrorFg
-		}
 		prLabelStyle := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true) // Accent for PR prominence
-		stateStyle := lipgloss.NewStyle().Foreground(stateColor)
 		prNumber := fmt.Sprintf("#%d", wt.PR.Number)
 		prNumber = renderStyle.Render(prNumber)
-		prPrefix := fmt.Sprintf("PR %s by %s [%s]", prNumber, authorText, stateStyle.Render(wt.PR.State))
+		prPrefix := fmt.Sprintf("PR %s by %s %s", prNumber, authorText, m.renderPRStatePill(wt.PR.State))
 		if m.config.IconsEnabled() {
 			prPrefix = iconWithSpace(getIconPR()) + prPrefix
 		}
@@ -796,12 +788,12 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 	if !m.config.DisablePR {
 		if cachedChecks, _, ok := m.cache.ciCache.Get(wt.Branch); ok && len(cachedChecks) > 0 {
 			infoLines = append(infoLines, "") // blank line before CI
-			infoLines = append(infoLines, sectionStyle.Render("CI Checks:"))
 
-			greenStyle := lipgloss.NewStyle().Foreground(m.theme.SuccessFg)
-			redStyle := lipgloss.NewStyle().Foreground(m.theme.ErrorFg)
-			yellowStyle := lipgloss.NewStyle().Foreground(m.theme.WarnFg)
-			grayStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
+			// Summary pill next to CI Checks heading
+			aggregate := aggregateCIConclusion(cachedChecks)
+			summaryPill := m.renderCIStatusPill(aggregate)
+			infoLines = append(infoLines, sectionStyle.Render("CI Checks:")+" "+summaryPill)
+
 			selectedStyle := lipgloss.NewStyle().
 				Foreground(m.theme.AccentFg).
 				Background(m.theme.Accent).
@@ -809,31 +801,15 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 
 			checks := sortCIChecks(cachedChecks)
 			for i, check := range checks {
-				symbol := getCIStatusIcon(check.Conclusion, false, m.config.IconsEnabled())
 				isSelected := m.state.view.FocusedPane == 1 && m.ciCheckIndex >= 0 && i == m.ciCheckIndex
 
+				symbol := getCIStatusIcon(check.Conclusion, false, m.config.IconsEnabled())
 				var line string
 				if isSelected {
-					// When selected, apply selection style to entire line
 					line = fmt.Sprintf("  %s %s", symbol, check.Name)
 					line = selectedStyle.Render(line)
 				} else {
-					// When not selected, apply conclusion color to icon only
-					var iconStyle lipgloss.Style
-					switch check.Conclusion {
-					case "success":
-						iconStyle = greenStyle
-					case "failure":
-						iconStyle = redStyle
-					case "skipped":
-						iconStyle = grayStyle
-					case "cancelled":
-						iconStyle = grayStyle
-					case "pending", "":
-						iconStyle = yellowStyle
-					default:
-						iconStyle = grayStyle
-					}
+					iconStyle := m.ciIconStyle(check.Conclusion)
 					line = fmt.Sprintf("  %s %s", iconStyle.Render(symbol), check.Name)
 				}
 				infoLines = append(infoLines, line)
@@ -842,6 +818,30 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 	}
 
 	return strings.Join(infoLines, "\n")
+}
+
+// aggregateCIConclusion computes the overall CI status from a slice of checks.
+// Priority: failure > pending > success > skipped/cancelled.
+func aggregateCIConclusion(checks []*models.CICheck) string {
+	hasSuccess := false
+	hasPending := false
+	for _, c := range checks {
+		switch c.Conclusion {
+		case "failure":
+			return "failure"
+		case "pending", "":
+			hasPending = true
+		case "success":
+			hasSuccess = true
+		}
+	}
+	if hasPending {
+		return "pending"
+	}
+	if hasSuccess {
+		return "success"
+	}
+	return "skipped"
 }
 
 // renderStatusFiles renders the status file list with current selection highlighted.
