@@ -181,7 +181,7 @@ func (m *Model) showFreeformBaseInput(defaultBase string) tea.Cmd {
 }
 
 func (m *Model) showBranchSelection(title, placeholder, noResults, preferred string, onSelect func(string) tea.Cmd) tea.Cmd {
-	items := m.branchSelectionItems(preferred)
+	items := m.branchSelectionItems()
 	return m.showBranchSelectionWithItems(title, placeholder, noResults, preferred, items, onSelect)
 }
 
@@ -586,7 +586,7 @@ func (m *Model) showWorktreeNameForExistingBranch(branchName string) tea.Cmd {
 
 // checkoutExistingBranchAsync creates a worktree for an existing local branch
 // without creating a new branch (no -b flag).
-func (m *Model) checkoutExistingBranchAsync(worktreeName, targetPath, branchName string) tea.Cmd {
+func (m *Model) checkoutExistingBranchAsync(_, targetPath, branchName string) tea.Cmd {
 	return func() tea.Msg {
 		// Key difference: no "-b" flag when checking out existing branch
 		args := []string{"git", "worktree", "add", targetPath, branchName}
@@ -699,7 +699,7 @@ func (m *Model) createWorktreeFromBase(newBranch, targetPath, baseRef string) te
 func (m *Model) clearListSelection() {
 }
 
-func (m *Model) branchSelectionItems(preferred string) []selectionItem {
+func (m *Model) branchSelectionItems() []selectionItem {
 	return m.branchSelectionItemsForRefs([]string{"refs/heads", "refs/remotes", "refs/tags"})
 }
 

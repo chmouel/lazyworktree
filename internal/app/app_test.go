@@ -16,7 +16,6 @@ const (
 	testRandomName     = "main-random123"
 	testDiff           = "diff"
 	testFallback       = "fallback"
-	testShell          = "shell"
 	mruSectionLabel    = "Recently Used"
 	testCommandCreate  = "create"
 	testCommandRefresh = "refresh"

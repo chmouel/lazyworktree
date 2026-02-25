@@ -145,7 +145,7 @@ func (m *Model) renderKeyHint(key, label string) string {
 }
 
 // renderPaneBlock renders a pane block with the title embedded in the top border.
-func (m *Model) renderPaneBlock(index int, title string, focused bool, width int, height int, innerContent string) string {
+func (m *Model) renderPaneBlock(index int, title string, focused bool, width, height int, innerContent string) string {
 	border := lipgloss.NormalBorder()
 	borderColor := m.theme.BorderDim
 	if focused {
@@ -218,10 +218,7 @@ func (m *Model) renderPaneBlock(index int, title string, focused bool, width int
 	topLine := border.Top
 
 	usedWidth := lipgloss.Width(topLeft) + lipgloss.Width(styledTitleBlock) + lipgloss.Width(filterIndicator) + lipgloss.Width(zoomIndicator) + lipgloss.Width(topRight)
-	remaining := width - usedWidth
-	if remaining < 0 {
-		remaining = 0
-	}
+	remaining := max(width-usedWidth, 0)
 
 	styledTopLeft := borderStyle.Render(topLeft)
 	styledTopRight := borderStyle.Render(topRight)

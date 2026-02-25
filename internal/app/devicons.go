@@ -677,7 +677,7 @@ func iconWithSpace(icon string) string {
 
 // combinedStatusIndicator returns a combined dirty + sync status string.
 // Returns "-" when clean and synced, otherwise shows dirty indicator and/or ahead/behind counts.
-func combinedStatusIndicator(dirty, hasUpstream bool, ahead, behind, unpushed int, showIcons bool, iconSet string) string {
+func combinedStatusIndicator(dirty, hasUpstream bool, ahead, behind, unpushed int, showIcons bool) string {
 	// Build dirty indicator
 	var dirtyStr string
 	if dirty {
