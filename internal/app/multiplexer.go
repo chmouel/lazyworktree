@@ -376,6 +376,7 @@ func (m *Model) zellijNewPaneCmd(sessionName, direction, cwd string) tea.Cmd {
 			shell = "bash"
 		}
 		// #nosec G204 -- session name, direction and shell come from user env/selection
+		// If $SHELL is not set, defaults to bash
 		c := m.commandRunner(m.ctx, "zellij", "action", "new-pane", "--direction", direction, "--cwd", cwd, "--", shell)
 		c.Env = append(os.Environ(), "ZELLIJ_SESSION_NAME="+sessionName)
 		if err := c.Run(); err != nil {
