@@ -17,6 +17,22 @@ import (
 	"github.com/chmouel/lazyworktree/internal/multiplexer"
 )
 
+// windowsMockOutputCmd creates a Windows cmd that outputs multi-line mock data.
+// Windows cmd /c echo doesn't interpret \n as newlines, so we chain echo commands with &.
+func windowsMockOutputCmd(output string) *exec.Cmd {
+	trimmed := strings.TrimRight(output, "\n")
+	if trimmed == "" {
+		return exec.Command("cmd", "/c", "echo.")
+	}
+	lines := strings.Split(trimmed, "\n")
+	parts := make([]string, 0, len(lines))
+	for _, line := range lines {
+		parts = append(parts, "echo "+line)
+	}
+	// #nosec G204 -- test helper with controlled mock data
+	return exec.Command("cmd", "/c", strings.Join(parts, "& "))
+}
+
 func TestGetTmuxActiveSessions(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -75,10 +91,8 @@ func TestGetTmuxActiveSessions(t *testing.T) {
 					// Command that will fail
 					return exec.Command("false")
 				}
-				// Command that returns the mock output
 				if runtime.GOOS == osWindows {
-					// #nosec G204 -- test mock data, not user input
-					return exec.Command("cmd", "/c", "echo "+tt.mockOutput)
+					return windowsMockOutputCmd(tt.mockOutput)
 				}
 				// #nosec G204 -- test mock data, not user input
 				return exec.Command("printf", "%s", tt.mockOutput)
@@ -104,7 +118,7 @@ func TestGetTmuxActiveSessionsWithCustomPrefix(t *testing.T) {
 	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
 		mockOutput := "my-prefix-feature\nother-session\nmy-prefix-bugfix\n"
 		if runtime.GOOS == osWindows {
-			return exec.Command("cmd", "/c", "echo "+mockOutput)
+			return windowsMockOutputCmd(mockOutput)
 		}
 		return exec.Command("printf", "%s", mockOutput)
 	}
@@ -208,7 +222,7 @@ func TestBuildZellijScriptAddsLayoutsAsTabs(t *testing.T) {
 	if !strings.Contains(script, "new-tab --layout '/tmp/layout1'") || !strings.Contains(script, "new-tab --layout '/tmp/layout2'") {
 		t.Fatalf("expected both layouts as new-tab actions, got %q", script)
 	}
-	if !strings.Contains(script, "while ! zellij list-sessions --short 2>/dev/null | grep -Fxq \"$session\"; do") {
+	if !strings.Contains(script, "while ! zellij list-sessions --short --no-formatting 2>/dev/null | grep -v EXITED | grep -Fxq \"$session\"; do") {
 		t.Fatalf("expected wait loop for session readiness, got %q", script)
 	}
 	if !strings.Contains(script, "if [ $tries -ge 50 ]") {
@@ -855,7 +869,7 @@ func TestGetAllZellijSessions(t *testing.T) {
 				}
 				if runtime.GOOS == osWindows {
 					// #nosec G204 -- test mock data
-					return exec.Command("cmd", "/c", "echo "+tt.mockOutput)
+					return windowsMockOutputCmd(tt.mockOutput)
 				}
 				// #nosec G204 -- test mock data
 				return exec.Command("printf", "%s", tt.mockOutput)
@@ -878,7 +892,7 @@ func TestShowZellijPaneSelectorSingleSession(t *testing.T) {
 	// Mock: return a single session
 	m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
 		if runtime.GOOS == osWindows {
-			return exec.Command("cmd", "/c", "echo only-session")
+			return windowsMockOutputCmd("only-session\n")
 		}
 		return exec.Command("printf", "%s", "only-session\n")
 	}
@@ -913,7 +927,7 @@ func TestShowZellijPaneSelectorMultipleSessions(t *testing.T) {
 	// Mock: return multiple sessions
 	m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
 		if runtime.GOOS == osWindows {
-			return exec.Command("cmd", "/c", "echo session-a\nsession-b\nsession-c")
+			return windowsMockOutputCmd("session-a\nsession-b\nsession-c")
 		}
 		return exec.Command("printf", "%s", "session-a\nsession-b\nsession-c\n")
 	}
@@ -1016,7 +1030,7 @@ func TestOpenZellijSessionInsideZellijShowsPaneSelector(t *testing.T) {
 	// Mock: return the current session
 	m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
 		if runtime.GOOS == osWindows {
-			return exec.Command("cmd", "/c", "echo current-session")
+			return windowsMockOutputCmd("current-session\n")
 		}
 		return exec.Command("printf", "%s", "current-session\n")
 	}

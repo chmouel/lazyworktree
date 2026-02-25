@@ -67,18 +67,21 @@ func (m *Model) getZellijActiveSessions() []string {
 
 	// Query zellij for session list
 	// #nosec G204 -- static command with format string
-	cmd := m.commandRunner(m.ctx, "zellij", "list-sessions", "--short")
+	cmd := m.commandRunner(m.ctx, "zellij", "list-sessions", "--short", "--no-formatting")
 	output, err := cmd.Output()
 	if err != nil {
 		// zellij not running or no sessions
 		return nil
 	}
 
-	// Parse output and filter for worktree session prefix
+	// Parse output and filter for worktree session prefix, excluding exited sessions
 	var sessions []string
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
+		if line == "" || strings.Contains(line, "EXITED") {
+			continue
+		}
 		if strings.HasPrefix(line, m.config.SessionPrefix) {
 			// Strip worktree prefix
 			sessionName := strings.TrimPrefix(line, m.config.SessionPrefix)

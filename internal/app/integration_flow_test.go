@@ -358,7 +358,7 @@ func TestIntegrationPaletteSelectsActiveTmuxSession(t *testing.T) {
 		if name == "tmux" && len(args) > 0 && args[0] == "list-sessions" {
 			mockOutput := "wt-test-session\nother-session\n"
 			if runtime.GOOS == osWindows {
-				return exec.Command("cmd", "/c", "echo "+mockOutput)
+				return windowsMockOutputCmd(mockOutput)
 			}
 			return exec.Command("printf", "%s", mockOutput)
 		}
