@@ -3,7 +3,7 @@ package screen
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
@@ -24,7 +24,7 @@ func TestTextareaScreenCtrlSSubmit(t *testing.T) {
 		return nil
 	}
 
-	next, _ := s.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := s.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
 	if next != nil {
 		t.Fatal("expected screen to close on Ctrl+S")
 	}
@@ -39,7 +39,7 @@ func TestTextareaScreenCtrlSSubmit(t *testing.T) {
 func TestTextareaScreenEnterAddsNewLine(t *testing.T) {
 	s := NewTextareaScreen("Prompt", "Placeholder", "hello", 120, 40, theme.Dracula(), false)
 
-	next, _ := s.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	next, _ := s.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if next == nil {
 		t.Fatal("expected screen to stay open on Enter")
 	}

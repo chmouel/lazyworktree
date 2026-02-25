@@ -3,7 +3,7 @@ package services
 import (
 	"os/exec"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // CommandExecutor runs shell commands for the application.

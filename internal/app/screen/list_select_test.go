@@ -3,7 +3,7 @@ package screen
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
@@ -20,7 +20,7 @@ func TestListSelectionScreenJKNavigation(t *testing.T) {
 		t.Fatalf("expected cursor to start at 0, got %d", scr.Cursor)
 	}
 
-	next, _ := scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	next, _ := scr.Update(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	nextScr, ok := next.(*ListSelectionScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return list selection screen after j")
@@ -30,7 +30,7 @@ func TestListSelectionScreenJKNavigation(t *testing.T) {
 		t.Fatalf("expected cursor to move to 1 after j, got %d", scr.Cursor)
 	}
 
-	next, _ = scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	next, _ = scr.Update(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	nextScr, ok = next.(*ListSelectionScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return list selection screen after k")
@@ -52,7 +52,7 @@ func TestListSelectionScreenFilterToggle(t *testing.T) {
 		t.Fatal("expected filter to be inactive by default")
 	}
 
-	next, _ := scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+	next, _ := scr.Update(tea.KeyPressMsg{Code: 'f', Text: string('f')})
 	nextScr, ok := next.(*ListSelectionScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return list selection screen after f")
@@ -62,7 +62,7 @@ func TestListSelectionScreenFilterToggle(t *testing.T) {
 		t.Fatal("expected filter to be active after f")
 	}
 
-	next, _ = scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	next, _ = scr.Update(tea.KeyPressMsg{Code: 't', Text: string('t')})
 	nextScr, ok = next.(*ListSelectionScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return list selection screen after typing")
@@ -72,7 +72,7 @@ func TestListSelectionScreenFilterToggle(t *testing.T) {
 		t.Fatalf("expected filtered results to include only 'two', got %v", scr.Filtered)
 	}
 
-	next, _ = scr.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	next, _ = scr.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	nextScr, ok = next.(*ListSelectionScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return list selection screen after Esc")

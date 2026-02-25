@@ -3,8 +3,8 @@ package screen
 import (
 	"fmt"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
@@ -35,7 +35,7 @@ func (s *WelcomeScreen) Type() Type {
 
 // Update processes keyboard events for the welcome screen.
 // Returns nil to signal that the screen should be closed.
-func (s *WelcomeScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *WelcomeScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	keyStr := msg.String()
 	switch keyStr {
 	case "r", "R":

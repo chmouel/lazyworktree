@@ -5,10 +5,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
@@ -244,7 +244,7 @@ Search Mode:
 
 	width, height := helpDimensions(maxWidth, maxHeight)
 
-	vp := viewport.New(width, maxInt(5, height-3))
+	vp := viewport.New(viewport.WithWidth(width), viewport.WithHeight(maxInt(5, height-3)))
 	fullLines := strings.Split(helpText, "\n")
 
 	ti := textinput.New()
@@ -253,7 +253,7 @@ Search Mode:
 	ti.Prompt = "/ "
 	ti.SetValue("")
 	ti.Blur()
-	ti.Width = maxInt(20, width-6)
+	ti.SetWidth(maxInt(20, width-6))
 
 	hs := &HelpScreen{
 		Viewport:    vp,
@@ -275,7 +275,7 @@ func (s *HelpScreen) Type() Type {
 }
 
 // Update handles scrolling and search input for the help screen.
-func (s *HelpScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *HelpScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
 	key := msg.String()
 
@@ -323,7 +323,7 @@ func (s *HelpScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 
 	// Handle viewport scrolling
 	switch key {
-	case "ctrl+d", " ":
+	case "ctrl+d", "space":
 		s.Viewport.HalfPageDown()
 		return s, nil
 	case "ctrl+u":
@@ -356,8 +356,8 @@ func (s *HelpScreen) SetSize(maxWidth, maxHeight int) {
 
 	// Update viewport size
 	// height - 4 for borders/header/footer
-	s.Viewport.Width = s.Width - 2
-	s.Viewport.Height = maxInt(5, s.Height-4)
+	s.Viewport.SetWidth(s.Width - 2)
+	s.Viewport.SetHeight(maxInt(5, s.Height-4))
 }
 
 // renderContent applies styling and search filtering to help text.
@@ -447,8 +447,8 @@ func (s *HelpScreen) View() string {
 
 	// Keep viewport sized to available area (minus header/search lines)
 	vHeight := maxInt(5, s.Height-4) // -4 for borders/header/footer
-	s.Viewport.Width = s.Width - 2   // -2 for borders
-	s.Viewport.Height = vHeight
+	s.Viewport.SetWidth(s.Width - 2) // -2 for borders
+	s.Viewport.SetHeight(vHeight)
 	s.Viewport.SetContent(content)
 
 	// Enhanced help modal with rounded border

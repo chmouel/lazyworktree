@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/charmbracelet/bubbles/table"
+	"charm.land/bubbles/v2/table"
 	"github.com/chmouel/lazyworktree/internal/app/state"
 )
 
@@ -304,7 +304,7 @@ func (m *Model) applyLayout(layout layoutDims) {
 		m.updateLogColumns(layout.rightInnerWidth)
 	}
 
-	m.state.ui.filterInput.Width = maxInt(20, layout.width-18)
+	m.state.ui.filterInput.SetWidth(maxInt(20, layout.width-18))
 }
 
 // updateTableColumns updates the worktree table column widths based on available space.

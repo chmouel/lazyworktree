@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/bubbles/table"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/table"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
@@ -37,19 +37,19 @@ func TestHandlePageDownUpOnStatusPane(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(10, 2)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(10), viewport.WithHeight(2))
 	m.state.ui.statusViewport.SetContent(strings.Repeat("line\n", 10))
 
-	start := m.state.ui.statusViewport.YOffset
-	_, _ = m.handlePageDown(tea.KeyMsg{Type: tea.KeyPgDown})
-	if m.state.ui.statusViewport.YOffset <= start {
-		t.Fatalf("expected YOffset to increase, got %d", m.state.ui.statusViewport.YOffset)
+	start := m.state.ui.statusViewport.YOffset()
+	_, _ = m.handlePageDown(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	if m.state.ui.statusViewport.YOffset() <= start {
+		t.Fatalf("expected YOffset to increase, got %d", m.state.ui.statusViewport.YOffset())
 	}
 
-	m.state.ui.statusViewport.YOffset = 2
-	_, _ = m.handlePageUp(tea.KeyMsg{Type: tea.KeyPgUp})
-	if m.state.ui.statusViewport.YOffset >= 2 {
-		t.Fatalf("expected YOffset to decrease, got %d", m.state.ui.statusViewport.YOffset)
+	m.state.ui.statusViewport.SetYOffset(2)
+	_, _ = m.handlePageUp(tea.KeyPressMsg{Code: tea.KeyPgUp})
+	if m.state.ui.statusViewport.YOffset() >= 2 {
+		t.Fatalf("expected YOffset to decrease, got %d", m.state.ui.statusViewport.YOffset())
 	}
 }
 
@@ -94,7 +94,7 @@ func TestEnterAfterNavigationUsesHighlightedWorktree(t *testing.T) {
 	m.state.ui.worktreeTable.SetCursor(0)
 	m.state.data.selectedIndex = 0
 
-	_, _ = m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyDown})
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.state.ui.worktreeTable.Cursor() != 1 {
 		t.Fatalf("expected cursor to move to 1, got %d", m.state.ui.worktreeTable.Cursor())
 	}
@@ -128,7 +128,7 @@ func TestFilterEnterClosesWithoutSelecting(t *testing.T) {
 	m.state.ui.worktreeTable.SetCursor(1)
 	m.state.data.selectedIndex = 1
 
-	updated, cmd := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, cmd := m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyEnter})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -167,7 +167,7 @@ func TestFilterAltNPMovesSelectionAndFills(t *testing.T) {
 	m.state.ui.worktreeTable.SetCursor(0)
 	m.state.data.selectedIndex = 0
 
-	updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}, Alt: true})
+	updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: 'n', Mod: tea.ModAlt})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -181,7 +181,7 @@ func TestFilterAltNPMovesSelectionAndFills(t *testing.T) {
 		t.Fatalf("expected filtered worktree %q, got %v", wt2Path, m.state.data.filteredWts)
 	}
 
-	updated, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}, Alt: true})
+	updated, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'p', Mod: tea.ModAlt})
 	updatedModel, ok = updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -217,7 +217,7 @@ func TestFilterArrowKeysNavigateWithoutFilling(t *testing.T) {
 	m.state.ui.worktreeTable.SetCursor(0)
 	m.state.data.selectedIndex = 0
 
-	updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyDown})
+	updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyDown})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -228,7 +228,7 @@ func TestFilterArrowKeysNavigateWithoutFilling(t *testing.T) {
 		t.Fatalf("expected filter query unchanged, got %q", m.state.services.filter.FilterQuery)
 	}
 
-	updated, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyUp})
+	updated, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyUp})
 	updatedModel, ok = updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -261,7 +261,7 @@ func TestFilterEmptyEnterSelectsCurrent(t *testing.T) {
 	m.state.ui.worktreeTable.SetCursor(1)
 	m.state.data.selectedIndex = 1
 
-	updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyEnter})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -293,7 +293,7 @@ func TestFilterCtrlCExitsFilter(t *testing.T) {
 	m.state.view.ShowingFilter = true
 	m.state.ui.filterInput.Focus()
 
-	updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyCtrlC})
+	updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -326,14 +326,14 @@ func TestSearchWorktreeSelectsMatch(t *testing.T) {
 	m.state.ui.worktreeTable.SetCursor(0)
 	m.state.data.selectedIndex = 0
 
-	updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: '/', Text: string('/')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
 	}
 	m = updatedModel
 
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'b', Text: string('b')})
 
 	if m.state.ui.worktreeTable.Cursor() != 1 {
 		t.Fatalf("expected cursor to move to match, got %d", m.state.ui.worktreeTable.Cursor())
@@ -346,23 +346,23 @@ func TestFilterStatusNarrowsList(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.setStatusFiles([]StatusFile{
 		{Filename: "app.go", Status: ".M"},
 		{Filename: "README.md", Status: ".M"},
 	})
 
-	updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+	updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: 'f', Text: string('f')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
 	}
 	m = updatedModel
 
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'r', Text: string('r')})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'e', Text: string('e')})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'a', Text: string('a')})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'd', Text: string('d')})
 
 	if len(m.state.data.statusFiles) != 1 {
 		t.Fatalf("expected 1 filtered status file, got %d", len(m.state.data.statusFiles))
@@ -592,7 +592,7 @@ func TestFilterEnterClosesWithoutSelectingItem(t *testing.T) {
 	m.state.data.selectedIndex = 1
 
 	// Press Enter - should exit filter without selecting
-	updated, cmd := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, cmd := m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyEnter})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -648,7 +648,7 @@ func TestFilterNavigationThroughMultipleFilteredItems(t *testing.T) {
 
 	// Navigate down through all filtered items
 	for i := 0; i < 2; i++ {
-		updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyDown})
+		updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyDown})
 		updatedModel, ok := updated.(*Model)
 		if !ok {
 			t.Fatalf("expected updated model, got %T", updated)
@@ -663,7 +663,7 @@ func TestFilterNavigationThroughMultipleFilteredItems(t *testing.T) {
 	}
 
 	// Try to navigate down again - should stay at last item
-	updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyDown})
+	updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyDown})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -677,7 +677,7 @@ func TestFilterNavigationThroughMultipleFilteredItems(t *testing.T) {
 
 	// Navigate back up
 	for i := 0; i < 2; i++ {
-		updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyUp})
+		updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyUp})
 		updatedModel, ok := updated.(*Model)
 		if !ok {
 			t.Fatalf("expected updated model, got %T", updated)
@@ -692,7 +692,7 @@ func TestFilterNavigationThroughMultipleFilteredItems(t *testing.T) {
 	}
 
 	// Try to navigate up again - should stay at first item
-	updated, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyUp})
+	updated, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyUp})
 	updatedModel, ok = updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -712,7 +712,7 @@ func TestStatusFileNavigation(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	// Set up status files using setStatusFiles to build tree
 	m.setStatusFiles([]StatusFile{
@@ -723,37 +723,37 @@ func TestStatusFileNavigation(t *testing.T) {
 	m.state.services.statusTree.Index = 0
 
 	// Test navigation down with j
-	_, _ = m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if m.state.services.statusTree.Index != 1 {
 		t.Fatalf("expected statusTreeIndex 1 after j, got %d", m.state.services.statusTree.Index)
 	}
 
 	// Test navigation down again
-	_, _ = m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if m.state.services.statusTree.Index != 2 {
 		t.Fatalf("expected statusTreeIndex 2 after second j, got %d", m.state.services.statusTree.Index)
 	}
 
 	// Test boundary - should not go past last item
-	_, _ = m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if m.state.services.statusTree.Index != 2 {
 		t.Fatalf("expected statusTreeIndex to stay at 2, got %d", m.state.services.statusTree.Index)
 	}
 
 	// Test navigation up with k
-	_, _ = m.handleNavigationUp(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if m.state.services.statusTree.Index != 1 {
 		t.Fatalf("expected statusTreeIndex 1 after k, got %d", m.state.services.statusTree.Index)
 	}
 
 	// Navigate to first item
-	_, _ = m.handleNavigationUp(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if m.state.services.statusTree.Index != 0 {
 		t.Fatalf("expected statusTreeIndex 0 after second k, got %d", m.state.services.statusTree.Index)
 	}
 
 	// Test boundary - should not go below 0
-	_, _ = m.handleNavigationUp(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if m.state.services.statusTree.Index != 0 {
 		t.Fatalf("expected statusTreeIndex to stay at 0, got %d", m.state.services.statusTree.Index)
 	}
@@ -780,7 +780,7 @@ func TestLogPaneCtrlJMovesNextCommit(t *testing.T) {
 	})
 	m.state.ui.logTable.SetCursor(0)
 
-	updated, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	updated, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'j', Mod: tea.ModCtrl})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -818,30 +818,30 @@ func TestSearchLogSelectsNextMatch(t *testing.T) {
 		{"ghi789", "gh", formatCommitMessage("Fix tests")},
 	})
 
-	updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: '/', Text: string('/')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
 	}
 	m = updatedModel
 
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'f', Text: string('f')})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'i', Text: string('i')})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'x', Text: string('x')})
 
 	if m.state.ui.logTable.Cursor() != 0 {
 		t.Fatalf("expected first match at cursor 0, got %d", m.state.ui.logTable.Cursor())
 	}
 
 	// Confirm search with Enter, then use n to advance to next match
-	updated, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: tea.KeyEnter})
 	updatedModel, ok = updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
 	}
 	m = updatedModel
 
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'n', Text: string('n')})
 	if m.state.ui.logTable.Cursor() != 2 {
 		t.Fatalf("expected next match at cursor 2, got %d", m.state.ui.logTable.Cursor())
 	}
@@ -858,16 +858,16 @@ func TestFilterLogNarrowsList(t *testing.T) {
 		{sha: "def456", authorInitials: "de", message: "Add new feature"},
 	}, false)
 
-	updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+	updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: 'f', Text: string('f')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
 	}
 	m = updatedModel
 
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'f', Text: string('f')})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'i', Text: string('i')})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'x', Text: string('x')})
 
 	if len(m.state.data.logEntries) != 1 {
 		t.Fatalf("expected 1 filtered commit, got %d", len(m.state.data.logEntries))
@@ -884,17 +884,17 @@ func TestStatusFileNavigationEmptyList(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.setStatusFiles(nil)
 	m.state.services.statusTree.Index = 0
 
 	// Should not panic with empty list
-	_, _ = m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if m.state.services.statusTree.Index != 0 {
 		t.Fatalf("expected statusTreeIndex to stay at 0, got %d", m.state.services.statusTree.Index)
 	}
 
-	_, _ = m.handleNavigationUp(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if m.state.services.statusTree.Index != 0 {
 		t.Fatalf("expected statusTreeIndex to stay at 0, got %d", m.state.services.statusTree.Index)
 	}
@@ -907,7 +907,7 @@ func TestStatusFileEnterShowsDiff(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	// Set up worktree and status files
 	m.state.data.filteredWts = []*models.WorktreeInfo{
@@ -960,7 +960,7 @@ func TestLogPaneDiffCommandModeUsesCommitRange(t *testing.T) {
 	m.commandRunner = capture.runner
 	m.execProcess = capture.exec
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'd', Text: string('d')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -983,7 +983,7 @@ func TestStatusFileEditOpensEditor(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
 	if err := os.MkdirAll(wtPath, 0o700); err != nil {
@@ -1009,7 +1009,7 @@ func TestStatusFileEditOpensEditor(t *testing.T) {
 		return func() tea.Msg { return cb(nil) }
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'e', Text: string('e')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -1035,7 +1035,7 @@ func TestCommitAllChangesFromStatusPane(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
 	if err := os.MkdirAll(wtPath, 0o700); err != nil {
@@ -1053,7 +1053,7 @@ func TestCommitAllChangesFromStatusPane(t *testing.T) {
 		return func() tea.Msg { return cb(nil) }
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'C'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'C', Text: string('C')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -1080,7 +1080,7 @@ func TestCommitAllChangesNotInStatusPane(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 0 // Not status pane
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'C'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'C', Text: string('C')})
 	if cmd != nil {
 		t.Fatal("expected no command when not in status pane")
 	}
@@ -1092,7 +1092,7 @@ func TestCommitStagedChangesFromStatusPane(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
 	if err := os.MkdirAll(wtPath, 0o700); err != nil {
@@ -1115,7 +1115,7 @@ func TestCommitStagedChangesFromStatusPane(t *testing.T) {
 		return func() tea.Msg { return cb(nil) }
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'c', Text: string('c')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -1145,7 +1145,7 @@ func TestCommitStagedChangesNoStagedFiles(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
 	if err := os.MkdirAll(wtPath, 0o700); err != nil {
@@ -1162,7 +1162,7 @@ func TestCommitStagedChangesNoStagedFiles(t *testing.T) {
 		{Filename: "file1.go", Status: " M", IsUntracked: false}, // Unstaged modification
 	})
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'c', Text: string('c')})
 	if cmd != nil {
 		t.Fatal("expected no command when no staged changes")
 	}
@@ -1180,7 +1180,7 @@ func TestCommitStagedChangesNotInStatusPane(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 0 // Not status pane
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'c', Text: string('c')})
 	// When not in status pane, 'c' should trigger create worktree which returns a command
 	if cmd == nil {
 		t.Fatal("expected command for create worktree when not in status pane")
@@ -1197,7 +1197,7 @@ func TestStageUnstagedFile(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
 	if err := os.MkdirAll(wtPath, 0o700); err != nil {
@@ -1219,7 +1219,7 @@ func TestStageUnstagedFile(t *testing.T) {
 		return gotCmd
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 's', Text: string('s')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -1244,7 +1244,7 @@ func TestUnstageStagedFile(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
 	if err := os.MkdirAll(wtPath, 0o700); err != nil {
@@ -1266,7 +1266,7 @@ func TestUnstageStagedFile(t *testing.T) {
 		return gotCmd
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 's', Text: string('s')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -1285,7 +1285,7 @@ func TestStageMixedStatusFile(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
 	if err := os.MkdirAll(wtPath, 0o700); err != nil {
@@ -1307,7 +1307,7 @@ func TestStageMixedStatusFile(t *testing.T) {
 		return gotCmd
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 's', Text: string('s')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -1331,7 +1331,7 @@ func TestStageFileNotInStatusPane(t *testing.T) {
 	})
 	m.state.services.statusTree.Index = 0
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 's', Text: string('s')})
 	if cmd != nil {
 		t.Fatal("expected no command when not in status pane")
 	}
@@ -1343,7 +1343,7 @@ func TestStageDirectoryAllUnstaged(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.data.filteredWts = []*models.WorktreeInfo{
 		{Path: cfg.WorktreeDir, Branch: "feature"},
 	}
@@ -1366,7 +1366,7 @@ func TestStageDirectoryAllUnstaged(t *testing.T) {
 		return gotCmd
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 's', Text: string('s')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -1389,7 +1389,7 @@ func TestStageDirectoryAllStaged(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.data.filteredWts = []*models.WorktreeInfo{
 		{Path: cfg.WorktreeDir, Branch: "feature"},
 	}
@@ -1412,7 +1412,7 @@ func TestStageDirectoryAllStaged(t *testing.T) {
 		return gotCmd
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 's', Text: string('s')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -1431,7 +1431,7 @@ func TestStageDirectoryMixed(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.data.filteredWts = []*models.WorktreeInfo{
 		{Path: cfg.WorktreeDir, Branch: "feature"},
 	}
@@ -1454,7 +1454,7 @@ func TestStageDirectoryMixed(t *testing.T) {
 		return gotCmd
 	}
 
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 's', Text: string('s')})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -1653,7 +1653,7 @@ func TestBuildStatusContentParsesFiles(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	// Simulated git status --porcelain=v2 output
 	statusRaw := `1 .M N... 100644 100644 100644 abc123 abc123 modified.go
@@ -1696,7 +1696,7 @@ func TestBuildStatusContentCleanTree(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.data.statusFiles = []StatusFile{{Filename: "old.go", Status: ".M"}}
 	m.state.data.statusFileIndex = 5
 
@@ -1720,7 +1720,7 @@ func TestSearchStatusSelectsMatch(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	// Note: tree sorts alphabetically, so README.md (R) comes before app.go (a)
 	m.setStatusFiles([]StatusFile{
 		{Filename: "app.go", Status: ".M"},
@@ -1728,7 +1728,7 @@ func TestSearchStatusSelectsMatch(t *testing.T) {
 	})
 	m.rebuildStatusContentWithHighlight()
 
-	updated, _ := m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	updated, _ := m.handleKeyMsg(tea.KeyPressMsg{Code: '/', Text: string('/')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -1736,9 +1736,9 @@ func TestSearchStatusSelectsMatch(t *testing.T) {
 	m = updatedModel
 
 	// Search for "app" to find app.go which is at index 1 after sorting
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
-	_, _ = m.handleKeyMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'a', Text: string('a')})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'p', Text: string('p')})
+	_, _ = m.handleKeyMsg(tea.KeyPressMsg{Code: 'p', Text: string('p')})
 
 	if m.state.services.statusTree.Index != 1 {
 		t.Fatalf("expected statusTreeIndex 1, got %d", m.state.services.statusTree.Index)
@@ -1752,7 +1752,7 @@ func TestRenderStatusFilesHighlighting(t *testing.T) {
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.setStatusFiles([]StatusFile{
 		{Filename: "file1.go", Status: ".M", IsUntracked: false},
 		{Filename: "file2.go", Status: ".M", IsUntracked: false},
@@ -1790,7 +1790,7 @@ func TestRenderStatusFilesIconsDisabled(t *testing.T) {
 	cfg.IconSet = "text"
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.setStatusFiles([]StatusFile{
 		{Filename: "file1.go", Status: ".M", IsUntracked: false},
 	})
@@ -1810,7 +1810,7 @@ func TestStatusTreeIndexClamping(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 
 	// Set index out of range before parsing
 	m.state.services.statusTree.Index = 100
@@ -1843,7 +1843,7 @@ func TestMouseScrollNavigatesFiles(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.view.WindowWidth = 100
 	m.state.view.WindowHeight = 30
 
@@ -1855,21 +1855,20 @@ func TestMouseScrollNavigatesFiles(t *testing.T) {
 	m.state.services.statusTree.Index = 0
 
 	// Scroll down should increment index
-	msg := tea.MouseMsg{
-		Action: tea.MouseActionPress,
-		Button: tea.MouseButtonWheelDown,
+	wheelMsg := tea.MouseWheelMsg{
+		Button: tea.MouseWheelDown,
 		X:      60, // Right side of screen (pane 1)
 		Y:      5,
 	}
 
-	_, _ = m.handleMouse(msg)
+	_, _ = m.handleMouseWheel(wheelMsg)
 	if m.state.services.statusTree.Index != 1 {
 		t.Fatalf("expected statusTreeIndex 1 after scroll down, got %d", m.state.services.statusTree.Index)
 	}
 
 	// Scroll up should decrement index
-	msg.Button = tea.MouseButtonWheelUp
-	_, _ = m.handleMouse(msg)
+	wheelMsg.Button = tea.MouseWheelUp
+	_, _ = m.handleMouseWheel(wheelMsg)
 	if m.state.services.statusTree.Index != 0 {
 		t.Fatalf("expected statusTreeIndex 0 after scroll up, got %d", m.state.services.statusTree.Index)
 	}
@@ -1893,14 +1892,13 @@ func TestMouseClickSelectsWorktree(t *testing.T) {
 	m.state.ui.worktreeTable.SetCursor(0)
 	m.state.data.selectedIndex = 0
 
-	msg := tea.MouseMsg{
-		Action: tea.MouseActionPress,
-		Button: tea.MouseButtonLeft,
+	msg := tea.MouseClickMsg{
+		Button: tea.MouseLeft,
 		X:      2,
 		Y:      6,
 	}
 
-	_, _ = m.handleMouse(msg)
+	_, _ = m.handleMouseClick(msg)
 	if m.state.ui.worktreeTable.Cursor() != 1 {
 		t.Fatalf("expected cursor to move to 1, got %d", m.state.ui.worktreeTable.Cursor())
 	}
@@ -2121,7 +2119,7 @@ func TestDirectoryToggleUpdatesFlat(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.view.WindowWidth = 100
 	m.state.view.WindowHeight = 30
 
@@ -2164,7 +2162,7 @@ func TestEscClearsWorktreeFilter(t *testing.T) {
 	}
 	m.updateTable()
 
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyEsc})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyEscape})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2183,7 +2181,7 @@ func TestEscClearsStatusFilter(t *testing.T) {
 	m.state.view.FocusedPane = 1
 	m.state.services.filter.StatusFilterQuery = testFilterQuery
 
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyEsc})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyEscape})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2202,7 +2200,7 @@ func TestEscClearsLogFilter(t *testing.T) {
 	m.state.view.FocusedPane = 2
 	m.state.services.filter.LogFilterQuery = testFilterQuery
 
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyEsc})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyEscape})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2221,7 +2219,7 @@ func TestEscDoesNothingWhenNoFilter(t *testing.T) {
 	m.state.view.FocusedPane = 0
 	m.state.services.filter.FilterQuery = ""
 
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyEsc})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyEscape})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2286,7 +2284,7 @@ func TestZoomPaneToggle(t *testing.T) {
 	}
 
 	// Press = to zoom pane 0
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'='}})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '=', Text: string('=')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2298,7 +2296,7 @@ func TestZoomPaneToggle(t *testing.T) {
 	}
 
 	// Press = again to unzoom
-	updated, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'='}})
+	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: '=', Text: string('=')})
 	updatedModel, ok = updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2319,7 +2317,7 @@ func TestZoomPaneExitsOnPaneKeys(t *testing.T) {
 	m.state.view.ZoomedPane = 0
 
 	// Press 2 to switch to pane 2 and exit zoom
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '2', Text: string('2')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2343,7 +2341,7 @@ func TestZoomPaneExitsOnTabKey(t *testing.T) {
 	m.state.view.ZoomedPane = 0
 
 	// Press tab to cycle panes and exit zoom
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyTab})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyTab})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2367,7 +2365,7 @@ func TestZoomPaneExitsOnBracketKey(t *testing.T) {
 	m.state.view.ZoomedPane = 1
 
 	// Press [ to cycle back and exit zoom
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'['}})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '[', Text: string('[')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2391,7 +2389,7 @@ func TestPaneKey1ToggleZoom(t *testing.T) {
 	m.state.view.ZoomedPane = -1
 
 	// Press 1 while on pane 0, not zoomed - should zoom
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '1', Text: string('1')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2406,7 +2404,7 @@ func TestPaneKey1ToggleZoom(t *testing.T) {
 	}
 
 	// Press 1 again while on pane 0, already zoomed - should unzoom
-	updated, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: '1', Text: string('1')})
 	updatedModel, ok = updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2430,7 +2428,7 @@ func TestPaneKey2ToggleZoom(t *testing.T) {
 	m.state.view.ZoomedPane = -1
 
 	// Press 2 while on pane 1, not zoomed - should zoom
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '2', Text: string('2')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2445,7 +2443,7 @@ func TestPaneKey2ToggleZoom(t *testing.T) {
 	}
 
 	// Press 2 again while on pane 1, already zoomed - should unzoom
-	updated, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: '2', Text: string('2')})
 	updatedModel, ok = updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2469,7 +2467,7 @@ func TestPaneKey3ToggleZoom(t *testing.T) {
 	m.state.view.ZoomedPane = -1
 
 	// Press 3 while on pane 2, not zoomed - should zoom
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '3', Text: string('3')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2484,7 +2482,7 @@ func TestPaneKey3ToggleZoom(t *testing.T) {
 	}
 
 	// Press 3 again while on pane 2, already zoomed - should unzoom
-	updated, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: '3', Text: string('3')})
 	updatedModel, ok = updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2508,7 +2506,7 @@ func TestPaneKeyCrossPaneSwitching(t *testing.T) {
 	m.state.view.ZoomedPane = 0
 
 	// Press 2 while on pane 0 (zoomed) - should switch to pane 1 and exit zoom
-	updated, _ := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '2', Text: string('2')})
 	updatedModel, ok := updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2523,7 +2521,7 @@ func TestPaneKeyCrossPaneSwitching(t *testing.T) {
 	}
 
 	// Now press 3 while on pane 1 (not zoomed) - should switch to pane 2 and remain unzoomed
-	updated, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: '3', Text: string('3')})
 	updatedModel, ok = updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -2538,7 +2536,7 @@ func TestPaneKeyCrossPaneSwitching(t *testing.T) {
 	}
 
 	// Press 1 while on pane 2 (not zoomed) - should switch to pane 0
-	updated, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: '1', Text: string('1')})
 	updatedModel, ok = updated.(*Model)
 	if !ok {
 		t.Fatalf("expected updated model, got %T", updated)
@@ -3572,13 +3570,13 @@ func TestCICheckNavigationDown(t *testing.T) {
 	m.ciCheckIndex = 0
 
 	// Navigate down
-	_, _ = m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if m.ciCheckIndex != 1 {
 		t.Fatalf("expected ciCheckIndex 1 after j, got %d", m.ciCheckIndex)
 	}
 
 	// Navigate down again
-	_, _ = m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if m.ciCheckIndex != 2 {
 		t.Fatalf("expected ciCheckIndex 2 after second j, got %d", m.ciCheckIndex)
 	}
@@ -3587,7 +3585,7 @@ func TestCICheckNavigationDown(t *testing.T) {
 	m.setStatusFiles([]StatusFile{
 		{Filename: "file1.go", Status: ".M", IsUntracked: false},
 	})
-	_, _ = m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if m.ciCheckIndex != -1 {
 		t.Fatalf("expected ciCheckIndex -1 after wrapping, got %d", m.ciCheckIndex)
 	}
@@ -3625,13 +3623,13 @@ func TestCICheckNavigationUp(t *testing.T) {
 	m.ciCheckIndex = 1
 
 	// Navigate up
-	_, _ = m.handleNavigationUp(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if m.ciCheckIndex != 0 {
 		t.Fatalf("expected ciCheckIndex 0 after k, got %d", m.ciCheckIndex)
 	}
 
 	// At first CI check, should stay at 0
-	_, _ = m.handleNavigationUp(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if m.ciCheckIndex != 0 {
 		t.Fatalf("expected ciCheckIndex to stay at 0, got %d", m.ciCheckIndex)
 	}
@@ -3639,7 +3637,7 @@ func TestCICheckNavigationUp(t *testing.T) {
 	// Test wrapping from file tree to CI checks
 	m.ciCheckIndex = -1
 	m.state.services.statusTree.Index = 0
-	_, _ = m.handleNavigationUp(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if m.ciCheckIndex != 2 {
 		t.Fatalf("expected ciCheckIndex 2 after wrapping from file tree, got %d", m.ciCheckIndex)
 	}
@@ -3731,7 +3729,7 @@ func TestCICheckCtrlVShowsLogs(t *testing.T) {
 	}
 
 	// Press Ctrl+v
-	_, cmd := m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyCtrlV})
+	_, cmd := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'v', Mod: tea.ModCtrl})
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -3798,7 +3796,7 @@ func TestCICheckSelectionResetOnPaneSwitch(t *testing.T) {
 	m.ciCheckIndex = 0
 
 	// Switch to pane 0
-	_, _ = m.handleBuiltInKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: '1', Text: string('1')})
 
 	// CI check selection should be reset
 	if m.ciCheckIndex != -1 {
@@ -3825,7 +3823,7 @@ func TestCICheckSelectionResetWhenUnavailable(t *testing.T) {
 	m.ciCheckIndex = 5 // Out of bounds
 
 	// Navigate - should reset invalid index
-	_, _ = m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if m.ciCheckIndex != -1 {
 		t.Fatalf("expected ciCheckIndex -1 after invalid index, got %d", m.ciCheckIndex)
 	}
@@ -3835,7 +3833,7 @@ func TestCICheckSelectionResetWhenUnavailable(t *testing.T) {
 	m.ciCheckIndex = 0
 
 	// Navigate - should reset when no CI checks available
-	_, _ = m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if m.ciCheckIndex != -1 {
 		t.Fatalf("expected ciCheckIndex -1 when no CI checks, got %d", m.ciCheckIndex)
 	}
@@ -3847,7 +3845,7 @@ func TestCICheckNavigationWithNoChecks(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 1
-	m.state.ui.statusViewport = viewport.New(40, 10)
+	m.state.ui.statusViewport = viewport.New(viewport.WithWidth(40), viewport.WithHeight(10))
 	m.state.data.selectedIndex = 0
 	m.state.data.filteredWts = []*models.WorktreeInfo{
 		{Path: testWorktreePath, Branch: "feat"},
@@ -3861,7 +3859,7 @@ func TestCICheckNavigationWithNoChecks(t *testing.T) {
 	m.state.services.statusTree.Index = 0
 
 	// Navigation should work on file tree
-	_, _ = m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if m.state.services.statusTree.Index != 1 {
 		t.Fatalf("expected statusTreeIndex 1, got %d", m.state.services.statusTree.Index)
 	}

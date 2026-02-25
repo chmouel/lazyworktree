@@ -3,9 +3,9 @@ package screen
 import (
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textarea"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
@@ -51,20 +51,19 @@ func NewTextareaScreen(prompt, placeholder, value string, maxWidth, maxHeight in
 	ta.SetHeight(clampInt(height-11, 6, 24))
 	ta.Focus()
 
-	focused, _ := textarea.DefaultStyles()
-	focused.Base = lipgloss.NewStyle().
+	taStyles := textarea.DefaultDarkStyles()
+	taStyles.Focused.Base = lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(thm.Border).
 		Padding(0, 1)
-	focused.Text = lipgloss.NewStyle().Foreground(thm.TextFg)
-	focused.Prompt = lipgloss.NewStyle().Foreground(thm.Accent)
-	focused.Placeholder = lipgloss.NewStyle().Foreground(thm.MutedFg).Italic(true)
-	focused.CursorLine = lipgloss.NewStyle().Foreground(thm.TextFg)
-	focused.EndOfBuffer = lipgloss.NewStyle().Foreground(thm.MutedFg)
-	blurred := focused
-	blurred.Base = blurred.Base.BorderForeground(thm.BorderDim)
-	ta.FocusedStyle = focused
-	ta.BlurredStyle = blurred
+	taStyles.Focused.Text = lipgloss.NewStyle().Foreground(thm.TextFg)
+	taStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(thm.Accent)
+	taStyles.Focused.Placeholder = lipgloss.NewStyle().Foreground(thm.MutedFg).Italic(true)
+	taStyles.Focused.CursorLine = lipgloss.NewStyle().Foreground(thm.TextFg)
+	taStyles.Focused.EndOfBuffer = lipgloss.NewStyle().Foreground(thm.MutedFg)
+	taStyles.Blurred = taStyles.Focused
+	taStyles.Blurred.Base = taStyles.Blurred.Base.BorderForeground(thm.BorderDim)
+	ta.SetStyles(taStyles)
 
 	return &TextareaScreen{
 		Prompt:      prompt,
@@ -89,7 +88,7 @@ func (s *TextareaScreen) Type() Type {
 
 // Update handles keyboard input for the textarea screen.
 // Returns nil to signal the screen should be closed.
-func (s *TextareaScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *TextareaScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
 	keyStr := msg.String()
 

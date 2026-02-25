@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
@@ -67,7 +67,7 @@ func NewChecklistScreen(items []ChecklistItem, title, placeholder, noResults str
 	ti.CharLimit = 100
 	ti.Prompt = "> "
 	ti.Blur()
-	ti.Width = width - 4 // padding
+	ti.SetWidth(width - 4) // padding
 
 	cursor := 0
 	if len(items) == 0 {
@@ -97,7 +97,7 @@ func (s *ChecklistScreen) Type() Type {
 
 // Update handles keyboard input for the checklist screen.
 // Returns nil to signal the screen should close.
-func (s *ChecklistScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *ChecklistScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
 	maxVisibleLines := s.Height - 6
 	if !s.FilterActive {
@@ -144,7 +144,7 @@ func (s *ChecklistScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
 				}
 			}
 			return s, nil
-		case " ":
+		case "space":
 			// Toggle current item
 			if s.Cursor >= 0 && s.Cursor < len(s.Filtered) {
 				// Find the item in the original list and toggle it

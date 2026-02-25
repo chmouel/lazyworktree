@@ -3,7 +3,7 @@ package screen
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
@@ -19,7 +19,7 @@ func TestIssueSelectionScreenFilterToggle(t *testing.T) {
 		t.Fatal("expected filter to be inactive by default")
 	}
 
-	next, _ := scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+	next, _ := scr.Update(tea.KeyPressMsg{Code: 'f', Text: string('f')})
 	nextScr, ok := next.(*IssueSelectionScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return issue selection screen after f")
@@ -29,7 +29,7 @@ func TestIssueSelectionScreenFilterToggle(t *testing.T) {
 		t.Fatal("expected filter to be active after f")
 	}
 
-	next, _ = scr.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	next, _ = scr.Update(tea.KeyPressMsg{Code: '2', Text: string('2')})
 	nextScr, ok = next.(*IssueSelectionScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return issue selection screen after typing")
@@ -39,7 +39,7 @@ func TestIssueSelectionScreenFilterToggle(t *testing.T) {
 		t.Fatalf("expected filtered results to include only #2, got %v", scr.Filtered)
 	}
 
-	next, _ = scr.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	next, _ = scr.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	nextScr, ok = next.(*IssueSelectionScreen)
 	if !ok || nextScr == nil {
 		t.Fatal("expected Update to return issue selection screen after Esc")

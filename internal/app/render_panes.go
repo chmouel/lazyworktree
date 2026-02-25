@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -538,8 +538,8 @@ func (m *Model) renderRightTopPane(layout layoutDims) string {
 	statusBoxHeight := maxInt(layout.rightTopInnerHeight-lipgloss.Height(title)-lipgloss.Height(infoBox)-2, 3)
 	statusViewportWidth := maxInt(1, layout.rightInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
 	statusViewportHeight := maxInt(1, statusBoxHeight-innerBoxStyle.GetVerticalFrameSize())
-	m.state.ui.statusViewport.Width = statusViewportWidth
-	m.state.ui.statusViewport.Height = statusViewportHeight
+	m.state.ui.statusViewport.SetWidth(statusViewportWidth)
+	m.state.ui.statusViewport.SetHeight(statusViewportHeight)
 	m.state.ui.statusViewport.SetContent(m.statusContent)
 	statusBox := innerBoxStyle.
 		Width(layout.rightInnerWidth).
@@ -612,8 +612,8 @@ func (m *Model) renderBottomLeftPane(layout layoutDims) string {
 	statusBoxHeight := maxInt(layout.bottomLeftInnerHeight-lipgloss.Height(title)-lipgloss.Height(infoBox)-2, 3)
 	statusViewportWidth := maxInt(1, layout.bottomLeftInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
 	statusViewportHeight := maxInt(1, statusBoxHeight-innerBoxStyle.GetVerticalFrameSize())
-	m.state.ui.statusViewport.Width = statusViewportWidth
-	m.state.ui.statusViewport.Height = statusViewportHeight
+	m.state.ui.statusViewport.SetWidth(statusViewportWidth)
+	m.state.ui.statusViewport.SetHeight(statusViewportHeight)
 	m.state.ui.statusViewport.SetContent(m.statusContent)
 	statusBox := innerBoxStyle.
 		Width(layout.bottomLeftInnerWidth).
@@ -669,8 +669,8 @@ func (m *Model) renderZoomedRightTopPane(layout layoutDims) string {
 	statusBoxHeight := maxInt(layout.rightTopInnerHeight-lipgloss.Height(title)-lipgloss.Height(infoBox)-2, 3)
 	statusViewportWidth := maxInt(1, layout.rightInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
 	statusViewportHeight := maxInt(1, statusBoxHeight-innerBoxStyle.GetVerticalFrameSize())
-	m.state.ui.statusViewport.Width = statusViewportWidth
-	m.state.ui.statusViewport.Height = statusViewportHeight
+	m.state.ui.statusViewport.SetWidth(statusViewportWidth)
+	m.state.ui.statusViewport.SetHeight(statusViewportHeight)
 	m.state.ui.statusViewport.SetContent(m.statusContent)
 	statusBox := innerBoxStyle.
 		Width(layout.rightInnerWidth).
@@ -921,7 +921,7 @@ func (m *Model) renderStatusFiles() string {
 		Background(m.theme.Accent).
 		Bold(true)
 
-	viewportWidth := m.state.ui.statusViewport.Width
+	viewportWidth := m.state.ui.statusViewport.Width()
 	showIcons := m.config.IconsEnabled()
 
 	lines := make([]string, 0, len(m.state.services.statusTree.TreeFlat))

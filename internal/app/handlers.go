@@ -3,14 +3,14 @@ package app
 import (
 	"path/filepath"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
 
 // handleKeyMsg processes keyboard input when not in a modal screen.
-func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	if m.state.view.ShowingSearch {
@@ -89,7 +89,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.handleBuiltInKey(msg)
 }
 
-func (m *Model) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleSearchInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	keyStr := msg.String()
 	if keyStr == keyEnter {
 		m.state.view.ShowingSearch = false
@@ -221,7 +221,7 @@ func (m *Model) handlePrevFolder() (tea.Model, tea.Cmd) {
 }
 
 // handleBuiltInKey processes built-in keyboard shortcuts.
-func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case keyCtrlC, keyQ:
 		if m.selectedPath != "" {
@@ -416,7 +416,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		if m.state.view.FocusedPane == 2 {
 			prevCursor := m.state.ui.logTable.Cursor()
-			_, moveCmd := m.handleNavigationDown(tea.KeyMsg{Type: tea.KeyDown})
+			_, moveCmd := m.handleNavigationDown(tea.KeyPressMsg{Code: tea.KeyDown})
 			if m.state.ui.logTable.Cursor() == prevCursor {
 				return m, moveCmd
 			}
@@ -438,7 +438,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case "ctrl+d", " ":
+	case "ctrl+d", "space":
 		return m.handlePageDown(msg)
 
 	case "ctrl+u":
@@ -643,19 +643,19 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Handle Home/End keys for all panes
-	if msg.Type == tea.KeyHome {
+	if msg.Code == tea.KeyHome {
 		return m.handleGotoTop()
 	}
-	if msg.Type == tea.KeyEnd {
+	if msg.Code == tea.KeyEnd {
 		return m.handleGotoBottom()
 	}
 
 	// Handle Ctrl+Left/Right for folder navigation in status pane
 	if m.state.view.FocusedPane == 1 {
-		if msg.Type == tea.KeyCtrlLeft {
+		if msg.Code == tea.KeyLeft && msg.Mod == tea.ModCtrl {
 			return m.handlePrevFolder()
 		}
-		if msg.Type == tea.KeyCtrlRight {
+		if msg.Code == tea.KeyRight && msg.Mod == tea.ModCtrl {
 			return m.handleNextFolder()
 		}
 	}
@@ -672,7 +672,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // handleNavigationDown processes down arrow and 'j' key navigation.
-func (m *Model) handleNavigationDown(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleNavigationDown(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	keyMsg := msg
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -735,7 +735,7 @@ func (m *Model) handleNavigationDown(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // handleNavigationUp processes up arrow and 'k' key navigation.
-func (m *Model) handleNavigationUp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleNavigationUp(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	cmds := []tea.Cmd{}
 
@@ -899,7 +899,7 @@ func (m *Model) selectFilteredWorktree(path string) {
 }
 
 // handlePageDown processes page down navigation.
-func (m *Model) handlePageDown(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handlePageDown(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch m.state.view.FocusedPane {
@@ -914,7 +914,7 @@ func (m *Model) handlePageDown(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // handlePageUp processes page up navigation.
-func (m *Model) handlePageUp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handlePageUp(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch m.state.view.FocusedPane {
@@ -970,27 +970,14 @@ func (m *Model) handleEnterKey() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleMouse processes mouse events for scrolling and clicking
-func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	// Handle mouse scrolling for CommitScreen via screen manager
-	if m.state.ui.screenManager.Type() == appscreen.TypeCommit {
-		if cs, ok := m.state.ui.screenManager.Current().(*appscreen.CommitScreen); ok {
-			if msg.Action == tea.MouseActionPress {
-				switch msg.Button {
-				case tea.MouseButtonWheelUp:
-					cs.Viewport.ScrollUp(3)
-					return m, nil
-				case tea.MouseButtonWheelDown:
-					cs.Viewport.ScrollDown(3)
-					return m, nil
-				}
-			}
-		}
+// handleMouseClick processes mouse click events for pane focus and item selection.
+func (m *Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
+	// Skip mouse handling when on modal screens
+	if m.state.ui.screenManager.IsActive() {
 		return m, nil
 	}
 
-	// Skip mouse handling when on other modal screens
-	if m.state.ui.screenManager.IsActive() {
+	if msg.Button != tea.MouseLeft {
 		return m, nil
 	}
 
@@ -1003,8 +990,8 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		headerOffset = 2
 	}
 
-	mouseX := msg.X
-	mouseY := msg.Y
+	mouseX := msg.Mouse().X
+	mouseY := msg.Mouse().Y
 	targetPane := -1
 
 	if layout.layoutMode == state.LayoutTop {
@@ -1049,50 +1036,124 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	switch {
-	case msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft:
-		// Click to focus pane and select item
-		if targetPane >= 0 && targetPane != m.state.view.FocusedPane {
-			m.state.view.FocusedPane = targetPane
-			switch m.state.view.FocusedPane {
-			case 0:
-				m.state.ui.worktreeTable.Focus()
-			case 2:
-				m.state.ui.logTable.Focus()
+	// Click to focus pane and select item
+	if targetPane >= 0 && targetPane != m.state.view.FocusedPane {
+		m.state.view.FocusedPane = targetPane
+		switch m.state.view.FocusedPane {
+		case 0:
+			m.state.ui.worktreeTable.Focus()
+		case 2:
+			m.state.ui.logTable.Focus()
+		}
+	}
+
+	// Handle clicks within the pane to select items
+	if targetPane == 0 && len(m.state.data.filteredWts) > 0 {
+		// Calculate which row was clicked in the worktree table
+		// Account for pane border and title
+		paneTopY := headerOffset
+		relativeY := mouseY - paneTopY - 4
+		if relativeY >= 0 && relativeY < len(m.state.data.filteredWts) {
+			m.state.ui.worktreeTable.SetCursor(relativeY)
+			m.state.data.selectedIndex = relativeY
+			m.updateWorktreeArrows()
+			cmds = append(cmds, m.debouncedUpdateDetailsView())
+		}
+	} else if targetPane == 2 && len(m.state.data.logEntries) > 0 {
+		// Calculate which row was clicked in the log table
+		var logPaneTopY int
+		if layout.layoutMode == state.LayoutTop {
+			logPaneTopY = headerOffset + layout.topHeight + layout.gapY
+		} else {
+			logPaneTopY = headerOffset + layout.rightTopHeight + layout.gapY
+		}
+		relativeY := mouseY - logPaneTopY - 4
+		if relativeY >= 0 && relativeY < len(m.state.data.logEntries) {
+			m.state.ui.logTable.SetCursor(relativeY)
+		}
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
+// handleMouseWheel processes mouse wheel scroll events.
+func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	// Handle mouse scrolling for CommitScreen via screen manager
+	if m.state.ui.screenManager.Type() == appscreen.TypeCommit {
+		if cs, ok := m.state.ui.screenManager.Current().(*appscreen.CommitScreen); ok {
+			switch msg.Button {
+			case tea.MouseWheelUp:
+				cs.Viewport.ScrollUp(3)
+				return m, nil
+			case tea.MouseWheelDown:
+				cs.Viewport.ScrollDown(3)
+				return m, nil
 			}
 		}
+		return m, nil
+	}
 
-		// Handle clicks within the pane to select items
-		if targetPane == 0 && len(m.state.data.filteredWts) > 0 {
-			// Calculate which row was clicked in the worktree table
-			// Account for pane border and title
-			paneTopY := headerOffset
-			relativeY := mouseY - paneTopY - 4
-			if relativeY >= 0 && relativeY < len(m.state.data.filteredWts) {
-				m.state.ui.worktreeTable.SetCursor(relativeY)
-				m.state.data.selectedIndex = relativeY
-				m.updateWorktreeArrows()
-				cmds = append(cmds, m.debouncedUpdateDetailsView())
-			}
-		} else if targetPane == 2 && len(m.state.data.logEntries) > 0 {
-			// Calculate which row was clicked in the log table
-			var logPaneTopY int
-			if layout.layoutMode == state.LayoutTop {
-				logPaneTopY = headerOffset + layout.topHeight + layout.gapY
-			} else {
-				logPaneTopY = headerOffset + layout.rightTopHeight + layout.gapY
-			}
-			relativeY := mouseY - logPaneTopY - 4
-			if relativeY >= 0 && relativeY < len(m.state.data.logEntries) {
-				m.state.ui.logTable.SetCursor(relativeY)
-			}
+	// Skip mouse handling when on other modal screens
+	if m.state.ui.screenManager.IsActive() {
+		return m, nil
+	}
+
+	var cmds []tea.Cmd
+	layout := m.computeLayout()
+
+	// Calculate pane boundaries (accounting for header and filter)
+	headerOffset := 1
+	if m.state.view.ShowingFilter {
+		headerOffset = 2
+	}
+
+	mouseX := msg.Mouse().X
+	mouseY := msg.Mouse().Y
+	targetPane := -1
+
+	if layout.layoutMode == state.LayoutTop {
+		topY := headerOffset
+		topMaxY := headerOffset + layout.topHeight
+		bottomY := headerOffset + layout.topHeight + layout.gapY
+		bottomMaxY := headerOffset + layout.bodyHeight
+		bottomLeftMaxX := layout.bottomLeftWidth
+		bottomRightX := layout.bottomLeftWidth + layout.gapX
+
+		switch {
+		case mouseY >= topY && mouseY < topMaxY:
+			targetPane = 0
+		case mouseX < bottomLeftMaxX && mouseY >= bottomY && mouseY < bottomMaxY:
+			targetPane = 1
+		case mouseX >= bottomRightX && mouseY >= bottomY && mouseY < bottomMaxY:
+			targetPane = 2
 		}
+	} else {
+		leftMaxX := layout.leftWidth
+		leftY := headerOffset
+		leftMaxY := headerOffset + layout.bodyHeight
+		rightX := layout.leftWidth + layout.gapX
+		rightTopY := headerOffset
+		rightTopMaxX := rightX + layout.rightWidth
+		rightTopMaxY := headerOffset + layout.rightTopHeight
+		rightBottomY := headerOffset + layout.rightTopHeight + layout.gapY
+		rightBottomMaxY := headerOffset + layout.bodyHeight
 
-	case msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonWheelUp:
+		switch {
+		case mouseX < leftMaxX && mouseY >= leftY && mouseY < leftMaxY:
+			targetPane = 0
+		case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightTopY && mouseY < rightTopMaxY:
+			targetPane = 1
+		case mouseX >= rightX && mouseX < rightTopMaxX && mouseY >= rightBottomY && mouseY < rightBottomMaxY:
+			targetPane = 2
+		}
+	}
+
+	switch msg.Button {
+	case tea.MouseWheelUp:
 		switch targetPane {
 		case 0:
 			// Scroll worktree table up
-			m.state.ui.worktreeTable, _ = m.state.ui.worktreeTable.Update(tea.KeyMsg{Type: tea.KeyUp})
+			m.state.ui.worktreeTable, _ = m.state.ui.worktreeTable.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 			m.updateWorktreeArrows()
 			m.syncSelectedIndexFromCursor()
 			cmds = append(cmds, m.debouncedUpdateDetailsView())
@@ -1104,14 +1165,14 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			}
 		case 2:
 			// Scroll log table up
-			m.state.ui.logTable, _ = m.state.ui.logTable.Update(tea.KeyMsg{Type: tea.KeyUp})
+			m.state.ui.logTable, _ = m.state.ui.logTable.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 		}
 
-	case msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonWheelDown:
+	case tea.MouseWheelDown:
 		switch targetPane {
 		case 0:
 			// Scroll worktree table down
-			m.state.ui.worktreeTable, _ = m.state.ui.worktreeTable.Update(tea.KeyMsg{Type: tea.KeyDown})
+			m.state.ui.worktreeTable, _ = m.state.ui.worktreeTable.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 			m.updateWorktreeArrows()
 			m.syncSelectedIndexFromCursor()
 			cmds = append(cmds, m.debouncedUpdateDetailsView())
@@ -1123,7 +1184,7 @@ func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			}
 		case 2:
 			// Scroll log table down
-			m.state.ui.logTable, _ = m.state.ui.logTable.Update(tea.KeyMsg{Type: tea.KeyDown})
+			m.state.ui.logTable, _ = m.state.ui.logTable.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 		}
 	}
 

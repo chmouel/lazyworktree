@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
@@ -57,7 +57,7 @@ func NewPRSelectionScreen(prs []*models.PRInfo, maxWidth, maxHeight int, thm *th
 	ti.CharLimit = 100
 	ti.Prompt = "> "
 	ti.Blur()
-	ti.Width = width - 4 // padding
+	ti.SetWidth(width - 4) // padding
 
 	return &PRSelectionScreen{
 		PRs:          prs,
@@ -80,7 +80,7 @@ func (s *PRSelectionScreen) Type() Type {
 
 // Update handles updates for the PR selection screen.
 // Returns nil to signal the screen should close.
-func (s *PRSelectionScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *PRSelectionScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
 	maxVisible := s.Height - 6 // Account for header, input, footer
 	if !s.FilterActive {

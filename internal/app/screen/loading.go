@@ -1,12 +1,13 @@
 package screen
 
 import (
+	"image/color"
 	"math/rand/v2"
 	"slices"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/chmouel/lazyworktree/internal/theme"
 	"github.com/muesli/reflow/wrap"
@@ -206,14 +207,14 @@ func (s *LoadingScreen) Type() Type {
 }
 
 // Update handles key events. Loading screen does not respond to keys.
-func (s *LoadingScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *LoadingScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	// Loading screen ignores key input
 	return s, nil
 }
 
 // loadingBorderColors returns the colour cycle for the pulsing border.
-func (s *LoadingScreen) loadingBorderColors() []lipgloss.Color {
-	return []lipgloss.Color{
+func (s *LoadingScreen) loadingBorderColors() []color.Color {
+	return []color.Color{
 		s.Thm.Accent,
 		s.Thm.SuccessFg,
 		s.Thm.WarnFg,
@@ -222,7 +223,7 @@ func (s *LoadingScreen) loadingBorderColors() []lipgloss.Color {
 }
 
 // LoadingBorderColours exposes the border colours for tests.
-func (s *LoadingScreen) LoadingBorderColours() []lipgloss.Color {
+func (s *LoadingScreen) LoadingBorderColours() []color.Color {
 	return s.loadingBorderColors()
 }
 

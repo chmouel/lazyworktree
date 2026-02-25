@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
-	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/x/exp/teatest"
+	tea "charm.land/bubbletea/v2"
+
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -48,43 +48,30 @@ func TestModelInitialization(t *testing.T) {
 
 // TestKeyboardNavigation tests basic keyboard navigation
 func TestKeyboardNavigation(t *testing.T) {
+	t.Parallel()
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 	}
-	tm := teatest.NewTestModel(
-		t,
-		NewModel(cfg, ""),
-		teatest.WithInitialTermSize(120, 40),
-	)
-
-	// Wait for initial load
-	time.Sleep(20 * time.Millisecond)
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
 
 	// Test tab navigation
-	tm.Send(tea.KeyMsg{Type: tea.KeyTab})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = updated.(*Model)
 
 	// Test number keys for pane focus
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("1")})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ = m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
+	m = updated.(*Model)
 
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ = m.Update(tea.KeyPressMsg{Code: '2', Text: "2"})
+	m = updated.(*Model)
 
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("3")})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ = m.Update(tea.KeyPressMsg{Code: '3', Text: "3"})
+	m = updated.(*Model)
 
 	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
-
-	tm.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
-
-	// Get final model
-	fm := tm.FinalModel(t)
-	m, ok := fm.(*Model)
-	if !ok {
-		t.Fatal("Final model is not *Model type")
-	}
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
+	m = updated.(*Model)
 
 	if !m.quitting {
 		t.Error("Model should be marked as quitting after 'q' key")
@@ -107,33 +94,26 @@ func TestFilterInput(t *testing.T) {
 	}
 
 	// Test filter toggle
-	tm := teatest.NewTestModel(
-		t,
-		NewModel(cfg, ""),
-		teatest.WithInitialTermSize(120, 40),
-	)
-
-	time.Sleep(20 * time.Millisecond)
+	m2 := NewModel(cfg, "")
+	m2.setWindowSize(120, 40)
 
 	// Press 'f' to show filter
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("f")})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ := m2.Update(tea.KeyPressMsg{Code: 'f', Text: "f"})
+	m2 = updated.(*Model)
 
 	// Type some filter text
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("m")})
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
-	time.Sleep(10 * time.Millisecond)
+	for _, c := range "main" {
+		updated, _ = m2.Update(tea.KeyPressMsg{Code: c, Text: string(c)})
+		m2 = updated.(*Model)
+	}
 
 	// Press enter to exit filter mode
-	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ = m2.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m2 = updated.(*Model)
 
-	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-
-	tm.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+	if m2.state.services.filter.FilterQuery != "main" {
+		t.Errorf("Expected filterQuery to be 'main', got %q", m2.state.services.filter.FilterQuery)
+	}
 }
 
 func TestSearchAutoSelectStartsFocused(t *testing.T) {
@@ -154,38 +134,19 @@ func TestSearchAutoSelectStartsFocused(t *testing.T) {
 
 // TestSortCycle tests the sort cycle functionality
 func TestSortCycle(t *testing.T) {
+	t.Parallel()
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 		SortMode:    "switched",
 	}
-	tm := teatest.NewTestModel(
-		t,
-		NewModel(cfg, ""),
-		teatest.WithInitialTermSize(120, 40),
-	)
-
-	time.Sleep(20 * time.Millisecond)
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
 
 	// Press 's' three times to cycle through all modes and back to original
 	// switched (2) -> path (0) -> active (1) -> switched (2)
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s")})
-	time.Sleep(10 * time.Millisecond)
-
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s")})
-	time.Sleep(10 * time.Millisecond)
-
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("s")})
-	time.Sleep(10 * time.Millisecond)
-
-	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-
-	tm.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
-
-	fm := tm.FinalModel(t)
-	m, ok := fm.(*Model)
-	if !ok {
-		t.Fatal("Final model is not *Model type")
+	for i := 0; i < 3; i++ {
+		updated, _ := m.Update(tea.KeyPressMsg{Code: 's', Text: "s"})
+		m = updated.(*Model)
 	}
 
 	// Should be back to original state after three cycles
@@ -196,49 +157,33 @@ func TestSortCycle(t *testing.T) {
 
 // TestHelpScreen tests the help screen display
 func TestHelpScreen(t *testing.T) {
+	t.Parallel()
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 	}
-	tm := teatest.NewTestModel(
-		t,
-		NewModel(cfg, ""),
-		teatest.WithInitialTermSize(120, 40),
-	)
-
-	time.Sleep(20 * time.Millisecond)
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
 
 	// Press '?' to show help
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ := m.Update(tea.KeyPressMsg{Code: '?', Text: "?"})
+	m = updated.(*Model)
 
-	// Verify output contains help text
-	teatest.WaitFor(
-		t, tm.Output(),
-		func(bts []byte) bool {
-			return bytes.Contains(bts, []byte("Help")) ||
-				bytes.Contains(bts, []byte("Worktree")) ||
-				bytes.Contains(bts, []byte("Tips & Shortcuts"))
-		},
-		teatest.WithCheckInterval(100*time.Millisecond),
-		teatest.WithDuration(2*time.Second),
-	)
-
-	// Press 'q' to close help
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
-	time.Sleep(10 * time.Millisecond)
-
-	// Quit the app
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-
-	tm.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
-
-	fm := tm.FinalModel(t)
-	m, ok := fm.(*Model)
-	if !ok {
-		t.Fatal("Final model is not *Model type")
+	// Verify help screen is active
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeHelp {
+		t.Error("Expected help screen to be active after pressing '?'")
 	}
 
-	// Help screen should be closed (screen manager should be inactive)
+	// Verify view contains help text
+	view := m.View()
+	if !strings.Contains(view.Content, "Help") && !strings.Contains(view.Content, "Worktree") && !strings.Contains(view.Content, "Tips & Shortcuts") {
+		t.Error("Expected view to contain help text")
+	}
+
+	// Press 'q' to close help
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
+	m = updated.(*Model)
+
+	// Help screen should be closed
 	if m.state.ui.screenManager.IsActive() && m.state.ui.screenManager.Type() == appscreen.TypeHelp {
 		t.Error("Help screen should be closed after pressing 'q'")
 	}
@@ -305,46 +250,31 @@ func TestVerySmallTerminalSize(t *testing.T) {
 
 	// Try to render the view - this previously caused slice bounds panic
 	view := updatedModel.View()
-	if view == "" {
-		t.Error("Expected View() to return non-empty string even with tiny window")
+	if view.Content == "" {
+		t.Error("Expected View() to return non-empty content even with tiny window")
 	}
 }
 
 // TestCommandPalette tests command palette functionality
 func TestCommandPalette(t *testing.T) {
+	t.Parallel()
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 	}
-	tm := teatest.NewTestModel(
-		t,
-		NewModel(cfg, ""),
-		teatest.WithInitialTermSize(120, 40),
-	)
-
-	time.Sleep(20 * time.Millisecond)
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
 
 	// Press 'ctrl+p' to show command palette
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlP})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl})
+	m = updated.(*Model)
 
 	// First Esc exits filter mode (filter is active by default)
-	tm.Send(tea.KeyMsg{Type: tea.KeyEsc})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	m = updated.(*Model)
 
 	// Second Esc closes the palette
-	tm.Send(tea.KeyMsg{Type: tea.KeyEsc})
-	time.Sleep(10 * time.Millisecond)
-
-	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-
-	tm.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
-
-	fm := tm.FinalModel(t)
-	m, ok := fm.(*Model)
-	if !ok {
-		t.Fatal("Final model is not *Model type")
-	}
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	m = updated.(*Model)
 
 	if m.state.ui.screenManager.IsActive() && m.state.ui.screenManager.Type() == appscreen.TypePalette {
 		t.Error("Command palette should be closed after pressing escape twice")
@@ -364,50 +294,41 @@ func TestViewRendering(t *testing.T) {
 
 	// Call View - should not panic
 	view := m.View()
-	if view == "" {
-		t.Error("View() returned empty string")
+	if view.Content == "" {
+		t.Error("View() returned empty content")
 	}
 
-	if !bytes.Contains([]byte(view), []byte("Worktree")) {
+	if !bytes.Contains([]byte(view.Content), []byte("Worktree")) {
 		t.Error("View should contain 'Worktree' text")
 	}
 }
 
 // TestArrowKeyNavigation tests arrow key navigation in different panes
 func TestArrowKeyNavigation(t *testing.T) {
+	t.Parallel()
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 	}
-	tm := teatest.NewTestModel(
-		t,
-		NewModel(cfg, ""),
-		teatest.WithInitialTermSize(120, 40),
-	)
-
-	time.Sleep(20 * time.Millisecond)
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
 
 	// Test down/up arrows in worktree table
-	tm.Send(tea.KeyMsg{Type: tea.KeyDown})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	m = updated.(*Model)
 
-	tm.Send(tea.KeyMsg{Type: tea.KeyUp})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	m = updated.(*Model)
 
 	// Switch to pane 2 (viewport)
-	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ = m.Update(tea.KeyPressMsg{Code: '2', Text: "2"})
+	m = updated.(*Model)
 
 	// Test scrolling in viewport
-	tm.Send(tea.KeyMsg{Type: tea.KeyDown})
-	time.Sleep(10 * time.Millisecond)
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	m = updated.(*Model)
 
-	tm.Send(tea.KeyMsg{Type: tea.KeyUp})
-	time.Sleep(10 * time.Millisecond)
-
-	// Quit
-	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
-
-	tm.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	_ = updated.(*Model)
 }
 
 // TestMouseEvents tests that mouse events don't cause panics
@@ -420,34 +341,25 @@ func TestMouseEvents(t *testing.T) {
 	m.setWindowSize(120, 40)
 
 	// Test mouse wheel up
-	mouseMsg := tea.MouseMsg{
-		Action: tea.MouseActionPress,
-		Button: tea.MouseButtonWheelUp,
+	_, _ = m.Update(tea.MouseWheelMsg{
+		Button: tea.MouseWheelUp,
 		X:      10,
 		Y:      5,
-	}
-
-	_, _ = m.Update(mouseMsg)
+	})
 
 	// Test mouse wheel down
-	mouseMsg = tea.MouseMsg{
-		Action: tea.MouseActionPress,
-		Button: tea.MouseButtonWheelDown,
+	_, _ = m.Update(tea.MouseWheelMsg{
+		Button: tea.MouseWheelDown,
 		X:      10,
 		Y:      5,
-	}
-
-	_, _ = m.Update(mouseMsg)
+	})
 
 	// Test mouse click
-	mouseMsg = tea.MouseMsg{
-		Action: tea.MouseActionPress,
-		Button: tea.MouseButtonLeft,
+	_, _ = m.Update(tea.MouseClickMsg{
+		Button: tea.MouseLeft,
 		X:      10,
 		Y:      5,
-	}
-
-	_, _ = m.Update(mouseMsg)
+	})
 }
 
 // TestCleanup tests that the Close method properly cleans up resources
@@ -478,7 +390,7 @@ func TestCommitScreenEscapeKey(t *testing.T) {
 	m.state.ui.screenManager.Push(commitScr)
 
 	// Simulate pressing ESC
-	escMsg := tea.KeyMsg{Type: tea.KeyEsc}
+	escMsg := tea.KeyPressMsg{Code: tea.KeyEscape}
 
 	// Log what we're testing
 	t.Logf("ESC key string: %q", escMsg.String())
@@ -513,7 +425,7 @@ func TestCommitScreenRawEscapeKey(t *testing.T) {
 	m.state.ui.screenManager.Push(commitScr)
 
 	// Simulate pressing ESC as a raw rune (how some terminals send it)
-	rawEscMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{0x1b}}
+	rawEscMsg := tea.KeyPressMsg{Code: tea.KeyEscape}
 
 	// Log what we're testing
 	t.Logf("Raw ESC key string: %q", rawEscMsg.String())

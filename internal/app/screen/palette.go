@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
@@ -50,7 +50,7 @@ func NewCommandPaletteScreen(items []PaletteItem, maxWidth, maxHeight int, thm *
 	ti.CharLimit = 100
 	ti.Prompt = "  " // Search icon (Nerd Font)
 	ti.Focus()
-	ti.Width = width - 6 // fits inside box with padding and icon
+	ti.SetWidth(width - 6) // fits inside box with padding and icon
 
 	// Find first non-section item for initial cursor
 	initialCursor := 0
@@ -81,7 +81,7 @@ func (s *CommandPaletteScreen) Type() Type {
 }
 
 // Update handles keyboard input for the command palette.
-func (s *CommandPaletteScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *CommandPaletteScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	const maxVisible = 12
 	keyStr := msg.String()
 

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
@@ -30,7 +30,7 @@ func NewTrustScreen(filePath string, commands []string, thm *theme.Theme) *Trust
 
 	content := fmt.Sprintf("%s\n\n%s", question, commandsText)
 
-	vp := viewport.New(70, 20)
+	vp := viewport.New(viewport.WithWidth(70), viewport.WithHeight(20))
 	vp.SetContent(content)
 
 	return &TrustScreen{
@@ -48,7 +48,7 @@ func (s *TrustScreen) Type() Type {
 
 // Update handles trust decisions and delegates viewport input updates.
 // Returns nil to signal that the screen should be closed.
-func (s *TrustScreen) Update(msg tea.KeyMsg) (Screen, tea.Cmd) {
+func (s *TrustScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 	keyStr := msg.String()
 	switch keyStr {
 	case "t", "T":

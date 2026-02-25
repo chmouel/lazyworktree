@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
@@ -19,7 +19,7 @@ func TestTrustScreenUpdateAndView(t *testing.T) {
 		called = true
 		return nil
 	}
-	_, cmd := screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	_, cmd := screen.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
 	if cmd != nil {
 		t.Fatal("expected no command for trust")
 	}
@@ -42,7 +42,7 @@ func TestWelcomeScreenUpdateAndView(t *testing.T) {
 		called = true
 		return tea.Quit
 	}
-	_, cmd := screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	_, cmd := screen.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
 	if cmd == nil {
 		t.Fatal("expected quit command for quit key")
 	}
@@ -70,7 +70,7 @@ func TestCommitScreenUpdateAndView(t *testing.T) {
 	}
 	screen := appscreen.NewCommitScreen(meta, "stat", strings.Repeat("diff\n", 5), false, thm)
 
-	_, cmd := screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	_, cmd := screen.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	if cmd != nil {
 		t.Fatal("expected no command on scroll update")
 	}
@@ -237,17 +237,17 @@ func TestCommitFilesScreen_Update(t *testing.T) {
 
 	// Test navigation
 	screen.Cursor = 0
-	screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	screen.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	if screen.Cursor != 1 {
 		t.Errorf("expected cursor 1 after 'j', got %d", screen.Cursor)
 	}
-	screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	screen.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	if screen.Cursor != 0 {
 		t.Errorf("expected cursor 0 after 'k', got %d", screen.Cursor)
 	}
 
 	// Test entering filter mode
-	screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("f")})
+	screen.Update(tea.KeyPressMsg{Code: 'f', Text: "f"})
 	if !screen.ShowingFilter {
 		t.Error("expected ShowingFilter to be true after 'f'")
 	}
@@ -256,7 +256,7 @@ func TestCommitFilesScreen_Update(t *testing.T) {
 	}
 
 	// Test typing in filter
-	screen.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
+	screen.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
 	if screen.FilterInput.Value() != "a" {
 		t.Errorf("expected filter input 'a', got %s", screen.FilterInput.Value())
 	}
@@ -266,7 +266,7 @@ func TestCommitFilesScreen_Update(t *testing.T) {
 	}
 
 	// Exit filter
-	screen.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	screen.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if screen.ShowingFilter {
 		t.Error("expected filter mode to end on Esc")
 	}
