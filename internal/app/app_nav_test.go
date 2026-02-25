@@ -127,7 +127,7 @@ func TestRenderPaneTitleBasic(t *testing.T) {
 	m.theme = theme.Dracula()
 
 	// Test basic title rendering (no filter, no zoom)
-	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+	title := m.renderPaneBlock(1, "Worktrees", true, 100, 10, "")
 
 	if !strings.Contains(title, "[1]") {
 		t.Error("Expected title to contain pane number [1]")
@@ -153,7 +153,7 @@ func TestRenderPaneTitleWithFilter(t *testing.T) {
 	m.state.view.ShowingFilter = false
 	m.state.view.ShowingSearch = false
 
-	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+	title := m.renderPaneBlock(1, "Worktrees", true, 100, 10, "")
 
 	if !strings.Contains(title, "Filtered") {
 		t.Error("Expected filter indicator to show 'Filtered'")
@@ -174,7 +174,7 @@ func TestRenderPaneTitleWithZoom(t *testing.T) {
 	m.theme = theme.Dracula()
 	m.state.view.ZoomedPane = 0 // Zoom pane 0
 
-	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+	title := m.renderPaneBlock(1, "Worktrees", true, 100, 10, "")
 
 	if !strings.Contains(title, "Zoomed") {
 		t.Error("Expected zoom indicator to show 'Zoomed'")
@@ -198,7 +198,7 @@ func TestRenderPaneTitleWithFilterAndZoom(t *testing.T) {
 	m.state.view.ShowingSearch = false
 	m.state.view.ZoomedPane = 0 // Zoom pane 0
 
-	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+	title := m.renderPaneBlock(1, "Worktrees", true, 100, 10, "")
 
 	// Should show both indicators
 	if !strings.Contains(title, "Filtered") {
@@ -218,7 +218,7 @@ func TestRenderPaneTitleNoZoomWhenDifferentPane(t *testing.T) {
 	m.state.view.ZoomedPane = 1 // Zoom pane 1 (status)
 
 	// Render title for pane 0 (worktrees)
-	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+	title := m.renderPaneBlock(1, "Worktrees", true, 100, 10, "")
 
 	if strings.Contains(title, "Zoomed") {
 		t.Error("Expected no zoom indicator for unzoomed pane")
@@ -234,7 +234,7 @@ func TestRenderPaneTitleUsesAccentFg(t *testing.T) {
 	m.theme = theme.CleanLight()
 	m.state.view.ZoomedPane = 0
 
-	title := m.renderPaneTitle(1, "Worktrees", true, 100)
+	title := m.renderPaneBlock(1, "Worktrees", true, 100, 10, "")
 
 	// The title should contain styling - we can't directly test the color
 	// but we can verify the indicator is present and properly formatted
@@ -247,7 +247,7 @@ func TestRenderPaneTitleUsesAccentFg(t *testing.T) {
 	m.state.view.ShowingFilter = false
 	m.state.view.ShowingSearch = false
 
-	title = m.renderPaneTitle(1, "Worktrees", true, 100)
+	title = m.renderPaneBlock(1, "Worktrees", true, 100, 10, "")
 
 	if !strings.Contains(title, "Filtered") || !strings.Contains(title, "Esc") {
 		t.Error("Expected properly formatted filter indicator with theme colors")

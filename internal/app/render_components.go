@@ -144,23 +144,41 @@ func (m *Model) renderKeyHint(key, label string) string {
 	return fmt.Sprintf("%s %s", keyStyle.Render(key), labelStyle.Render(label))
 }
 
-// renderPaneTitle renders a pane title with focus indicators.
-func (m *Model) renderPaneTitle(index int, title string, focused bool, width int) string {
+// renderPaneBlock renders a pane block with the title embedded in the top border.
+func (m *Model) renderPaneBlock(index int, title string, focused bool, width int, height int, innerContent string) string {
+	border := lipgloss.NormalBorder()
+	borderColor := m.theme.BorderDim
+	if focused {
+		border = lipgloss.RoundedBorder()
+		borderColor = m.theme.Accent
+	}
+
+	contentStyle := lipgloss.NewStyle().
+		Border(border).
+		BorderTop(false).
+		BorderForeground(borderColor).
+		Padding(0, 1).
+		Width(width).
+		Height(height - 1).
+		MaxHeight(height - 1)
+
+	styledContent := contentStyle.Render(innerContent)
+
 	showIcons := m.config.IconsEnabled()
-	numStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
-	titleStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg)
+	numStr := fmt.Sprintf("[%d]", index)
+	if showIcons {
+		numStr = fmt.Sprintf("(%d)", index)
+	}
+
+	numStyle := lipgloss.NewStyle().Foreground(m.theme.TextFg)
+	titleStyle := lipgloss.NewStyle().Foreground(m.theme.TextFg)
 	if focused {
 		numStyle = numStyle.Foreground(m.theme.Accent).Bold(true)
-		titleStyle = titleStyle.Foreground(m.theme.TextFg).Bold(true)
+		titleStyle = titleStyle.Foreground(m.theme.Accent).Bold(true)
 	}
-	num := numStyle.Render(fmt.Sprintf("[%d]", index))
-	if showIcons {
-		num = numStyle.Render(fmt.Sprintf("(%d)", index))
-	}
-	name := titleStyle.Render(title)
 
 	filterIndicator := ""
-	paneIdx := index - 1 // index is 1-based, panes are 0-based
+	paneIdx := index - 1
 	if !m.state.view.ShowingFilter && !m.state.view.ShowingSearch && m.hasActiveFilterForPane(paneIdx) {
 		filteredStyle := lipgloss.NewStyle().Foreground(m.theme.WarnFg).Italic(true)
 		keyStyle := lipgloss.NewStyle().
@@ -190,7 +208,28 @@ func (m *Model) renderPaneTitle(index int, title string, focused bool, width int
 			lipgloss.NewStyle().Foreground(m.theme.MutedFg).Render("Unzoom"))
 	}
 
-	return lipgloss.NewStyle().Width(width).Render(fmt.Sprintf("%s %s%s%s", num, name, filterIndicator, zoomIndicator))
+	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
+	borderLine := borderStyle.Render(border.Top)
+
+	styledTitleBlock := borderLine + numStyle.Render(numStr) + borderLine + titleStyle.Render(title) + borderLine
+
+	topLeft := border.TopLeft
+	topRight := border.TopRight
+	topLine := border.Top
+
+	usedWidth := lipgloss.Width(topLeft) + lipgloss.Width(styledTitleBlock) + lipgloss.Width(filterIndicator) + lipgloss.Width(zoomIndicator) + lipgloss.Width(topRight)
+	remaining := width - usedWidth
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	styledTopLeft := borderStyle.Render(topLeft)
+	styledTopRight := borderStyle.Render(topRight)
+	styledRemaining := borderStyle.Render(strings.Repeat(topLine, remaining))
+
+	finalTopBorder := styledTopLeft + styledTitleBlock + filterIndicator + zoomIndicator + styledRemaining + styledTopRight
+
+	return lipgloss.JoinVertical(lipgloss.Left, finalTopBorder, styledContent)
 }
 
 // renderInnerBox renders a bordered inner box with title and content.
@@ -218,21 +257,6 @@ func (m *Model) basePaneStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(m.theme.BorderDim).
-		Padding(0, 1)
-}
-
-// paneStyle returns a pane style with focus indication.
-func (m *Model) paneStyle(focused bool) lipgloss.Style {
-	borderColor := m.theme.BorderDim
-	borderStyle := lipgloss.NormalBorder()
-	if focused {
-		borderColor = m.theme.Accent
-		// Use rounded border for focused panes for modern look
-		borderStyle = lipgloss.RoundedBorder()
-	}
-	return lipgloss.NewStyle().
-		Border(borderStyle).
-		BorderForeground(borderColor).
 		Padding(0, 1)
 }
 
