@@ -206,6 +206,175 @@ func TestHandleWorktreesLoadedSelectsPendingPath(t *testing.T) {
 	}
 }
 
+// TestHandleWorktreesLoadedAssignsPendingPR tests that PR info is assigned to the
+// newly created worktree when handleWorktreesLoaded runs with a pendingPR.
+func TestHandleWorktreesLoadedAssignsPendingPR(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	wt1Path := filepath.Join(cfg.WorktreeDir, "main")
+	wt2Path := filepath.Join(cfg.WorktreeDir, "pr-42")
+
+	worktrees := []*models.WorktreeInfo{
+		{Path: wt1Path, Branch: "main", IsMain: true},
+		{Path: wt2Path, Branch: "pr-branch"},
+	}
+
+	pr := &models.PRInfo{
+		Number: 42,
+		Title:  "Fix everything",
+		Branch: "pr-branch",
+		Author: "alice",
+	}
+	m.pendingSelectWorktreePath = wt2Path
+	m.pendingPR = pr
+	m.pendingPRPath = wt2Path
+
+	msg := worktreesLoadedMsg{worktrees: worktrees, err: nil}
+	_, _ = m.handleWorktreesLoaded(msg)
+
+	// The worktree should have PR info assigned
+	var found *models.WorktreeInfo
+	for _, wt := range m.state.data.worktrees {
+		if wt.Path == wt2Path {
+			found = wt
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("Expected to find worktree at pr-42 path")
+	}
+	if found.PR == nil {
+		t.Fatal("Expected PR to be assigned to worktree")
+	}
+	if found.PR.Number != 42 {
+		t.Errorf("Expected PR number 42, got %d", found.PR.Number)
+	}
+	if found.PRFetchStatus != models.PRFetchStatusLoaded {
+		t.Errorf("Expected PRFetchStatus to be %q, got %q", models.PRFetchStatusLoaded, found.PRFetchStatus)
+	}
+
+	// prDataLoaded should be true and pending PR state should be cleared
+	if !m.prDataLoaded {
+		t.Error("Expected prDataLoaded to be true")
+	}
+	if m.pendingPR != nil {
+		t.Error("Expected pendingPR to be cleared")
+	}
+	if m.pendingPRPath != "" {
+		t.Errorf("Expected pendingPRPath to be cleared, got %q", m.pendingPRPath)
+	}
+}
+
+// TestHandleWorktreesLoadedAssignsPendingPRToOriginalPath ensures pending PR metadata
+// is applied to its own target path even if pending selection changes before refresh.
+func TestHandleWorktreesLoadedAssignsPendingPRToOriginalPath(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	prPath := filepath.Join(cfg.WorktreeDir, "pr-42")
+	otherPath := filepath.Join(cfg.WorktreeDir, "feature")
+	worktrees := []*models.WorktreeInfo{
+		{Path: filepath.Join(cfg.WorktreeDir, "main"), Branch: "main", IsMain: true},
+		{Path: prPath, Branch: "pr-branch"},
+		{Path: otherPath, Branch: "feature"},
+	}
+
+	m.pendingSelectWorktreePath = otherPath
+	m.pendingPR = &models.PRInfo{Number: 42, Title: "Fix everything", Branch: "pr-branch"}
+	m.pendingPRPath = prPath
+
+	_, _ = m.handleWorktreesLoaded(worktreesLoadedMsg{worktrees: worktrees})
+
+	var prWt, otherWt *models.WorktreeInfo
+	for _, wt := range m.state.data.worktrees {
+		switch wt.Path {
+		case prPath:
+			prWt = wt
+		case otherPath:
+			otherWt = wt
+		}
+	}
+	if prWt == nil || otherWt == nil {
+		t.Fatal("Expected to find both PR and non-PR worktrees")
+	}
+	if prWt.PR == nil || prWt.PR.Number != 42 {
+		t.Fatal("Expected pending PR to be assigned to original PR path")
+	}
+	if otherWt.PR != nil {
+		t.Fatal("Expected non-PR worktree to remain without PR metadata")
+	}
+	if m.pendingPR != nil || m.pendingPRPath != "" {
+		t.Fatal("Expected pending PR state to be cleared after assignment")
+	}
+}
+
+// TestCreateFromPRResultMsgErrorClearsPendingPR tests that pendingPR is cleared on error.
+func TestCreateFromPRResultMsgErrorClearsPendingPR(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+	m.pendingPR = &models.PRInfo{Number: 99, Title: "Test"}
+	m.pendingPRPath = "/some/path"
+	m.pendingSelectWorktreePath = "/some/path"
+
+	msg := createFromPRResultMsg{
+		prNumber:   99,
+		branch:     "test-branch",
+		targetPath: "/tmp/pr-99",
+		err:        fmt.Errorf("git error"),
+	}
+
+	_, _ = m.Update(msg)
+
+	if m.pendingPR != nil {
+		t.Error("Expected pendingPR to be cleared on error")
+	}
+	if m.pendingPRPath != "" {
+		t.Errorf("Expected pendingPRPath to be cleared on error, got %q", m.pendingPRPath)
+	}
+}
+
+// TestCreateFromPRResultMsgSuccessSetsPendingPR tests that pendingPR is set on success.
+func TestCreateFromPRResultMsgSuccessSetsPendingPR(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+	m.loading = true
+	m.setLoadingScreen("Creating worktree...")
+
+	pr := &models.PRInfo{Number: 123, Title: "Test PR", Branch: "feature"}
+	targetPath := filepath.Join(cfg.WorktreeDir, "pr-123")
+	msg := createFromPRResultMsg{
+		prNumber:   123,
+		branch:     "feature-branch",
+		targetPath: targetPath,
+		pr:         pr,
+	}
+
+	_, _ = m.Update(msg)
+
+	if m.pendingPR == nil {
+		t.Fatal("Expected pendingPR to be set after successful creation")
+	}
+	if m.pendingPR.Number != 123 {
+		t.Errorf("Expected pendingPR number 123, got %d", m.pendingPR.Number)
+	}
+	if m.pendingPRPath != targetPath {
+		t.Errorf("Expected pendingPRPath %q, got %q", targetPath, m.pendingPRPath)
+	}
+}
+
 // TestHandleWorktreesLoadedPendingPathNotFound tests behavior when pending path doesn't exist.
 func TestHandleWorktreesLoadedPendingPathNotFound(t *testing.T) {
 	cfg := &config.AppConfig{

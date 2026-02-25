@@ -74,6 +74,24 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 		}
 	}
 
+	// Apply pending PR metadata to the specific worktree path it was created for.
+	if m.pendingPR != nil && m.pendingPRPath != "" {
+		for _, wt := range m.state.data.worktrees {
+			if wt.Path != m.pendingPRPath {
+				continue
+			}
+			wt.PR = m.pendingPR
+			wt.PRFetchStatus = models.PRFetchStatusLoaded
+			if !m.prDataLoaded {
+				m.prDataLoaded = true
+				m.updateTableColumns(m.state.ui.worktreeTable.Width())
+			}
+			m.pendingPR = nil
+			m.pendingPRPath = ""
+			break
+		}
+	}
+
 	// Now update table with the new timestamp
 	m.updateTable()
 
@@ -470,6 +488,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 				branch:     localBranch,
 				targetPath: targetPath,
 				note:       noteText,
+				pr:         pr,
 			}
 		}
 	}
