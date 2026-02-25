@@ -237,7 +237,7 @@ func TestCombinedStatusIndicator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := combinedStatusIndicator(tt.dirty, tt.hasUpstream, tt.ahead, tt.behind, tt.unpushed, tt.showIcons, tt.iconSet)
+			result := combinedStatusIndicator(tt.dirty, tt.hasUpstream, tt.ahead, tt.behind, tt.unpushed, tt.showIcons)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

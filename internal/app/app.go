@@ -28,28 +28,22 @@ import (
 )
 
 const (
-	keyEnter    = "enter"
-	keyEsc      = "esc"
-	keyEscRaw   = "\x1b" // Raw escape byte for terminals that send ESC as a rune
-	keyCtrlD    = "ctrl+d"
-	keyCtrlU    = "ctrl+u"
-	keyCtrlC    = "ctrl+c"
-	keyCtrlJ    = "ctrl+j"
-	keyCtrlK    = "ctrl+k"
-	keyDown     = "down"
-	keyUp       = "up"
-	keyQ        = "q"
-	keyTab      = "tab"
-	keyShiftTab = "shift+tab"
+	keyEnter  = "enter"
+	keyEsc    = "esc"
+	keyEscRaw = "\x1b" // Raw escape byte for terminals that send ESC as a rune
+	keyCtrlC  = "ctrl+c"
+	keyCtrlJ  = "ctrl+j"
+	keyCtrlK  = "ctrl+k"
+	keyDown   = "down"
+	keyUp     = "up"
+	keyQ      = "q"
+	keyTab    = "tab"
 
 	errBranchEmpty           = "Branch name cannot be empty."
 	errNoWorktreeSelected    = "No worktree selected."
 	errPRBranchMissing       = "PR branch information is missing."
 	customCommandPlaceholder = "Custom command"
 	onExistsAttach           = "attach"
-	onExistsKill             = "kill"
-	onExistsNew              = "new"
-	onExistsSwitch           = "switch"
 
 	detailsCacheTTL  = 2 * time.Second
 	debounceDelay    = 200 * time.Millisecond

@@ -195,7 +195,7 @@ func (m *Model) updateTable() {
 				name = string(nameRunes[:m.config.MaxNameLength]) + "..."
 			}
 		}
-		statusStr := combinedStatusIndicator(wt.Dirty, wt.HasUpstream, wt.Ahead, wt.Behind, wt.Unpushed, showIcons, m.config.IconSet)
+		statusStr := combinedStatusIndicator(wt.Dirty, wt.HasUpstream, wt.Ahead, wt.Behind, wt.Unpushed, showIcons)
 
 		row := table.Row{
 			name,
