@@ -16,6 +16,9 @@ func (m *Model) View() tea.View {
 	v.MouseMode = tea.MouseModeCellMotion
 	v.ReportFocus = true
 	v.WindowTitle = m.windowTitle()
+	if m.loading {
+		v.ProgressBar = tea.NewProgressBar(tea.ProgressBarIndeterminate, 0)
+	}
 
 	if m.quitting {
 		return v
