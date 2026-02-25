@@ -610,6 +610,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.debugf("terminal blurred")
 		return m, nil
 
+	case tea.ColorProfileMsg:
+		m.debugf("colour profile: %s", msg.Profile)
+		return m, nil
+
 	case tea.MouseClickMsg:
 		return m.handleMouseClick(msg)
 
