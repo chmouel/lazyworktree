@@ -166,6 +166,27 @@ func (m *Model) computeLayout() layoutDims {
 	paneFrameX := m.basePaneStyle().GetHorizontalFrameSize()
 	paneFrameY := m.basePaneStyle().GetVerticalFrameSize()
 
+	// Compute notes pane height first so the commit pane can match it
+	var leftTopHeight, leftBottomHeight, leftTopInnerHeight, leftBottomInnerHeight int
+	if hasNotes {
+		notesRatio := 0.30
+		if m.state.view.FocusedPane == 4 {
+			notesRatio = 0.50
+		}
+		leftBottomHeight = maxInt(4, int(float64(bodyHeight-gapY)*notesRatio))
+		leftTopHeight = bodyHeight - leftBottomHeight - gapY
+		if leftTopHeight < 4 {
+			leftTopHeight = 4
+			leftBottomHeight = bodyHeight - leftTopHeight - gapY
+		}
+	}
+
+	// Cap commit pane to notes pane height when notes exist, otherwise use a fixed cap
+	commitCap := 11
+	if hasNotes {
+		commitCap = leftBottomHeight
+	}
+
 	// Right column split: 3-way (Info / Git Status / Commit) or 2-way (Info / Commit) when clean
 	var rightTopHeight, rightMiddleHeight, rightBottomHeight int
 	if hasGitStatus {
@@ -186,7 +207,10 @@ func (m *Model) computeLayout() layoutDims {
 		rightTopHeight = maxInt(4, int(float64(availableHeight)*topRatio))
 		rightMiddleHeight = maxInt(4, int(float64(availableHeight)*midRatio))
 		rightBottomHeight = availableHeight - rightTopHeight - rightMiddleHeight
-		if rightBottomHeight < 4 {
+		if rightBottomHeight > commitCap {
+			rightBottomHeight = commitCap
+			rightTopHeight = availableHeight - rightMiddleHeight - rightBottomHeight
+		} else if rightBottomHeight < 4 {
 			rightBottomHeight = 4
 			rightMiddleHeight = availableHeight - rightTopHeight - rightBottomHeight
 			if rightMiddleHeight < 4 {
@@ -209,7 +233,10 @@ func (m *Model) computeLayout() layoutDims {
 		availableHeight := bodyHeight - gapY
 		rightTopHeight = maxInt(4, int(float64(availableHeight)*topRatio))
 		rightBottomHeight = availableHeight - rightTopHeight
-		if rightBottomHeight < 4 {
+		if rightBottomHeight > commitCap {
+			rightBottomHeight = commitCap
+			rightTopHeight = availableHeight - rightBottomHeight
+		} else if rightBottomHeight < 4 {
 			rightBottomHeight = 4
 			rightTopHeight = availableHeight - rightBottomHeight
 		}
@@ -222,19 +249,8 @@ func (m *Model) computeLayout() layoutDims {
 	rightMiddleInnerHeight := maxInt(1, rightMiddleHeight-paneFrameY)
 	rightBottomInnerHeight := maxInt(1, rightBottomHeight-paneFrameY)
 
-	// Split left column for notes pane when a note exists
-	var leftTopHeight, leftBottomHeight, leftTopInnerHeight, leftBottomInnerHeight int
+	// Finish notes inner dimensions
 	if hasNotes {
-		notesRatio := 0.30
-		if m.state.view.FocusedPane == 4 {
-			notesRatio = 0.50
-		}
-		leftBottomHeight = maxInt(4, int(float64(bodyHeight-gapY)*notesRatio))
-		leftTopHeight = bodyHeight - leftBottomHeight - gapY
-		if leftTopHeight < 4 {
-			leftTopHeight = 4
-			leftBottomHeight = bodyHeight - leftTopHeight - gapY
-		}
 		leftTopInnerHeight = maxInt(1, leftTopHeight-paneFrameY)
 		leftBottomInnerHeight = maxInt(1, leftBottomHeight-paneFrameY)
 	} else {
@@ -470,7 +486,9 @@ func (m *Model) applyLayout(layout layoutDims) {
 		m.state.ui.worktreeTable.SetHeight(tableHeight)
 		m.updateTableColumns(layout.topInnerWidth)
 
-		logHeight := maxInt(3, layout.bottomRightInnerHeight-titleHeight-tableHeaderHeight-2)
+		// Pane title is the top border, already accounted for in paneFrameY.
+		// Safety margin of 2 prevents overflow at small sizes.
+		logHeight := maxInt(3, layout.bottomRightInnerHeight-2)
 		m.state.ui.logTable.SetWidth(layout.bottomRightInnerWidth)
 		m.state.ui.logTable.SetHeight(logHeight)
 		m.updateLogColumns(layout.bottomRightInnerWidth)
@@ -487,7 +505,9 @@ func (m *Model) applyLayout(layout layoutDims) {
 		m.state.ui.worktreeTable.SetHeight(tableHeight)
 		m.updateTableColumns(layout.leftInnerWidth)
 
-		logHeight := maxInt(3, layout.rightBottomInnerHeight-titleHeight-tableHeaderHeight-2)
+		// Pane title is the top border, already accounted for in paneFrameY.
+		// Safety margin of 2 prevents overflow at small sizes.
+		logHeight := maxInt(3, layout.rightBottomInnerHeight-2)
 		m.state.ui.logTable.SetWidth(layout.rightInnerWidth)
 		m.state.ui.logTable.SetHeight(logHeight)
 		m.updateLogColumns(layout.rightInnerWidth)
