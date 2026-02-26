@@ -69,8 +69,15 @@ func (m *Model) renderFooter(layout layoutDims) string {
 	var hints []string
 
 	paneHint := "1-4"
+	if !m.hasGitStatus() {
+		paneHint = "1-2,4"
+	}
 	if m.hasNoteForSelectedWorktree() {
-		paneHint = "1-5"
+		if m.hasGitStatus() {
+			paneHint = "1-5"
+		} else {
+			paneHint = "1-2,4-5"
+		}
 	}
 
 	switch m.state.view.FocusedPane {

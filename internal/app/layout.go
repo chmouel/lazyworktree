@@ -27,6 +27,9 @@ type layoutDims struct {
 	rightMiddleInnerHeight int
 	rightBottomInnerHeight int
 
+	// Git status pane visibility
+	hasGitStatus bool
+
 	// Notes pane (default layout: left column split)
 	hasNotes              bool
 	leftTopHeight         int
@@ -86,6 +89,7 @@ func (m *Model) computeLayout() layoutDims {
 	bodyHeight := maxInt(height-headerHeight-footerHeight-filterHeight, 8)
 
 	hasNotes := m.hasNoteForSelectedWorktree()
+	hasGitStatus := m.hasGitStatus()
 
 	// Handle zoom mode: zoomed pane gets full body area
 	if m.state.view.ZoomedPane >= 0 {
@@ -104,6 +108,7 @@ func (m *Model) computeLayout() layoutDims {
 			bodyHeight:             bodyHeight,
 			gapX:                   0,
 			gapY:                   0,
+			hasGitStatus:           hasGitStatus,
 			hasNotes:               hasNotes,
 			leftWidth:              fullWidth,
 			rightWidth:             fullWidth,
@@ -124,7 +129,7 @@ func (m *Model) computeLayout() layoutDims {
 	}
 
 	if m.state.view.Layout == state.LayoutTop {
-		return m.computeTopLayoutDims(width, height, headerHeight, footerHeight, filterHeight, bodyHeight)
+		return m.computeTopLayoutDims(width, height, headerHeight, footerHeight, filterHeight, bodyHeight, hasGitStatus)
 	}
 
 	leftRatio := 0.55
@@ -158,35 +163,57 @@ func (m *Model) computeLayout() layoutDims {
 		rightWidth = 0
 	}
 
-	// 3-way vertical split: Status / Git Status / Commit
-	// Two gaps between the 3 panes
-	var topRatio, midRatio float64
-	switch m.state.view.FocusedPane {
-	case 1: // Status focused
-		topRatio, midRatio = 0.50, 0.30
-	case 2: // Git Status focused
-		topRatio, midRatio = 0.20, 0.60
-	case 3: // Commit focused
-		topRatio, midRatio = 0.20, 0.20
-	default: // Worktrees focused
-		topRatio, midRatio = 0.30, 0.40
-	}
-
-	availableHeight := bodyHeight - gapY*2
-	rightTopHeight := maxInt(4, int(float64(availableHeight)*topRatio))
-	rightMiddleHeight := maxInt(4, int(float64(availableHeight)*midRatio))
-	rightBottomHeight := availableHeight - rightTopHeight - rightMiddleHeight
-	if rightBottomHeight < 4 {
-		rightBottomHeight = 4
-		rightMiddleHeight = availableHeight - rightTopHeight - rightBottomHeight
-		if rightMiddleHeight < 4 {
-			rightMiddleHeight = 4
-			rightTopHeight = availableHeight - rightMiddleHeight - rightBottomHeight
-		}
-	}
-
 	paneFrameX := m.basePaneStyle().GetHorizontalFrameSize()
 	paneFrameY := m.basePaneStyle().GetVerticalFrameSize()
+
+	// Right column split: 3-way (Info / Git Status / Commit) or 2-way (Info / Commit) when clean
+	var rightTopHeight, rightMiddleHeight, rightBottomHeight int
+	if hasGitStatus {
+		// 3-way vertical split with two gaps
+		var topRatio, midRatio float64
+		switch m.state.view.FocusedPane {
+		case 1: // Status focused
+			topRatio, midRatio = 0.50, 0.30
+		case 2: // Git Status focused
+			topRatio, midRatio = 0.20, 0.60
+		case 3: // Commit focused
+			topRatio, midRatio = 0.20, 0.20
+		default: // Worktrees focused
+			topRatio, midRatio = 0.30, 0.40
+		}
+
+		availableHeight := bodyHeight - gapY*2
+		rightTopHeight = maxInt(4, int(float64(availableHeight)*topRatio))
+		rightMiddleHeight = maxInt(4, int(float64(availableHeight)*midRatio))
+		rightBottomHeight = availableHeight - rightTopHeight - rightMiddleHeight
+		if rightBottomHeight < 4 {
+			rightBottomHeight = 4
+			rightMiddleHeight = availableHeight - rightTopHeight - rightBottomHeight
+			if rightMiddleHeight < 4 {
+				rightMiddleHeight = 4
+				rightTopHeight = availableHeight - rightMiddleHeight - rightBottomHeight
+			}
+		}
+	} else {
+		// 2-way vertical split (Info / Commit) with one gap
+		var topRatio float64
+		switch m.state.view.FocusedPane {
+		case 1:
+			topRatio = 0.60
+		case 3:
+			topRatio = 0.30
+		default:
+			topRatio = 0.40
+		}
+
+		availableHeight := bodyHeight - gapY
+		rightTopHeight = maxInt(4, int(float64(availableHeight)*topRatio))
+		rightBottomHeight = availableHeight - rightTopHeight
+		if rightBottomHeight < 4 {
+			rightBottomHeight = 4
+			rightTopHeight = availableHeight - rightBottomHeight
+		}
+	}
 
 	leftInnerWidth := maxInt(1, leftWidth-paneFrameX)
 	rightInnerWidth := maxInt(1, rightWidth-paneFrameX)
@@ -224,6 +251,7 @@ func (m *Model) computeLayout() layoutDims {
 		bodyHeight:             bodyHeight,
 		gapX:                   gapX,
 		gapY:                   gapY,
+		hasGitStatus:           hasGitStatus,
 		hasNotes:               hasNotes,
 		leftWidth:              leftWidth,
 		rightWidth:             rightWidth,
@@ -245,7 +273,7 @@ func (m *Model) computeLayout() layoutDims {
 
 // computeTopLayoutDims calculates dimensions for the top layout mode
 // where worktrees span the full width at top and status+git status+commit sit side-by-side at bottom.
-func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, filterHeight, bodyHeight int) layoutDims {
+func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, filterHeight, bodyHeight int, hasGitStatus bool) layoutDims {
 	gapX := 1
 	gapY := 1
 
@@ -273,52 +301,76 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		topHeight = 4
 	}
 
-	// Bottom 3-way horizontal split: Status / Git Status / Commit
-	// Two gaps between the 3 panes
-	var leftRatio, midRatio float64
-	switch m.state.view.FocusedPane {
-	case 1: // Status focused
-		leftRatio, midRatio = 0.50, 0.30
-	case 2: // Git Status focused
-		leftRatio, midRatio = 0.20, 0.60
-	case 3: // Commit focused
-		leftRatio, midRatio = 0.20, 0.20
-	default: // Worktrees focused
-		leftRatio, midRatio = 0.30, 0.40
-	}
+	// Bottom horizontal split: 3-way (Info / Git Status / Commit) or 2-way (Info / Commit)
+	var bottomLeftWidth, bottomMiddleWidth, bottomRightWidth int
+	if hasGitStatus {
+		// 3-way with two gaps
+		var leftRatio, midRatio float64
+		switch m.state.view.FocusedPane {
+		case 1: // Status focused
+			leftRatio, midRatio = 0.50, 0.30
+		case 2: // Git Status focused
+			leftRatio, midRatio = 0.20, 0.60
+		case 3: // Commit focused
+			leftRatio, midRatio = 0.20, 0.20
+		default: // Worktrees focused
+			leftRatio, midRatio = 0.30, 0.40
+		}
 
-	availableWidth := width - gapX*2
-	bottomLeftWidth := maxInt(minLeftPaneWidth, int(float64(availableWidth)*leftRatio))
-	bottomMiddleWidth := maxInt(minRightPaneWidth, int(float64(availableWidth)*midRatio))
-	bottomRightWidth := availableWidth - bottomLeftWidth - bottomMiddleWidth
-	if bottomRightWidth < minRightPaneWidth {
-		bottomRightWidth = minRightPaneWidth
-		bottomMiddleWidth = availableWidth - bottomLeftWidth - bottomRightWidth
-		if bottomMiddleWidth < minRightPaneWidth {
-			bottomMiddleWidth = minRightPaneWidth
-			bottomLeftWidth = availableWidth - bottomMiddleWidth - bottomRightWidth
+		availableWidth := width - gapX*2
+		bottomLeftWidth = maxInt(minLeftPaneWidth, int(float64(availableWidth)*leftRatio))
+		bottomMiddleWidth = maxInt(minRightPaneWidth, int(float64(availableWidth)*midRatio))
+		bottomRightWidth = availableWidth - bottomLeftWidth - bottomMiddleWidth
+		if bottomRightWidth < minRightPaneWidth {
+			bottomRightWidth = minRightPaneWidth
+			bottomMiddleWidth = availableWidth - bottomLeftWidth - bottomRightWidth
+			if bottomMiddleWidth < minRightPaneWidth {
+				bottomMiddleWidth = minRightPaneWidth
+				bottomLeftWidth = availableWidth - bottomMiddleWidth - bottomRightWidth
+			}
 		}
-	}
-	if bottomLeftWidth < minLeftPaneWidth {
-		bottomLeftWidth = minLeftPaneWidth
-	}
+		if bottomLeftWidth < minLeftPaneWidth {
+			bottomLeftWidth = minLeftPaneWidth
+		}
 
-	// Final clamp: ensure widths + gaps do not exceed total width
-	totalBottom := bottomLeftWidth + gapX + bottomMiddleWidth + gapX + bottomRightWidth
-	if totalBottom > width {
-		excess := totalBottom - width
-		// Shrink the widest pane first, then others
-		for excess > 0 && bottomRightWidth > 8 {
-			bottomRightWidth--
-			excess--
+		// Final clamp: ensure widths + gaps do not exceed total width
+		totalBottom := bottomLeftWidth + gapX + bottomMiddleWidth + gapX + bottomRightWidth
+		if totalBottom > width {
+			excess := totalBottom - width
+			for excess > 0 && bottomRightWidth > 8 {
+				bottomRightWidth--
+				excess--
+			}
+			for excess > 0 && bottomMiddleWidth > 8 {
+				bottomMiddleWidth--
+				excess--
+			}
+			for excess > 0 && bottomLeftWidth > 8 {
+				bottomLeftWidth--
+				excess--
+			}
 		}
-		for excess > 0 && bottomMiddleWidth > 8 {
-			bottomMiddleWidth--
-			excess--
+	} else {
+		// 2-way with one gap (Info / Commit)
+		var leftRatio float64
+		switch m.state.view.FocusedPane {
+		case 1:
+			leftRatio = 0.55
+		case 3:
+			leftRatio = 0.35
+		default:
+			leftRatio = 0.45
 		}
-		for excess > 0 && bottomLeftWidth > 8 {
-			bottomLeftWidth--
-			excess--
+
+		availableWidth := width - gapX
+		bottomLeftWidth = maxInt(minLeftPaneWidth, int(float64(availableWidth)*leftRatio))
+		bottomRightWidth = availableWidth - bottomLeftWidth
+		if bottomRightWidth < minRightPaneWidth {
+			bottomRightWidth = minRightPaneWidth
+			bottomLeftWidth = availableWidth - bottomRightWidth
+		}
+		if bottomLeftWidth < minLeftPaneWidth {
+			bottomLeftWidth = minLeftPaneWidth
 		}
 	}
 
@@ -364,6 +416,7 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		gapX:         gapX,
 		gapY:         gapY,
 		layoutMode:   state.LayoutTop,
+		hasGitStatus: hasGitStatus,
 		hasNotes:     hasNotes,
 
 		// Notes row

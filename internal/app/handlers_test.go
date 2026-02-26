@@ -2583,6 +2583,8 @@ func TestPaneKey3ToggleZoom(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 2
 	m.state.view.ZoomedPane = -1
+	// Add status files so git status pane is available
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
 
 	// Press 3 while on pane 2, not zoomed - should zoom
 	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '3', Text: string('3')})
@@ -2622,6 +2624,8 @@ func TestPaneKeyCrossPaneSwitching(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.state.view.FocusedPane = 0
 	m.state.view.ZoomedPane = 0
+	// Add status files so git status pane is available
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
 
 	// Press 2 while on pane 0 (zoomed) - should switch to pane 1 and exit zoom
 	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '2', Text: string('2')})
@@ -4388,6 +4392,8 @@ func TestNextPaneWithoutNotes(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
 	m.state.data.selectedIndex = 0
+	// Add status files so git status pane is included
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
 
 	// Without notes, cycle is 0 -> 1 -> 2 -> 3 -> 0
 	assert.Equal(t, 1, m.nextPane(0, 1))
@@ -4407,6 +4413,8 @@ func TestNextPaneWithNotes(t *testing.T) {
 	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
 	m.state.data.selectedIndex = 0
 	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "hello"}
+	// Add status files so git status pane is included
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
 
 	// With notes, cycle is 0 -> 4 -> 1 -> 2 -> 3 -> 0
 	assert.Equal(t, 4, m.nextPane(0, 1))
@@ -4518,6 +4526,8 @@ func TestTabCycleIncludesNotesPaneWhenNoteExists(t *testing.T) {
 	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
 	m.state.data.selectedIndex = 0
 	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "a note"}
+	// Add status files so git status pane is included
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
 	m.state.view.FocusedPane = 0
 	m.state.view.ZoomedPane = -1
 
@@ -4548,4 +4558,207 @@ func TestHasNoteForSelectedWorktree(t *testing.T) {
 	// Empty note should not count
 	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "  "}
 	assert.False(t, m.hasNoteForSelectedWorktree())
+}
+
+func TestNextPaneWithoutGitStatus(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+	// No status files => clean working tree
+
+	// Without git status, cycle is 0 -> 1 -> 3 -> 0 (pane 2 skipped)
+	assert.Equal(t, 1, m.nextPane(0, 1))
+	assert.Equal(t, 3, m.nextPane(1, 1))
+	assert.Equal(t, 0, m.nextPane(3, 1))
+
+	// Reverse
+	assert.Equal(t, 3, m.nextPane(0, -1))
+	assert.Equal(t, 1, m.nextPane(3, -1))
+	assert.Equal(t, 0, m.nextPane(1, -1))
+}
+
+func TestNextPaneWithGitStatus(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+
+	// With git status, cycle is 0 -> 1 -> 2 -> 3 -> 0
+	assert.Equal(t, 1, m.nextPane(0, 1))
+	assert.Equal(t, 2, m.nextPane(1, 1))
+	assert.Equal(t, 3, m.nextPane(2, 1))
+	assert.Equal(t, 0, m.nextPane(3, 1))
+
+	// Reverse
+	assert.Equal(t, 3, m.nextPane(0, -1))
+	assert.Equal(t, 0, m.nextPane(1, -1))
+}
+
+func TestPaneKey3IgnoredWhenClean(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+
+	m.state.view.FocusedPane = 0
+	m.state.view.ZoomedPane = -1
+
+	// Press 3 with clean status — should do nothing
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '3', Text: "3"})
+	um := updated.(*Model)
+
+	assert.Equal(t, 0, um.state.view.FocusedPane)
+	assert.Equal(t, -1, um.state.view.ZoomedPane)
+}
+
+func TestPaneKey3WorksWhenDirty(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+
+	m.state.view.FocusedPane = 0
+	m.state.view.ZoomedPane = -1
+
+	// Press 3 with dirty status — should focus pane 2
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '3', Text: "3"})
+	um := updated.(*Model)
+
+	assert.Equal(t, 2, um.state.view.FocusedPane)
+}
+
+func TestFocusResetWhenStatusBecomesClean(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+
+	// Start with dirty files and focus on git status pane
+	m.setStatusFiles([]StatusFile{{Filename: "file.go", Status: ".M"}})
+	m.state.view.FocusedPane = 2
+	m.state.view.ZoomedPane = 2
+
+	// Status becomes clean
+	m.setStatusFiles(nil)
+
+	// Focus should reset to pane 0 and zoom should clear
+	assert.Equal(t, 0, m.state.view.FocusedPane)
+	assert.Equal(t, -1, m.state.view.ZoomedPane)
+}
+
+func TestHasGitStatus(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	assert.False(t, m.hasGitStatus())
+
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+	assert.True(t, m.hasGitStatus())
+
+	m.state.data.statusFilesAll = nil
+	assert.False(t, m.hasGitStatus())
+}
+
+func TestHKeySkipsGitStatusWhenClean(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+	// No status files => clean working tree
+
+	t.Run("top layout h from pane 3 skips to pane 1", func(t *testing.T) {
+		m.state.view.Layout = state.LayoutTop
+		m.state.view.FocusedPane = 3
+		m.state.view.ZoomedPane = -1
+
+		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
+		um := updated.(*Model)
+		assert.Equal(t, 1, um.state.view.FocusedPane)
+	})
+
+	t.Run("top layout h from pane 3 goes to pane 2 when dirty", func(t *testing.T) {
+		m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+		m.state.view.Layout = state.LayoutTop
+		m.state.view.FocusedPane = 3
+		m.state.view.ZoomedPane = -1
+
+		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
+		um := updated.(*Model)
+		assert.Equal(t, 2, um.state.view.FocusedPane)
+		m.state.data.statusFilesAll = nil
+	})
+}
+
+func TestLKeySkipsGitStatusWhenClean(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+	// No status files => clean working tree
+
+	t.Run("top layout l from pane 1 skips to pane 3", func(t *testing.T) {
+		m.state.view.Layout = state.LayoutTop
+		m.state.view.FocusedPane = 1
+		m.state.view.ZoomedPane = -1
+
+		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
+		um := updated.(*Model)
+		assert.Equal(t, 3, um.state.view.FocusedPane)
+	})
+
+	t.Run("default layout l from pane 1 skips to pane 3", func(t *testing.T) {
+		m.state.view.Layout = state.LayoutDefault
+		m.state.view.FocusedPane = 1
+		m.state.view.ZoomedPane = -1
+
+		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
+		um := updated.(*Model)
+		assert.Equal(t, 3, um.state.view.FocusedPane)
+	})
+
+	t.Run("top layout l from pane 1 goes to pane 2 when dirty", func(t *testing.T) {
+		m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+		m.state.view.Layout = state.LayoutTop
+		m.state.view.FocusedPane = 1
+		m.state.view.ZoomedPane = -1
+
+		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
+		um := updated.(*Model)
+		assert.Equal(t, 2, um.state.view.FocusedPane)
+		m.state.data.statusFilesAll = nil
+	})
+
+	t.Run("default layout l from pane 1 goes to pane 2 when dirty", func(t *testing.T) {
+		m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+		m.state.view.Layout = state.LayoutDefault
+		m.state.view.FocusedPane = 1
+		m.state.view.ZoomedPane = -1
+
+		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
+		um := updated.(*Model)
+		assert.Equal(t, 2, um.state.view.FocusedPane)
+		m.state.data.statusFilesAll = nil
+	})
+}
+
+func TestZoomPane2ResetsWhenClean(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+
+	// Zoom on pane 2 with no status files
+	m.state.view.ZoomedPane = 2
+	m.state.view.FocusedPane = 2
+
+	layout := m.computeLayout()
+	m.renderBody(layout)
+
+	// Zoom should have been reset
+	assert.Equal(t, -1, m.state.view.ZoomedPane)
 }

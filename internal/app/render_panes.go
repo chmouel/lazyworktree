@@ -519,17 +519,22 @@ func (m *Model) renderNotesBox(width, height int) string {
 func (m *Model) renderBody(layout layoutDims) string {
 	// Handle zoom mode: only render the zoomed pane (layout agnostic)
 	if m.state.view.ZoomedPane >= 0 {
-		switch m.state.view.ZoomedPane {
-		case 0:
-			return m.renderZoomedLeftPane(layout)
-		case 1:
-			return m.renderZoomedRightTopPane(layout)
-		case 2:
-			return m.renderZoomedRightMiddlePane(layout)
-		case 3:
-			return m.renderZoomedRightBottomPane(layout)
-		case 4:
-			return m.renderZoomedNotesPane(layout)
+		// If zoomed on git status pane but it's hidden, reset zoom
+		if m.state.view.ZoomedPane == 2 && !layout.hasGitStatus {
+			m.state.view.ZoomedPane = -1
+		} else {
+			switch m.state.view.ZoomedPane {
+			case 0:
+				return m.renderZoomedLeftPane(layout)
+			case 1:
+				return m.renderZoomedRightTopPane(layout)
+			case 2:
+				return m.renderZoomedRightMiddlePane(layout)
+			case 3:
+				return m.renderZoomedRightBottomPane(layout)
+			case 4:
+				return m.renderZoomedNotesPane(layout)
+			}
 		}
 	}
 
@@ -565,9 +570,12 @@ func (m *Model) renderLeftPane(layout layoutDims) string {
 // renderRightPane renders the right pane container (status + git status + commit).
 func (m *Model) renderRightPane(layout layoutDims) string {
 	top := m.renderRightTopPane(layout)
-	middle := m.renderRightMiddlePane(layout)
 	bottom := m.renderRightBottomPane(layout)
 	gap := strings.Repeat("\n", layout.gapY)
+	if !layout.hasGitStatus {
+		return lipgloss.JoinVertical(lipgloss.Left, top, gap, bottom)
+	}
+	middle := m.renderRightMiddlePane(layout)
 	return lipgloss.JoinVertical(lipgloss.Left, top, gap, middle, gap, bottom)
 }
 
@@ -652,11 +660,14 @@ func (m *Model) renderTopPane(layout layoutDims) string {
 // renderBottomPane renders the bottom pane container (status + git status + commit side by side).
 func (m *Model) renderBottomPane(layout layoutDims) string {
 	left := m.renderBottomLeftPane(layout)
-	middle := m.renderBottomMiddlePane(layout)
 	right := m.renderBottomRightPane(layout)
 	gap := lipgloss.NewStyle().
 		Width(layout.gapX).
 		Render(strings.Repeat(" ", layout.gapX))
+	if !layout.hasGitStatus {
+		return lipgloss.JoinHorizontal(lipgloss.Top, left, gap, right)
+	}
+	middle := m.renderBottomMiddlePane(layout)
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, gap, middle, gap, right)
 }
 

@@ -34,6 +34,8 @@ func TestComputeTopLayout(t *testing.T) {
 			m.state.view.WindowWidth = tt.width
 			m.state.view.WindowHeight = tt.height
 			m.state.view.FocusedPane = tt.focusedPane
+			// Add status files so git status pane is visible (3-way split)
+			m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
 
 			layout := m.computeLayout()
 
@@ -88,6 +90,8 @@ func TestComputeTopLayoutFocusDynamic(t *testing.T) {
 			m.state.view.WindowWidth = 120
 			m.state.view.WindowHeight = 40
 			m.state.view.FocusedPane = tt.focusedPane
+			// Add status files so git status pane is visible (3-way split)
+			m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
 
 			layout := m.computeLayout()
 
@@ -119,6 +123,8 @@ func TestApplyLayoutTopMode(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.state.view.WindowWidth = 120
 	m.state.view.WindowHeight = 40
+	// Add status files so git status pane is visible (3-way split)
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
 
 	layout := m.computeLayout()
 	m.applyLayout(layout)
@@ -285,4 +291,74 @@ func TestNotesPaneFocusIncreasesSize(t *testing.T) {
 
 	assert.Greater(t, layoutFocused.leftBottomHeight, layoutUnfocused.leftBottomHeight,
 		"notes pane should be larger when focused")
+}
+
+func TestDefaultLayoutWithoutGitStatus(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+
+	layout := m.computeLayout()
+
+	assert.False(t, layout.hasGitStatus)
+	// 2-way split: rightMiddleHeight should be 0
+	assert.Equal(t, 0, layout.rightMiddleHeight)
+	// Top + gap + bottom should equal body height (one gap only)
+	assert.Equal(t, layout.bodyHeight, layout.rightTopHeight+layout.gapY+layout.rightBottomHeight)
+}
+
+func TestDefaultLayoutWithGitStatus(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+
+	layout := m.computeLayout()
+
+	assert.True(t, layout.hasGitStatus)
+	assert.Positive(t, layout.rightMiddleHeight)
+	// 3-way split: top + gap + middle + gap + bottom should equal body height
+	assert.Equal(t, layout.bodyHeight, layout.rightTopHeight+layout.gapY+layout.rightMiddleHeight+layout.gapY+layout.rightBottomHeight)
+}
+
+func TestTopLayoutWithoutGitStatus(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir(), Layout: "top"}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+
+	layout := m.computeLayout()
+
+	assert.Equal(t, state.LayoutTop, layout.layoutMode)
+	assert.False(t, layout.hasGitStatus)
+	// 2-way split: bottomMiddleWidth should be 0
+	assert.Equal(t, 0, layout.bottomMiddleWidth)
+	// Left + gap + right should equal total width (one gap)
+	assert.Equal(t, 120, layout.bottomLeftWidth+layout.gapX+layout.bottomRightWidth)
+}
+
+func TestTopLayoutWithGitStatus(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir(), Layout: "top"}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+
+	layout := m.computeLayout()
+
+	assert.Equal(t, state.LayoutTop, layout.layoutMode)
+	assert.True(t, layout.hasGitStatus)
+	assert.Positive(t, layout.bottomMiddleWidth)
+	// 3-way split: left + gap + middle + gap + right should equal total width
+	assert.Equal(t, 120, layout.bottomLeftWidth+layout.gapX+layout.bottomMiddleWidth+layout.gapX+layout.bottomRightWidth)
 }

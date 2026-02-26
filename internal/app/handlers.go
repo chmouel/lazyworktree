@@ -229,20 +229,31 @@ func (m *Model) handlePrevFolder() (tea.Model, tea.Cmd) {
 }
 
 // nextPane returns the next pane index in the given direction (+1 or -1),
-// including pane 4 (Notes) in the cycle when a note exists.
+// including pane 4 (Notes) in the cycle when a note exists,
+// and excluding pane 2 (Git Status) when the working tree is clean.
 func (m *Model) nextPane(current, direction int) int {
-	// Build ordered pane list: notes sits after worktrees (0) visually
-	panes := []int{0, 1, 2, 3}
-	if m.hasNoteForSelectedWorktree() {
-		panes = []int{0, 4, 1, 2, 3}
+	// Build ordered pane list based on visible panes
+	hasNotes := m.hasNoteForSelectedWorktree()
+	hasGitStatus := m.hasGitStatus()
+
+	panes := make([]int, 0, 5)
+	panes = append(panes, 0)
+	if hasNotes {
+		panes = append(panes, 4)
 	}
+	panes = append(panes, 1)
+	if hasGitStatus {
+		panes = append(panes, 2)
+	}
+	panes = append(panes, 3)
+
 	for i, p := range panes {
 		if p == current {
 			next := (i + direction + len(panes)) % len(panes)
 			return panes[next]
 		}
 	}
-	// Fallback: if current pane not found (e.g. 4 with no note), start from 0
+	// Fallback: if current pane not found (e.g. hidden pane), start from 0
 	if direction > 0 {
 		return panes[0]
 	}
@@ -301,6 +312,9 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "3":
+		if !m.hasGitStatus() {
+			return m, nil
+		}
 		targetPane := 2
 		if m.state.view.FocusedPane == targetPane {
 			if m.state.view.ZoomedPane >= 0 {
@@ -418,7 +432,11 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.rebuildStatusContentWithHighlight()
 			case 3:
 				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 2
+				if m.hasGitStatus() {
+					m.state.view.FocusedPane = 2
+				} else {
+					m.state.view.FocusedPane = 1
+				}
 				m.rebuildStatusContentWithHighlight()
 			case 4:
 				// Notes in top layout: go to worktrees (above)
@@ -451,9 +469,14 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.rebuildStatusContentWithHighlight()
 			case 1:
 				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 2
 				m.ciCheckIndex = -1
-				m.rebuildStatusContentWithHighlight()
+				if m.hasGitStatus() {
+					m.state.view.FocusedPane = 2
+					m.rebuildStatusContentWithHighlight()
+				} else {
+					m.state.view.FocusedPane = 3
+					m.state.ui.logTable.Focus()
+				}
 			case 2:
 				m.state.view.ZoomedPane = -1
 				m.state.view.FocusedPane = 3
@@ -473,9 +496,14 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.rebuildStatusContentWithHighlight()
 			case 1:
 				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 2
 				m.ciCheckIndex = -1
-				m.rebuildStatusContentWithHighlight()
+				if m.hasGitStatus() {
+					m.state.view.FocusedPane = 2
+					m.rebuildStatusContentWithHighlight()
+				} else {
+					m.state.view.FocusedPane = 3
+					m.state.ui.logTable.Focus()
+				}
 			case 2:
 				m.state.view.ZoomedPane = -1
 				m.state.view.FocusedPane = 3

@@ -111,10 +111,25 @@ func statusCounts(files []StatusFile) (staged, modified, untracked int) {
 	return staged, modified, untracked
 }
 
+func (m *Model) hasGitStatus() bool {
+	return len(m.state.data.statusFilesAll) > 0
+}
+
 func (m *Model) setStatusFiles(files []StatusFile) {
 	m.state.data.statusFilesAll = files
 
 	m.applyStatusFilter()
+
+	// If status became clean and the git status pane is focused, reset focus
+	if !m.hasGitStatus() {
+		if m.state.view.FocusedPane == 2 {
+			m.state.view.FocusedPane = 0
+			m.state.ui.worktreeTable.Focus()
+		}
+		if m.state.view.ZoomedPane == 2 {
+			m.state.view.ZoomedPane = -1
+		}
+	}
 }
 
 func (m *Model) applyStatusFilter() {
