@@ -32,13 +32,13 @@ type TextareaScreen struct {
 
 // NewTextareaScreen creates a multiline input modal sized relative to the terminal.
 func NewTextareaScreen(prompt, placeholder, value string, maxWidth, maxHeight int, thm *theme.Theme, showIcons bool) *TextareaScreen {
-	width := 70
-	height := 18
+	width := 88
+	height := 22
 	if maxWidth > 0 {
-		width = clampInt(int(float64(maxWidth)*0.50), 50, 80)
+		width = clampInt(int(float64(maxWidth)*0.62), 62, 100)
 	}
 	if maxHeight > 0 {
-		height = clampInt(int(float64(maxHeight)*0.40), 12, 22)
+		height = clampInt(int(float64(maxHeight)*0.50), 15, 28)
 	}
 
 	ta := textarea.New()
@@ -48,13 +48,11 @@ func NewTextareaScreen(prompt, placeholder, value string, maxWidth, maxHeight in
 	ta.ShowLineNumbers = false
 	ta.CharLimit = 0
 	ta.SetWidth(width - 4)
-	ta.SetHeight(clampInt(height-7, 4, 12))
+	ta.SetHeight(clampInt(height-7, 4, 30))
 	ta.Focus()
 
 	taStyles := textarea.DefaultDarkStyles()
 	taStyles.Focused.Base = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(thm.Border).
 		Padding(0, 1)
 	taStyles.Focused.Text = lipgloss.NewStyle().Foreground(thm.TextFg)
 	taStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(thm.Accent)
@@ -62,7 +60,7 @@ func NewTextareaScreen(prompt, placeholder, value string, maxWidth, maxHeight in
 	taStyles.Focused.CursorLine = lipgloss.NewStyle().Foreground(thm.TextFg)
 	taStyles.Focused.EndOfBuffer = lipgloss.NewStyle().Foreground(thm.MutedFg)
 	taStyles.Blurred = taStyles.Focused
-	taStyles.Blurred.Base = taStyles.Blurred.Base.BorderForeground(thm.BorderDim)
+	taStyles.Blurred.Base = lipgloss.NewStyle().Padding(0, 1)
 	ta.SetStyles(taStyles)
 
 	return &TextareaScreen{
@@ -142,6 +140,7 @@ func (s *TextareaScreen) View() string {
 
 	contentLines := []string{
 		promptStyle.Render(s.Prompt),
+		"",
 	}
 
 	contentLines = append(contentLines, s.Input.View())
@@ -152,7 +151,7 @@ func (s *TextareaScreen) View() string {
 		contentLines = append(contentLines, errorStyle.Render(s.ErrorMsg))
 	}
 
-	contentLines = append(contentLines, footerStyle.Render("Ctrl+S save • Esc cancel • Enter newline"))
+	contentLines = append(contentLines, "", footerStyle.Render("Ctrl+S save • Esc cancel • Enter newline"))
 
 	return boxStyle.Render(strings.Join(contentLines, "\n"))
 }
