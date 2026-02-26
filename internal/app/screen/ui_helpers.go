@@ -173,14 +173,11 @@ func disclosureIndicator(collapsed, showIcons bool) string {
 	return "▼"
 }
 
-// renderCIBubble renders a CI status icon as a powerline pill for the screen package.
+// renderCIBubble renders a CI status icon with foreground colour for the screen package.
 func renderCIBubble(thm *theme.Theme, conclusion string, showIcons bool) string {
 	icon := getCIStatusIcon(conclusion, false, showIcons)
-	bg, fg := ciConclusionColors(thm, conclusion)
-	bubbleStyle := lipgloss.NewStyle().Background(bg).Foreground(fg)
-	leftEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b6")
-	rightEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b4")
-	return leftEdge + bubbleStyle.Render(" "+icon+" ") + rightEdge
+	fg, _ := ciConclusionColors(thm, conclusion)
+	return lipgloss.NewStyle().Foreground(fg).Render(icon)
 }
 
 // ciConclusionColors returns (background, foreground) theme colours for a CI conclusion.

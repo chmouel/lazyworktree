@@ -32,13 +32,13 @@ type TextareaScreen struct {
 
 // NewTextareaScreen creates a multiline input modal sized relative to the terminal.
 func NewTextareaScreen(prompt, placeholder, value string, maxWidth, maxHeight int, thm *theme.Theme, showIcons bool) *TextareaScreen {
-	width := 90
-	height := 22
+	width := 70
+	height := 18
 	if maxWidth > 0 {
-		width = clampInt(int(float64(maxWidth)*0.75), 70, 110)
+		width = clampInt(int(float64(maxWidth)*0.50), 50, 80)
 	}
 	if maxHeight > 0 {
-		height = clampInt(int(float64(maxHeight)*0.75), 16, 36)
+		height = clampInt(int(float64(maxHeight)*0.40), 12, 22)
 	}
 
 	ta := textarea.New()
@@ -47,8 +47,8 @@ func NewTextareaScreen(prompt, placeholder, value string, maxWidth, maxHeight in
 	ta.Prompt = ""
 	ta.ShowLineNumbers = false
 	ta.CharLimit = 0
-	ta.SetWidth(width - 8)
-	ta.SetHeight(clampInt(height-11, 6, 24))
+	ta.SetWidth(width - 4)
+	ta.SetHeight(clampInt(height-7, 4, 12))
 	ta.Focus()
 
 	taStyles := textarea.DefaultDarkStyles()
@@ -129,20 +129,16 @@ func (s *TextareaScreen) View() string {
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(s.Thm.Accent).
-		Padding(1, 2).
+		Padding(0, 1).
 		Width(width).
 		Height(height)
 
 	promptStyle := lipgloss.NewStyle().
 		Foreground(s.Thm.Accent).
-		Bold(true).
-		Width(width - 6).
-		Align(lipgloss.Center)
+		Bold(true)
 
 	footerStyle := lipgloss.NewStyle().
-		Foreground(s.Thm.MutedFg).
-		Width(width - 6).
-		Align(lipgloss.Center)
+		Foreground(s.Thm.MutedFg)
 
 	contentLines := []string{
 		promptStyle.Render(s.Prompt),
@@ -152,15 +148,13 @@ func (s *TextareaScreen) View() string {
 
 	if s.ErrorMsg != "" {
 		errorStyle := lipgloss.NewStyle().
-			Foreground(s.Thm.ErrorFg).
-			Width(width - 6).
-			Align(lipgloss.Center)
+			Foreground(s.Thm.ErrorFg)
 		contentLines = append(contentLines, errorStyle.Render(s.ErrorMsg))
 	}
 
 	contentLines = append(contentLines, footerStyle.Render("Ctrl+S save • Esc cancel • Enter newline"))
 
-	return boxStyle.Render(strings.Join(contentLines, "\n\n"))
+	return boxStyle.Render(strings.Join(contentLines, "\n"))
 }
 
 func clampInt(value, minValue, maxValue int) int {

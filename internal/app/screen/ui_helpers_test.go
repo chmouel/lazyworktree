@@ -78,9 +78,9 @@ func TestRenderCIBubble(t *testing.T) {
 			t.Parallel()
 			result := renderCIBubble(thm, tt.conclusion, false)
 
-			// Should contain Powerline edges
-			assert.Contains(t, result, "\ue0b6", "should have left Powerline edge")
-			assert.Contains(t, result, "\ue0b4", "should have right Powerline edge")
+			// Should not contain Powerline edges (no pill)
+			assert.NotContains(t, result, "\ue0b6", "should not have left Powerline edge")
+			assert.NotContains(t, result, "\ue0b4", "should not have right Powerline edge")
 			// Should contain the icon text
 			assert.Contains(t, result, tt.wantIcon)
 		})
