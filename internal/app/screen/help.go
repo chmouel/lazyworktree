@@ -125,7 +125,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - Space: Toggle "Include current file changes"
 - i: Open selected worktree notes (viewer if present, editor if empty)
 - Note viewer: j/k scroll, Ctrl+D/Ctrl+U half-page, g/G top/bottom, e edit, E edit in external editor, q/Esc close
-- Note editor: Ctrl+S saves, Enter adds a new line, Esc cancels
+- Note editor: Ctrl+S saves, Ctrl+X opens in external editor, Enter adds a new line, Esc cancels
 - T: Open Taskboard (grouped by worktree from markdown checkbox notes)
 - Taskboard: a adds a new task, Enter/Space toggles selected checkbox task, f filters tasks, q/Esc closes
 - Worktrees with non-empty notes show a note marker beside the name

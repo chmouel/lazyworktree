@@ -36,6 +36,67 @@ func TestTextareaScreenCtrlSSubmit(t *testing.T) {
 	}
 }
 
+func TestTextareaScreenCtrlXEditExternal(t *testing.T) {
+	s := NewTextareaScreen("Prompt", "Placeholder", "some notes", 120, 40, theme.Dracula(), false)
+	called := false
+	var gotValue string
+	s.OnEditExternal = func(currentValue string) tea.Cmd {
+		called = true
+		gotValue = currentValue
+		return nil
+	}
+
+	next, _ := s.Update(tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
+	if next != nil {
+		t.Fatal("expected screen to close on Ctrl+X")
+	}
+	if !called {
+		t.Fatal("expected OnEditExternal callback to be called")
+	}
+	if gotValue != "some notes" {
+		t.Fatalf("expected value %q, got %q", "some notes", gotValue)
+	}
+}
+
+func TestTextareaScreenCtrlXNoCallback(t *testing.T) {
+	s := NewTextareaScreen("Prompt", "Placeholder", "hello", 120, 40, theme.Dracula(), false)
+	// OnEditExternal is nil — Ctrl+X should be a no-op (screen stays open)
+	next, _ := s.Update(tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
+	if next == nil {
+		t.Fatal("expected screen to stay open when OnEditExternal is nil")
+	}
+}
+
+func TestTextareaScreenFooterShowsEditorWhenCallback(t *testing.T) {
+	s := NewTextareaScreen("Prompt", "Placeholder", "", 120, 40, theme.Dracula(), false)
+
+	// Without callback, footer should not mention Ctrl+X
+	view := s.View()
+	if contains(view, "Ctrl+X") {
+		t.Fatal("footer should not mention Ctrl+X when OnEditExternal is nil")
+	}
+
+	// With callback, footer should mention Ctrl+X
+	s.OnEditExternal = func(string) tea.Cmd { return nil }
+	view = s.View()
+	if !contains(view, "Ctrl+X") {
+		t.Fatal("footer should mention Ctrl+X when OnEditExternal is set")
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && searchString(s, substr)
+}
+
+func searchString(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestTextareaScreenEnterAddsNewLine(t *testing.T) {
 	s := NewTextareaScreen("Prompt", "Placeholder", "hello", 120, 40, theme.Dracula(), false)
 

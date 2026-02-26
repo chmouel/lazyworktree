@@ -23,8 +23,9 @@ type TextareaScreen struct {
 	Validate func(string) string
 
 	// Callbacks
-	OnSubmit func(value string) tea.Cmd
-	OnCancel func() tea.Cmd
+	OnSubmit       func(value string) tea.Cmd
+	OnCancel       func() tea.Cmd
+	OnEditExternal func(currentValue string) tea.Cmd
 
 	boxWidth  int
 	boxHeight int
@@ -108,6 +109,12 @@ func (s *TextareaScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 		}
 		return nil, cmd
 
+	case "ctrl+x":
+		if s.OnEditExternal != nil {
+			return nil, s.OnEditExternal(s.Input.Value())
+		}
+		return s, nil
+
 	case keyEsc, keyCtrlC:
 		if s.OnCancel != nil {
 			return nil, s.OnCancel()
@@ -151,7 +158,11 @@ func (s *TextareaScreen) View() string {
 		contentLines = append(contentLines, errorStyle.Render(s.ErrorMsg))
 	}
 
-	contentLines = append(contentLines, "", footerStyle.Render("Ctrl+S save • Esc cancel • Enter newline"))
+	footer := "Ctrl+S save • Esc cancel • Enter newline"
+	if s.OnEditExternal != nil {
+		footer = "Ctrl+S save • Ctrl+X editor • Esc cancel • Enter newline"
+	}
+	contentLines = append(contentLines, "", footerStyle.Render(footer))
 
 	return boxStyle.Render(strings.Join(contentLines, "\n"))
 }

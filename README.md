@@ -182,8 +182,8 @@ In the note viewer, use `j`/`k` (or arrow keys) to scroll, `Ctrl+D`/`Ctrl+U`
 for half-page navigation, `g`/`G` for top/bottom, `e` to edit, and `q`/`Esc`
 to close.
 
-In the note editor, use `Ctrl+S` to save, `Enter` to add a new line, and `Esc`
-to cancel. Worktrees with notes display a note marker beside the name. The Info
+In the note editor, use `Ctrl+S` to save, `Ctrl+X` to open in an external
+editor, `Enter` to add a new line, and `Esc` to cancel. Worktrees with notes display a note marker beside the name. The Info
 pane renders Markdown formatting for headings, bold text, inline code, lists,
 quotes, links, and fenced code blocks. Uppercase note tags such as `TODO`,
 `FIXME`, or `WARNING:` are highlighted with icons outside fenced code blocks,

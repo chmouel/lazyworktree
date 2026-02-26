@@ -686,6 +686,9 @@ func (m *Model) showWorktreeNoteEditor(worktreePath string) tea.Cmd {
 	textareaScr.OnCancel = func() tea.Cmd {
 		return nil
 	}
+	textareaScr.OnEditExternal = func(currentValue string) tea.Cmd {
+		return m.openNoteInExternalEditor(worktreePath, currentValue)
+	}
 
 	m.state.ui.screenManager.Push(textareaScr)
 	return textarea.Blink
