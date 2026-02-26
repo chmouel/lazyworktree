@@ -897,33 +897,37 @@ The `exec` command:
 
 ## Screenshots
 
-### TODO List (dracula)
+### To-do list (everforest-light)
 
-<img width="3730" height="2484" alt="image" src="./website/assets/screenshot-todolist.png" />
+<img width="3730" height="2484" alt="To-do list screenshot" src="./website/assets/screenshot-todolist.png" />
 
-### Command Palette (nord)
+### Command palette (nord)
 
-<img width="3730" height="2484" alt="image" src="https://github.com/user-attachments/assets/8a722eea-5d00-47b2-8e59-6019cfd6336f" />
+<img width="3730" height="2484" alt="Command palette screenshot" src="./website/assets/screenshot-palette.png" />
 
-### Github Actions Logs viewer (rose-pine)
+### GitHub Actions logs viewer (rose-pine)
 
-<img width="3730" height="2484" alt="image" src="./.github/screenshots/ci-runs.png" />
+<img width="3730" height="2484" alt="GitHub Actions logs viewer screenshot" src="./website/assets/ci-runs.png" />
 
 ### Branch creation (tokyo-night)
 
-<img width="3730" height="2484" alt="image" src="https://github.com/user-attachments/assets/92888a4f-c3aa-4b39-b78b-d3c62897b69a" />
+<img width="3730" height="2484" alt="Branch creation screenshot" src="./website/assets/screenshot-branch.png" />
 
 ### Files in commit view (kanagawa)
 
-<img width="3730" height="2484" alt="image" src="https://github.com/user-attachments/assets/735458b2-a3a9-451c-ac51-b43452d5e421" />
+<img width="3730" height="2484" alt="Files in commit view screenshot" src="./website/assets/screenshot-commit-files.png" />
 
-### Create a branch from a Issue (clean-light)
+### Worktree notes (solarized-dark)
 
-<https://github.com/user-attachments/assets/a733b95f-cd11-48a9-be58-810866aff1a2>
+<img width="3730" height="2484" alt="Worktree notes screenshot" src="./website/assets/screenshot-annotations.png" />
 
-### Light Theme (dracula-light theme)
+### Rendered notes (gruvbox-dark)
 
-<img width="3730" height="2484" alt="image" src="https://github.com/user-attachments/assets/ab19a23a-852c-46c3-a6f4-a27d8519f89a" />
+<img width="3730" height="2484" alt="Rendered notes screenshot" src="./website/assets/screenshot-rendered-notes.png" />
+
+### Light theme (dracula-light)
+
+<img width="3730" height="2484" alt="Light theme screenshot" src="./website/assets/screenshot-light.png" />
 
 ## How does it compare?
 
