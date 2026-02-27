@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"charm.land/bubbles/v2/table"
 	"charm.land/bubbles/v2/viewport"
@@ -2014,6 +2015,84 @@ func TestMouseClickSelectsCommitRowInTopLayoutWithNotes(t *testing.T) {
 	}
 	if m.state.ui.logTable.Cursor() != 1 {
 		t.Fatalf("expected commit cursor 1, got %d", m.state.ui.logTable.Cursor())
+	}
+}
+
+func TestDoubleClickZoom(t *testing.T) {
+	tests := []struct {
+		name         string
+		firstPane    int
+		secondPane   int
+		timeBetween  time.Duration
+		initialZoom  int
+		expectedZoom int
+	}{
+		{
+			name:         "double click same pane zooms",
+			firstPane:    0,
+			secondPane:   0,
+			timeBetween:  200 * time.Millisecond,
+			initialZoom:  -1,
+			expectedZoom: 0,
+		},
+		{
+			name:         "double click when zoomed unzooms",
+			firstPane:    0,
+			secondPane:   0,
+			timeBetween:  200 * time.Millisecond,
+			initialZoom:  0,
+			expectedZoom: -1,
+		},
+		{
+			name:         "clicks on different panes no zoom",
+			firstPane:    1,
+			secondPane:   0,
+			timeBetween:  200 * time.Millisecond,
+			initialZoom:  -1,
+			expectedZoom: -1,
+		},
+		{
+			name:         "clicks too slow no zoom",
+			firstPane:    0,
+			secondPane:   0,
+			timeBetween:  500 * time.Millisecond,
+			initialZoom:  -1,
+			expectedZoom: -1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+			m := NewModel(cfg, "")
+			m.setWindowSize(120, 40)
+			m.state.view.FocusedPane = 0
+			m.state.view.ZoomedPane = tt.initialZoom
+
+			// Simulate first click by setting tracking fields directly
+			m.lastClickTime = time.Now().Add(-tt.timeBetween)
+			m.lastClickPane = tt.firstPane
+
+			// Build a click message targeting the second pane
+			msg := tea.MouseClickMsg{
+				Button: tea.MouseLeft,
+				X:      2,
+				Y:      5,
+			}
+
+			// Override targetPane detection by pre-focusing
+			// For pane 0, X=2 Y=5 lands in worktree pane in default layout
+			// For different-pane test, first click was on pane 1 so no match
+			if tt.secondPane == 0 {
+				msg.X = 2
+				msg.Y = 5
+			}
+
+			_, _ = m.handleMouseClick(msg)
+
+			assert.Equal(t, tt.expectedZoom, m.state.view.ZoomedPane,
+				"expected ZoomedPane=%d, got %d", tt.expectedZoom, m.state.view.ZoomedPane)
+		})
 	}
 }
 

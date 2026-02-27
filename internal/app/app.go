@@ -353,6 +353,10 @@ type Model struct {
 	lastArrowCursor     int
 	lastLogCursor       int
 
+	// Double-click detection
+	lastClickTime time.Time
+	lastClickPane int
+
 	// Auto refresh
 	autoRefreshStarted bool
 

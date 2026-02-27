@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
@@ -1185,6 +1186,22 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 				targetPane = 3
 			}
 		}
+	}
+
+	// Double-click detection: toggle zoom on same pane
+	if targetPane >= 0 {
+		now := time.Now()
+		if targetPane == m.lastClickPane && now.Sub(m.lastClickTime) < 400*time.Millisecond {
+			if m.state.view.ZoomedPane >= 0 {
+				m.state.view.ZoomedPane = -1
+			} else {
+				m.state.view.ZoomedPane = targetPane
+			}
+			m.lastClickTime = time.Time{}
+		} else {
+			m.lastClickTime = now
+		}
+		m.lastClickPane = targetPane
 	}
 
 	// Click to focus pane and select item
