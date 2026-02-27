@@ -7,7 +7,7 @@ Read the README.md if you really need to know what this project is all about.
 
 - use `make build` for testing build errors.
 - if you ever add a new argument or flag to the cli then make sure to update the completion and README.md
-- Don't ever do commit unless you are being explicitely asked for it.
+- Don't ever do commit unless you are being explicitly asked for it.
 - If you get asked to commit then use this rules:
   - Follow Conventional Commits 1.0.0.
   - 50 chars for title 70 chars for body.
