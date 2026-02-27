@@ -79,19 +79,22 @@
 
     <main>
       <section class="hero reveal">
+        <p class="kicker">A TUI for git worktrees</p>
+        <h1>A lazier way to manage worktrees.</h1>
         <img
-          width="240"
-          height="240"
+          width="200"
+          height="200"
           align="right"
           src="assets/logo.png"
           alt="LazyWorktree logo"
         />
-        <p class="kicker">A TUI for git worktrees</p>
-        <h1>A lazier way to manage worktrees.</h1>
         <p class="hero-copy">
-          LazyWorktree lets you create, switch, and manage Git worktrees from a
-          keyboard-driven TUI. It shows PR status, CI checks, and diffs
-          alongside your worktree list.
+          LazyWorktree is a keyboard-first TUI for managing Git worktrees,
+          branches, PRs, and CI status in one place. Use isolated worktrees as
+          the default workflow instead of switching branches in a single
+          directory. Assign each task its own worktree so terminal sessions,
+          local files, PR/MR, notes, TODOO and Git state remain scoped to that
+          workspace without affecting others.
         </p>
         <div class="hero-actions">
           <a
@@ -147,68 +150,260 @@ $ lazyworktree</code></pre>
           <h2>What it does</h2>
         </div>
         <div class="feature-grid">
-          <article class="feature-card">
+          <article
+            class="feature-card"
+            tabindex="0"
+            role="button"
+            aria-label="Feature: Worktree management"
+          >
             <h3>Worktree management</h3>
-            <p>
+            <p class="feature-summary">
               Create, rename, remove, absorb, and prune merged worktrees
               directly from the keyboard.
             </p>
+            <div class="feature-details" hidden>
+              <p>
+                Instead of constantly checking out branches in a single
+                directory, you treat worktrees as the true center of your
+                development cycle. Your terminal sessions, local notes, and Git
+                operations remain completely undisturbed and anchored to the
+                specific worktree you're in.
+              </p>
+              <ul>
+                <li><strong>Create</strong> a new worktree instantly.</li>
+                <li>
+                  <strong>Remove</strong> worktrees safely, knowing uncommitted
+                  changes are protected.
+                </li>
+                <li>
+                  <strong>Rename</strong> your worktrees and keep paths
+                  organized.
+                </li>
+              </ul>
+            </div>
           </article>
-          <article class="feature-card">
+          <article
+            class="feature-card"
+            tabindex="0"
+            role="button"
+            aria-label="Feature: Create from anything"
+          >
             <h3>Create from anything</h3>
-            <p>
+            <p class="feature-summary">
               Create from branch, commit, PR/MR, issue, or custom menu item with
               optional branch automation.
             </p>
+            <div class="feature-details" hidden>
+              <p>
+                LazyWorktree allows you to instantiate a new environment based
+                on any git reference. Forget manually checking out branches or
+                fetching commits.
+              </p>
+              <ul>
+                <li>
+                  Select a <strong>Pull Request</strong> or
+                  <strong>Merge Request</strong> to review code in isolation.
+                </li>
+                <li>
+                  Pick an <strong>Issue</strong> to instantly start working on a
+                  bug fix or feature.
+                </li>
+                <li>
+                  Customize menu items for highly specific workflow automations.
+                </li>
+              </ul>
+            </div>
           </article>
-          <article class="feature-card">
+          <article
+            class="feature-card"
+            tabindex="0"
+            role="button"
+            aria-label="Feature: Git operations"
+          >
             <h3>Git operations</h3>
-            <p>
+            <p class="feature-summary">
               Stage, commit, diff, push, sync, and cherry-pick -- all from
               within the TUI.
             </p>
+            <div class="feature-details" hidden>
+              <p>
+                You don't need to leave the app to perform your daily git tasks.
+                Enjoy a fast, responsive interface for managing your changes. If
+                you need the extra power you can reach for the `G` key to start
+                the OG of the lazy,
+                [lazygit](https://github.com/jesseduffield/lazygit).
+              </p>
+              <ul>
+                <li><strong>Stage and commit</strong> files seamlessly.</li>
+                <li>View detailed <strong>diffs</strong> before pushing.</li>
+                <li>
+                  Keep everything up to date with one-keystroke
+                  <strong>sync</strong>.
+                </li>
+              </ul>
+            </div>
           </article>
-          <article class="feature-card">
+          <article
+            class="feature-card"
+            tabindex="0"
+            role="button"
+            aria-label="Feature: CI checks"
+          >
             <h3>CI checks</h3>
-            <p>
+            <p class="feature-summary">
               See check status, read logs, open job pages, and restart GitHub
               Actions runs.
             </p>
+            <div class="feature-details" hidden>
+              <p>
+                Monitor your continuous integration pipelines directly alongside
+                your code. Never wonder if your tests passed again.
+              </p>
+              <ul>
+                <li>
+                  Native integration with <strong>GitHub Actions</strong> and
+                  <strong>GitLab CI</strong>.
+                </li>
+                <li>Stream <strong>logs</strong> directly in your terminal.</li>
+                <li>
+                  Quickly <strong>restart failed jobs</strong> without opening a
+                  browser.
+                </li>
+              </ul>
+            </div>
           </article>
-          <article class="feature-card">
+          <article
+            class="feature-card"
+            tabindex="0"
+            role="button"
+            aria-label="Feature: tmux / zellij sessions"
+          >
             <h3>tmux / zellij sessions</h3>
-            <p>
+            <p class="feature-summary">
               Each worktree can get its own tmux or zellij session, with
               configurable prefixes.
             </p>
+            <div class="feature-details" hidden>
+              <p>
+                Supercharge your multitasking. LazyWorktree integrates perfectly
+                with terminal multiplexers to isolate your workspace state.
+              </p>
+              <ul>
+                <li>
+                  Automatically spawn a new <strong>tmux</strong> or
+                  <strong>zellij</strong> session when entering a worktree.
+                </li>
+                <li>Automatically rename sessions based on the branch.</li>
+                <li>
+                  Switching between worktrees seamlessly switches your session.
+                </li>
+              </ul>
+            </div>
           </article>
-          <article class="feature-card">
+          <article
+            class="feature-card"
+            tabindex="0"
+            role="button"
+            aria-label="Feature: Hooks and custom commands"
+          >
             <h3>Hooks and custom commands</h3>
-            <p>
+            <p class="feature-summary">
               Run init and terminate hooks via <code>.wt</code> and add custom
               command bindings.
             </p>
+            <div class="feature-details" hidden>
+              <p>
+                Tailor the tool to your exact workflow. Automate setup and
+                teardown tasks for every worktree you create or destroy.
+              </p>
+              <ul>
+                <li>
+                  Automatically run <code>npm install</code> or
+                  <code>go mod download</code>.
+                </li>
+                <li>
+                  Map custom keybindings to execute your own shell scripts.
+                </li>
+              </ul>
+            </div>
           </article>
-          <article class="feature-card">
+          <article
+            class="feature-card"
+            tabindex="0"
+            role="button"
+            aria-label="Feature: Worktree notes"
+          >
             <h3>Worktree notes</h3>
-            <p>
+            <p class="feature-summary">
               Attach markdown notes to any worktree and view them rendered in
               the info pane.
             </p>
+            <div class="feature-details" hidden>
+              <p>
+                Keep your context exactly where you need it. Attach a scratchpad
+                to your worktree so you never forget where you left off.
+              </p>
+              <ul>
+                <li>Write notes in standard <strong>Markdown</strong>.</li>
+                <li>
+                  Notes are saved per-worktree and persist across reboots.
+                </li>
+                <li>Beautifully rendered directly in the user interface.</li>
+              </ul>
+            </div>
           </article>
-          <article class="feature-card">
+          <article
+            class="feature-card"
+            tabindex="0"
+            role="button"
+            aria-label="Feature: Taskboard"
+          >
             <h3>Taskboard</h3>
-            <p>
+            <p class="feature-summary">
               Turn markdown checkbox notes into a grouped Taskboard and toggle
               progress without leaving the TUI.
             </p>
+            <div class="feature-details" hidden>
+              <p>
+                Manage your to-do lists within your terminal. Convert simple
+                markdown checkboxes into an interactive taskboard.
+              </p>
+              <ul>
+                <li>
+                  Use <code>- [ ] Task</code> syntax in your worktree notes.
+                </li>
+                <li>Toggle tasks as complete with a single keystroke.</li>
+                <li>Track your progress visually.</li>
+              </ul>
+            </div>
           </article>
-          <article class="feature-card">
+          <article
+            class="feature-card"
+            tabindex="0"
+            role="button"
+            aria-label="Feature: Configuration"
+          >
             <h3>Configuration</h3>
-            <p>
+            <p class="feature-summary">
               Set options via CLI flags, git config, or a YAML file. Local
               settings override global ones.
             </p>
+            <div class="feature-details" hidden>
+              <p>
+                Configure LazyWorktree to behave exactly how you want. Flexible
+                configuration hierarchy ensures the right settings apply.
+              </p>
+              <ul>
+                <li>
+                  Define global preferences in
+                  <code>~/.config/lazyworktree/config.yml</code>.
+                </li>
+                <li>
+                  Override specific settings per-repository using git config.
+                </li>
+                <li>Pass temporary overrides via CLI flags.</li>
+              </ul>
+            </div>
           </article>
         </div>
       </section>
@@ -367,6 +562,20 @@ brew install lazyworktree --cask</code></pre>
     <div class="lightbox" id="lightbox" hidden>
       <button class="lightbox-close" aria-label="Close">&times;</button>
       <img class="lightbox-img" id="lightbox-img" src="" alt="" />
+    </div>
+
+    <div class="feature-modal" id="feature-modal" hidden>
+      <div class="feature-modal-backdrop" id="feature-modal-backdrop"></div>
+      <div class="feature-modal-content">
+        <button
+          class="feature-modal-close"
+          id="feature-modal-close"
+          aria-label="Close feature details"
+        >
+          &times;
+        </button>
+        <div class="feature-modal-body" id="feature-modal-body"></div>
+      </div>
     </div>
 
     <script src="app.js"></script>

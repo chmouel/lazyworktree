@@ -118,3 +118,65 @@ document.addEventListener("keydown", (e) => {
     closeLightbox();
   }
 });
+
+// Feature Modal
+const featureModal = document.getElementById("feature-modal");
+const featureModalBody = document.getElementById("feature-modal-body");
+const featureModalCloseBtn = document.getElementById("feature-modal-close");
+const featureModalBackdrop = document.getElementById("feature-modal-backdrop");
+const featureCards = document.querySelectorAll(".feature-card[role='button']");
+let activeFeatureCard = null;
+
+function openFeatureModal(card) {
+  const title = card.querySelector("h3").outerHTML;
+  const details = card.querySelector(".feature-details").innerHTML;
+
+  featureModalBody.innerHTML = title + details;
+  featureModal.hidden = false;
+  activeFeatureCard = card;
+
+  // Trigger reflow to start animation
+  void featureModal.offsetWidth;
+  featureModal.classList.add("active");
+  document.body.style.overflow = "hidden";
+  featureModalCloseBtn.focus();
+}
+
+function closeFeatureModal() {
+  featureModal.classList.remove("active");
+  // Wait for transition to finish
+  setTimeout(() => {
+    if (!featureModal.classList.contains("active")) {
+      featureModal.hidden = true;
+      featureModalBody.innerHTML = "";
+      document.body.style.overflow = "";
+      if (activeFeatureCard) {
+        activeFeatureCard.focus();
+        activeFeatureCard = null;
+      }
+    }
+  }, 300);
+}
+
+featureCards.forEach((card) => {
+  card.addEventListener("click", () => openFeatureModal(card));
+  card.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openFeatureModal(card);
+    }
+  });
+});
+
+if (featureModalCloseBtn) {
+  featureModalCloseBtn.addEventListener("click", closeFeatureModal);
+}
+if (featureModalBackdrop) {
+  featureModalBackdrop.addEventListener("click", closeFeatureModal);
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && featureModal && !featureModal.hidden) {
+    closeFeatureModal();
+  }
+});
