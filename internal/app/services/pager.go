@@ -29,7 +29,7 @@ func PagerCommand(cfg *config.AppConfig) string {
 		return pager
 	}
 	if _, err := exec.LookPath("less"); err == nil {
-		return "less --use-color -q --wordwrap -qcR -P 'Press q to exit..'"
+		return "less --use-color --wordwrap -swMQcR -P 'Press q to exit..'"
 	}
 	if _, err := exec.LookPath("more"); err == nil {
 		return "more"

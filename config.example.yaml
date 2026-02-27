@@ -112,7 +112,7 @@ git_pager_command_mode: false
 
 # Pager used for show_output custom commands
 # Default: $PAGER environment variable or less if unset
-pager: "less --use-color --wordwrap -qcR -P 'Press q to exit..'"
+pager: "less --use-color --wordwrap -swMQcR -P 'Press q to exit..'"
 
 # Pager for CI check logs (v key on CI checks)
 # When set, runs interactively with direct terminal control

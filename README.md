@@ -314,7 +314,7 @@ theme: ""       # Leave empty to auto-detect based on terminal background colour
                 # (defaults to "rose-pine" for dark, "dracula-light" for light).
                 # Options: see the Themes section below.
 git_pager: delta
-pager: "less --use-color --wordwrap -qcR -P 'Press q to exit..'"
+pager: "less --use-color --wordwrap -swMQcR -P 'Press q to exit..'"
 editor: nvim
 git_pager_args:
   - --syntax-theme
@@ -427,7 +427,7 @@ ci_script_pager: |
   t;
   s/.*UNKNOWN STEP[[:space:]]+//' | \
    tee /tmp/.ci.${LW_CI_JOB_NAME_CLEAN}-${LW_CI_STARTED_AT}.md |
-  less --use-color -q --wordwrap -qcR -P 'Press q to exit..'
+  less --use-color --wordwrap -swMQcR -P 'Press q to exit..'
 ```
 
 CI environment variables: `LW_CI_JOB_NAME`, `LW_CI_JOB_NAME_CLEAN`, `LW_CI_RUN_ID`, `LW_CI_STARTED_AT`.
