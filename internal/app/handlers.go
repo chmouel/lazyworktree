@@ -294,6 +294,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.rebuildStatusContentWithHighlight()
 			}
 		}
+		m.restyleLogRows()
 		return m, nil
 
 	case "2":
@@ -309,6 +310,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.state.view.FocusedPane = targetPane
 		}
 		m.rebuildStatusContentWithHighlight()
+		m.restyleLogRows()
 		return m, nil
 
 	case "3":
@@ -331,6 +333,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.state.view.FocusedPane = targetPane
 		}
 		m.rebuildStatusContentWithHighlight()
+		m.restyleLogRows()
 		return m, nil
 
 	case "4":
@@ -353,6 +356,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.rebuildStatusContentWithHighlight()
 			}
 		}
+		m.restyleLogRows()
 		return m, nil
 
 	case "5":
@@ -377,6 +381,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.rebuildStatusContentWithHighlight()
 			}
 		}
+		m.restyleLogRows()
 		return m, nil
 
 	case keyTab, "]":
@@ -395,6 +400,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if wasPane1 || m.state.view.FocusedPane == 1 || m.state.view.FocusedPane == 2 {
 			m.rebuildStatusContentWithHighlight()
 		}
+		m.restyleLogRows()
 		return m, nil
 
 	case "[":
@@ -413,6 +419,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if wasPane1 || m.state.view.FocusedPane == 1 || m.state.view.FocusedPane == 2 {
 			m.rebuildStatusContentWithHighlight()
 		}
+		m.restyleLogRows()
 		return m, nil
 
 	case "h":
@@ -457,6 +464,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.rebuildStatusContentWithHighlight()
 			}
 		}
+		m.restyleLogRows()
 		return m, nil
 
 	case "l":
@@ -519,6 +527,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.rebuildStatusContentWithHighlight()
 			}
 		}
+		m.restyleLogRows()
 		return m, nil
 
 	case "j", "down":
@@ -853,6 +862,7 @@ func (m *Model) handleNavigationDown(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.state.ui.notesViewport.ScrollDown(1)
 	default:
 		m.state.ui.logTable, cmd = m.state.ui.logTable.Update(keyMsg)
+		m.restyleLogRows()
 		cmds = append(cmds, cmd)
 	}
 	return m, tea.Batch(cmds...)
@@ -884,6 +894,7 @@ func (m *Model) handleNavigationUp(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.state.ui.notesViewport.ScrollUp(1)
 	default:
 		m.state.ui.logTable, cmd = m.state.ui.logTable.Update(msg)
+		m.restyleLogRows()
 		cmds = append(cmds, cmd)
 	}
 	return m, tea.Batch(cmds...)
@@ -1008,6 +1019,7 @@ func (m *Model) handlePageDown(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case 3:
 		m.state.ui.logTable, cmd = m.state.ui.logTable.Update(msg)
+		m.restyleLogRows()
 		return m, cmd
 	case 4:
 		m.state.ui.notesViewport.HalfPageDown()
@@ -1029,6 +1041,7 @@ func (m *Model) handlePageUp(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case 3:
 		m.state.ui.logTable, cmd = m.state.ui.logTable.Update(msg)
+		m.restyleLogRows()
 		return m, cmd
 	case 4:
 		m.state.ui.notesViewport.HalfPageUp()
@@ -1183,6 +1196,7 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		case 3:
 			m.state.ui.logTable.Focus()
 		}
+		m.restyleLogRows()
 	}
 
 	// Handle clicks within the pane to select items
@@ -1335,6 +1349,7 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 			}
 		case 3:
 			m.state.ui.logTable, _ = m.state.ui.logTable.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+			m.restyleLogRows()
 		case 4:
 			m.state.ui.notesViewport.ScrollUp(3)
 		}
@@ -1356,6 +1371,7 @@ func (m *Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 			}
 		case 3:
 			m.state.ui.logTable, _ = m.state.ui.logTable.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+			m.restyleLogRows()
 		case 4:
 			m.state.ui.notesViewport.ScrollDown(3)
 		}

@@ -33,6 +33,8 @@ type renderStyleCache struct {
 	ciIconDefaultStyle lipgloss.Style
 
 	baseBoxStyle lipgloss.Style
+
+	unpushedCommitStyle lipgloss.Style
 }
 
 func (m *Model) invalidateRenderStyleCache() {
@@ -108,5 +110,7 @@ func (m *Model) ensureRenderStyles() {
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(m.theme.BorderDim).
 			Padding(0, 1),
+
+		unpushedCommitStyle: lipgloss.NewStyle().Foreground(m.theme.WarnFg),
 	}
 }

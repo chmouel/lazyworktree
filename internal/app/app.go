@@ -351,6 +351,7 @@ type Model struct {
 	detailUpdateCancel  context.CancelFunc
 	pendingDetailsIndex int
 	lastArrowCursor     int
+	lastLogCursor       int
 
 	// Auto refresh
 	autoRefreshStarted bool

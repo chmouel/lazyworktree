@@ -196,6 +196,81 @@ func (m *Model) setLogEntries(entries []commitLogEntry, reset bool) {
 	m.applyLogFilter(reset)
 }
 
+// buildLogRow creates a table.Row from a commitLogEntry.
+// When styled is true and the entry is unpushed/unmerged, WarnFg colouring is applied.
+// When styled is false, cells are left as plain text so the table's Selected style applies cleanly.
+func (m *Model) buildLogRow(entry commitLogEntry, styled bool) table.Row {
+	sha := entry.sha
+	if len(sha) > 7 {
+		sha = sha[:7]
+	}
+	msg := formatCommitMessage(entry.message)
+	initials := authorInitials(entry.authorInitials)
+	if entry.isUnpushed || entry.isUnmerged {
+		showIcons := m.config.IconsEnabled()
+		initials = aheadIndicator(showIcons)
+		if showIcons {
+			initials = iconWithSpace(initials)
+		}
+		if styled {
+			sha = m.renderStyles.unpushedCommitStyle.Render(sha)
+			initials = m.renderStyles.unpushedCommitStyle.Render(initials)
+			msg = m.renderStyles.unpushedCommitStyle.Render(msg)
+		}
+	}
+	return table.Row{sha, initials, msg}
+}
+
+// restyleLogRows swaps WarnFg styling between the previous and current cursor rows
+// so the table's Selected highlight always shows cleanly on the cursor row.
+// When the log pane is not focused, all unpushed rows keep their WarnFg styling
+// since the table's Selected highlight is not visible.
+// Follows the same pattern as updateWorktreeArrows.
+func (m *Model) restyleLogRows() {
+	rows := m.state.ui.logTable.Rows()
+	cursor := m.state.ui.logTable.Cursor()
+
+	// When the log pane is not focused, no row needs the plain treatment.
+	if m.state.view.FocusedPane != 3 {
+		cursor = -1
+	}
+
+	if len(rows) == 0 || len(m.state.data.logEntries) == 0 {
+		m.lastLogCursor = -1
+		return
+	}
+
+	if cursor == m.lastLogCursor {
+		return
+	}
+
+	changed := false
+	previous := m.lastLogCursor
+
+	// Restore WarnFg on the old cursor row (it is no longer selected).
+	if previous >= 0 && previous < len(rows) && previous < len(m.state.data.logEntries) {
+		entry := m.state.data.logEntries[previous]
+		if entry.isUnpushed || entry.isUnmerged {
+			rows[previous] = m.buildLogRow(entry, true)
+			changed = true
+		}
+	}
+
+	// Strip WarnFg from the new cursor row so Selected style applies.
+	if cursor >= 0 && cursor < len(rows) && cursor < len(m.state.data.logEntries) {
+		entry := m.state.data.logEntries[cursor]
+		if entry.isUnpushed || entry.isUnmerged {
+			rows[cursor] = m.buildLogRow(entry, false)
+			changed = true
+		}
+	}
+
+	if changed {
+		m.state.ui.logTable.SetRows(rows)
+	}
+	m.lastLogCursor = cursor
+}
+
 func (m *Model) applyLogFilter(reset bool) {
 	query := strings.ToLower(strings.TrimSpace(m.state.services.filter.LogFilterQuery))
 	filtered := m.state.data.logEntriesAll
@@ -217,23 +292,28 @@ func (m *Model) applyLogFilter(reset bool) {
 	}
 
 	m.state.data.logEntries = filtered
-	rows := make([]table.Row, 0, len(filtered))
-	for _, entry := range filtered {
-		sha := entry.sha
-		if len(sha) > 7 {
-			sha = sha[:7]
-		}
-		msg := formatCommitMessage(entry.message)
-		initials := authorInitials(entry.authorInitials)
-		if entry.isUnpushed || entry.isUnmerged {
-			showIcons := m.config.IconsEnabled()
-			initials = aheadIndicator(showIcons)
-			if showIcons {
-				initials = iconWithSpace(initials)
+	m.ensureRenderStyles()
+
+	// Determine the target cursor so the cursor row can be left unstyled.
+	// When the log pane is not focused, all rows keep their styling.
+	targetCursor := -1
+	if m.state.view.FocusedPane == 3 {
+		targetCursor = 0
+		if selectedSHA != "" {
+			for i, entry := range filtered {
+				if entry.sha == selectedSHA {
+					targetCursor = i
+					break
+				}
 			}
 		}
+	}
 
-		rows = append(rows, table.Row{sha, initials, msg})
+	rows := make([]table.Row, 0, len(filtered))
+	for i, entry := range filtered {
+		// The cursor row gets plain text so the table's Selected style applies cleanly.
+		styled := i != targetCursor
+		rows = append(rows, m.buildLogRow(entry, styled))
 	}
 	m.state.ui.logTable.SetRows(rows)
 
@@ -241,6 +321,7 @@ func (m *Model) applyLogFilter(reset bool) {
 		for i, entry := range m.state.data.logEntries {
 			if entry.sha == selectedSHA {
 				m.state.ui.logTable.SetCursor(i)
+				m.lastLogCursor = targetCursor
 				return
 			}
 		}
@@ -252,6 +333,7 @@ func (m *Model) applyLogFilter(reset bool) {
 	} else {
 		m.state.ui.logTable.SetCursor(0)
 	}
+	m.lastLogCursor = targetCursor
 }
 
 func (m *Model) getDetailsCache(cacheKey string) (*detailsCacheEntry, bool) {
