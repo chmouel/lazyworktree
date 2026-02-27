@@ -32,6 +32,7 @@ func (m *Model) View() tea.View {
 
 	// Always render base layout first to allow overlays
 	layout := m.computeLayout()
+	m.ensureRenderStyles()
 	m.applyLayout(layout)
 
 	header := m.renderHeader(layout)
@@ -125,6 +126,8 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 	popupWidth := lipgloss.Width(popupLines[0])
 
 	leftPad := maxInt((baseWidth-popupWidth)/2, 0)
+	leftStyle := lipgloss.NewStyle().Width(leftPad)
+	lineStyle := lipgloss.NewStyle().Width(baseWidth)
 
 	for i, line := range popupLines {
 		row := marginTop + i
@@ -134,10 +137,10 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 
 		// Preserve left and right portions of the base line using
 		// ANSI-aware truncation so box borders stay intact.
-		leftPart := lipgloss.NewStyle().Width(leftPad).Render(ansi.Truncate(baseLines[row], leftPad, ""))
+		leftPart := leftStyle.Render(ansi.Truncate(baseLines[row], leftPad, ""))
 		rightPart := ansi.TruncateLeft(baseLines[row], leftPad+popupWidth, "")
 
-		baseLines[row] = lipgloss.NewStyle().Width(baseWidth).Render(leftPart + line + rightPart)
+		baseLines[row] = lineStyle.Render(leftPart + line + rightPart)
 	}
 
 	return strings.Join(baseLines, "\n")
@@ -145,11 +148,20 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 
 // truncateToHeight ensures output doesn't exceed maxLines.
 func truncateToHeight(s string, maxLines int) string {
-	lines := strings.Split(s, "\n")
-	if len(lines) > maxLines {
-		lines = lines[:maxLines]
+	if maxLines <= 0 || s == "" {
+		return ""
 	}
-	return strings.Join(lines, "\n")
+	lines := 1
+	for i := range len(s) {
+		if s[i] != '\n' {
+			continue
+		}
+		lines++
+		if lines > maxLines {
+			return s[:i]
+		}
+	}
+	return s
 }
 
 // truncateToHeightFromEnd returns the last maxLines lines from the string.

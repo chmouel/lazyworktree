@@ -401,6 +401,7 @@ func TestRenderFooterIncludesCustomHelpHints(t *testing.T) {
 	m.state.view.WindowWidth = 200
 	m.state.view.WindowHeight = 50
 	layout := m.computeLayout()
+	m.ensureRenderStyles()
 	footer := m.renderFooter(layout)
 
 	if !strings.Contains(footer, "Run tests") {
@@ -420,11 +421,22 @@ func TestUpdateTheme(t *testing.T) {
 	if m.theme.Accent != lipgloss.Color("#BD93F9") {
 		t.Fatalf("expected initial dracula accent, got %v", m.theme.Accent)
 	}
+	m.ensureRenderStyles()
+	if m.renderStyles.theme != m.theme {
+		t.Fatal("expected render styles cache to be initialised after ensureRenderStyles")
+	}
 
 	// Update to clean-light (Clean-Light accent is #c6dbe5)
 	m.UpdateTheme("clean-light")
 	if m.theme.Accent != lipgloss.Color("#c6dbe5") {
 		t.Fatalf("expected clean-light accent, got %v", m.theme.Accent)
+	}
+	if m.renderStyles.theme != nil {
+		t.Fatal("expected render styles cache to be invalidated after theme update")
+	}
+	m.ensureRenderStyles()
+	if m.renderStyles.theme != m.theme {
+		t.Fatal("expected render styles cache to be rebuilt with new theme")
 	}
 }
 

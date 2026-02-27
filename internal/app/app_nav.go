@@ -182,11 +182,7 @@ func (m *Model) updateTable() {
 			worktreeIcon = UIIconWorktreeMain
 			name = mainWorktreeName
 		}
-		if showIcons {
-			name = iconPrefix(worktreeIcon, showIcons) + name
-		} else {
-			name = " " + name
-		}
+		name = "  " + iconPrefix(worktreeIcon, showIcons) + name
 
 		// Truncate to configured max length with ellipsis if needed
 		if m.config.MaxNameLength > 0 {
@@ -249,21 +245,72 @@ func (m *Model) syncSelectedIndexFromCursor() {
 func (m *Model) updateWorktreeArrows() {
 	rows := m.state.ui.worktreeTable.Rows()
 	cursor := m.state.ui.worktreeTable.Cursor()
-	for i, row := range rows {
-		if len(row) > 0 && row[0] != "" {
-			runes := []rune(row[0])
-			if len(runes) > 0 {
-				// Replace first rune with arrow or space
-				if i == cursor {
-					runes[0] = '›'
-				} else {
-					runes[0] = ' '
-				}
-				rows[i][0] = string(runes)
-			}
+
+	if len(rows) == 0 {
+		m.lastArrowCursor = -1
+		return
+	}
+
+	changed := false
+	previous := m.lastArrowCursor
+	if previous >= 0 && previous < len(rows) {
+		if previous != cursor {
+			rowChanged := false
+			rows[previous], rowChanged = setRowLeadingMarker(rows[previous], false)
+			changed = changed || rowChanged
 		}
 	}
-	m.state.ui.worktreeTable.SetRows(rows)
+
+	if cursor >= 0 && cursor < len(rows) {
+		rowChanged := false
+		rows[cursor], rowChanged = setRowLeadingMarker(rows[cursor], true)
+		changed = changed || rowChanged
+		m.lastArrowCursor = cursor
+	} else {
+		m.lastArrowCursor = -1
+	}
+
+	if changed {
+		m.state.ui.worktreeTable.SetRows(rows)
+	}
+}
+
+func setRowLeadingMarker(row table.Row, selected bool) (table.Row, bool) {
+	if len(row) == 0 {
+		return row, false
+	}
+	next, changed := setLeadingMarker(row[0], selected)
+	if !changed {
+		return row, false
+	}
+	row[0] = next
+	return row, true
+}
+
+func setLeadingMarker(value string, selected bool) (string, bool) {
+	if value == "" {
+		return value, false
+	}
+
+	// Fast-path: check first byte(s) before allocating []rune.
+	// Space is ASCII 0x20; '›' is UTF-8 \xe2\x80\xba.
+	if selected {
+		if strings.HasPrefix(value, "›") {
+			return value, false
+		}
+	} else {
+		if value[0] == ' ' {
+			return value, false
+		}
+	}
+
+	runes := []rune(value)
+	next := ' '
+	if selected {
+		next = '›'
+	}
+	runes[0] = next
+	return string(runes), true
 }
 
 func (m *Model) updateDetailsView() tea.Cmd {

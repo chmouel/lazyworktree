@@ -350,6 +350,7 @@ type Model struct {
 	// Debouncing
 	detailUpdateCancel  context.CancelFunc
 	pendingDetailsIndex int
+	lastArrowCursor     int
 
 	// Auto refresh
 	autoRefreshStarted bool
@@ -384,6 +385,9 @@ type Model struct {
 	commandRunner func(context.Context, string, ...string) *exec.Cmd
 	execProcess   func(*exec.Cmd, tea.ExecCallback) tea.Cmd
 	startCommand  func(*exec.Cmd) error
+
+	// Render style cache (theme-dependent styles reused across frames).
+	renderStyles renderStyleCache
 }
 
 // NewModel creates a new application model with the given configuration.
@@ -520,12 +524,13 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 				TerminalFocused: true,
 			},
 		},
-		infoContent:   errNoWorktreeSelected,
-		statusContent: "Loading...",
-		loading:       true,
-		ciCheckIndex:  -1,
-		commandRunner: exec.CommandContext,
-		execProcess:   tea.ExecProcess,
+		infoContent:     errNoWorktreeSelected,
+		statusContent:   "Loading...",
+		loading:         true,
+		ciCheckIndex:    -1,
+		lastArrowCursor: -1,
+		commandRunner:   exec.CommandContext,
+		execProcess:     tea.ExecProcess,
 		startCommand: func(cmd *exec.Cmd) error {
 			return cmd.Start()
 		},

@@ -379,6 +379,7 @@ func (m *Model) showThemeSelection() tea.Cmd {
 func (m *Model) UpdateTheme(themeName string) {
 	thm := theme.GetThemeWithCustoms(themeName, config.CustomThemesToThemeDataMap(m.config.CustomThemes))
 	m.theme = thm
+	m.invalidateRenderStyleCache()
 
 	// Update table styles
 	s := table.DefaultStyles()

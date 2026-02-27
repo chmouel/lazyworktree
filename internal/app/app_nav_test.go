@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/table"
 	"charm.land/bubbles/v2/viewport"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -339,5 +340,81 @@ func TestRenderZoomedRightBottomPane(t *testing.T) {
 	}
 	if !strings.Contains(result, "Commit") {
 		t.Error("expected render to contain 'Commit' title")
+	}
+}
+
+func TestSetLeadingMarker(t *testing.T) {
+	value, changed := setLeadingMarker(" alpha", true)
+	if !changed {
+		t.Fatal("expected selected marker to update value")
+	}
+	if value != "›alpha" {
+		t.Fatalf("expected selected marker, got %q", value)
+	}
+
+	value, changed = setLeadingMarker(value, true)
+	if changed {
+		t.Fatal("expected no change when marker is already selected")
+	}
+
+	value, changed = setLeadingMarker(value, false)
+	if !changed {
+		t.Fatal("expected deselected marker to update value")
+	}
+	if value != " alpha" {
+		t.Fatalf("expected deselected marker, got %q", value)
+	}
+}
+
+func TestUpdateWorktreeArrowsMovesSelection(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	rows := []table.Row{
+		{" alpha", "", ""},
+		{" beta", "", ""},
+		{" gamma", "", ""},
+	}
+	m.state.ui.worktreeTable.SetRows(rows)
+	m.state.ui.worktreeTable.SetCursor(1)
+	m.updateWorktreeArrows()
+
+	current := m.state.ui.worktreeTable.Rows()
+	if got := current[1][0]; got != "›beta" {
+		t.Fatalf("expected cursor row to be selected, got %q", got)
+	}
+
+	m.state.ui.worktreeTable.SetCursor(2)
+	m.updateWorktreeArrows()
+	current = m.state.ui.worktreeTable.Rows()
+
+	if got := current[1][0]; got != " beta" {
+		t.Fatalf("expected previous cursor row to clear selection, got %q", got)
+	}
+	if got := current[2][0]; got != "›gamma" {
+		t.Fatalf("expected new cursor row to be selected, got %q", got)
+	}
+}
+
+func TestUpdateWorktreeArrowsReappliesAfterRowsReset(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	m.state.ui.worktreeTable.SetRows([]table.Row{
+		{" alpha", "", ""},
+		{" beta", "", ""},
+	})
+	m.state.ui.worktreeTable.SetCursor(1)
+	m.updateWorktreeArrows()
+
+	m.state.ui.worktreeTable.SetRows([]table.Row{
+		{" alpha", "", ""},
+		{" beta", "", ""},
+	})
+	m.updateWorktreeArrows()
+
+	rows := m.state.ui.worktreeTable.Rows()
+	if got := rows[1][0]; got != "›beta" {
+		t.Fatalf("expected selected arrow after rows reset, got %q", got)
 	}
 }

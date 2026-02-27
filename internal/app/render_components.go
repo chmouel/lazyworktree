@@ -16,9 +16,7 @@ func (m *Model) renderHeader(layout layoutDims) string {
 	if showIcons {
 		appText = " " + appText // Tree icon
 	}
-	appStyle := lipgloss.NewStyle().
-		Foreground(m.theme.Accent).
-		Bold(true)
+	appStyle := m.renderStyles.headerAppStyle
 
 	repoKey := strings.TrimSpace(m.repoKey)
 	repoStr := ""
@@ -27,18 +25,11 @@ func (m *Model) renderHeader(layout layoutDims) string {
 		if showIcons {
 			repoText = " " + repoText // Repo icon
 		}
-		repoStyle := lipgloss.NewStyle().
-			Foreground(m.theme.TextFg).
-			Background(m.theme.BorderDim). // Clean bubble background
-			Padding(0, 1)
+		repoStyle := m.renderStyles.headerRepoStyle
 		repoStr = "   " + repoStyle.Render(repoText)
 	}
 
-	headerStyle := lipgloss.NewStyle().
-		Background(m.theme.AccentDim).
-		Width(layout.width).
-		Padding(0, 2).
-		Align(lipgloss.Center)
+	headerStyle := m.renderStyles.headerContainerStyle.Width(layout.width)
 
 	content := appStyle.Render(appText) + repoStr
 	return headerStyle.Render(content)
@@ -46,24 +37,15 @@ func (m *Model) renderHeader(layout layoutDims) string {
 
 // renderFilter renders the filter input bar.
 func (m *Model) renderFilter(layout layoutDims) string {
-	labelStyle := lipgloss.NewStyle().
-		Foreground(m.theme.AccentFg).
-		Background(m.theme.Accent).
-		Bold(true).
-		Padding(0, 1) // bubble effect
-	filterStyle := lipgloss.NewStyle().
-		Foreground(m.theme.TextFg).
-		Padding(0, 1)
+	labelStyle := m.renderStyles.filterLabelStyle
+	filterStyle := m.renderStyles.filterContainerStyle
 	line := fmt.Sprintf("%s %s", labelStyle.Render(m.inputLabel()), m.state.ui.filterInput.View())
 	return filterStyle.Width(layout.width).Render(line)
 }
 
 // renderFooter renders the application footer with context-aware hints.
 func (m *Model) renderFooter(layout layoutDims) string {
-	footerStyle := lipgloss.NewStyle().
-		Foreground(m.theme.TextFg).
-		Background(m.theme.BorderDim).
-		Padding(0, 1)
+	footerStyle := m.renderStyles.footerStyle
 
 	// Context-aware hints based on focused pane
 	var hints []string
@@ -183,13 +165,8 @@ func (m *Model) renderFooter(layout layoutDims) string {
 
 // renderKeyHint renders a single key hint with enhanced styling.
 func (m *Model) renderKeyHint(key, label string) string {
-	// Enhanced key hints with bubble/badge styling
-	keyStyle := lipgloss.NewStyle().
-		Foreground(m.theme.AccentFg).
-		Background(m.theme.Accent).
-		Bold(true).
-		Padding(0, 1) // Add padding for bubble effect
-	labelStyle := lipgloss.NewStyle().Foreground(m.theme.Accent)
+	keyStyle := m.renderStyles.keyHintKeyStyle
+	labelStyle := m.renderStyles.keyHintLabelStyle
 	return fmt.Sprintf("%s %s", keyStyle.Render(key), labelStyle.Render(label))
 }
 
@@ -219,18 +196,12 @@ func (m *Model) renderPaneBlock(index int, title string, focused bool, width, he
 		numStr = fmt.Sprintf("(%d)", index)
 	}
 
-	// bubble styling for title
 	bubbleBg := m.theme.BorderDim
-	bubbleFg := m.theme.TextFg
-	isBold := false
-
+	bubbleStyle := m.renderStyles.paneBubbleDimStyle
 	if focused {
 		bubbleBg = m.theme.Accent
-		bubbleFg = m.theme.AccentFg
-		isBold = true
+		bubbleStyle = m.renderStyles.paneBubbleFocusedStyle
 	}
-
-	bubbleStyle := lipgloss.NewStyle().Background(bubbleBg).Foreground(bubbleFg).Bold(isBold)
 	leftEdge := lipgloss.NewStyle().Foreground(bubbleBg).Render("")
 	rightEdge := lipgloss.NewStyle().Foreground(bubbleBg).Render("")
 	titleText := fmt.Sprintf(" %s %s ", numStr, title)
@@ -238,32 +209,20 @@ func (m *Model) renderPaneBlock(index int, title string, focused bool, width, he
 	filterIndicator := ""
 	paneIdx := index - 1
 	if !m.state.view.ShowingFilter && !m.state.view.ShowingSearch && m.hasActiveFilterForPane(paneIdx) {
-		filteredStyle := lipgloss.NewStyle().Foreground(m.theme.WarnFg).Italic(true)
-		keyStyle := lipgloss.NewStyle().
-			Foreground(m.theme.AccentFg).
-			Background(m.theme.Accent).
-			Bold(true).
-			Padding(0, 1)
 		filterIndicator = fmt.Sprintf(" %s%s  %s %s",
 			iconPrefix(UIIconFilter, showIcons),
-			filteredStyle.Render("Filtered"),
-			keyStyle.Render("Esc"),
-			lipgloss.NewStyle().Foreground(m.theme.MutedFg).Render("Clear"))
+			m.renderStyles.paneFilterTextStyle.Render("Filtered"),
+			m.renderStyles.paneIndicatorKeyStyle.Render("Esc"),
+			m.renderStyles.paneMutedTextStyle.Render("Clear"))
 	}
 
 	zoomIndicator := ""
 	if m.state.view.ZoomedPane == paneIdx {
-		zoomedStyle := lipgloss.NewStyle().Foreground(m.theme.Accent).Italic(true)
-		keyStyle := lipgloss.NewStyle().
-			Foreground(m.theme.AccentFg).
-			Background(m.theme.Accent).
-			Bold(true).
-			Padding(0, 1)
 		zoomIndicator = fmt.Sprintf(" %s%s  %s %s",
 			iconPrefix(UIIconZoom, showIcons),
-			zoomedStyle.Render("Zoomed"),
-			keyStyle.Render("="),
-			lipgloss.NewStyle().Foreground(m.theme.MutedFg).Render("Unzoom"))
+			m.renderStyles.paneZoomTextStyle.Render("Zoomed"),
+			m.renderStyles.paneIndicatorKeyStyle.Render("="),
+			m.renderStyles.paneMutedTextStyle.Render("Unzoom"))
 	}
 
 	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
@@ -319,13 +278,13 @@ func ciConclusionLabel(conclusion string) string {
 func (m *Model) ciIconStyle(conclusion string) lipgloss.Style {
 	switch conclusion {
 	case "success":
-		return lipgloss.NewStyle().Foreground(m.theme.SuccessFg)
+		return m.renderStyles.ciIconSuccessStyle
 	case "failure":
-		return lipgloss.NewStyle().Foreground(m.theme.ErrorFg)
+		return m.renderStyles.ciIconFailureStyle
 	case "pending", "":
-		return lipgloss.NewStyle().Foreground(m.theme.WarnFg)
+		return m.renderStyles.ciIconPendingStyle
 	default: // skipped, cancelled, etc.
-		return lipgloss.NewStyle().Foreground(m.theme.MutedFg)
+		return m.renderStyles.ciIconDefaultStyle
 	}
 }
 
@@ -368,17 +327,10 @@ func (m *Model) renderPRStatePill(state string) string {
 
 // basePaneStyle returns the base style for panes.
 func (m *Model) basePaneStyle() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(m.theme.BorderDim).
-		Padding(0, 1)
+	return m.renderStyles.baseBoxStyle
 }
 
 // baseInnerBoxStyle returns the base style for inner boxes.
 func (m *Model) baseInnerBoxStyle() lipgloss.Style {
-	// Use rounded border for inner boxes for softer appearance
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(m.theme.BorderDim).
-		Padding(0, 1)
+	return m.renderStyles.baseBoxStyle
 }
