@@ -8,13 +8,13 @@ description: Create, list, switch to, and delete git worktrees using lazyworktre
 Manage git worktrees for the current repository using the `lazyworktree` CLI.
 
 ## Current Worktrees
-!`lazyworktree list --json 2>/dev/null || echo "[]"`
+!`lazyworktree list --json`
 
 ## Current Working Directory
 !`pwd`
 
 ## Current Branch
-!`git branch --show-current 2>/dev/null`
+!`git branch --show-current`
 
 ---
 
