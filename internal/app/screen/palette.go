@@ -333,7 +333,7 @@ func (s *CommandPaletteScreen) View() string {
 
 	// Selection pointer for selected item
 	pointerStyle := lipgloss.NewStyle().
-		Foreground(s.Thm.WarnFg).
+		Foreground(s.Thm.Accent).
 		Bold(true)
 
 	descStyle := lipgloss.NewStyle().
@@ -348,14 +348,6 @@ func (s *CommandPaletteScreen) View() string {
 		Foreground(s.Thm.MutedFg).
 		Italic(true)
 
-	// Shortcut badge style - simple muted text
-	shortcutStyle := lipgloss.NewStyle().
-		Foreground(s.Thm.MutedFg)
-
-	selectedShortcutStyle := lipgloss.NewStyle().
-		Foreground(s.Thm.Accent).
-		Bold(true)
-
 	// Icon style
 	iconStyle := lipgloss.NewStyle().
 		Foreground(s.Thm.MutedFg)
@@ -363,10 +355,6 @@ func (s *CommandPaletteScreen) View() string {
 	selectedIconStyle := lipgloss.NewStyle().
 		Foreground(s.Thm.Accent).
 		Bold(true)
-
-	// MRU indicator
-	mruStyle := lipgloss.NewStyle().
-		Foreground(s.Thm.WarnFg)
 
 	// Get current query for highlighting
 	query := strings.TrimSpace(s.FilterInput.Value())
@@ -384,9 +372,9 @@ func (s *CommandPaletteScreen) View() string {
 	}
 
 	// Calculate available width for label and description
-	// Width breakdown: 2 padding + 2 icon + 1 space + label + desc + shortcut badge (4 chars max)
-	labelWidth := 32
-	descWidth := width - labelWidth - 14 // Leave room for icon, padding, and shortcut
+	// Width breakdown: 2 padding + 2 icon + 1 space + label + desc
+	labelWidth := 28
+	descWidth := width - labelWidth - 8 // Leave room for icon, padding, and UI elements
 
 	for i := start; i < end; i++ {
 		it := s.Filtered[i]
@@ -399,19 +387,6 @@ func (s *CommandPaletteScreen) View() string {
 			}
 			leftPart := icon + "  " + it.Label
 			sectionText := leftPart
-
-			// Add "Key" label only on the first section header
-			if len(itemViews) == 0 {
-				keyLabel := "Shortcut"
-				contentWidth := width - 4 // Account for padding
-				// Use lipgloss.Width for proper display width calculation
-				leftWidth := lipgloss.Width(leftPart)
-				padding := contentWidth - leftWidth - len(keyLabel)
-				if padding < 1 {
-					padding = 1
-				}
-				sectionText = leftPart + strings.Repeat(" ", padding) + keyLabel
-			}
 
 			itemViews = append(itemViews, sectionStyle.Render(sectionText))
 			continue
@@ -435,19 +410,6 @@ func (s *CommandPaletteScreen) View() string {
 			icon = " " // Space placeholder for alignment
 		}
 
-		// Build MRU indicator
-		mruIndicator := ""
-		if it.IsMRU {
-			mruIndicator = " " // Clock icon for recently used
-		}
-
-		// Build shortcut badge
-		shortcutBadge := ""
-		shortcutLen := 0
-		if it.Shortcut != "" {
-			shortcutLen = len(it.Shortcut) + 2 // Padding included
-		}
-
 		// Calculate padding for alignment
 		paddedLabel := fmt.Sprintf("%-*s", labelWidth, label)
 		paddedDesc := fmt.Sprintf("%-*s", descWidth, desc)
@@ -455,32 +417,18 @@ func (s *CommandPaletteScreen) View() string {
 		if i == s.Cursor {
 			// Selected item with left border
 			styledIcon := selectedIconStyle.Render(icon)
-			styledMRU := ""
-			if mruIndicator != "" {
-				styledMRU = selectedIconStyle.Render(mruIndicator)
-			}
 			styledLabel := paddedLabel
 			styledDesc := selectedDescStyle.Render(paddedDesc)
-			if it.Shortcut != "" {
-				shortcutBadge = selectedShortcutStyle.Render(it.Shortcut)
-			}
 
-			line := styledIcon + " " + styledMRU + styledLabel + " " + styledDesc
-			if shortcutLen > 0 {
-				line += " " + shortcutBadge
-			}
+			line := styledIcon + " " + styledLabel + " " + styledDesc
 
 			// Add selection pointer
-			pointer := pointerStyle.Render("▶")
+			pointer := pointerStyle.Render(">")
 			itemContent := selectedStyle.Render(line)
 			itemViews = append(itemViews, pointer+itemContent)
 		} else {
 			// Normal item
 			styledIcon := iconStyle.Render(icon)
-			styledMRU := ""
-			if mruIndicator != "" {
-				styledMRU = mruStyle.Render(mruIndicator)
-			}
 
 			// Apply match highlighting when filtering
 			styledLabel := paddedLabel
@@ -489,14 +437,8 @@ func (s *CommandPaletteScreen) View() string {
 			}
 
 			styledDesc := descStyle.Render(paddedDesc)
-			if it.Shortcut != "" {
-				shortcutBadge = shortcutStyle.Render(it.Shortcut)
-			}
 
-			line := styledIcon + " " + styledMRU + styledLabel + " " + styledDesc
-			if shortcutLen > 0 {
-				line += " " + shortcutBadge
-			}
+			line := styledIcon + " " + styledLabel + " " + styledDesc
 
 			// Add space to align with selected item border
 			itemViews = append(itemViews, itemStyle.Render(" "+line))
