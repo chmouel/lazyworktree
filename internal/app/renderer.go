@@ -40,7 +40,7 @@ func (m *Model) View() tea.View {
 	body := m.renderBody(layout)
 
 	// Truncate body to fit, leaving room for header and footer
-	maxBodyLines := m.state.view.WindowHeight - 2 // 1 for header, 1 for footer
+	maxBodyLines := m.state.view.WindowHeight - 3 // 2 for header (with border), 1 for footer
 	if layout.filterHeight > 0 {
 		maxBodyLines--
 	}
@@ -126,8 +126,8 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 	popupWidth := lipgloss.Width(popupLines[0])
 
 	leftPad := maxInt((baseWidth-popupWidth)/2, 0)
-	leftStyle := lipgloss.NewStyle().Width(leftPad)
-	lineStyle := lipgloss.NewStyle().Width(baseWidth)
+	leftStyle := m.renderStyles.overlayLeftStyle.Width(leftPad)
+	lineStyle := m.renderStyles.overlayLineStyle.Width(baseWidth)
 
 	for i, line := range popupLines {
 		row := marginTop + i

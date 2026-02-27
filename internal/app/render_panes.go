@@ -127,24 +127,23 @@ func (m *Model) annotationKeywordIcon(spec annotationKeywordSpec) string {
 }
 
 func (m *Model) annotationKeywordStyle(spec annotationKeywordSpec) lipgloss.Style {
-	style := lipgloss.NewStyle().Bold(true)
 	switch spec.Canonical {
 	case "FIX":
-		return style.Foreground(m.theme.ErrorFg)
+		return m.renderStyles.annotFixStyle
 	case "WARN", "HACK":
-		return style.Foreground(m.theme.WarnFg)
+		return m.renderStyles.annotWarnStyle
 	case "DONE":
-		return style.Foreground(m.theme.SuccessFg)
+		return m.renderStyles.annotDoneStyle
 	case "TODO", "TODO_CHECKBOX":
-		return style.Foreground(m.theme.WarnFg)
+		return m.renderStyles.annotTodoStyle
 	case "DONE_CHECKBOX":
-		return style.Foreground(m.theme.SuccessFg)
+		return m.renderStyles.annotDoneStyle
 	case "NOTE":
-		return style.Foreground(m.theme.SuccessFg)
+		return m.renderStyles.annotNoteStyle
 	case "PERF", "TEST":
-		return style.Foreground(m.theme.Accent)
+		return m.renderStyles.annotPerfStyle
 	default:
-		return style.Foreground(m.theme.TextFg)
+		return m.renderStyles.annotDefaultStyle
 	}
 }
 
@@ -171,7 +170,7 @@ func (m *Model) renderAnnotationKeywords(line string, valueStyle lipgloss.Style)
 
 		if matchStart > last {
 			if lastSpec != nil && lastSpec.Canonical == "DONE" {
-				b.WriteString(lipgloss.NewStyle().Foreground(m.theme.MutedFg).Strikethrough(true).Render(line[last:matchStart]))
+				b.WriteString(m.renderStyles.annotStrikeStyle.Render(line[last:matchStart]))
 			} else {
 				b.WriteString(valueStyle.Render(line[last:matchStart]))
 			}
@@ -196,7 +195,7 @@ func (m *Model) renderAnnotationKeywords(line string, valueStyle lipgloss.Style)
 
 	if last < len(line) {
 		if lastSpec != nil && lastSpec.Canonical == "DONE" {
-			b.WriteString(lipgloss.NewStyle().Foreground(m.theme.MutedFg).Strikethrough(true).Render(line[last:]))
+			b.WriteString(m.renderStyles.annotStrikeStyle.Render(line[last:]))
 		} else {
 			b.WriteString(valueStyle.Render(line[last:]))
 		}
@@ -330,8 +329,8 @@ func isMarkdownHorizontalRule(line string) bool {
 }
 
 func (m *Model) renderInlineMarkdown(line string) string {
-	codeStyle := lipgloss.NewStyle().Foreground(m.theme.Cyan)
-	strongStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.TextFg)
+	codeStyle := m.renderStyles.mdCodeStyle
+	strongStyle := m.renderStyles.mdStrongStyle
 
 	line = markdownInlineCodeRe.ReplaceAllStringFunc(line, func(match string) string {
 		parts := markdownInlineCodeRe.FindStringSubmatch(match)
@@ -443,7 +442,7 @@ func (m *Model) renderMarkdownNoteLines(noteText string, valueStyle lipgloss.Sty
 			iconPart := style.Render(iconWithSpace(icon))
 			var textPart string
 			if checked {
-				textPart = lipgloss.NewStyle().Foreground(m.theme.MutedFg).Strikethrough(true).Render(text)
+				textPart = m.renderStyles.annotStrikeStyle.Render(text)
 			} else {
 				textPart = valueStyle.Render(text)
 			}
@@ -741,6 +740,15 @@ func (m *Model) renderZoomedNotesPane(layout layoutDims) string {
 	return m.renderPaneBlock(5, "Notes", true, layout.leftWidth, layout.bodyHeight, notesBox)
 }
 
+// infoSectionDivider returns a thin horizontal rule for separating info pane sections.
+func (m *Model) infoSectionDivider(width int) string {
+	w := width
+	if w <= 0 {
+		w = 20
+	}
+	return m.renderStyles.infoDividerStyle.Render(strings.Repeat("─", w))
+}
+
 // buildInfoContent builds the info content string for a worktree.
 func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 	if wt == nil {
@@ -810,7 +818,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		if m.config.IconsEnabled() {
 			prPrefix = iconWithSpace(getIconPR()) + prPrefix
 		}
-		infoLines = append(infoLines, "")
+		infoLines = append(infoLines, m.infoSectionDivider(30))
 		infoLines = append(infoLines, prLabelStyle.Render(prPrefix))
 		infoLines = append(infoLines, fmt.Sprintf("  %s ", wt.PR.Title))
 		// Author line with bot indicator if applicable
@@ -826,7 +834,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 			prPrefix = iconWithSpace(getIconPR()) + prPrefix
 		}
 
-		infoLines = append(infoLines, "")
+		infoLines = append(infoLines, m.infoSectionDivider(30))
 		infoLines = append(infoLines, prLabelStyle.Render(prPrefix))
 
 		switch wt.PRFetchStatus {
@@ -874,7 +882,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 	// CI status from cache (shown for all branches with cached checks, not just PRs)
 	if !m.config.DisablePR {
 		if cachedChecks, _, ok := m.cache.ciCache.Get(wt.Branch); ok && len(cachedChecks) > 0 {
-			infoLines = append(infoLines, "") // blank line before CI
+			infoLines = append(infoLines, m.infoSectionDivider(30))
 
 			// Summary pill next to CI Checks heading
 			aggregate := aggregateCIConclusion(cachedChecks)

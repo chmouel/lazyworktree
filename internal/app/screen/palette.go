@@ -311,30 +311,40 @@ func (s *CommandPaletteScreen) View() string {
 		Width(width - 2).
 		Foreground(s.Thm.TextFg)
 
-	// Section header with background tint and icon
+	// Section header with top and bottom border lines
 	sectionStyle := lipgloss.NewStyle().
 		Padding(0, 1).
-		Width(width - 2).
-		Background(s.Thm.AccentDim).
+		Width(width-2).
 		Foreground(s.Thm.Accent).
-		Bold(true)
+		Bold(true).
+		Border(lipgloss.NormalBorder(), true, false, true, false).
+		BorderForeground(s.Thm.BorderDim)
 
 	// Normal item style
 	itemStyle := lipgloss.NewStyle().
 		Padding(0, 1).
 		Width(width - 2)
 
-	// Selected item - subtle style with pointer, no full background
+	// Selected item with accent border and subtle background tint
 	selectedStyle := lipgloss.NewStyle().
 		Padding(0, 1).
-		Width(width - 4). // Narrower to accommodate pointer
+		Width(width - 4). // Narrower to accommodate left border
 		Foreground(s.Thm.TextFg).
+		Background(s.Thm.AccentDim).
 		Bold(true)
 
-	// Selection pointer for selected item
-	pointerStyle := lipgloss.NewStyle().
+	// Left accent border for selected item
+	selectedBorderStyle := lipgloss.NewStyle().
 		Foreground(s.Thm.Accent).
+		Background(s.Thm.AccentDim).
 		Bold(true)
+
+	// Shortcut badge style
+	shortcutStyle := lipgloss.NewStyle().
+		Foreground(s.Thm.AccentFg).
+		Background(s.Thm.Accent).
+		Bold(true).
+		Padding(0, 1)
 
 	descStyle := lipgloss.NewStyle().
 		Foreground(s.Thm.MutedFg)
@@ -372,23 +382,23 @@ func (s *CommandPaletteScreen) View() string {
 	}
 
 	// Calculate available width for label and description
-	// Width breakdown: 2 padding + 2 icon + 1 space + label + desc
+	// Width breakdown: 2 padding + 2 icon + 1 space + label + desc + shortcut
 	labelWidth := 28
-	descWidth := width - labelWidth - 8 // Leave room for icon, padding, and UI elements
+	shortcutWidth := 6                                  // space for shortcut badge
+	descWidth := width - labelWidth - shortcutWidth - 8 // Leave room for icon, padding, and UI elements
 
 	for i := start; i < end; i++ {
 		it := s.Filtered[i]
 
-		// Render section headers with icon and background
+		// Render section headers with bottom border underline
 		if it.IsSection {
 			icon := it.Icon
 			if icon == "" {
 				icon = "" // Default section icon
 			}
 			leftPart := icon + "  " + it.Label
-			sectionText := leftPart
 
-			itemViews = append(itemViews, sectionStyle.Render(sectionText))
+			itemViews = append(itemViews, sectionStyle.Render(leftPart))
 			continue
 		}
 
@@ -414,18 +424,23 @@ func (s *CommandPaletteScreen) View() string {
 		paddedLabel := fmt.Sprintf("%-*s", labelWidth, label)
 		paddedDesc := fmt.Sprintf("%-*s", descWidth, desc)
 
+		// Render shortcut badge if available
+		shortcutBadge := ""
+		if it.Shortcut != "" {
+			shortcutBadge = " " + shortcutStyle.Render(it.Shortcut)
+		}
+
 		if i == s.Cursor {
-			// Selected item with left border
+			// Selected item with left accent border and background tint
 			styledIcon := selectedIconStyle.Render(icon)
 			styledLabel := paddedLabel
 			styledDesc := selectedDescStyle.Render(paddedDesc)
 
-			line := styledIcon + " " + styledLabel + " " + styledDesc
+			line := styledIcon + " " + styledLabel + " " + styledDesc + shortcutBadge
 
-			// Add selection pointer
-			pointer := pointerStyle.Render(">")
+			border := selectedBorderStyle.Render("▎")
 			itemContent := selectedStyle.Render(line)
-			itemViews = append(itemViews, pointer+itemContent)
+			itemViews = append(itemViews, border+itemContent)
 		} else {
 			// Normal item
 			styledIcon := iconStyle.Render(icon)
@@ -438,7 +453,7 @@ func (s *CommandPaletteScreen) View() string {
 
 			styledDesc := descStyle.Render(paddedDesc)
 
-			line := styledIcon + " " + styledLabel + " " + styledDesc
+			line := styledIcon + " " + styledLabel + " " + styledDesc + shortcutBadge
 
 			// Add space to align with selected item border
 			itemViews = append(itemViews, itemStyle.Render(" "+line))

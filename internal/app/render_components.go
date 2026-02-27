@@ -46,9 +46,10 @@ func (m *Model) renderFilter(layout layoutDims) string {
 // renderFooter renders the application footer with context-aware hints.
 func (m *Model) renderFooter(layout layoutDims) string {
 	footerStyle := m.renderStyles.footerStyle
+	sep := " " + m.renderStyles.footerSepStyle.Render("·") + " "
 
 	// Context-aware hints based on focused pane
-	var hints []string
+	var groups [][]string
 
 	paneHint := "1-4"
 	if !m.hasGitStatus() {
@@ -64,74 +65,55 @@ func (m *Model) renderFooter(layout layoutDims) string {
 
 	switch m.state.view.FocusedPane {
 	case 4: // Notes pane
-		hints = []string{
-			m.renderKeyHint("j/k", "Scroll"),
-			m.renderKeyHint("i", "Edit Note"),
-			m.renderKeyHint("Tab", "Switch Pane"),
-			m.renderKeyHint("q", "Quit"),
-			m.renderKeyHint("?", "Help"),
+		groups = [][]string{
+			{m.renderKeyHint("j/k", "Scroll"), m.renderKeyHint("i", "Edit Note")},
+			{m.renderKeyHint("Tab", "Switch Pane")},
+			{m.renderKeyHint("q", "Quit"), m.renderKeyHint("?", "Help")},
 		}
 
 	case 3: // Commit pane
 		if len(m.state.data.logEntries) > 0 {
-			hints = []string{
-				m.renderKeyHint("Enter", "View Commit"),
-				m.renderKeyHint("C", "Cherry-pick"),
-				m.renderKeyHint("j/k", "Navigate"),
-				m.renderKeyHint("f", "Filter"),
-				m.renderKeyHint("/", "Search"),
-				m.renderKeyHint("r", "Refresh"),
-				m.renderKeyHint("Tab", "Switch Pane"),
-				m.renderKeyHint("q", "Quit"),
-				m.renderKeyHint("?", "Help"),
+			groups = [][]string{
+				{m.renderKeyHint("Enter", "View Commit"), m.renderKeyHint("C", "Cherry-pick"), m.renderKeyHint("j/k", "Navigate")},
+				{m.renderKeyHint("f", "Filter"), m.renderKeyHint("/", "Search"), m.renderKeyHint("r", "Refresh")},
+				{m.renderKeyHint("Tab", "Switch Pane"), m.renderKeyHint("q", "Quit"), m.renderKeyHint("?", "Help")},
 			}
 		} else {
-			hints = []string{
-				m.renderKeyHint("f", "Filter"),
-				m.renderKeyHint("/", "Search"),
-				m.renderKeyHint("Tab", "Switch Pane"),
-				m.renderKeyHint("q", "Quit"),
-				m.renderKeyHint("?", "Help"),
+			groups = [][]string{
+				{m.renderKeyHint("f", "Filter"), m.renderKeyHint("/", "Search")},
+				{m.renderKeyHint("Tab", "Switch Pane"), m.renderKeyHint("q", "Quit"), m.renderKeyHint("?", "Help")},
 			}
 		}
 
 	case 2: // Git Status pane
-		hints = []string{
-			m.renderKeyHint("j/k", "Scroll"),
-		}
+		actionGroup := []string{m.renderKeyHint("j/k", "Scroll")}
 		if len(m.state.data.statusFiles) > 0 {
-			hints = append(hints,
+			actionGroup = append(actionGroup,
 				m.renderKeyHint("Enter", "Show Diff"),
 				m.renderKeyHint("e", "Edit File"),
 				m.renderKeyHint("s", "Stage"),
 			)
 		}
-		hints = append(hints,
-			m.renderKeyHint("f", "Filter"),
-			m.renderKeyHint("/", "Search"),
-			m.renderKeyHint("Tab", "Switch Pane"),
-			m.renderKeyHint("r", "Refresh"),
-			m.renderKeyHint("q", "Quit"),
-			m.renderKeyHint("?", "Help"),
-		)
+		groups = [][]string{
+			actionGroup,
+			{m.renderKeyHint("f", "Filter"), m.renderKeyHint("/", "Search"), m.renderKeyHint("r", "Refresh")},
+			{m.renderKeyHint("Tab", "Switch Pane"), m.renderKeyHint("q", "Quit"), m.renderKeyHint("?", "Help")},
+		}
 
 	case 1: // Info pane (info + CI)
-		hints = []string{
-			m.renderKeyHint("j/k", "Scroll"),
-			m.renderKeyHint("n/p", "CI Checks"),
-			m.renderKeyHint("Enter", "Open URL"),
-			m.renderKeyHint("Ctrl+v", "CI Logs"),
-			m.renderKeyHint("Tab", "Switch Pane"),
-			m.renderKeyHint("r", "Refresh"),
-			m.renderKeyHint("q", "Quit"),
-			m.renderKeyHint("?", "Help"),
+		groups = [][]string{
+			{m.renderKeyHint("j/k", "Scroll"), m.renderKeyHint("n/p", "CI Checks"), m.renderKeyHint("Enter", "Open URL"), m.renderKeyHint("Ctrl+v", "CI Logs")},
+			{m.renderKeyHint("Tab", "Switch Pane"), m.renderKeyHint("r", "Refresh")},
+			{m.renderKeyHint("q", "Quit"), m.renderKeyHint("?", "Help")},
 		}
 
 	default: // Worktree table (pane 0)
-		hints = []string{
+		navGroup := []string{
 			m.renderKeyHint(paneHint, "Pane"),
 			m.renderKeyHint("c", "Create"),
 			m.renderKeyHint("f", "Filter"),
+		}
+		actionGroup := []string{
 			m.renderKeyHint("d", "Diff"),
 			m.renderKeyHint("D", "Delete"),
 			m.renderKeyHint("S", "Sync"),
@@ -140,19 +122,26 @@ func (m *Model) renderFooter(layout layoutDims) string {
 		if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
 			wt := m.state.data.filteredWts[m.state.data.selectedIndex]
 			if wt.PR != nil {
-				hints = append(hints, m.renderKeyHint("o", "Open PR"))
+				actionGroup = append(actionGroup, m.renderKeyHint("o", "Open PR"))
 			}
 		}
-		hints = append(hints, m.customFooterHints()...)
-		hints = append(hints,
+		actionGroup = append(actionGroup, m.customFooterHints()...)
+		globalGroup := []string{
 			m.renderKeyHint("y", "Copy"),
 			m.renderKeyHint("q", "Quit"),
 			m.renderKeyHint("?", "Help"),
 			m.renderKeyHint("ctrl+p", "Palette"),
-		)
+		}
+		groups = [][]string{navGroup, actionGroup, globalGroup}
 	}
 
-	footerContent := strings.Join(hints, "  ")
+	// Join groups with separator
+	groupStrs := make([]string, 0, len(groups))
+	for _, g := range groups {
+		groupStrs = append(groupStrs, strings.Join(g, "  "))
+	}
+	footerContent := strings.Join(groupStrs, sep)
+
 	if !m.loading {
 		return footerStyle.Width(layout.width).Render(footerContent)
 	}
@@ -172,10 +161,9 @@ func (m *Model) renderKeyHint(key, label string) string {
 
 // renderPaneBlock renders a pane block with the title embedded in the top border.
 func (m *Model) renderPaneBlock(index int, title string, focused bool, width, height int, innerContent string) string {
-	border := lipgloss.NormalBorder()
+	border := lipgloss.RoundedBorder()
 	borderColor := m.theme.BorderDim
 	if focused {
-		border = lipgloss.RoundedBorder()
 		borderColor = m.theme.Accent
 	}
 
@@ -196,14 +184,14 @@ func (m *Model) renderPaneBlock(index int, title string, focused bool, width, he
 		numStr = fmt.Sprintf("(%d)", index)
 	}
 
-	bubbleBg := m.theme.BorderDim
 	bubbleStyle := m.renderStyles.paneBubbleDimStyle
+	edgeStyle := m.renderStyles.paneEdgeDimStyle
 	if focused {
-		bubbleBg = m.theme.Accent
 		bubbleStyle = m.renderStyles.paneBubbleFocusedStyle
+		edgeStyle = m.renderStyles.paneEdgeFocusedStyle
 	}
-	leftEdge := lipgloss.NewStyle().Foreground(bubbleBg).Render("")
-	rightEdge := lipgloss.NewStyle().Foreground(bubbleBg).Render("")
+	leftEdge := edgeStyle.Render("")
+	rightEdge := edgeStyle.Render("")
 	titleText := fmt.Sprintf(" %s %s ", numStr, title)
 
 	filterIndicator := ""
@@ -225,7 +213,7 @@ func (m *Model) renderPaneBlock(index int, title string, focused bool, width, he
 			m.renderStyles.paneMutedTextStyle.Render("Unzoom"))
 	}
 
-	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
+	borderStyle := edgeStyle
 	borderLine := borderStyle.Render(border.Top)
 
 	styledTitleBlock := borderLine + leftEdge + bubbleStyle.Render(titleText) + rightEdge + borderLine
@@ -251,8 +239,9 @@ func (m *Model) renderCIStatusPill(conclusion string) string {
 	label := ciConclusionLabel(conclusion)
 	bg, fg := m.ciConclusionColors(conclusion)
 	bubbleStyle := lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(true)
-	leftEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b6")
-	rightEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b4")
+	edgeStyle := lipgloss.NewStyle().Foreground(bg)
+	leftEdge := edgeStyle.Render("\ue0b6")
+	rightEdge := edgeStyle.Render("\ue0b4")
 	return leftEdge + bubbleStyle.Render(" "+label+" ") + rightEdge
 }
 
@@ -320,8 +309,9 @@ func (m *Model) prStateColors(state string) (color.Color, color.Color) {
 func (m *Model) renderPRStatePill(state string) string {
 	bg, fg := m.prStateColors(state)
 	bubbleStyle := lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(true)
-	leftEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b6")
-	rightEdge := lipgloss.NewStyle().Foreground(bg).Render("\ue0b4")
+	edgeStyle := lipgloss.NewStyle().Foreground(bg)
+	leftEdge := edgeStyle.Render("\ue0b6")
+	rightEdge := edgeStyle.Render("\ue0b4")
 	return leftEdge + bubbleStyle.Render(" "+state+" ") + rightEdge
 }
 

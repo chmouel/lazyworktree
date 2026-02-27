@@ -77,7 +77,7 @@ func (m *Model) computeLayout() layoutDims {
 		height = 40
 	}
 
-	headerHeight := 1
+	headerHeight := 2
 	footerHeight := 1
 	filterHeight := 0
 	if m.state.view.ShowingFilter || m.state.view.ShowingSearch {
