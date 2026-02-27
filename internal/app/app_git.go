@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/app/screen"
@@ -14,6 +15,8 @@ import (
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/security"
 )
+
+const maxPRFetchWorkers = 8
 
 func (m *Model) fetchPRData() tea.Cmd {
 	if m.config.DisablePR {
@@ -34,6 +37,7 @@ func (m *Model) fetchPRData() tea.Cmd {
 		// This handles fork PRs where local branch name doesn't match headRefName
 		worktreePRs := make(map[string]*models.PRInfo)
 		worktreeErrors := make(map[string]string)
+		unmatched := make([]*models.WorktreeInfo, 0, len(m.state.data.worktrees))
 		for _, wt := range m.state.data.worktrees {
 			log.Printf("Checking worktree: Branch=%q Path=%q", wt.Branch, wt.Path)
 			if pr, ok := prMap[wt.Branch]; ok {
@@ -46,18 +50,58 @@ func (m *Model) fetchPRData() tea.Cmd {
 			if _, ok := prMap[wt.Branch]; ok {
 				continue
 			}
-			// Try to fetch PR for this worktree directly
-			pr, fetchErr := m.state.services.git.FetchPRForWorktreeWithError(m.ctx, wt.Path)
-			if pr != nil {
-				worktreePRs[wt.Path] = pr
-				log.Printf("  FetchPRForWorktree returned PR#%d", pr.Number)
+			unmatched = append(unmatched, wt)
+		}
+
+		type prFetchResult struct {
+			worktreePath string
+			pr           *models.PRInfo
+			err          error
+		}
+
+		if len(unmatched) > 0 {
+			workerCount := maxPRFetchWorkers
+			if len(unmatched) < workerCount {
+				workerCount = len(unmatched)
 			}
-			if fetchErr != nil {
-				worktreeErrors[wt.Path] = fetchErr.Error()
-				log.Printf("  FetchPRForWorktree error: %v", fetchErr)
+
+			jobs := make(chan *models.WorktreeInfo, len(unmatched))
+			results := make(chan prFetchResult, len(unmatched))
+			var wg sync.WaitGroup
+
+			for i := 0; i < workerCount; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for wt := range jobs {
+						pr, fetchErr := m.state.services.git.FetchPRForWorktreeWithError(m.ctx, wt.Path)
+						results <- prFetchResult{worktreePath: wt.Path, pr: pr, err: fetchErr}
+					}
+				}()
 			}
-			if pr == nil && fetchErr == nil {
-				log.Printf("  FetchPRForWorktree returned nil (no PR)")
+
+			for _, wt := range unmatched {
+				jobs <- wt
+			}
+			close(jobs)
+
+			go func() {
+				wg.Wait()
+				close(results)
+			}()
+
+			for result := range results {
+				if result.pr != nil {
+					worktreePRs[result.worktreePath] = result.pr
+					log.Printf("  FetchPRForWorktree returned PR#%d", result.pr.Number)
+				}
+				if result.err != nil {
+					worktreeErrors[result.worktreePath] = result.err.Error()
+					log.Printf("  FetchPRForWorktree error: %v", result.err)
+				}
+				if result.pr == nil && result.err == nil {
+					log.Printf("  FetchPRForWorktree returned nil (no PR)")
+				}
 			}
 		}
 

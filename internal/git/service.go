@@ -51,16 +51,22 @@ type NotifyOnceFn func(key string, message string, severity string)
 
 // Service orchestrates git and helper commands for the UI.
 type Service struct {
-	notify        NotifyFn
-	notifyOnce    NotifyOnceFn
-	semaphore     chan struct{}
-	mainBranch    string
-	gitHost       string
-	notifiedSet   map[string]bool
-	useGitPager   bool
-	gitPagerArgs  []string
-	gitPager      string
-	commandRunner func(ctx context.Context, name string, args ...string) *exec.Cmd
+	notify               NotifyFn
+	notifyOnce           NotifyOnceFn
+	semaphore            chan struct{}
+	mainBranch           string
+	gitHost              string
+	remoteURL            string
+	mainWorktreePath     string
+	mainBranchOnce       sync.Once
+	remoteURLOnce        sync.Once
+	gitHostOnce          sync.Once
+	mainWorktreePathOnce sync.Once
+	notifiedSet          map[string]bool
+	useGitPager          bool
+	gitPagerArgs         []string
+	gitPager             string
+	commandRunner        func(ctx context.Context, name string, args ...string) *exec.Cmd
 }
 
 // NewService constructs a Service and sets up concurrency limits.
@@ -352,21 +358,26 @@ func (s *Service) RunGitWithCombinedOutput(ctx context.Context, args []string, c
 
 // GetMainBranch returns the main branch name for the current repository.
 func (s *Service) GetMainBranch(ctx context.Context) string {
-	if s.mainBranch != "" {
-		return s.mainBranch
-	}
-
-	out := s.RunGit(ctx, []string{"git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"}, "", []int{0}, true, false)
-	if out != "" {
-		parts := strings.Split(out, "/")
-		if len(parts) > 0 {
-			s.mainBranch = parts[len(parts)-1]
+	s.mainBranchOnce.Do(func() {
+		out := s.RunGit(ctx, []string{"git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"}, "", []int{0}, true, false)
+		if out != "" {
+			parts := strings.Split(out, "/")
+			if len(parts) > 0 {
+				s.mainBranch = parts[len(parts)-1]
+			}
 		}
-	}
-	if s.mainBranch == "" {
-		s.mainBranch = "main"
-	}
+		if s.mainBranch == "" {
+			s.mainBranch = "main"
+		}
+	})
 	return s.mainBranch
+}
+
+func (s *Service) getRemoteURL(ctx context.Context) string {
+	s.remoteURLOnce.Do(func() {
+		s.remoteURL = strings.TrimSpace(s.RunGit(ctx, []string{"git", "remote", "get-url", "origin"}, "", []int{0}, true, true))
+	})
+	return s.remoteURL
 }
 
 // GetCurrentBranch returns the current branch name from the current working directory.
@@ -613,29 +624,28 @@ func (s *Service) GetWorktrees(ctx context.Context) ([]*models.WorktreeInfo, err
 
 // DetectHost detects the git host (github, gitlab, or unknown)
 func (s *Service) DetectHost(ctx context.Context) string {
-	if s.gitHost != "" {
-		return s.gitHost
-	}
-
-	remoteURL := s.RunGit(ctx, []string{"git", "remote", "get-url", "origin"}, "", []int{0}, true, true)
-	if remoteURL != "" {
-		re := regexp.MustCompile(`(?:git@|https?://|ssh://|git://)(?:[^@]+@)?([^/:]+)`)
-		matches := re.FindStringSubmatch(remoteURL)
-		if len(matches) > 1 {
-			hostname := strings.ToLower(matches[1])
-			if strings.Contains(hostname, gitHostGitLab) {
-				s.gitHost = gitHostGitLab
-				return gitHostGitLab
-			}
-			if strings.Contains(hostname, gitHostGithub) {
-				s.gitHost = gitHostGithub
-				return gitHostGithub
+	s.gitHostOnce.Do(func() {
+		// Allow tests to pre-seed gitHost directly on the struct.
+		if s.gitHost != "" {
+			return
+		}
+		s.gitHost = gitHostUnknown
+		remoteURL := s.getRemoteURL(ctx)
+		if remoteURL != "" {
+			re := regexp.MustCompile(`(?:git@|https?://|ssh://|git://)(?:[^@]+@)?([^/:]+)`)
+			matches := re.FindStringSubmatch(remoteURL)
+			if len(matches) > 1 {
+				hostname := strings.ToLower(matches[1])
+				if strings.Contains(hostname, gitHostGitLab) {
+					s.gitHost = gitHostGitLab
+				}
+				if strings.Contains(hostname, gitHostGithub) {
+					s.gitHost = gitHostGithub
+				}
 			}
 		}
-	}
-
-	s.gitHost = gitHostUnknown
-	return gitHostUnknown
+	})
+	return s.gitHost
 }
 
 // IsGitHubOrGitLab returns true if the repository is connected to GitHub or GitLab.
@@ -1577,14 +1587,19 @@ func (s *Service) gitlabStatusToConclusion(status string) string {
 
 // GetMainWorktreePath returns the path of the main worktree.
 func (s *Service) GetMainWorktreePath(ctx context.Context) string {
-	rawWts := s.RunGit(ctx, []string{"git", "worktree", "list", "--porcelain"}, "", []int{0}, true, false)
-	for _, line := range strings.Split(rawWts, "\n") {
-		if strings.HasPrefix(line, "worktree ") {
-			return strings.TrimPrefix(line, "worktree ")
+	s.mainWorktreePathOnce.Do(func() {
+		rawWts := s.RunGit(ctx, []string{"git", "worktree", "list", "--porcelain"}, "", []int{0}, true, false)
+		for _, line := range strings.Split(rawWts, "\n") {
+			if strings.HasPrefix(line, "worktree ") {
+				s.mainWorktreePath = strings.TrimPrefix(line, "worktree ")
+				break
+			}
 		}
-	}
-	cwd, _ := os.Getwd()
-	return cwd
+		if s.mainWorktreePath == "" {
+			s.mainWorktreePath, _ = os.Getwd()
+		}
+	})
+	return s.mainWorktreePath
 }
 
 // RenameWorktree moves a worktree and renames its branch only when the
@@ -1641,7 +1656,7 @@ func (s *Service) fetchPRRefInfo(ctx context.Context, prNumber int, remoteBranch
 			repoURL, _ = headRepo["url"].(string)
 		}
 		if repoURL == "" {
-			repoURL = strings.TrimSpace(s.RunGit(ctx, []string{"git", "remote", "get-url", "origin"}, "", []int{0}, true, true))
+			repoURL = s.getRemoteURL(ctx)
 		}
 		mergeRef := fmt.Sprintf("refs/pull/%d/head", prNumber)
 		if !s.RunCommandChecked(ctx, []string{"git", "fetch", "origin", fmt.Sprintf("pull/%d/head", prNumber)}, "", fmt.Sprintf("Failed to fetch PR #%d", prNumber)) {
@@ -1672,7 +1687,7 @@ func (s *Service) fetchPRRefInfo(ctx context.Context, prNumber int, remoteBranch
 		if sourceBranch == "" {
 			sourceBranch = remoteBranch
 		}
-		repoURL := strings.TrimSpace(s.RunGit(ctx, []string{"git", "remote", "get-url", "origin"}, "", []int{0}, true, true))
+		repoURL := s.getRemoteURL(ctx)
 		mergeRef := fmt.Sprintf("refs/heads/%s", sourceBranch)
 		if !s.RunCommandChecked(ctx, []string{"git", "fetch", "origin", fmt.Sprintf("refs/heads/%s", sourceBranch)}, "", fmt.Sprintf("Failed to fetch MR #%d", prNumber)) {
 			return nil, false
@@ -1866,7 +1881,7 @@ func (s *Service) ResolveRepoName(ctx context.Context) string {
 	var repoName string
 
 	// Try git remote get-url origin
-	remoteURL := s.RunGit(ctx, []string{"git", "remote", "get-url", "origin"}, "", []int{0}, true, true)
+	remoteURL := s.getRemoteURL(ctx)
 
 	// Optimization: If it's a standard GitHub/GitLab URL, parse directly and avoid external tool overhead
 	if remoteURL != "" {
@@ -1936,8 +1951,26 @@ func (s *Service) BuildThreePartDiff(ctx context.Context, path string, cfg *conf
 	var parts []string
 	totalChars := 0
 
+	var stagedDiff, unstagedDiff, untrackedRaw string
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		stagedDiff = s.RunGit(ctx, []string{"git", "diff", "--cached", "--patch", "--no-color"}, path, []int{0}, false, false)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		unstagedDiff = s.RunGit(ctx, []string{"git", "diff", "--patch", "--no-color"}, path, []int{0}, false, false)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		untrackedRaw = s.RunGit(ctx, []string{"git", "ls-files", "--others", "--exclude-standard"}, path, []int{0}, false, false)
+	}()
+	wg.Wait()
+
 	// Part 1: Staged changes
-	stagedDiff := s.RunGit(ctx, []string{"git", "diff", "--cached", "--patch", "--no-color"}, path, []int{0}, false, false)
 	if stagedDiff != "" {
 		header := "=== Staged Changes ===\n"
 		parts = append(parts, header+stagedDiff)
@@ -1945,18 +1978,21 @@ func (s *Service) BuildThreePartDiff(ctx context.Context, path string, cfg *conf
 	}
 
 	// Part 2: Unstaged changes
-	if totalChars < cfg.MaxDiffChars {
-		unstagedDiff := s.RunGit(ctx, []string{"git", "diff", "--patch", "--no-color"}, path, []int{0}, false, false)
-		if unstagedDiff != "" {
-			header := "=== Unstaged Changes ===\n"
-			parts = append(parts, header+unstagedDiff)
-			totalChars += len(header) + len(unstagedDiff)
-		}
+	if totalChars < cfg.MaxDiffChars && unstagedDiff != "" {
+		header := "=== Unstaged Changes ===\n"
+		parts = append(parts, header+unstagedDiff)
+		totalChars += len(header) + len(unstagedDiff)
 	}
 
 	// Part 3: Untracked files (limited by config)
 	if totalChars < cfg.MaxDiffChars && cfg.MaxUntrackedDiffs > 0 {
-		untrackedFiles := s.getUntrackedFiles(ctx, path)
+		untrackedFiles := []string{}
+		for line := range strings.SplitSeq(untrackedRaw, "\n") {
+			file := strings.TrimSpace(line)
+			if file != "" {
+				untrackedFiles = append(untrackedFiles, file)
+			}
+		}
 		untrackedCount := len(untrackedFiles)
 		displayCount := untrackedCount
 		if displayCount > cfg.MaxUntrackedDiffs {
@@ -1987,18 +2023,6 @@ func (s *Service) BuildThreePartDiff(ctx context.Context, path string, cfg *conf
 	}
 
 	return result
-}
-
-func (s *Service) getUntrackedFiles(ctx context.Context, path string) []string {
-	statusRaw := s.RunGit(ctx, []string{"git", "status", "--porcelain"}, path, []int{0}, false, false)
-	var untracked []string
-	for _, line := range strings.Split(statusRaw, "\n") {
-		if strings.HasPrefix(line, "?? ") {
-			file := strings.TrimPrefix(line, "?? ")
-			untracked = append(untracked, file)
-		}
-	}
-	return untracked
 }
 
 // GetCommitFiles returns the list of files changed in a specific commit.

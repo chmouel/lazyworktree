@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -109,6 +110,79 @@ func TestFetchCommandMessages(t *testing.T) {
 	}
 	if msg := m.fetchRemotes()(); msg == nil {
 		t.Fatal("expected fetch remotes message")
+	}
+}
+
+func TestFetchPRDataFetchesUnmatchedWorktrees(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+
+	wt1 := t.TempDir()
+	wt2 := t.TempDir()
+	wt3 := t.TempDir()
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Branch: "feature-1", Path: wt1},
+		{Branch: "feature-2", Path: wt2},
+		{Branch: "feature-3", Path: wt3},
+	}
+
+	var mu sync.Mutex
+	ghViewCalls := 0
+	m.state.services.git.SetCommandRunner(func(_ context.Context, name string, args ...string) *exec.Cmd {
+		command := strings.Join(args, " ")
+		switch {
+		case name == "git" && command == "remote get-url origin":
+			return exec.Command("echo", "-n", "git@github.com:org/repo.git")
+		case name == "gh" && strings.HasPrefix(command, "pr list "):
+			return exec.Command("echo", "-n", `[{"headRefName":"feature-1","state":"OPEN","number":1,"title":"One","body":"first","url":"https://example.com/pr/1","author":{"login":"alice","name":"Alice","is_bot":false}}]`)
+		case name == "gh" && strings.HasPrefix(command, "pr view "):
+			mu.Lock()
+			ghViewCalls++
+			mu.Unlock()
+			return exec.Command("echo", "-n", `{"number":42,"state":"OPEN","title":"From worktree","body":"body","url":"https://example.com/pr/42","headRefName":"feature-worktree","baseRefName":"main","author":{"login":"bob","name":"Bob","is_bot":false}}`)
+		default:
+			return exec.Command("echo", "-n", "")
+		}
+	})
+
+	cmd := m.fetchPRData()
+	if cmd == nil {
+		t.Fatal("expected fetchPRData command")
+	}
+
+	msg, ok := cmd().(prDataLoadedMsg)
+	if !ok {
+		t.Fatal("expected prDataLoadedMsg")
+	}
+	if msg.err != nil {
+		t.Fatalf("expected no error, got %v", msg.err)
+	}
+	if len(msg.prMap) != 1 {
+		t.Fatalf("expected 1 PR from list, got %d", len(msg.prMap))
+	}
+	if _, ok := msg.prMap["feature-1"]; !ok {
+		t.Fatal("expected feature-1 to be present in prMap")
+	}
+	if len(msg.worktreePRs) != 2 {
+		t.Fatalf("expected 2 worktree PRs for unmatched branches, got %d", len(msg.worktreePRs))
+	}
+	if _, ok := msg.worktreePRs[wt2]; !ok {
+		t.Fatalf("expected worktree PR for %s", wt2)
+	}
+	if _, ok := msg.worktreePRs[wt3]; !ok {
+		t.Fatalf("expected worktree PR for %s", wt3)
+	}
+	if len(msg.worktreeErrors) != 0 {
+		t.Fatalf("expected no worktree errors, got %v", msg.worktreeErrors)
+	}
+
+	mu.Lock()
+	viewCalls := ghViewCalls
+	mu.Unlock()
+	if viewCalls != 2 {
+		t.Fatalf("expected 2 gh pr view calls, got %d", viewCalls)
 	}
 }
 

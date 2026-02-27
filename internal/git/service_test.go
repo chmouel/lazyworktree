@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/chmouel/lazyworktree/internal/config"
@@ -156,6 +157,52 @@ func TestGetMainBranch(t *testing.T) {
 	assert.Contains(t, []string{"main", "master"}, branch)
 }
 
+func TestGetRemoteURLCachesFirstResult(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	ctx := context.Background()
+	var remoteCalls atomic.Int32
+
+	service.SetCommandRunner(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		if name == "git" && strings.Join(args, " ") == "remote get-url origin" {
+			remoteCalls.Add(1)
+			return exec.CommandContext(ctx, "sh", "-c", "printf '%s' 'git@github.com:org/repo.git'")
+		}
+		return exec.CommandContext(ctx, "sh", "-c", "printf ''")
+	})
+
+	assert.Equal(t, "git@github.com:org/repo.git", service.getRemoteURL(ctx))
+	assert.Equal(t, "git@github.com:org/repo.git", service.getRemoteURL(ctx))
+	assert.Equal(t, int32(1), remoteCalls.Load())
+}
+
+func TestGetRemoteURLCachesEmptyResult(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	ctx := context.Background()
+	var remoteCalls atomic.Int32
+
+	service.SetCommandRunner(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		if name == "git" && strings.Join(args, " ") == "remote get-url origin" {
+			remoteCalls.Add(1)
+			return exec.CommandContext(ctx, "sh", "-c", "printf ''")
+		}
+		return exec.CommandContext(ctx, "sh", "-c", "printf ''")
+	})
+
+	assert.Empty(t, service.getRemoteURL(ctx))
+	assert.Empty(t, service.getRemoteURL(ctx))
+	assert.Equal(t, int32(1), remoteCalls.Load())
+}
+
 func TestGetMainWorktreePathFallback(t *testing.T) {
 	notify := func(_ string, _ string) {}
 	notifyOnce := func(_ string, _ string, _ string) {}
@@ -178,6 +225,29 @@ func TestGetMainWorktreePathFallback(t *testing.T) {
 	actual, err := filepath.EvalSymlinks(path)
 	require.NoError(t, err)
 	assert.Equal(t, expected, actual)
+}
+
+func TestGetMainWorktreePathCachesResult(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	ctx := context.Background()
+	var listCalls atomic.Int32
+
+	service.SetCommandRunner(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		if name == "git" && strings.Join(args, " ") == "worktree list --porcelain" {
+			listCalls.Add(1)
+			return exec.CommandContext(ctx, "sh", "-c", "printf '%s' 'worktree /tmp/main\nbranch refs/heads/main\n'")
+		}
+		return exec.CommandContext(ctx, "sh", "-c", "printf ''")
+	})
+
+	assert.Equal(t, "/tmp/main", service.GetMainWorktreePath(ctx))
+	assert.Equal(t, "/tmp/main", service.GetMainWorktreePath(ctx))
+	assert.Equal(t, int32(1), listCalls.Load())
 }
 
 func TestRenameWorktree(t *testing.T) {
@@ -280,6 +350,50 @@ func TestBuildThreePartDiff(t *testing.T) {
 
 		// Should return something (even if empty or error message)
 		assert.IsType(t, "", diff)
+	})
+
+	t.Run("uses ls-files for untracked enumeration", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("requires sh")
+		}
+
+		var lsFilesCalls atomic.Int32
+		var statusCalls atomic.Int32
+		service.SetCommandRunner(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+			if name != "git" {
+				return exec.CommandContext(ctx, "sh", "-c", "printf ''")
+			}
+
+			switch strings.Join(args, " ") {
+			case "diff --cached --patch --no-color":
+				return exec.CommandContext(ctx, "sh", "-c", "printf '%s' 'staged-diff'")
+			case "diff --patch --no-color":
+				return exec.CommandContext(ctx, "sh", "-c", "printf '%s' 'unstaged-diff'")
+			case "ls-files --others --exclude-standard":
+				lsFilesCalls.Add(1)
+				return exec.CommandContext(ctx, "sh", "-c", "printf '%s' 'new.txt\n'")
+			case "status --porcelain":
+				statusCalls.Add(1)
+				return exec.CommandContext(ctx, "sh", "-c", "printf '%s' '?? new.txt\n'")
+			}
+
+			if len(args) == 4 && args[0] == "diff" && args[1] == "--no-index" {
+				return exec.CommandContext(ctx, "sh", "-c", "printf '%s' 'diff --git a/new.txt b/new.txt'")
+			}
+			return exec.CommandContext(ctx, "sh", "-c", "printf ''")
+		})
+
+		cfg := &config.AppConfig{
+			MaxUntrackedDiffs: 10,
+			MaxDiffChars:      200000,
+		}
+		diff := service.BuildThreePartDiff(ctx, t.TempDir(), cfg)
+
+		assert.Contains(t, diff, "=== Staged Changes ===")
+		assert.Contains(t, diff, "=== Unstaged Changes ===")
+		assert.Contains(t, diff, "=== Untracked: new.txt ===")
+		assert.Equal(t, int32(1), lsFilesCalls.Load())
+		assert.Equal(t, int32(0), statusCalls.Load())
 	})
 }
 

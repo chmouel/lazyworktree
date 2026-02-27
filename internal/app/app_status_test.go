@@ -1,8 +1,14 @@
 package app
 
 import (
+	"context"
+	"os/exec"
 	"strings"
+	"sync"
 	"testing"
+
+	"github.com/chmouel/lazyworktree/internal/config"
+	"github.com/chmouel/lazyworktree/internal/models"
 )
 
 func TestParseCommitMetaComplete(t *testing.T) {
@@ -145,5 +151,70 @@ func TestTruncateToHeightFromEnd(t *testing.T) {
 				t.Errorf("truncateToHeightFromEnd(%q, %d) = %q, want %q", tt.input, tt.maxLines, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestGetCachedDetailsCachesResults(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: t.TempDir()}
+
+	var mu sync.Mutex
+	callCounts := map[string]int{}
+	// #nosec G702 -- test helper with fixed command arguments
+	m.state.services.git.SetCommandRunner(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		key := name + " " + strings.Join(args, " ")
+		mu.Lock()
+		callCounts[key]++
+		mu.Unlock()
+
+		switch key {
+		case "git symbolic-ref --short refs/remotes/origin/HEAD":
+			return exec.CommandContext(ctx, "echo", "-n", "origin/main") //nolint:gosec
+		case "git status --porcelain=v2":
+			return exec.CommandContext(ctx, "echo", "-n", "") //nolint:gosec
+		case "git log -50 --pretty=format:%H%x09%an%x09%s":
+			return exec.CommandContext(ctx, "echo", "-n", "abc123\talice\tCommit title") //nolint:gosec
+		case "git rev-list -100 HEAD --not --remotes":
+			return exec.CommandContext(ctx, "echo", "-n", "unpushedsha") //nolint:gosec
+		case "git rev-list -100 HEAD ^main":
+			return exec.CommandContext(ctx, "echo", "-n", "unmergedsha") //nolint:gosec
+		default:
+			return exec.CommandContext(ctx, "echo", "-n", "") //nolint:gosec
+		}
+	})
+
+	statusRaw, logRaw, unpushedSHAs, unmergedSHAs := m.getCachedDetails(wt)
+	if statusRaw != "" {
+		t.Fatalf("expected empty status raw, got %q", statusRaw)
+	}
+	if logRaw == "" {
+		t.Fatal("expected log raw to be populated")
+	}
+	if !unpushedSHAs["unpushedsha"] {
+		t.Fatalf("expected unpushed SHA to be tracked, got %v", unpushedSHAs)
+	}
+	if !unmergedSHAs["unmergedsha"] {
+		t.Fatalf("expected unmerged SHA to be tracked, got %v", unmergedSHAs)
+	}
+
+	_, _, _, _ = m.getCachedDetails(wt)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if callCounts["git symbolic-ref --short refs/remotes/origin/HEAD"] != 1 {
+		t.Fatalf("expected GetMainBranch git call once, got %d", callCounts["git symbolic-ref --short refs/remotes/origin/HEAD"])
+	}
+	if callCounts["git status --porcelain=v2"] != 1 {
+		t.Fatalf("expected status git call once, got %d", callCounts["git status --porcelain=v2"])
+	}
+	if callCounts["git log -50 --pretty=format:%H%x09%an%x09%s"] != 1 {
+		t.Fatalf("expected log git call once, got %d", callCounts["git log -50 --pretty=format:%H%x09%an%x09%s"])
+	}
+	if callCounts["git rev-list -100 HEAD --not --remotes"] != 1 {
+		t.Fatalf("expected unpushed git call once, got %d", callCounts["git rev-list -100 HEAD --not --remotes"])
+	}
+	if callCounts["git rev-list -100 HEAD ^main"] != 1 {
+		t.Fatalf("expected unmerged git call once, got %d", callCounts["git rev-list -100 HEAD ^main"])
 	}
 }

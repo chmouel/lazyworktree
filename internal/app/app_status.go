@@ -2,6 +2,7 @@ package app
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"charm.land/bubbles/v2/table"
@@ -293,13 +294,38 @@ func (m *Model) getCachedDetails(wt *models.WorktreeInfo) (string, string, map[s
 		}
 	}
 
-	// Get status (using porcelain format for reliable machine parsing)
-	statusRaw := m.state.services.git.RunGit(m.ctx, []string{"git", "status", "--porcelain=v2"}, wt.Path, []int{0}, true, false)
-	// Use %H for full SHA to ensure reliable matching
-	logRaw := m.state.services.git.RunGit(m.ctx, []string{"git", "log", "-50", "--pretty=format:%H%x09%an%x09%s"}, wt.Path, []int{0}, true, false)
+	mainBranch := m.state.services.git.GetMainBranch(m.ctx)
 
-	// Get unpushed SHAs (commits not on any remote)
-	unpushedRaw := m.state.services.git.RunGit(m.ctx, []string{"git", "rev-list", "-100", "HEAD", "--not", "--remotes"}, wt.Path, []int{0}, true, false)
+	var statusRaw, logRaw, unpushedRaw, unmergedRaw string
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Get status (using porcelain format for reliable machine parsing)
+		statusRaw = m.state.services.git.RunGit(m.ctx, []string{"git", "status", "--porcelain=v2"}, wt.Path, []int{0}, true, false)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Use %H for full SHA to ensure reliable matching
+		logRaw = m.state.services.git.RunGit(m.ctx, []string{"git", "log", "-50", "--pretty=format:%H%x09%an%x09%s"}, wt.Path, []int{0}, true, false)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Get unpushed SHAs (commits not on any remote)
+		unpushedRaw = m.state.services.git.RunGit(m.ctx, []string{"git", "rev-list", "-100", "HEAD", "--not", "--remotes"}, wt.Path, []int{0}, true, false)
+	}()
+	if mainBranch != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Get unmerged SHAs (commits not in main branch)
+			unmergedRaw = m.state.services.git.RunGit(m.ctx, []string{"git", "rev-list", "-100", "HEAD", "^" + mainBranch}, wt.Path, []int{0}, true, false)
+		}()
+	}
+	wg.Wait()
+
 	unpushedSHAs := make(map[string]bool)
 	for sha := range strings.SplitSeq(unpushedRaw, "\n") {
 		if s := strings.TrimSpace(sha); s != "" {
@@ -307,11 +333,8 @@ func (m *Model) getCachedDetails(wt *models.WorktreeInfo) (string, string, map[s
 		}
 	}
 
-	// Get unmerged SHAs (commits not in main branch)
-	mainBranch := m.state.services.git.GetMainBranch(m.ctx)
 	unmergedSHAs := make(map[string]bool)
 	if mainBranch != "" {
-		unmergedRaw := m.state.services.git.RunGit(m.ctx, []string{"git", "rev-list", "-100", "HEAD", "^" + mainBranch}, wt.Path, []int{0}, true, false)
 		for sha := range strings.SplitSeq(unmergedRaw, "\n") {
 			if s := strings.TrimSpace(sha); s != "" {
 				unmergedSHAs[s] = true
