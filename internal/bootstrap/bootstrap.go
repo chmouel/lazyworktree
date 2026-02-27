@@ -157,7 +157,7 @@ func runTUI(_ context.Context, cmd *cli.Command) error {
 	}
 
 	model := app.NewModel(cfg, "")
-	p := tea.NewProgram(model)
+	p := tea.NewProgram(model, tea.WithInput(os.Stdin))
 
 	_, err = p.Run()
 	model.Close()
