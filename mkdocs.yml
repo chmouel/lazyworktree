@@ -80,26 +80,28 @@ nav:
           - Custom Themes: configuration/custom-themes.md
       - Guides:
           - Multiplexer Integration: guides/multiplexer-integration.md
-      - Advanced:
-          - AI Integration: advanced/ai-integration.md
+          - AI Integration: guides/ai-integration.md
+      - Reference:
+          - Keybindings: keybindings.md
+          - Configuration: configuration.md
+          - Custom Commands: custom-commands.md
+          - CLI Usage: cli.md
+          - Themes: themes.md
+          - Branch Naming: branch-naming.md
+          - CI Status: ci-status.md
+          - Worktree Lifecycle: worktree-lifecycle.md
+          - Worktree Notes: worktree-notes.md
       - Troubleshooting:
-          - Common Problems: troubleshooting/common-problems.md
+          - Diagnostic Guide: troubleshooting/diagnostic-guide.md
           - Fonts and Rendering: troubleshooting/fonts-and-rendering.md
           - Integration Caveats: troubleshooting/integration-caveats.md
           - FAQ: troubleshooting/faq.md
+      - Development:
+          - Contributing: development/contributing.md
+          - Architecture: development/architecture.md
       - Appendix:
           - Screenshots: screenshots.md
           - About: about.md
-          - Deep Reference:
-              - Keybindings: keybindings.md
-              - Configuration: configuration.md
-              - Custom Commands: custom-commands.md
-              - CLI Usage: cli.md
-              - Themes: themes.md
-              - Branch Naming: branch-naming.md
-              - CI Status: ci-status.md
-              - Worktree Lifecycle: worktree-lifecycle.md
-              - Worktree Notes: worktree-notes.md
   - CLI Reference:
       - Overview: cli/overview.md
       - Commands Reference: cli/commands.md

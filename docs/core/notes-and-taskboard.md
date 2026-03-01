@@ -75,7 +75,7 @@ worktree_note_script: "aichat -m gemini:gemini-2.5-flash-lite 'Summarise this ti
 
 If the script fails or outputs nothing, worktree creation continues normally without saving a note.
 
-For full script configuration and environment variables, see [AI Integration](../advanced/ai-integration.md).
+For full script configuration and environment variables, see [AI Integration](../guides/ai-integration.md).
 
 ## Synchronisable Notes
 
