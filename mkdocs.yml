@@ -1,0 +1,81 @@
+site_name: LazyWorktree
+site_description: Easy Git worktree management for the terminal
+site_url: https://chmouel.github.io/lazyworktree/
+repo_name: chmouel/lazyworktree
+repo_url: https://github.com/chmouel/lazyworktree
+docs_dir: docs
+site_dir: site/docs
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.indexes
+    - navigation.expand
+    - navigation.sections
+    - navigation.tracking
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+    - content.tabs.link
+    - search.suggest
+    - search.highlight
+extra_css:
+  - stylesheets/website-theme.css
+plugins:
+  - search
+  - glightbox
+markdown_extensions:
+  - admonition
+  - tables
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+nav:
+  - Documentation:
+      - Getting Started:
+          - LazyWorktree: index.md
+          - Installation: installation.md
+          - Quickstart: getting-started.md
+      - Core Features:
+          - Key Bindings Reference: keybindings.md
+          - CI Status Display: ci-status.md
+          - Notes and Taskboard: worktree-notes.md
+          - Custom Commands: custom-commands.md
+      - Configuration:
+          - Configuration Overview: configuration.md
+          - Themes: themes.md
+          - Repository .wt Files: worktree-lifecycle.md
+          - Branch Naming Conventions: branch-naming.md
+      - Usage Guides:
+          - Shell Integration: shell-integration.md
+          - Screenshots: screenshots.md
+      - Advanced:
+          - About: about.md
+  - CLI Reference:
+      - CLI Usage Guide: cli.md

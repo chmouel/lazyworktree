@@ -1,10 +1,12 @@
-name: Deploy Website
+name: Deploy Website and Docs
 
 on:
   push:
     branches:
       - main
     paths:
+      - "docs/**"
+      - "mkdocs.yml"
       - "website/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -31,10 +33,24 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload website artifact
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Build docs
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+        run: |
+          uvx --with 'mkdocs<2' --with mkdocs-material --with pymdown-extensions --with mkdocs-glightbox mkdocs build --site-dir _pages/docs
+
+      - name: Assemble Pages artifact
+        run: |
+          mkdir -p _pages
+          cp -r website/. _pages/
+
+      - name: Upload website and docs artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: website
+          path: _pages
 
       - name: Deploy to GitHub Pages
         id: deployment
