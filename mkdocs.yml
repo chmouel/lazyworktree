@@ -121,3 +121,13 @@ nav:
       - delete: cli/delete.md
       - rename: cli/rename.md
       - exec: cli/exec.md
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/mastodon
+      link: https://fosstodon.org/@chmouel
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/chmouel
+    - icon: fontawesome/brands/github
+      link: https://github.com/chmouel
+copyright: Made with Material for MkDocs  - &copy; <a href="https://github.com/chmouel">Chmouel Boudjnah</a>
