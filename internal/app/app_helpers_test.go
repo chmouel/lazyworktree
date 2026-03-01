@@ -227,7 +227,7 @@ func TestPagerCommandFallbacksToLess(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 
-	if pager := m.pagerCommand(); pager != "less --use-color -q --wordwrap -qcR -P 'Press q to exit..'" {
+	if pager := m.pagerCommand(); pager != "less --use-color --wordwrap -swMQcR -P 'Press q to exit..'" {
 		t.Fatalf("expected fallback pager to be less defaults, got %q", pager)
 	}
 }
