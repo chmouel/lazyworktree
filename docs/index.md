@@ -55,20 +55,24 @@ This is useful when you need to:
 ## Next Steps
 
 <div class="mint-card-grid">
-  <a class="mint-card" href="configuration.md">
+  <a class="mint-card" href="configuration/overview.md">
     <strong>Configuration</strong>
     <span>Theme, refresh, pager/editor, lifecycle, and naming settings.</span>
   </a>
-  <a class="mint-card" href="keybindings.md">
+  <a class="mint-card" href="core/navigation-and-keybindings.md">
     <strong>Key Bindings</strong>
     <span>Global shortcuts and pane-specific controls.</span>
   </a>
-  <a class="mint-card" href="custom-commands.md">
-    <strong>Custom Commands</strong>
-    <span>Bind your own shell and multiplexer actions.</span>
+  <a class="mint-card" href="core/command-palette.md">
+    <strong>Command Palette</strong>
+    <span>Trigger built-in and custom actions with searchable commands.</span>
   </a>
-  <a class="mint-card" href="cli.md">
+  <a class="mint-card" href="cli/overview.md">
     <strong>CLI Usage</strong>
     <span>Create, list, rename, and execute commands from scripts.</span>
+  </a>
+  <a class="mint-card" href="configuration/reference.md">
+    <strong>Configuration Reference</strong>
+    <span>Generated config key/type/default matrix from the codebase.</span>
   </a>
 </div>

@@ -6,8 +6,12 @@ Read the README.md if you really need to know what this project is all about.
 ## Building
 
 - use `make build` for testing build errors.
-- For documentation website work, use `make docs-build` and `make docs-serve`.
+- For documentation website work, use:
+  - `make docs-sync` to regenerate docs references from source code.
+  - `make docs-check` to verify sync + strict docs build.
+  - `make docs-build` and `make docs-serve` for local preview/build.
 - Use `uv`/`uvx` for docs tooling everywhere; do not use `pip` directly.
+- If `uv` is missing locally, install with Homebrew: `brew install uv`.
 - if you ever add a new argument or flag to the cli then make sure to update the completion and README.md
 - Don't ever do commit unless you are being explicitly asked for it.
 - If you get asked to commit then use this rules:

@@ -30,9 +30,16 @@ docs-build:
 docs-serve:
 	$(MKDOCS) serve  -a 0.0.0.0:7827
 
+docs-sync:
+	go run ./hack/docsync
+
+docs-check:
+	go run ./hack/docsync --check --verify
+	$(MKDOCS) build --strict
+
 release:
 	./hack/make-release.sh
 
 optimize:
 	for i in .github/screenshots/*.png;do pngquant --ext .new.png --skip-if-larger --quality 75 -f $$i;t=$${i/.png/.new.png};[[ -e $$t ]] && mv -vf $$t $$i || true;done
-.PHONY: all build lint format test coverage sanity mkdir release docs-build docs-serve
+.PHONY: all build lint format test coverage sanity mkdir release docs-build docs-serve docs-sync docs-check

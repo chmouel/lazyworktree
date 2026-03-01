@@ -18,13 +18,16 @@ Primary documentation lives on the docs site:
 
 Useful entry points:
 
+- Introduction: <https://chmouel.github.io/lazyworktree/docs/>
 - Getting started: <https://chmouel.github.io/lazyworktree/docs/getting-started/>
-- Installation: <https://chmouel.github.io/lazyworktree/docs/installation/>
-- Keybindings: <https://chmouel.github.io/lazyworktree/docs/keybindings/>
-- Configuration: <https://chmouel.github.io/lazyworktree/docs/configuration/>
-- Custom commands: <https://chmouel.github.io/lazyworktree/docs/custom-commands/>
-- CLI usage: <https://chmouel.github.io/lazyworktree/docs/cli/>
-- Themes: <https://chmouel.github.io/lazyworktree/docs/themes/>
+- Core workflows: <https://chmouel.github.io/lazyworktree/docs/core/worktree-operations/>
+- Navigation and keybindings: <https://chmouel.github.io/lazyworktree/docs/core/navigation-and-keybindings/>
+- Configuration overview: <https://chmouel.github.io/lazyworktree/docs/configuration/overview/>
+- Configuration reference: <https://chmouel.github.io/lazyworktree/docs/configuration/reference/>
+- CLI overview: <https://chmouel.github.io/lazyworktree/docs/cli/overview/>
+- CLI flags reference: <https://chmouel.github.io/lazyworktree/docs/cli/flags/>
+- CLI commands reference: <https://chmouel.github.io/lazyworktree/docs/cli/commands/>
+- Troubleshooting: <https://chmouel.github.io/lazyworktree/docs/troubleshooting/common-problems/>
 - Screenshots: <https://chmouel.github.io/lazyworktree/docs/screenshots/>
 
 ## Screenshot
@@ -95,6 +98,7 @@ make sanity
 Preview docs locally:
 
 ```bash
+brew install uv # if not already installed
 make docs-serve
 ```
 
@@ -102,6 +106,18 @@ Build docs locally:
 
 ```bash
 make docs-build
+```
+
+Synchronise generated docs references:
+
+```bash
+make docs-sync
+```
+
+Run docs synchronisation and strict docs checks:
+
+```bash
+make docs-check
 ```
 
 ## Licence
