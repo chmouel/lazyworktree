@@ -34,6 +34,8 @@ Useful entry points:
 
 ![lazyworktree screenshot](./website/assets/screenshot-main.png)
 
+_[You can see more screenshots here](https://chmouel.github.io/lazyworktree/#screenshots)_
+
 ## Installation
 
 ### Homebrew (macOS)
