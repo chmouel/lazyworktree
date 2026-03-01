@@ -7,6 +7,10 @@ Click any image to view it enlarged.
 
 <div class="lw-media-grid">
   <figure>
+    <img alt="Main interface screenshot" src="assets/screenshot-main.png" loading="lazy" />
+    <figcaption>Main multi-pane interface with worktree list, status, and commit history.</figcaption>
+  </figure>
+  <figure>
     <img alt="To-do list screenshot" src="assets/screenshot-todolist.png" loading="lazy" />
     <figcaption>Taskboard view grouped by worktree (everforest-light).</figcaption>
   </figure>
@@ -30,19 +34,6 @@ Click any image to view it enlarged.
     <img alt="Worktree notes screenshot" src="assets/screenshot-annotations.png" loading="lazy" />
     <figcaption>Worktree notes authoring and context capture (solarized-dark).</figcaption>
   </figure>
-</div>
-
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="core/navigation-and-keybindings.md">
-    <strong>Navigation and Keybindings</strong>
-    <span>Map the visual panels to keyboard actions.</span>
-  </a>
-  <a class="mint-card" href="core/notes-and-taskboard.md">
-    <strong>Notes and Taskboard</strong>
-    <span>Deep dive into note editing and checklist workflows.</span>
-  </a>
 </div>
 
 ## Notes and Rendering

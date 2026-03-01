@@ -43,16 +43,3 @@ Trust hashes are stored in:
 ## Built-in Special Command
 
 - `link_topsymlinks`: symlinks untracked/ignored root files and common editor config directories, creates `tmp/`, and runs `direnv allow` when `.envrc` exists.
-
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="overview.md">
-    <strong>Configuration Overview</strong>
-    <span>Understand where lifecycle settings fit in precedence.</span>
-  </a>
-  <a class="mint-card" href="../core/worktree-operations.md">
-    <strong>Worktree Operations</strong>
-    <span>Apply hooks within normal create/delete workflows.</span>
-  </a>
-</div>

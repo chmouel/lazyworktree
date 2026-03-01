@@ -49,16 +49,3 @@
 Release binaries are available at:
 
 - [GitHub Releases](https://github.com/chmouel/lazyworktree/releases)
-
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="getting-started.md">
-    <strong>Quickstart</strong>
-    <span>Launch lazyworktree and start navigating worktrees.</span>
-  </a>
-  <a class="mint-card" href="core/worktree-operations.md">
-    <strong>Worktree Operations</strong>
-    <span>Learn creation, rename, deletion, and absorb workflows.</span>
-  </a>
-</div>

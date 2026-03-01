@@ -53,16 +53,3 @@ custom_themes:
 Hex format accepted: `#RRGGBB` or `#RGB`.
 
 For built-in theme list, see [Themes](../themes.md).
-
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="display-and-themes.md">
-    <strong>Display and Themes</strong>
-    <span>Apply your custom theme and layout preferences.</span>
-  </a>
-  <a class="mint-card" href="overview.md">
-    <strong>Configuration Overview</strong>
-    <span>Integrate theme settings with your full configuration profile.</span>
-  </a>
-</div>

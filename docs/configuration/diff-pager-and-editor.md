@@ -34,16 +34,3 @@ CI script environment variables:
 
 - `editor`: command used for status-pane edit actions
 - defaults to `$EDITOR`, fallback to `nvim`
-
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="../core/ci-and-pr-status.md">
-    <strong>CI and PR/MR Status</strong>
-    <span>Use pager settings for better CI log readability.</span>
-  </a>
-  <a class="mint-card" href="../troubleshooting/integration-caveats.md">
-    <strong>Integration Caveats</strong>
-    <span>Handle edge cases with pagers, shells, and terminals.</span>
-  </a>
-</div>

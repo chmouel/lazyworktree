@@ -78,6 +78,10 @@ nav:
           - Lifecycle Hooks (.wt): configuration/lifecycle-hooks.md
           - Branch Naming: configuration/branch-naming.md
           - Custom Themes: configuration/custom-themes.md
+      - Guides:
+          - Multiplexer Integration: guides/multiplexer-integration.md
+      - Advanced:
+          - AI Integration: advanced/ai-integration.md
       - Troubleshooting:
           - Common Problems: troubleshooting/common-problems.md
           - Fonts and Rendering: troubleshooting/fonts-and-rendering.md

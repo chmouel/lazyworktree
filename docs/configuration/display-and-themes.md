@@ -29,16 +29,3 @@ If glyphs render incorrectly, use `text` or install a patched Nerd Font.
 
 - `max_name_length`: max display width for worktree names
 - set to `0` to disable truncation
-
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="custom-themes.md">
-    <strong>Custom Themes</strong>
-    <span>Create or inherit custom colour palettes.</span>
-  </a>
-  <a class="mint-card" href="../troubleshooting/fonts-and-rendering.md">
-    <strong>Fonts and Rendering</strong>
-    <span>Fix icon and glyph display issues quickly.</span>
-  </a>
-</div>

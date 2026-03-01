@@ -6,25 +6,28 @@ The command palette is the fastest way to trigger actions without remembering ev
   <p><strong>Use this page when:</strong> you want discoverable, searchable commands with recent-item prioritisation.</p>
 </div>
 
+![Command palette](../assets/screenshot-palette.png)
+
 ## Opening and Filtering
 
-- Open with `ctrl+p` or `:`.
-- Type to filter actions and custom commands.
-- MRU ordering can prioritise recently used entries.
+- Open with `Ctrl+p` or `:`.
+- Type to filter actions and custom commands in real time.
+- MRU (Most Recently Used) ordering prioritises recently used entries at the top.
 
 ## Built-in Workflows
 
-The palette can trigger:
+The palette surfaces all available actions, including:
 
-- worktree actions
-- git operations
-- navigation and pane controls
-- settings actions such as theme selection
+- **Worktree actions** — create, delete, rename, absorb, prune, sync
+- **Git operations** — lazygit, cherry-pick, diff viewing
+- **Navigation and pane controls** — focus pane, toggle zoom, switch layout
+- **Settings** — theme selection with live preview
 
 ## Custom Command Integration
 
-Custom key bindings are added to palette entries.
-Session-oriented custom commands (tmux/zellij) can also expose active sessions.
+Custom commands defined in your `config.yaml` appear at the top of the palette for quick access. Each custom command shows its description and assigned keybinding (if any).
+
+Session-oriented custom commands (tmux/zellij) also expose active sessions in the palette, letting you switch between sessions or create new ones.
 
 For full command schema, see [Custom Commands Reference](../custom-commands.md).
 
@@ -37,15 +40,7 @@ palette_mru: true
 palette_mru_limit: 5
 ```
 
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="../custom-commands.md">
-    <strong>Custom Commands</strong>
-    <span>Define shell, tmux, and zellij command entries.</span>
-  </a>
-  <a class="mint-card" href="navigation-and-keybindings.md">
-    <strong>Navigation and Keys</strong>
-    <span>Pair palette usage with keyboard-first movement patterns.</span>
-  </a>
-</div>
+| Option | Default | Description |
+| --- | --- | --- |
+| `palette_mru` | `true` | Enable MRU sorting in the palette |
+| `palette_mru_limit` | `5` | Number of recent items to prioritise |
