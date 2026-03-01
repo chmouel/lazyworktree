@@ -23,6 +23,9 @@ The palette surfaces all available actions, including:
 - **Navigation and pane controls** — focus pane, toggle zoom, switch layout
 - **Settings** — theme selection with live preview
 
+The letter on the right of each entry indicates its keybinding (if any) for
+quick reference.
+
 ## Custom Command Integration
 
 Custom commands defined in your `config.yaml` appear at the top of the palette for quick access. Each custom command shows its description and assigned keybinding (if any).
