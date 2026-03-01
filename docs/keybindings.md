@@ -61,7 +61,7 @@
 | `3` | Focus Git Status pane (toggle zoom if already focused) |
 | `4` | Focus Commit pane (toggle zoom if already focused) |
 | `5` | Focus Notes pane (toggle zoom if already focused; only when note exists) |
-| `h`, `l` | Navigate left/right (`h` worktree pane, `l` cycle right panes) |
+| `h`, `l` | Shrink / Grow worktree pane |
 | `Tab`, `]` | Cycle to next pane |
 | `[` | Cycle to previous pane |
 | `=` | Toggle zoom for focused pane |

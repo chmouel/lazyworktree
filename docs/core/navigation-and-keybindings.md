@@ -40,7 +40,7 @@ Press `=` to toggle zoom for the focused pane, expanding it to fill the entire s
 | `j`, `k` | Move selection up/down |
 | `Tab`, `]` | Next pane |
 | `[` | Previous pane |
-| `h`, `l` | Move left/right across panes |
+| `h`, `l` | Shrink / Grow worktree pane |
 | `Home`, `End` | Jump to first/last item |
 | `q` | Quit |
 | `?` | Help |

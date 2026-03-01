@@ -103,6 +103,7 @@ func (m *Model) normaliseRightRatios(defInfo, defGitStatus, defCommit float64) (
 func (m *Model) setWindowSize(width, height int) {
 	m.state.view.WindowWidth = width
 	m.state.view.WindowHeight = height
+	m.state.view.ResizeOffset = 0
 	m.applyLayout(m.computeLayout())
 }
 
@@ -181,7 +182,7 @@ func (m *Model) computeLayout() layoutDims {
 		leftRatio = max(0.20, baseLeftRatio*0.45)
 	}
 
-	leftWidth := int(float64(width-gapX) * leftRatio)
+	leftWidth := int(float64(width-gapX)*leftRatio) + m.state.view.ResizeOffset
 	rightWidth := width - leftWidth - gapX
 	if leftWidth < minLeftPaneWidth {
 		leftWidth = minLeftPaneWidth
@@ -357,7 +358,7 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		topRatio = max(0.20, baseTopRatio*0.45)
 	}
 
-	topHeight := maxInt(4, int(float64(bodyHeight-gapY)*topRatio))
+	topHeight := maxInt(4, int(float64(bodyHeight-gapY)*topRatio)) + m.state.view.ResizeOffset
 	bottomHeight := bodyHeight - topHeight - gapY
 	if bottomHeight < 6 {
 		bottomHeight = 6

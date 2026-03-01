@@ -43,4 +43,5 @@ type ViewState struct {
 	WindowHeight    int
 	Layout          LayoutMode
 	TerminalFocused bool
+	ResizeOffset    int
 }

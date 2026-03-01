@@ -424,111 +424,21 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "h":
-		switch {
-		case m.state.view.Layout == state.LayoutTop:
-			// Top layout: h navigates left among bottom panes, or up to top
-			switch m.state.view.FocusedPane {
-			case 1:
-				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 0
-				m.state.ui.worktreeTable.Focus()
-				m.ciCheckIndex = -1
-				m.rebuildStatusContentWithHighlight()
-			case 2:
-				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 1
-				m.rebuildStatusContentWithHighlight()
-			case 3:
-				m.state.view.ZoomedPane = -1
-				if m.hasGitStatus() {
-					m.state.view.FocusedPane = 2
-				} else {
-					m.state.view.FocusedPane = 1
-				}
-				m.rebuildStatusContentWithHighlight()
-			case 4:
-				// Notes in top layout: go to worktrees (above)
-				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 0
-				m.state.ui.worktreeTable.Focus()
-			}
-		case m.state.view.FocusedPane == 0 || m.state.view.FocusedPane == 4:
-			// Default layout: worktrees and notes are already leftmost, no-op
-		default:
-			// Default layout: navigate left - go to pane 0 if not already there
-			m.state.view.ZoomedPane = -1
-			wasPane1 := m.state.view.FocusedPane == 1
-			m.state.view.FocusedPane = 0
-			m.state.ui.worktreeTable.Focus()
-			if wasPane1 {
-				m.ciCheckIndex = -1
-				m.rebuildStatusContentWithHighlight()
-			}
+		// Shrink worktree pane
+		m.state.view.ResizeOffset -= resizeStep
+		if m.state.view.ResizeOffset < -80 {
+			m.state.view.ResizeOffset = -80
 		}
-		m.restyleLogRows()
+		m.applyLayout(m.computeLayout())
 		return m, nil
 
 	case "l":
-		if m.state.view.Layout == state.LayoutTop {
-			// Top layout: l navigates right among panes
-			switch m.state.view.FocusedPane {
-			case 0:
-				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 1
-				m.rebuildStatusContentWithHighlight()
-			case 1:
-				m.state.view.ZoomedPane = -1
-				m.ciCheckIndex = -1
-				if m.hasGitStatus() {
-					m.state.view.FocusedPane = 2
-					m.rebuildStatusContentWithHighlight()
-				} else {
-					m.state.view.FocusedPane = 3
-					m.state.ui.logTable.Focus()
-				}
-			case 2:
-				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 3
-				m.state.ui.logTable.Focus()
-			case 4:
-				// Notes in top layout: go right to first bottom pane
-				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 1
-				m.rebuildStatusContentWithHighlight()
-			}
-		} else {
-			// Default layout: navigate right - cycle through right panels (1, 2, 3)
-			switch m.state.view.FocusedPane {
-			case 0:
-				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 1
-				m.rebuildStatusContentWithHighlight()
-			case 1:
-				m.state.view.ZoomedPane = -1
-				m.ciCheckIndex = -1
-				if m.hasGitStatus() {
-					m.state.view.FocusedPane = 2
-					m.rebuildStatusContentWithHighlight()
-				} else {
-					m.state.view.FocusedPane = 3
-					m.state.ui.logTable.Focus()
-				}
-			case 2:
-				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 3
-				m.state.ui.logTable.Focus()
-			case 4:
-				// Notes in default layout: go right to commit pane (same vertical level)
-				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 3
-				m.state.ui.logTable.Focus()
-			default:
-				m.state.view.ZoomedPane = -1
-				m.state.view.FocusedPane = 1
-				m.rebuildStatusContentWithHighlight()
-			}
+		// Grow worktree pane
+		m.state.view.ResizeOffset += resizeStep
+		if m.state.view.ResizeOffset > 80 {
+			m.state.view.ResizeOffset = 80
 		}
-		m.restyleLogRows()
+		m.applyLayout(m.computeLayout())
 		return m, nil
 
 	case "j", "down":
@@ -790,6 +700,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.state.view.Layout = state.LayoutDefault
 		}
 		m.state.view.ZoomedPane = -1
+		m.state.view.ResizeOffset = 0
 		return m, nil
 
 	case "=":

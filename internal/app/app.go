@@ -249,6 +249,7 @@ type commitMeta struct {
 const (
 	minLeftPaneWidth  = 32
 	minRightPaneWidth = 32
+	resizeStep        = 4
 	mainWorktreeName  = "main"
 
 	// Merge methods for absorb worktree

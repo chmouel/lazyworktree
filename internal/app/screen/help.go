@@ -57,7 +57,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - j / {{ARROW_DOWN}}: Move cursor down in lists and menus
 - k / {{ARROW_UP}}: Move cursor up in lists and menus
 - 1 / 2 / 3 / 4 / 5: Switch to pane (or toggle zoom if already focused)
-- h / l: Left / Right pane
+- h / l: Shrink / Grow worktree pane
 - [ / ]: Previous / Next pane
 - Tab: Cycle to next pane
 - L: Toggle layout (default / top)

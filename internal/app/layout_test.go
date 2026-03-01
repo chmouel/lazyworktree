@@ -537,3 +537,88 @@ func TestCustomLayoutSizesNotes(t *testing.T) {
 	assert.Equal(t, layoutCustom.bodyHeight,
 		layoutCustom.leftTopHeight+layoutCustom.gapY+layoutCustom.leftBottomHeight)
 }
+
+func TestResizeOffsetWidensLeftPane(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+
+	layoutBase := m.computeLayout()
+
+	m.state.view.ResizeOffset = 12
+	layoutGrown := m.computeLayout()
+
+	assert.Greater(t, layoutGrown.leftWidth, layoutBase.leftWidth,
+		"positive offset should widen left pane")
+	assert.Equal(t, 120, layoutGrown.leftWidth+layoutGrown.gapX+layoutGrown.rightWidth)
+}
+
+func TestResizeOffsetShrinksLeftPane(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+
+	layoutBase := m.computeLayout()
+
+	m.state.view.ResizeOffset = -12
+	layoutShrunk := m.computeLayout()
+
+	assert.Less(t, layoutShrunk.leftWidth, layoutBase.leftWidth,
+		"negative offset should shrink left pane")
+	assert.Equal(t, 120, layoutShrunk.leftWidth+layoutShrunk.gapX+layoutShrunk.rightWidth)
+}
+
+func TestResizeOffsetRespectsMinWidths(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+
+	// Extreme negative offset — clamping should keep both panes above minimum
+	m.state.view.ResizeOffset = -80
+	layout := m.computeLayout()
+	assert.GreaterOrEqual(t, layout.leftWidth, minLeftPaneWidth)
+	assert.GreaterOrEqual(t, layout.rightWidth, minRightPaneWidth)
+}
+
+func TestResizeOffsetResetsOnWindowResize(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.ResizeOffset = 20
+
+	m.setWindowSize(100, 30)
+
+	assert.Equal(t, 0, m.state.view.ResizeOffset)
+	assert.Equal(t, 100, m.state.view.WindowWidth)
+	assert.Equal(t, 30, m.state.view.WindowHeight)
+}
+
+func TestResizeOffsetTopLayoutAffectsTopHeight(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir(), Layout: "top"}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+
+	layoutBase := m.computeLayout()
+
+	m.state.view.ResizeOffset = 8
+	layoutGrown := m.computeLayout()
+
+	assert.Greater(t, layoutGrown.topHeight, layoutBase.topHeight,
+		"positive offset should increase top height in top layout")
+	assert.Equal(t, layoutGrown.bodyHeight, layoutGrown.topHeight+layoutGrown.gapY+layoutGrown.bottomHeight)
+}

@@ -4741,86 +4741,84 @@ func TestHasGitStatus(t *testing.T) {
 	assert.False(t, m.hasGitStatus())
 }
 
-func TestHKeySkipsGitStatusWhenClean(t *testing.T) {
+func TestHKeyDecrementsResizeOffset(t *testing.T) {
+	t.Parallel()
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
 	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
 	m.state.data.selectedIndex = 0
-	// No status files => clean working tree
 
-	t.Run("top layout h from pane 3 skips to pane 1", func(t *testing.T) {
-		m.state.view.Layout = state.LayoutTop
-		m.state.view.FocusedPane = 3
-		m.state.view.ZoomedPane = -1
+	assert.Equal(t, 0, m.state.view.ResizeOffset)
 
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	um := updated.(*Model)
+	assert.Equal(t, -resizeStep, um.state.view.ResizeOffset)
+
+	// Press again
+	updated, _ = um.handleBuiltInKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	um = updated.(*Model)
+	assert.Equal(t, -resizeStep*2, um.state.view.ResizeOffset)
+}
+
+func TestLKeyIncrementsResizeOffset(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+
+	assert.Equal(t, 0, m.state.view.ResizeOffset)
+
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	um := updated.(*Model)
+	assert.Equal(t, resizeStep, um.state.view.ResizeOffset)
+
+	// Press again
+	updated, _ = um.handleBuiltInKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	um = updated.(*Model)
+	assert.Equal(t, resizeStep*2, um.state.view.ResizeOffset)
+}
+
+func TestResizeOffsetClampedAtBounds(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
+	m.state.data.selectedIndex = 0
+
+	t.Run("clamp at negative bound", func(t *testing.T) {
+		m.state.view.ResizeOffset = -78
 		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
 		um := updated.(*Model)
-		assert.Equal(t, 1, um.state.view.FocusedPane)
+		assert.Equal(t, -80, um.state.view.ResizeOffset)
 	})
 
-	t.Run("top layout h from pane 3 goes to pane 2 when dirty", func(t *testing.T) {
-		m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
-		m.state.view.Layout = state.LayoutTop
-		m.state.view.FocusedPane = 3
-		m.state.view.ZoomedPane = -1
-
-		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	t.Run("clamp at positive bound", func(t *testing.T) {
+		m.state.view.ResizeOffset = 78
+		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
 		um := updated.(*Model)
-		assert.Equal(t, 2, um.state.view.FocusedPane)
-		m.state.data.statusFilesAll = nil
+		assert.Equal(t, 80, um.state.view.ResizeOffset)
 	})
 }
 
-func TestLKeySkipsGitStatusWhenClean(t *testing.T) {
+func TestLayoutToggleResetsResizeOffset(t *testing.T) {
+	t.Parallel()
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: "/tmp/wt", Branch: "main"}}
-	m.state.data.selectedIndex = 0
-	// No status files => clean working tree
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.ResizeOffset = 20
 
-	t.Run("top layout l from pane 1 skips to pane 3", func(t *testing.T) {
-		m.state.view.Layout = state.LayoutTop
-		m.state.view.FocusedPane = 1
-		m.state.view.ZoomedPane = -1
-
-		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
-		um := updated.(*Model)
-		assert.Equal(t, 3, um.state.view.FocusedPane)
-	})
-
-	t.Run("default layout l from pane 1 skips to pane 3", func(t *testing.T) {
-		m.state.view.Layout = state.LayoutDefault
-		m.state.view.FocusedPane = 1
-		m.state.view.ZoomedPane = -1
-
-		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
-		um := updated.(*Model)
-		assert.Equal(t, 3, um.state.view.FocusedPane)
-	})
-
-	t.Run("top layout l from pane 1 goes to pane 2 when dirty", func(t *testing.T) {
-		m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
-		m.state.view.Layout = state.LayoutTop
-		m.state.view.FocusedPane = 1
-		m.state.view.ZoomedPane = -1
-
-		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
-		um := updated.(*Model)
-		assert.Equal(t, 2, um.state.view.FocusedPane)
-		m.state.data.statusFilesAll = nil
-	})
-
-	t.Run("default layout l from pane 1 goes to pane 2 when dirty", func(t *testing.T) {
-		m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
-		m.state.view.Layout = state.LayoutDefault
-		m.state.view.FocusedPane = 1
-		m.state.view.ZoomedPane = -1
-
-		updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'l', Text: "l"})
-		um := updated.(*Model)
-		assert.Equal(t, 2, um.state.view.FocusedPane)
-		m.state.data.statusFilesAll = nil
-	})
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'L', Text: "L"})
+	um := updated.(*Model)
+	assert.Equal(t, 0, um.state.view.ResizeOffset)
+	assert.Equal(t, state.LayoutTop, um.state.view.Layout)
 }
 
 func TestZoomPane2ResetsWhenClean(t *testing.T) {
