@@ -5,10 +5,15 @@ repo_name: chmouel/lazyworktree
 repo_url: https://github.com/chmouel/lazyworktree
 docs_dir: docs
 site_dir: site/docs
+edit_uri: edit/main/docs/
 theme:
   name: material
+  custom_dir: docs/overrides
   logo: assets/logo.png
   favicon: assets/logo.png
+  font:
+    text: Inter
+    code: JetBrains Mono
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -25,6 +30,11 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
   features:
+    - header.autohide
+    - navigation.instant
+    - navigation.footer
+    - content.action.edit
+    - content.action.view
     - navigation.tabs
     - navigation.indexes
     - navigation.expand

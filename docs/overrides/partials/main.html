@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block logo %}
+<a href="https://github.com/chmouel/lazyworktree"
+   class="md-header__button md-logo"
+   aria-label="{{ config.site_name }}"
+   style="display:flex;align-items:center;gap:.6rem;text-decoration:none;">
+
+  {% if config.theme.logo %}
+    <img src="{{ config.theme.logo | url }}" alt="{{ config.site_name }}">
+  {% endif %}
+
+  <span class="md-header__topic">
+    <span class="md-ellipsis">
+      {{ config.site_name }}
+    </span>
+  </span>
+</a>
+{% endblock %}
