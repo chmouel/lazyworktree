@@ -17,26 +17,48 @@ Press `i` on a selected worktree:
 Viewer controls include scrolling, half-page navigation, and quick edit entry.
 Editor supports save, external editor handoff, newline insertion, and cancel.
 
+When a note exists for a worktree, a note marker appears in the worktree list and the Notes pane (pane 5) becomes visible.
+
+<div class="lw-media-grid">
+  <figure>
+    <img alt="Worktree notes authoring" src="../assets/screenshot-annotations.png" loading="lazy" />
+    <figcaption>Worktree notes authoring and context capture.</figcaption>
+  </figure>
+  <figure>
+    <img alt="Rendered markdown notes" src="../assets/screenshot-rendered-notes.png" loading="lazy" />
+    <figcaption>Rendered markdown notes with highlighted tags.</figcaption>
+  </figure>
+</div>
+
 ## Markdown Rendering
 
 The info pane renders common markdown elements, including:
 
-- headings
-- lists
+- headings (styled hierarchically)
+- ordered and unordered lists
 - quotes
-- inline code and fenced code blocks
-- links
+- inline code and fenced code blocks (syntax highlighted with delta)
+- links (highlighted)
 
 Uppercase tags like `TODO`, `FIXME`, and `WARNING:` are highlighted (outside fenced code blocks).
 
 ## Taskboard
 
-Press `T` to open Taskboard.
+Press `T` to open Taskboard. It sources markdown checkboxes from worktree notes and presents them in a grouped, actionable view.
 
-- Sources only markdown checkboxes from worktree notes.
-- Supports moving, toggling completion, adding tasks, and filtering.
+![Taskboard view](../assets/screenshot-todolist.png)
 
-Example checkbox syntax:
+### Taskboard Keybindings
+
+| Key | Action |
+| --- | --- |
+| `j` / `k` | Move between tasks |
+| `Enter` or `Space` | Toggle task completion |
+| `a` | Add a new task |
+| `f` | Filter tasks |
+| `q` / `Esc` | Close Taskboard |
+
+Example checkbox syntax in notes:
 
 ```markdown
 - [ ] draft release notes
@@ -45,19 +67,25 @@ Example checkbox syntax:
 
 ## Automatically Generated Notes
 
-You can prefill notes for PR/issue-based worktrees using `worktree_note_script`.
+You can prefill notes for PR/issue-based worktrees using `worktree_note_script`. When creating a worktree from a PR or issue, the script receives the title and description on stdin and outputs a note to stdout.
 
-For script configuration and environment variables, see [Worktree Notes Script](../worktree-notes.md).
+```yaml
+worktree_note_script: "aichat -m gemini:gemini-2.5-flash-lite 'Summarise this ticket into practical implementation notes.'"
+```
 
-## Next Steps
+If the script fails or outputs nothing, worktree creation continues normally without saving a note.
 
-<div class="mint-card-grid">
-  <a class="mint-card" href="../configuration/overview.md">
-    <strong>Configuration Overview</strong>
-    <span>Configure shared notes path and scripting behaviour.</span>
-  </a>
-  <a class="mint-card" href="../troubleshooting/common-problems.md">
-    <strong>Troubleshooting</strong>
-    <span>Resolve common issues in notes, rendering, and integrations.</span>
-  </a>
-</div>
+For full script configuration and environment variables, see [AI Integration](../advanced/ai-integration.md).
+
+## Synchronisable Notes
+
+By default, notes are stored in git config (local to each repository clone). To share notes across machines or with team members, configure a JSON storage path:
+
+```yaml
+worktree_notes_path: ".lazyworktree/notes.json"
+```
+
+This creates a single JSON file in your repository with all worktree notes. Commit the file to share notes with your team.
+
+!!! tip
+    When `worktree_notes_path` is set, keys are stored relative to `worktree_dir` instead of absolute paths, making them portable across different systems.

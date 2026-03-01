@@ -17,4 +17,3 @@ Receives content on stdin, outputs note text on stdout. Timeout: 30s.
 ### Environment Variables
 
 `LAZYWORKTREE_TYPE` (pr/issue), `LAZYWORKTREE_NUMBER`, `LAZYWORKTREE_TITLE`, `LAZYWORKTREE_URL`.
-

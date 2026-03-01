@@ -91,6 +91,7 @@ Build the binary:
 make build
 ```
 
+Run full checks:
 
 ```bash
 make sanity

@@ -5,16 +5,8 @@
   <p>Easy Git worktree management for the terminal. LazyWorktree helps you create isolated development environments, keep context per branch, and move quickly across parallel tasks.</p>
 </div>
 
-<div class="mint-card-grid">
-  <a class="mint-card" href="getting-started.md">
-    <strong>Quickstart</strong>
-    <span>Get running in minutes and jump directly to selected worktrees from your shell.</span>
-  </a>
-  <a class="mint-card" href="installation.md">
-    <strong>Installation</strong>
-    <span>Install with Homebrew, Arch Linux AUR, or from source.</span>
-  </a>
-</div>
+- **[Quickstart](getting-started.md)** — Get running in minutes and jump directly to selected worktrees from your shell.
+- **[Installation](installation.md)** — Install with Homebrew, Arch Linux AUR, or from source.
 
 ## Key Features
 
@@ -51,28 +43,3 @@ This is useful when you need to:
 - PR/MR and CI-aware status surface.
 - Built-in notes and taskboard per worktree.
 - Strong scripting and multiplexer integration.
-
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="configuration/overview.md">
-    <strong>Configuration</strong>
-    <span>Theme, refresh, pager/editor, lifecycle, and naming settings.</span>
-  </a>
-  <a class="mint-card" href="core/navigation-and-keybindings.md">
-    <strong>Key Bindings</strong>
-    <span>Global shortcuts and pane-specific controls.</span>
-  </a>
-  <a class="mint-card" href="core/command-palette.md">
-    <strong>Command Palette</strong>
-    <span>Trigger built-in and custom actions with searchable commands.</span>
-  </a>
-  <a class="mint-card" href="cli/overview.md">
-    <strong>CLI Usage</strong>
-    <span>Create, list, rename, and execute commands from scripts.</span>
-  </a>
-  <a class="mint-card" href="configuration/reference.md">
-    <strong>Configuration Reference</strong>
-    <span>Generated config key/type/default matrix from the codebase.</span>
-  </a>
-</div>

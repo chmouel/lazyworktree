@@ -46,16 +46,3 @@ Environment variables available to scripts:
 Full examples and template details:
 
 - [Branch Naming Conventions](../branch-naming.md)
-
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="overview.md">
-    <strong>Configuration Overview</strong>
-    <span>Place branch naming options in your broader config strategy.</span>
-  </a>
-  <a class="mint-card" href="../cli/create.md">
-    <strong>CLI create</strong>
-    <span>Use branch naming rules in PR/issue-driven creation flows.</span>
-  </a>
-</div>

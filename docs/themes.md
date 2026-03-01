@@ -80,4 +80,3 @@ custom_themes:
 **Colour fields:** `accent`, `accent_fg`, `accent_dim`, `border`, `border_dim`, `muted_fg`, `text_fg`, `success_fg`, `warn_fg`, `error_fg`, `cyan`.
 
 Values must be hex (`#RRGGBB` or `#RGB`). With `base`, only override what you need. Without `base`, all 11 fields are required. Custom themes appear alongside built-in themes.
-

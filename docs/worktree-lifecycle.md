@@ -26,4 +26,3 @@ Configure `trust_mode`: `tofu` (default, prompt), `never` (skip all), `always` (
 ### Special Commands
 
 * `link_topsymlinks`: Built-in command that symlinks untracked/ignored root files, editor configs (`.vscode`, `.idea`, `.cursor`, `.claude/settings.local.json`), creates `tmp/`, and runs `direnv allow` if `.envrc` exists.
-

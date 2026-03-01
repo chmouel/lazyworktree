@@ -27,16 +27,3 @@ Yes. Use `lazyworktree exec --key=<key>` with optional `--workspace`.
 ## Where should I start debugging visual issues?
 
 Start with [Fonts and Rendering](fonts-and-rendering.md), then review theme and icon settings.
-
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="common-problems.md">
-    <strong>Common Problems</strong>
-    <span>Troubleshoot by symptom with practical fix paths.</span>
-  </a>
-  <a class="mint-card" href="../getting-started.md">
-    <strong>Quickstart</strong>
-    <span>Re-check baseline setup and launch flow.</span>
-  </a>
-</div>

@@ -28,16 +28,3 @@ Profile or startup scripts can affect behaviour and environment.
 
 - `trust_mode: never` blocks repository `.wt` command execution
 - modified `.wt` files trigger trust re-evaluation in `tofu` mode
-
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="common-problems.md">
-    <strong>Common Problems</strong>
-    <span>Return to common issue patterns and fixes.</span>
-  </a>
-  <a class="mint-card" href="faq.md">
-    <strong>FAQ</strong>
-    <span>Check concise answers before deeper debugging.</span>
-  </a>
-</div>

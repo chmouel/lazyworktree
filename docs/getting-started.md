@@ -11,6 +11,8 @@
 3. Run `lazyworktree`.
 4. Press `?` to open the interactive help screen.
 
+![LazyWorktree main interface](assets/screenshot-main.png)
+
 ## Jumping to Worktrees from Your Shell
 
 By default, pressing `Enter` outputs the selected worktree path. To jump directly:
@@ -40,16 +42,3 @@ Optional tools:
 Build-time requirement:
 
 - Go 1.25+
-
-## Next Steps
-
-<div class="mint-card-grid">
-  <a class="mint-card" href="core/navigation-and-keybindings.md">
-    <strong>Navigation and Keybindings</strong>
-    <span>Learn the keyboard flow for everyday work.</span>
-  </a>
-  <a class="mint-card" href="configuration/overview.md">
-    <strong>Configuration Overview</strong>
-    <span>Tune behaviour, appearance, and integrations.</span>
-  </a>
-</div>
