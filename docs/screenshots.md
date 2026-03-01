@@ -32,6 +32,19 @@ Click any image to view it enlarged.
   </figure>
 </div>
 
+## Next Steps
+
+<div class="mint-card-grid">
+  <a class="mint-card" href="core/navigation-and-keybindings.md">
+    <strong>Navigation and Keybindings</strong>
+    <span>Map the visual panels to keyboard actions.</span>
+  </a>
+  <a class="mint-card" href="core/notes-and-taskboard.md">
+    <strong>Notes and Taskboard</strong>
+    <span>Deep dive into note editing and checklist workflows.</span>
+  </a>
+</div>
+
 ## Notes and Rendering
 
 <div class="lw-media-grid">

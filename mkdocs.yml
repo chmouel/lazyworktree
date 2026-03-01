@@ -59,23 +59,49 @@ markdown_extensions:
 nav:
   - Documentation:
       - Getting Started:
-          - LazyWorktree: index.md
+          - Introduction: index.md
           - Installation: installation.md
           - Quickstart: getting-started.md
-      - Core Features:
-          - Key Bindings Reference: keybindings.md
-          - CI Status Display: ci-status.md
-          - Notes and Taskboard: worktree-notes.md
-          - Custom Commands: custom-commands.md
-      - Configuration:
-          - Configuration Overview: configuration.md
-          - Themes: themes.md
-          - Repository .wt Files: worktree-lifecycle.md
-          - Branch Naming Conventions: branch-naming.md
-      - Usage Guides:
           - Shell Integration: shell-integration.md
+      - Core Features:
+          - Worktree Operations: core/worktree-operations.md
+          - Navigation and Keybindings: core/navigation-and-keybindings.md
+          - Notes and Taskboard: core/notes-and-taskboard.md
+          - CI and PR/MR Status: core/ci-and-pr-status.md
+          - Command Palette: core/command-palette.md
+      - Configuration:
+          - Overview: configuration/overview.md
+          - Reference: configuration/reference.md
+          - Display and Themes: configuration/display-and-themes.md
+          - Refresh and Performance: configuration/refresh-and-performance.md
+          - Diff, Pager, and Editor: configuration/diff-pager-and-editor.md
+          - Lifecycle Hooks (.wt): configuration/lifecycle-hooks.md
+          - Branch Naming: configuration/branch-naming.md
+          - Custom Themes: configuration/custom-themes.md
+      - Troubleshooting:
+          - Common Problems: troubleshooting/common-problems.md
+          - Fonts and Rendering: troubleshooting/fonts-and-rendering.md
+          - Integration Caveats: troubleshooting/integration-caveats.md
+          - FAQ: troubleshooting/faq.md
+      - Appendix:
           - Screenshots: screenshots.md
-      - Advanced:
           - About: about.md
+          - Deep Reference:
+              - Keybindings: keybindings.md
+              - Configuration: configuration.md
+              - Custom Commands: custom-commands.md
+              - CLI Usage: cli.md
+              - Themes: themes.md
+              - Branch Naming: branch-naming.md
+              - CI Status: ci-status.md
+              - Worktree Lifecycle: worktree-lifecycle.md
+              - Worktree Notes: worktree-notes.md
   - CLI Reference:
-      - CLI Usage Guide: cli.md
+      - Overview: cli/overview.md
+      - Commands Reference: cli/commands.md
+      - Flags Reference: cli/flags.md
+      - list: cli/list.md
+      - create: cli/create.md
+      - delete: cli/delete.md
+      - rename: cli/rename.md
+      - exec: cli/exec.md

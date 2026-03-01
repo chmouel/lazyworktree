@@ -17,3 +17,16 @@ Originally a Python [Textual](https://textual.textualize.io/) app, migrated to G
 * 🐘 Fediverse - <[@chmouel@chmouel.com](https://fosstodon.org/@chmouel)>
 * 🐦 Twitter - <[@chmouel](https://twitter.com/chmouel)>
 * 📝 Blog  - <[https://blog.chmouel.com](https://blog.chmouel.com)>
+
+## Next Steps
+
+<div class="mint-card-grid">
+  <a class="mint-card" href="index.md">
+    <strong>Introduction</strong>
+    <span>Return to documentation entry points and learning paths.</span>
+  </a>
+  <a class="mint-card" href="troubleshooting/faq.md">
+    <strong>FAQ</strong>
+    <span>Find concise answers to common practical questions.</span>
+  </a>
+</div>

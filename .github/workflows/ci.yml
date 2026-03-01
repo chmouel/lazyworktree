@@ -4,9 +4,19 @@ on:
   push:
     paths:
       - "**.go"
+      - "docs/**"
+      - "mkdocs.yml"
+      - "README.md"
+      - "lazyworktree.1"
+      - "Makefile"
   pull_request:
     paths:
       - "**.go"
+      - "docs/**"
+      - "mkdocs.yml"
+      - "README.md"
+      - "lazyworktree.1"
+      - "Makefile"
 
 permissions:
   contents: write
@@ -33,6 +43,10 @@ jobs:
         uses: luisnquin/setup-gofumpt@v2
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+
+      - name: Run docs sync checks
+        run: |
+          make docs-check
 
       - name: Run Pre-commit
         run: |
