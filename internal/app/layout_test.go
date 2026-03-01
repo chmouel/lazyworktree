@@ -362,3 +362,178 @@ func TestTopLayoutWithGitStatus(t *testing.T) {
 	// 3-way split: left + gap + middle + gap + right should equal total width
 	assert.Equal(t, 120, layout.bottomLeftWidth+layout.gapX+layout.bottomMiddleWidth+layout.gapX+layout.bottomRightWidth)
 }
+
+func TestCustomLayoutSizes(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		LayoutSizes: &config.LayoutSizes{Worktrees: 70},
+	}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+
+	layoutCustom := m.computeLayout()
+
+	// Now compare with default (nil LayoutSizes)
+	cfgDefault := &config.AppConfig{WorktreeDir: t.TempDir()}
+	mDefault := NewModel(cfgDefault, "")
+	mDefault.state.view.WindowWidth = 120
+	mDefault.state.view.WindowHeight = 40
+	mDefault.state.view.FocusedPane = 0
+
+	layoutDefault := mDefault.computeLayout()
+
+	// Custom worktrees=70 should give more left space than default
+	assert.Greater(t, layoutCustom.leftWidth, layoutDefault.leftWidth,
+		"worktrees=70 should produce wider left pane than default")
+	// Total width must still be correct
+	assert.Equal(t, 120, layoutCustom.leftWidth+layoutCustom.gapX+layoutCustom.rightWidth)
+}
+
+func TestCustomLayoutSizesRightColumn(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		LayoutSizes: &config.LayoutSizes{Info: 60, GitStatus: 20, Commit: 20},
+	}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+
+	layout := m.computeLayout()
+
+	assert.True(t, layout.hasGitStatus)
+	// Info pane should get more height than git status and commit
+	assert.Greater(t, layout.rightTopHeight, layout.rightMiddleHeight,
+		"info=60 should produce taller info pane than git_status=20")
+	// Heights must sum correctly
+	assert.Equal(t, layout.bodyHeight,
+		layout.rightTopHeight+layout.gapY+layout.rightMiddleHeight+layout.gapY+layout.rightBottomHeight)
+}
+
+func TestCustomLayoutSizesTopLayout(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		Layout:      "top",
+		LayoutSizes: &config.LayoutSizes{Worktrees: 50},
+	}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+
+	layoutCustom := m.computeLayout()
+
+	// Compare with default
+	cfgDefault := &config.AppConfig{WorktreeDir: t.TempDir(), Layout: "top"}
+	mDefault := NewModel(cfgDefault, "")
+	mDefault.state.view.WindowWidth = 120
+	mDefault.state.view.WindowHeight = 40
+	mDefault.state.view.FocusedPane = 0
+	mDefault.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+
+	layoutDefault := mDefault.computeLayout()
+
+	assert.Equal(t, state.LayoutTop, layoutCustom.layoutMode)
+	// worktrees=50 should give more top space than default (30)
+	assert.Greater(t, layoutCustom.topHeight, layoutDefault.topHeight,
+		"worktrees=50 should produce taller top pane than default 30")
+	// Must sum correctly
+	assert.Equal(t, layoutCustom.bodyHeight, layoutCustom.topHeight+layoutCustom.gapY+layoutCustom.bottomHeight)
+}
+
+func TestCustomLayoutSizesFocusStillWorks(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		LayoutSizes: &config.LayoutSizes{Worktrees: 60},
+	}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+
+	// Unfocused (pane 0)
+	m.state.view.FocusedPane = 0
+	layoutUnfocused := m.computeLayout()
+
+	// Right pane focused — left should shrink
+	m.state.view.FocusedPane = 1
+	layoutFocused := m.computeLayout()
+
+	assert.Less(t, layoutFocused.leftWidth, layoutUnfocused.leftWidth,
+		"focusing right pane should shrink left pane even with custom sizes")
+	// Both must have valid totals
+	assert.Equal(t, 120, layoutUnfocused.leftWidth+layoutUnfocused.gapX+layoutUnfocused.rightWidth)
+	assert.Equal(t, 120, layoutFocused.leftWidth+layoutFocused.gapX+layoutFocused.rightWidth)
+}
+
+func TestCustomLayoutSizesNilUsesDefaults(t *testing.T) {
+	t.Parallel()
+
+	// nil LayoutSizes
+	cfg1 := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m1 := NewModel(cfg1, "")
+	m1.state.view.WindowWidth = 120
+	m1.state.view.WindowHeight = 40
+	m1.state.view.FocusedPane = 0
+
+	// Explicit defaults matching hardcoded values
+	cfg2 := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		LayoutSizes: &config.LayoutSizes{Worktrees: 55, Info: 30, GitStatus: 40, Commit: 30, Notes: 30},
+	}
+	m2 := NewModel(cfg2, "")
+	m2.state.view.WindowWidth = 120
+	m2.state.view.WindowHeight = 40
+	m2.state.view.FocusedPane = 0
+
+	layout1 := m1.computeLayout()
+	layout2 := m2.computeLayout()
+
+	assert.Equal(t, layout1.leftWidth, layout2.leftWidth,
+		"nil LayoutSizes should produce same left width as explicit defaults")
+	assert.Equal(t, layout1.rightWidth, layout2.rightWidth)
+}
+
+func TestCustomLayoutSizesNotes(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		LayoutSizes: &config.LayoutSizes{Notes: 50},
+	}
+	m := NewModel(cfg, "")
+	m.state.view.WindowWidth = 120
+	m.state.view.WindowHeight = 40
+	m.state.view.FocusedPane = 0
+
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-notes-custom", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "a note"}
+
+	layoutCustom := m.computeLayout()
+
+	// Compare with default
+	cfgDefault := &config.AppConfig{WorktreeDir: t.TempDir()}
+	mDefault := NewModel(cfgDefault, "")
+	mDefault.state.view.WindowWidth = 120
+	mDefault.state.view.WindowHeight = 40
+	mDefault.state.view.FocusedPane = 0
+	mDefault.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	mDefault.state.data.selectedIndex = 0
+	mDefault.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "a note"}
+
+	layoutDefault := mDefault.computeLayout()
+
+	assert.True(t, layoutCustom.hasNotes)
+	assert.Greater(t, layoutCustom.leftBottomHeight, layoutDefault.leftBottomHeight,
+		"notes=50 should give bigger notes pane than default 30")
+	assert.Equal(t, layoutCustom.bodyHeight,
+		layoutCustom.leftTopHeight+layoutCustom.gapY+layoutCustom.leftBottomHeight)
+}

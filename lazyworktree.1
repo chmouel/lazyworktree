@@ -919,6 +919,19 @@ Default: default
 Can be toggled at runtime with the \fBL\fR key.
 .
 .TP
+.B layout_sizes
+Configurable pane size weights. Each sub-key accepts an integer between 1 and 100.
+Values are relative weights that are normalised at computation time, so
+\fBinfo: 30, git_status: 30, commit: 30\fR means each receives one-third of the
+secondary area. Omitted fields keep their built-in defaults.
+Focus-based dynamic resizing still applies on top of the configured baseline.
+.br
+Sub-keys: \fBworktrees\fR (main pane width or height), \fBinfo\fR, \fBgit_status\fR,
+\fBcommit\fR, \fBnotes\fR.
+.br
+Default: unset (built-in ratios used).
+.
+.TP
 .B search_auto_select
 Start with filter focused and select first match on Enter.
 .br

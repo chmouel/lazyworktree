@@ -169,6 +169,11 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 **{{HELP_BACKGROUND_REFRESH}}Background Refresh**
 - Configured via auto_refresh and refresh_interval in the configuration file
 
+**Pane Sizes**
+- layout_sizes: adjust pane proportions (worktrees, info, git_status, commit, notes)
+- Values are relative weights (1–100), normalised at computation time
+- Focus-based dynamic resizing applies on top of the configured baseline
+
 **{{HELP_TIPS}}Tips & Shortcuts**
 {{HELP_TIP_LINES}}
 

@@ -2274,3 +2274,85 @@ func TestConfigPrecedenceFullStack(t *testing.T) {
 	assert.Equal(t, "/yaml/path", cfg.WorktreeDir)
 	assert.Equal(t, 200000, cfg.MaxDiffChars)
 }
+
+func TestParseLayoutSizes(t *testing.T) {
+	t.Parallel()
+	data := map[string]any{
+		"layout_sizes": map[string]any{
+			"worktrees":  45,
+			"info":       30,
+			"git_status": 40,
+			"commit":     30,
+			"notes":      25,
+		},
+	}
+	cfg, err := parseConfig(data)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.LayoutSizes)
+	assert.Equal(t, 45, cfg.LayoutSizes.Worktrees)
+	assert.Equal(t, 30, cfg.LayoutSizes.Info)
+	assert.Equal(t, 40, cfg.LayoutSizes.GitStatus)
+	assert.Equal(t, 30, cfg.LayoutSizes.Commit)
+	assert.Equal(t, 25, cfg.LayoutSizes.Notes)
+}
+
+func TestParseLayoutSizesPartial(t *testing.T) {
+	t.Parallel()
+	data := map[string]any{
+		"layout_sizes": map[string]any{
+			"worktrees": 60,
+			"info":      40,
+		},
+	}
+	cfg, err := parseConfig(data)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.LayoutSizes)
+	assert.Equal(t, 60, cfg.LayoutSizes.Worktrees)
+	assert.Equal(t, 40, cfg.LayoutSizes.Info)
+	assert.Equal(t, 0, cfg.LayoutSizes.GitStatus)
+	assert.Equal(t, 0, cfg.LayoutSizes.Commit)
+	assert.Equal(t, 0, cfg.LayoutSizes.Notes)
+}
+
+func TestParseLayoutSizesValidation(t *testing.T) {
+	t.Parallel()
+	data := map[string]any{
+		"layout_sizes": map[string]any{
+			"worktrees": 150,
+			"info":      -5,
+			"commit":    0,
+			"notes":     "50",
+		},
+	}
+	cfg, err := parseConfig(data)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.LayoutSizes)
+	assert.Equal(t, 100, cfg.LayoutSizes.Worktrees, "values > 100 should be clamped to 100")
+	assert.Equal(t, 0, cfg.LayoutSizes.Info, "negative values should stay at 0 (unset)")
+	assert.Equal(t, 0, cfg.LayoutSizes.Commit, "zero should stay at 0 (unset)")
+	assert.Equal(t, 50, cfg.LayoutSizes.Notes, "string coercion should work")
+}
+
+func TestParseLayoutSizesNil(t *testing.T) {
+	t.Parallel()
+	data := map[string]any{}
+	cfg, err := parseConfig(data)
+	require.NoError(t, err)
+	assert.Nil(t, cfg.LayoutSizes, "nil when layout_sizes not present")
+}
+
+func TestParseLayoutSizesOverride(t *testing.T) {
+	t.Parallel()
+	cfg := DefaultConfig()
+	cfg.LayoutSizes = &LayoutSizes{
+		Worktrees: 55,
+		Info:      30,
+		GitStatus: 40,
+		Commit:    30,
+	}
+	err := cfg.ApplyCLIOverrides([]string{"lw.layout_sizes.worktrees=70", "lw.layout_sizes.notes=20"})
+	require.NoError(t, err)
+	assert.Equal(t, 70, cfg.LayoutSizes.Worktrees)
+	assert.Equal(t, 30, cfg.LayoutSizes.Info, "unchanged fields preserved")
+	assert.Equal(t, 20, cfg.LayoutSizes.Notes)
+}

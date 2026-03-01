@@ -15,6 +15,19 @@ sort_mode: switched
 # Toggle at runtime with L
 layout: default
 
+# Customise how much screen space each pane receives
+# Values are relative weights (1–100) that are normalised at computation time.
+# For example, info: 30, git_status: 30, commit: 30 gives each one-third of
+# the secondary area. Omit any field to keep its built-in default.
+# Focus-based dynamic resizing still applies on top of these baselines.
+#
+# layout_sizes:
+#   worktrees: 55    # Main pane width (default layout) or height (top layout)
+#   info: 30         # Info pane share of secondary area
+#   git_status: 40   # Git status pane share (when visible)
+#   commit: 30       # Commit log pane share
+#   notes: 30        # Notes pane share (when visible)
+
 # Refresh git metadata and working tree status in the background
 # Set to false to rely on manual refresh (r)
 auto_refresh: true

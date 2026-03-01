@@ -64,6 +64,24 @@ func parseGitConfigOutput(output string) (map[string][]string, error) {
 	return configMap, nil
 }
 
+// setNestedKey sets a dotted key (e.g. "layout_sizes.worktrees") into a
+// nested map structure so parseConfig can find it.
+func setNestedKey(result map[string]any, key string, value any) {
+	dotIdx := strings.IndexByte(key, '.')
+	if dotIdx < 0 {
+		result[key] = value
+		return
+	}
+	parent := key[:dotIdx]
+	child := key[dotIdx+1:]
+	sub, ok := result[parent].(map[string]any)
+	if !ok {
+		sub = make(map[string]any)
+		result[parent] = sub
+	}
+	sub[child] = value
+}
+
 // convertGitConfigToParseConfig converts to format expected by parseConfig().
 func convertGitConfigToParseConfig(gitCfg map[string][]string) map[string]any {
 	result := make(map[string]any)
@@ -80,12 +98,12 @@ func convertGitConfigToParseConfig(gitCfg map[string][]string) map[string]any {
 			for i, v := range values {
 				anySlice[i] = v
 			}
-			result[key] = anySlice
+			setNestedKey(result, key, anySlice)
 			continue
 		}
 
 		// Single value - keep as string, coerceBool/coerceInt will handle conversion
-		result[key] = values[0]
+		setNestedKey(result, key, values[0])
 	}
 
 	return result
@@ -171,6 +189,7 @@ func parseCLIConfigOverrides(overrides []string) (map[string]any, error) {
 
 		// Handle multi-value keys (if same key appears multiple times)
 		// parseConfig expects []any, not []string
+		// For dotted keys (e.g. layout_sizes.worktrees), use the flat key for counting
 		keyCount[key]++
 		if keyCount[key] > 1 {
 			// Convert to array on second occurrence
@@ -181,7 +200,7 @@ func parseCLIConfigOverrides(overrides []string) (map[string]any, error) {
 				result[key] = append(result[key].([]any), value)
 			}
 		} else {
-			result[key] = value
+			setNestedKey(result, key, value)
 		}
 	}
 

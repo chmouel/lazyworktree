@@ -59,6 +59,46 @@ type layoutDims struct {
 	bottomRightInnerHeight  int
 }
 
+// layoutRatio returns the user-configured ratio for a named pane,
+// falling back to the provided default when LayoutSizes is nil or the
+// field is unset (zero).
+func (m *Model) layoutRatio(pane string, defaultVal float64) float64 {
+	ls := m.config.LayoutSizes
+	if ls == nil {
+		return defaultVal
+	}
+	var v int
+	switch pane {
+	case "worktrees":
+		v = ls.Worktrees
+	case "info":
+		v = ls.Info
+	case "git_status":
+		v = ls.GitStatus
+	case "commit":
+		v = ls.Commit
+	case "notes":
+		v = ls.Notes
+	}
+	if v <= 0 {
+		return defaultVal
+	}
+	return float64(v) / 100.0
+}
+
+// normaliseRightRatios returns normalised ratios for info, gitStatus and commit
+// panes from user config (or the provided defaults when unconfigured).
+func (m *Model) normaliseRightRatios(defInfo, defGitStatus, defCommit float64) (float64, float64, float64) {
+	info := m.layoutRatio("info", defInfo)
+	gitStatus := m.layoutRatio("git_status", defGitStatus)
+	commit := m.layoutRatio("commit", defCommit)
+	total := info + gitStatus + commit
+	if total <= 0 {
+		return defInfo, defGitStatus, defCommit
+	}
+	return info / total, gitStatus / total, commit / total
+}
+
 // setWindowSize updates the window dimensions and applies the layout.
 func (m *Model) setWindowSize(width, height int) {
 	m.state.view.WindowWidth = width
@@ -132,12 +172,13 @@ func (m *Model) computeLayout() layoutDims {
 		return m.computeTopLayoutDims(width, height, headerHeight, footerHeight, filterHeight, bodyHeight, hasGitStatus)
 	}
 
-	leftRatio := 0.55
+	baseLeftRatio := m.layoutRatio("worktrees", 0.55)
+	leftRatio := baseLeftRatio
 	switch m.state.view.FocusedPane {
 	case 0, 4:
-		leftRatio = 0.45
+		leftRatio = baseLeftRatio * 0.82 // slightly tighter than unfocused
 	case 1, 2, 3:
-		leftRatio = 0.20
+		leftRatio = max(0.20, baseLeftRatio*0.45)
 	}
 
 	leftWidth := int(float64(width-gapX) * leftRatio)
@@ -169,9 +210,9 @@ func (m *Model) computeLayout() layoutDims {
 	// Compute notes pane height first so the commit pane can match it
 	var leftTopHeight, leftBottomHeight, leftTopInnerHeight, leftBottomInnerHeight int
 	if hasNotes {
-		notesRatio := 0.30
+		notesRatio := m.layoutRatio("notes", 0.30)
 		if m.state.view.FocusedPane == 4 {
-			notesRatio = 0.50
+			notesRatio = min(notesRatio+0.20, 0.60)
 		}
 		leftBottomHeight = maxInt(4, int(float64(bodyHeight-gapY)*notesRatio))
 		leftTopHeight = bodyHeight - leftBottomHeight - gapY
@@ -191,16 +232,21 @@ func (m *Model) computeLayout() layoutDims {
 	var rightTopHeight, rightMiddleHeight, rightBottomHeight int
 	if hasGitStatus {
 		// 3-way vertical split with two gaps
+		baseInfo, baseGS, baseCommit := m.normaliseRightRatios(0.30, 0.40, 0.30)
 		var topRatio, midRatio float64
 		switch m.state.view.FocusedPane {
-		case 1: // Status focused
-			topRatio, midRatio = 0.50, 0.30
-		case 2: // Git Status focused
-			topRatio, midRatio = 0.20, 0.60
-		case 3: // Commit focused
-			topRatio, midRatio = 0.20, 0.20
-		default: // Worktrees focused
-			topRatio, midRatio = 0.30, 0.40
+		case 1: // Status focused — boost info
+			topRatio = min(baseInfo+0.20, 0.60)
+			midRatio = (1.0 - topRatio) * baseGS / (baseGS + baseCommit)
+		case 2: // Git Status focused — boost git_status
+			midRatio = min(baseGS+0.20, 0.60)
+			topRatio = (1.0 - midRatio) * baseInfo / (baseInfo + baseCommit)
+		case 3: // Commit focused — boost commit
+			botShare := min(baseCommit+0.20, 0.60)
+			topRatio = (1.0 - botShare) * baseInfo / (baseInfo + baseGS)
+			midRatio = (1.0 - botShare) * baseGS / (baseInfo + baseGS)
+		default: // Worktrees focused — use base ratios
+			topRatio, midRatio = baseInfo, baseGS
 		}
 
 		availableHeight := bodyHeight - gapY*2
@@ -220,14 +266,17 @@ func (m *Model) computeLayout() layoutDims {
 		}
 	} else {
 		// 2-way vertical split (Info / Commit) with one gap
+		infoR := m.layoutRatio("info", 0.30)
+		commitR := m.layoutRatio("commit", 0.30)
+		baseTop := infoR / (infoR + commitR)
 		var topRatio float64
 		switch m.state.view.FocusedPane {
 		case 1:
-			topRatio = 0.60
+			topRatio = min(baseTop+0.20, 0.70)
 		case 3:
-			topRatio = 0.30
+			topRatio = max(baseTop-0.10, 0.25)
 		default:
-			topRatio = 0.40
+			topRatio = baseTop
 		}
 
 		availableHeight := bodyHeight - gapY
@@ -298,13 +347,14 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 
 	hasNotes := m.hasNoteForSelectedWorktree()
 
-	// Vertical split: top 30% / bottom 70% with focus adjustments
-	topRatio := 0.30
+	// Vertical split: top / bottom with focus adjustments
+	baseTopRatio := m.layoutRatio("worktrees", 0.30)
+	topRatio := baseTopRatio
 	switch m.state.view.FocusedPane {
 	case 0, 4:
-		topRatio = 0.45
+		topRatio = min(baseTopRatio+0.15, 0.60)
 	case 1, 2, 3:
-		topRatio = 0.20
+		topRatio = max(0.20, baseTopRatio*0.45)
 	}
 
 	topHeight := maxInt(4, int(float64(bodyHeight-gapY)*topRatio))
@@ -321,16 +371,21 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 	var bottomLeftWidth, bottomMiddleWidth, bottomRightWidth int
 	if hasGitStatus {
 		// 3-way with two gaps
+		baseInfo, baseGS, baseCommit := m.normaliseRightRatios(0.30, 0.40, 0.30)
 		var leftRatio, midRatio float64
 		switch m.state.view.FocusedPane {
-		case 1: // Status focused
-			leftRatio, midRatio = 0.50, 0.30
-		case 2: // Git Status focused
-			leftRatio, midRatio = 0.20, 0.60
-		case 3: // Commit focused
-			leftRatio, midRatio = 0.20, 0.20
-		default: // Worktrees focused
-			leftRatio, midRatio = 0.30, 0.40
+		case 1: // Status focused — boost info
+			leftRatio = min(baseInfo+0.20, 0.60)
+			midRatio = (1.0 - leftRatio) * baseGS / (baseGS + baseCommit)
+		case 2: // Git Status focused — boost git_status
+			midRatio = min(baseGS+0.20, 0.60)
+			leftRatio = (1.0 - midRatio) * baseInfo / (baseInfo + baseCommit)
+		case 3: // Commit focused — boost commit
+			botShare := min(baseCommit+0.20, 0.60)
+			leftRatio = (1.0 - botShare) * baseInfo / (baseInfo + baseGS)
+			midRatio = (1.0 - botShare) * baseGS / (baseInfo + baseGS)
+		default: // Worktrees focused — use base ratios
+			leftRatio, midRatio = baseInfo, baseGS
 		}
 
 		availableWidth := width - gapX*2
@@ -368,14 +423,17 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		}
 	} else {
 		// 2-way with one gap (Info / Commit)
+		infoR := m.layoutRatio("info", 0.30)
+		commitR := m.layoutRatio("commit", 0.30)
+		baseLeft := infoR / (infoR + commitR)
 		var leftRatio float64
 		switch m.state.view.FocusedPane {
 		case 1:
-			leftRatio = 0.55
+			leftRatio = min(baseLeft+0.10, 0.65)
 		case 3:
-			leftRatio = 0.35
+			leftRatio = max(baseLeft-0.10, 0.30)
 		default:
-			leftRatio = 0.45
+			leftRatio = baseLeft
 		}
 
 		availableWidth := width - gapX
@@ -393,9 +451,9 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 	// Notes row in top layout: insert between worktrees and bottom panes
 	var notesRowHeight, notesRowInnerHeight, notesRowInnerWidth int
 	if hasNotes {
-		notesRatio := 0.15
+		notesRatio := m.layoutRatio("notes", 0.30) * 0.5
 		if m.state.view.FocusedPane == 4 {
-			notesRatio = 0.25
+			notesRatio = min(notesRatio+0.10, 0.35)
 		}
 		notesRowHeight = maxInt(4, int(float64(bodyHeight)*notesRatio))
 		// Re-budget: top + gap + notes + gap + bottom = bodyHeight

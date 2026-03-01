@@ -53,6 +53,17 @@ type CustomCreateMenu struct {
 	PostInteractive bool   // Run post-command interactively (default: false)
 }
 
+// LayoutSizes holds user-configurable pane size weights.
+// Values are relative weights (1–100) that get normalised at computation time.
+// A nil LayoutSizes means the hardcoded defaults are used.
+type LayoutSizes struct {
+	Worktrees int // Main pane width (default layout) or height (top layout)
+	Info      int // Info pane share of secondary area
+	GitStatus int // Git status pane share (when visible)
+	Commit    int // Commit log pane share
+	Notes     int // Notes pane share (when visible)
+}
+
 // CustomTheme represents a user-defined theme that can inherit from built-in or other custom themes.
 type CustomTheme struct {
 	Base      string // Optional base theme name (built-in or custom)
@@ -110,6 +121,7 @@ type AppConfig struct {
 	PaletteMRULimit         int    // Number of MRU items to show (default: 5)
 	CustomCreateMenus       []*CustomCreateMenu
 	CustomThemes            map[string]*CustomTheme // User-defined custom themes
+	LayoutSizes             *LayoutSizes            // Configurable pane size weights (nil = use defaults)
 	ConfigPath              string                  `yaml:"-"` // Path to the configuration file
 }
 
@@ -395,6 +407,10 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 
 	if _, ok := data["custom_themes"]; ok {
 		cfg.CustomThemes = parseCustomThemes(data)
+	}
+
+	if _, ok := data["layout_sizes"]; ok {
+		cfg.LayoutSizes = parseLayoutSizes(data)
 	}
 
 	return cfg, nil
@@ -684,6 +700,50 @@ func validateThemeInheritance(name string, custom *CustomTheme, themes map[strin
 	return validateThemeInheritance(baseName, baseTheme, themes, builtInMap, visited)
 }
 
+// clampLayoutSize clamps a layout size value to the range 1–100.
+func clampLayoutSize(val, def int) int {
+	if val <= 0 {
+		return def
+	}
+	if val > 100 {
+		return 100
+	}
+	return val
+}
+
+func parseLayoutSizes(data map[string]any) *LayoutSizes {
+	raw, ok := data["layout_sizes"].(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	ls := &LayoutSizes{
+		Worktrees: 0,
+		Info:      0,
+		GitStatus: 0,
+		Commit:    0,
+		Notes:     0,
+	}
+
+	if v, exists := raw["worktrees"]; exists {
+		ls.Worktrees = clampLayoutSize(coerceInt(v, 0), 0)
+	}
+	if v, exists := raw["info"]; exists {
+		ls.Info = clampLayoutSize(coerceInt(v, 0), 0)
+	}
+	if v, exists := raw["git_status"]; exists {
+		ls.GitStatus = clampLayoutSize(coerceInt(v, 0), 0)
+	}
+	if v, exists := raw["commit"]; exists {
+		ls.Commit = clampLayoutSize(coerceInt(v, 0), 0)
+	}
+	if v, exists := raw["notes"]; exists {
+		ls.Notes = clampLayoutSize(coerceInt(v, 0), 0)
+	}
+
+	return ls
+}
+
 func normalizeCommandList(val any) []string {
 	if val == nil {
 		return []string{}
@@ -902,6 +962,29 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 
 	if _, ok := overrideData["layout"]; ok {
 		cfg.Layout = overrideCfg.Layout
+	}
+
+	if _, ok := overrideData["layout_sizes"]; ok {
+		if overrideCfg.LayoutSizes != nil {
+			if cfg.LayoutSizes == nil {
+				cfg.LayoutSizes = &LayoutSizes{}
+			}
+			if overrideCfg.LayoutSizes.Worktrees > 0 {
+				cfg.LayoutSizes.Worktrees = overrideCfg.LayoutSizes.Worktrees
+			}
+			if overrideCfg.LayoutSizes.Info > 0 {
+				cfg.LayoutSizes.Info = overrideCfg.LayoutSizes.Info
+			}
+			if overrideCfg.LayoutSizes.GitStatus > 0 {
+				cfg.LayoutSizes.GitStatus = overrideCfg.LayoutSizes.GitStatus
+			}
+			if overrideCfg.LayoutSizes.Commit > 0 {
+				cfg.LayoutSizes.Commit = overrideCfg.LayoutSizes.Commit
+			}
+			if overrideCfg.LayoutSizes.Notes > 0 {
+				cfg.LayoutSizes.Notes = overrideCfg.LayoutSizes.Notes
+			}
+		}
 	}
 
 	return nil

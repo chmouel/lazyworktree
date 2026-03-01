@@ -45,6 +45,7 @@ This page is generated from `internal/config/config.go`. Run `make docs-sync` af
 | `custom_commands` | `map[string]object` | `built-in keys: t, Z` | Custom key bindings and command actions. |
 | `custom_create_menus` | `[]object` | `none` | Custom create menu entries. |
 | `custom_themes` | `map[string]object` | `none` | Custom theme definitions. |
+| `layout_sizes` | `map[string]int` | `none` | Pane size weights (worktrees, info, git_status, commit, notes). Values 1–100, normalised at computation time. |
 | `debug_log` | `string` | `none` | Debug log file path. |
 <!-- END GENERATED:config-reference -->
 
