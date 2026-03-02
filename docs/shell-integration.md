@@ -2,11 +2,9 @@
 
 Shell helpers change directory to the selected worktree on exit. Optional but recommended.
 
-Zsh helpers are in `shell/functions.zsh`. See the [shell integration README](https://github.com/chmouel/lazyworktree/blob/main/shell/README.md) for details.
-
 ## Quick Usage
 
-Without helper functions:
+Without helper functions, use the simple command form in any POSIX-like shell:
 
 ```bash
 cd "$(lazyworktree)"
@@ -14,25 +12,149 @@ cd "$(lazyworktree)"
 
 With helper functions loaded, you can wrap this in a reusable shell command and preserve consistent behaviour across repositories.
 
-## Zsh Setup
+## Shell Setup
 
-Add this to your `.zshrc`:
+=== "Bash"
 
-```zsh
-source /path/to/lazyworktree/shell/functions.zsh
-```
+    **Option A:** Source the helper from a local clone:
 
-Open a new shell, then run the helper function described in `shell/README.md`.
+    ```bash
+    # Add to .bashrc
+    source /path/to/lazyworktree/shell/functions.bash
 
-## Bash/Fish
+    jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
+    ```
 
-If you are not on zsh, use the plain command form:
+    **Option B:** Download the helper:
+
+    ```bash
+    mkdir -p ~/.shell/functions
+    curl -sL https://raw.githubusercontent.com/chmouel/lazyworktree/refs/heads/main/shell/functions.bash -o ~/.shell/functions/lazyworktree.bash
+
+    # Add to .bashrc
+    source ~/.shell/functions/lazyworktree.bash
+
+    jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
+    ```
+
+    **With completion:**
+
+    ```bash
+    source /path/to/lazyworktree/shell/functions.bash
+
+    jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
+    _jt() { _worktree_jump $(git rev-parse --show-toplevel); }
+    complete -o nospace -F _jt jt
+    ```
+
+    **Jump to last-selected worktree:**
+
+    ```bash
+    alias pl='worktree_go_last $(git rev-parse --show-toplevel)'
+    ```
+
+=== "Zsh"
+
+    **Option A:** Source the helper from a local clone:
+
+    ```zsh
+    # Add to .zshrc
+    source /path/to/lazyworktree/shell/functions.zsh
+
+    jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
+    ```
+
+    **Option B:** Download the helper:
+
+    ```zsh
+    mkdir -p ~/.shell/functions
+    curl -sL https://raw.githubusercontent.com/chmouel/lazyworktree/refs/heads/main/shell/functions.zsh -o ~/.shell/functions/lazyworktree.zsh
+
+    # Add to .zshrc
+    source ~/.shell/functions/lazyworktree.zsh
+
+    jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
+    ```
+
+    **With completion:**
+
+    ```zsh
+    source /path/to/lazyworktree/shell/functions.zsh
+
+    jt() { worktree_jump $(git rev-parse --show-toplevel) "$@"; }
+    _jt() { _worktree_jump $(git rev-parse --show-toplevel); }
+    compdef _jt jt
+    ```
+
+    **Jump to last-selected worktree:**
+
+    ```zsh
+    alias pl='worktree_go_last $(git rev-parse --show-toplevel)'
+    ```
+
+=== "Fish"
+
+    **Option A:** Source the helper from a local clone:
+
+    ```fish
+    # Add to ~/.config/fish/config.fish
+    source /path/to/lazyworktree/shell/functions.fish
+
+    function jt
+        worktree_jump $(git rev-parse --show-toplevel) $argv
+    end
+    ```
+
+    **Option B:** Download the helper:
+
+    ```fish
+    mkdir -p ~/.config/fish/conf.d
+    curl -sL https://raw.githubusercontent.com/chmouel/lazyworktree/refs/heads/main/shell/functions.fish -o ~/.config/fish/conf.d/lazyworktree.fish
+
+    # Add to ~/.config/fish/config.fish
+    function jt
+        worktree_jump $(git rev-parse --show-toplevel) $argv
+    end
+    ```
+
+    **With completion:**
+
+    ```fish
+    source /path/to/lazyworktree/shell/functions.fish
+
+    function jt
+        worktree_jump $(git rev-parse --show-toplevel) $argv
+    end
+
+    complete -c jt -f -a '(_worktree_jump $(git rev-parse --show-toplevel))'
+    ```
+
+    **Jump to last-selected worktree:**
+
+    ```fish
+    function pl
+        worktree_go_last $(git rev-parse --show-toplevel)
+    end
+    ```
+
+## Shell Completion
+
+Generate completion scripts for the `lazyworktree` command itself:
 
 ```bash
-cd "$(lazyworktree)"
+# Bash
+eval "$(lazyworktree completion bash --code)"
+
+# Zsh
+eval "$(lazyworktree completion zsh --code)"
+
+# Fish
+lazyworktree completion fish --code > ~/.config/fish/completions/lazyworktree.fish
 ```
 
-This works with any POSIX-like shell and does not require additional integration files.
+Or simply run `lazyworktree completion` to see instructions for your shell.
+
+Package manager installations (deb, rpm, AUR) include completions automatically.
 
 ## Troubleshooting
 

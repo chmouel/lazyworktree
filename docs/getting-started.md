@@ -21,7 +21,7 @@ By default, pressing `Enter` outputs the selected worktree path. To jump directl
 cd "$(lazyworktree)"
 ```
 
-For richer shell helpers and functions, see the [shell integration guide](https://github.com/chmouel/lazyworktree/blob/main/shell/README.md).
+For richer shell helpers and functions, see the [shell integration guide](shell-integration.md).
 
 ## Requirements
 
