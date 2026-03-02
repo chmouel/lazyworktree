@@ -208,6 +208,7 @@ func (m *Model) updateTable() {
 					prIcon = iconWithSpace(getIconPR())
 				}
 				stateSymbol := prStateIndicator(wt.PR.State, showIcons)
+				stateSymbol = m.prStateIconStyle(wt.PR.State).Render(stateSymbol)
 				// Right-align PR numbers for consistent column width
 				prStr = fmt.Sprintf("%s#%-5d%s", prIcon, wt.PR.Number, stateSymbol)
 			}

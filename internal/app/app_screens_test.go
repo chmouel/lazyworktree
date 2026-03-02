@@ -440,6 +440,58 @@ func TestUpdateTheme(t *testing.T) {
 	}
 }
 
+func TestUpdateThemeRefreshesCachedPRStateIconColours(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		Theme:       "dracula",
+		IconSet:     "text",
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	m.prDataLoaded = true
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{
+			Path:        filepath.Join(cfg.WorktreeDir, "feature-theme-refresh"),
+			Branch:      "feature-theme-refresh",
+			HasUpstream: true,
+			PR: &models.PRInfo{
+				Number: 42,
+				State:  prStateOpen,
+			},
+		},
+	}
+
+	m.updateTableColumns(120)
+	m.updateTable()
+	rows := m.state.ui.worktreeTable.Rows()
+	if len(rows) != 1 || len(rows[0]) < 4 {
+		t.Fatalf("expected one table row with PR column, got %#v", rows)
+	}
+
+	indicator := prStateIndicator(prStateOpen, m.config.IconsEnabled())
+	oldRenderedState := m.prStateIconStyle(prStateOpen).Render(indicator)
+	before := rows[0][3]
+	if !strings.Contains(before, oldRenderedState) {
+		t.Fatalf("expected PR column %q to contain old rendered state %q", before, oldRenderedState)
+	}
+
+	m.UpdateTheme("clean-light")
+
+	rows = m.state.ui.worktreeTable.Rows()
+	after := rows[0][3]
+	newRenderedState := m.prStateIconStyle(prStateOpen).Render(indicator)
+	if !strings.Contains(after, newRenderedState) {
+		t.Fatalf("expected PR column %q to contain new rendered state %q", after, newRenderedState)
+	}
+	if strings.Contains(after, oldRenderedState) {
+		t.Fatalf("expected PR column %q to drop old rendered state %q after theme update", after, oldRenderedState)
+	}
+	if before == after {
+		t.Fatalf("expected PR column text to change after theme update, before=%q after=%q", before, after)
+	}
+}
+
 func TestShowThemeSelection(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),

@@ -291,6 +291,22 @@ func (m *Model) ciConclusionColors(conclusion string) (color.Color, color.Color)
 	}
 }
 
+// prStateIconStyle returns a foreground-only style for a PR state indicator icon.
+func (m *Model) prStateIconStyle(state string) lipgloss.Style {
+	m.ensureRenderStyles()
+
+	switch state {
+	case prStateOpen:
+		return m.renderStyles.prStateOpenStyle
+	case prStateMerged:
+		return m.renderStyles.prStateMergedStyle
+	case prStateClosed:
+		return m.renderStyles.prStateClosedStyle
+	default:
+		return m.renderStyles.ciIconDefaultStyle
+	}
+}
+
 // prStateColors returns (background, foreground) theme colours for a PR state.
 func (m *Model) prStateColors(state string) (color.Color, color.Color) {
 	switch state {

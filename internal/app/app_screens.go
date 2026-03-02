@@ -430,6 +430,10 @@ func (m *Model) UpdateTheme(themeName string) {
 		}
 	}
 
+	// Table rows include theme-coloured PR state symbols, so rebuild rows to
+	// keep cached row text in sync immediately after a theme switch.
+	m.updateTable()
+
 	// Re-render info content with new theme
 	if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
 		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
