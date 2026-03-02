@@ -1,4 +1,4 @@
-![Go](https://img.shields.io/badge/go-1.25%2B-blue) ![Coverage](https://img.shields.io/badge/Coverage-59.0%25-yellow)
+![Go](https://img.shields.io/badge/go-1.25%2B-blue) ![Coverage](https://img.shields.io/badge/Coverage-59.8%25-yellow)
 
 # LazyWorktree
 
