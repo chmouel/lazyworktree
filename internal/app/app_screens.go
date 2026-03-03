@@ -150,8 +150,7 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 				"No branches found.",
 				defaultBase,
 				func(branch string) tea.Cmd {
-					suggestedName := stripRemotePrefix(branch)
-					return m.showBranchNameInput(branch, suggestedName)
+					return m.showBranchNameInput(branch, "")
 				},
 			)
 		},

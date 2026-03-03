@@ -341,9 +341,10 @@ func TestCreateFromChangesReadyMsg(t *testing.T) {
 		t.Errorf("Expected prompt 'Create worktree from changes: branch name', got %q", inputScr.Prompt)
 	}
 
-	// Check default value
-	if inputScr.Value != "main-changes" {
-		t.Errorf("Expected default value 'main-changes', got %q", inputScr.Value)
+	// Check default value is a random name (adjective-noun pattern, no branch prefix on default branch)
+	parts := strings.Split(inputScr.Value, "-")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		t.Errorf("Expected random branch name (adjective-noun), got %q", inputScr.Value)
 	}
 }
 

@@ -887,6 +887,71 @@ func TestSuggestBranchName(t *testing.T) {
 	}
 }
 
+func TestIsDefaultBranch(t *testing.T) {
+	repo := initTestRepo(t)
+	withCwd(t, repo.dir)
+
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	tests := []struct {
+		name     string
+		branch   string
+		expected bool
+	}{
+		{name: "main", branch: "main", expected: true},
+		{name: "master", branch: "master", expected: true},
+		{name: "origin/main", branch: "origin/main", expected: true},
+		{name: "origin/master", branch: "origin/master", expected: true},
+		{name: "upstream/main", branch: "upstream/main", expected: true},
+		{name: "feature branch", branch: "feature-x", expected: false},
+		{name: "remote feature", branch: "origin/feature-x", expected: false},
+		{name: "develop", branch: "develop", expected: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := m.isDefaultBranch(tt.branch)
+			if got != tt.expected {
+				t.Errorf("isDefaultBranch(%q) = %v, want %v", tt.branch, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestShowBranchNameInputSuffixesNonDefaultBranch(t *testing.T) {
+	repo := initTestRepo(t)
+	withCwd(t, repo.dir)
+
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	// When base is a non-default branch, suggested name should be suffixed
+	m.showBranchNameInput("feature-x", "")
+	inputScr := m.state.ui.screenManager.Current().(*appscreen.InputScreen)
+	got := inputScr.Input.Value()
+	if !strings.HasSuffix(got, "-feature-x") {
+		t.Errorf("expected suffix '-feature-x', got %q", got)
+	}
+
+	// When base is the default branch, no suffix
+	m.state.ui.screenManager.Pop()
+	m.showBranchNameInput("main", "")
+	inputScr = m.state.ui.screenManager.Current().(*appscreen.InputScreen)
+	got = inputScr.Input.Value()
+	if strings.HasSuffix(got, "-main") {
+		t.Errorf("expected no suffix for main branch, got %q", got)
+	}
+
+	// When base is a remote non-default branch, suffix uses stripped name
+	m.state.ui.screenManager.Pop()
+	m.showBranchNameInput("origin/feature-y", "")
+	inputScr = m.state.ui.screenManager.Current().(*appscreen.InputScreen)
+	got = inputScr.Input.Value()
+	if !strings.HasSuffix(got, "-feature-y") {
+		t.Errorf("expected suffix '-feature-y', got %q", got)
+	}
+}
+
 func TestCommitLog(t *testing.T) {
 	repo := initTestRepo(t)
 	withCwd(t, repo.dir)

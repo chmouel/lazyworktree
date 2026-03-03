@@ -41,8 +41,11 @@ func (m *Model) showCreateFromCurrent() tea.Cmd {
 		}
 		currentBranch = strings.TrimSpace(currentBranch)
 
-		// Always generate random name as default
+		// Always generate random name as default, prefixed with branch if not on default
 		defaultName := utils.RandomBranchName()
+		if !m.isDefaultBranch(currentBranch) {
+			defaultName = defaultName + "-" + currentBranch
+		}
 
 		// Get diff if changes exist (for later AI generation)
 		var diff string

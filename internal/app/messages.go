@@ -648,8 +648,11 @@ func (m *Model) handleCreateFromChangesReady(msg createFromChangesReadyMsg) tea.
 	wt := msg.worktree
 	currentBranch := msg.currentBranch
 
-	// Generate default name based on current branch
-	defaultName := fmt.Sprintf("%s-changes", currentBranch)
+	// Generate random default name, prefixed with branch if not on default
+	defaultName := utils.RandomBranchName()
+	if !m.isDefaultBranch(currentBranch) {
+		defaultName = defaultName + "-" + currentBranch
+	}
 
 	// If branch_name_script is configured, run it to generate a suggested name
 	scriptErr := ""

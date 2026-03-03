@@ -114,13 +114,12 @@ func (m *Model) showBaseSelection(defaultBase string) tea.Cmd {
 
 					if isLocalBranch {
 						if m.branchCheckedOutInWorktree(branch) {
-							return m.showBranchNameInput(branch, branch)
+							return m.showBranchNameInput(branch, "")
 						}
 						return m.showCheckoutOrCreatePrompt(branch)
 					}
 
-					suggestedName := stripRemotePrefix(branch)
-					return m.showBranchNameInput(branch, suggestedName)
+					return m.showBranchNameInput(branch, "")
 				},
 			)
 		case item.ID == "commit-list":
@@ -243,6 +242,26 @@ func stripRemotePrefix(branch string) string {
 	return branch
 }
 
+// looksLikeCommitHash returns true if ref looks like a full or abbreviated commit hash.
+func looksLikeCommitHash(ref string) bool {
+	if len(ref) < 7 {
+		return false
+	}
+	for _, c := range ref {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// isDefaultBranch returns true if the given branch is the repository's default branch.
+func (m *Model) isDefaultBranch(branch string) bool {
+	main := m.state.services.git.GetMainBranch(m.ctx)
+	clean := stripRemotePrefix(branch)
+	return clean == main || clean == "main" || clean == "master"
+}
+
 func (m *Model) showCommitSelection(baseBranch string) tea.Cmd {
 	raw := m.state.services.git.RunGit(
 		m.ctx,
@@ -340,9 +359,14 @@ func (m *Model) showCommitSelection(baseBranch string) tea.Cmd {
 func (m *Model) showBranchNameInput(baseRef, defaultName string) tea.Cmd {
 	m.clearListSelection()
 	suggested := strings.TrimSpace(defaultName)
-	if suggested != "" {
-		suggested = m.suggestBranchName(suggested)
+	if suggested == "" {
+		suggested = utils.RandomBranchName()
 	}
+	if !looksLikeCommitHash(baseRef) && !m.isDefaultBranch(baseRef) {
+		suffix := stripRemotePrefix(baseRef)
+		suggested = suggested + "-" + suffix
+	}
+	suggested = m.suggestBranchName(suggested)
 
 	inputScr := appscreen.NewInputScreen("Create worktree: branch name", "feature/my-branch", suggested, m.theme, m.config.IconsEnabled())
 
@@ -524,7 +548,7 @@ func (m *Model) showCheckoutOrCreatePrompt(branch string) tea.Cmd {
 		if item.ID == "checkout" {
 			return m.showWorktreeNameForExistingBranch(branch)
 		}
-		return m.showBranchNameInput(branch, branch)
+		return m.showBranchNameInput(branch, "")
 	}
 
 	listScreen.OnCancel = func() tea.Cmd {
