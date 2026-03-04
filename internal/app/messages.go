@@ -438,15 +438,8 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 			worktreeName = fmt.Sprintf("pr-%d", pr.Number)
 		}
 
-		requester := strings.TrimSpace(m.state.services.git.GetAuthenticatedUsername(m.ctx))
-		isAuthor := requester != "" && strings.EqualFold(requester, strings.TrimSpace(pr.Author))
-		useGeneratedBranch := requester != "" && !isAuthor
-
 		localBranch := remoteBranch
-		if useGeneratedBranch {
-			localBranch = m.uniquePRGeneratedName(worktreeName)
-			worktreeName = localBranch
-		} else if wt := m.getWorktreeForBranch(localBranch); wt != nil {
+		if wt := m.getWorktreeForBranch(localBranch); wt != nil {
 			m.state.ui.screenManager.Clear()
 			m.selectWorktreeByPath(wt.Path)
 			m.showInfo(fmt.Sprintf("Branch %q is already checked out in worktree %q", localBranch, filepath.Base(wt.Path)), nil)

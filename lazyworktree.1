@@ -125,7 +125,7 @@ Create worktree from the specified branch. If not provided, uses the current bra
 .
 .TP
 .B \-\-from\-pr \fINUMBER\fR
-Create worktree from PR number. Fetches the specified PR and generates the worktree name from \fBpr_branch_name_template\fR (with optional \fBbranch_name_script\fR). Local branch naming is conditional: if the authenticated requester matches the PR author, the PR branch name is kept; otherwise the generated name is used. If requester identity cannot be resolved, lazyworktree falls back to the PR branch name.
+Create worktree from PR number. Fetches the specified PR and generates the worktree name from \fBpr_branch_name_template\fR (with optional \fBbranch_name_script\fR). The local branch name always matches the PR head branch name.
 .
 .TP
 .B \-\-from\-issue \fINUMBER\fR

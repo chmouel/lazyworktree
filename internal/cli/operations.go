@@ -49,7 +49,6 @@ type gitService interface {
 	FetchIssue(ctx context.Context, issueNumber int) (*models.IssueInfo, error)
 	FetchPR(ctx context.Context, prNumber int) (*models.PRInfo, error)
 	GetCurrentBranch(ctx context.Context) (string, error)
-	GetAuthenticatedUsername(ctx context.Context) string
 	GetMainWorktreePath(ctx context.Context) string
 	GetWorktrees(ctx context.Context) ([]*models.WorktreeInfo, error)
 	RenameWorktree(ctx context.Context, oldPath, newPath, oldBranch, newBranch string) bool
@@ -251,23 +250,16 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 		worktreeName = fmt.Sprintf("pr-%d", selectedPR.Number)
 	}
 
-	requester := strings.TrimSpace(gitSvc.GetAuthenticatedUsername(ctx))
-	isAuthor := requester != "" && strings.EqualFold(requester, strings.TrimSpace(selectedPR.Author))
-	useGeneratedBranch := requester != "" && !isAuthor
-
+	localBranch := remoteBranch
 	worktrees, err := gitSvc.GetWorktrees(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to inspect worktrees for PR #%d: %w", selectedPR.Number, err)
 	}
-
-	repoName := gitSvc.ResolveRepoName(ctx)
-	localBranch := remoteBranch
-	if useGeneratedBranch {
-		localBranch = uniquePRGeneratedBranchNameFS(ctx, gitSvc, fs, cfg, repoName, worktrees, worktreeName, !noWorkspace)
-		worktreeName = localBranch
-	} else if worktreePath, attached := findWorktreePathForBranch(worktrees, localBranch); attached {
+	if worktreePath, attached := findWorktreePathForBranch(worktrees, localBranch); attached {
 		return "", fmt.Errorf("branch %q is already checked out in worktree %q", localBranch, worktreePath)
 	}
+
+	repoName := gitSvc.ResolveRepoName(ctx)
 
 	if noWorkspace {
 		if !gitSvc.CheckoutPRBranch(ctx, selectedPR.Number, remoteBranch, localBranch) {
@@ -352,82 +344,6 @@ func runBranchNameScript(ctx context.Context, script, content, scriptType, numbe
 		output = output[:idx]
 	}
 	return strings.TrimSpace(output), nil
-}
-
-func uniquePRGeneratedBranchNameFS(
-	ctx context.Context,
-	gitSvc gitService,
-	fs OSFilesystem,
-	cfg *config.AppConfig,
-	repoName string,
-	worktrees []*models.WorktreeInfo,
-	base string,
-	checkPath bool,
-) string {
-	trimmedBase := strings.TrimSpace(base)
-	if trimmedBase == "" {
-		trimmedBase = "pr"
-	}
-	trimmedBase = utils.SanitizeBranchName(trimmedBase, 100)
-	if trimmedBase == "" {
-		trimmedBase = "pr"
-	}
-
-	for i := 0; ; i++ {
-		candidate := appendPRNameSuffix(trimmedBase, i)
-		if candidate == "" {
-			continue
-		}
-
-		if _, attached := findWorktreePathForBranch(worktrees, candidate); attached {
-			continue
-		}
-		if localBranchExists(ctx, gitSvc, candidate) {
-			continue
-		}
-		if checkPath {
-			targetPath := filepath.Join(cfg.WorktreeDir, repoName, candidate)
-			if _, err := fs.Stat(targetPath); err == nil {
-				continue
-			}
-		}
-
-		return candidate
-	}
-}
-
-func appendPRNameSuffix(base string, suffix int) string {
-	if suffix <= 0 {
-		return strings.TrimSpace(base)
-	}
-
-	sfx := fmt.Sprintf("-%d", suffix)
-	maxBaseLen := 100 - len(sfx)
-	if maxBaseLen < 1 {
-		maxBaseLen = 1
-	}
-
-	trimmed := strings.TrimRight(strings.TrimSpace(base), "-")
-	if len(trimmed) > maxBaseLen {
-		trimmed = strings.TrimRight(trimmed[:maxBaseLen], "-")
-	}
-	if trimmed == "" {
-		trimmed = "pr"
-	}
-
-	return trimmed + sfx
-}
-
-func localBranchExists(ctx context.Context, gitSvc gitService, branch string) bool {
-	ref := gitSvc.RunGit(
-		ctx,
-		[]string{"git", "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", branch)},
-		"",
-		[]int{0, 1},
-		true,
-		true,
-	)
-	return strings.TrimSpace(ref) != ""
 }
 
 // CreateFromIssue creates a worktree from an issue number.

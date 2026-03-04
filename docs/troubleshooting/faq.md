@@ -24,11 +24,11 @@ When this is set, note keys are stored relative to `worktree_dir` rather than as
 
 Without `worktree_notes_path`, notes are stored in the repository's local git config (`git config --local`). This means they are specific to each clone and are not shared or synchronised automatically.
 
-## Why is my PR branch name different after create-from-PR?
+## Why is my worktree name different from the PR branch name after create-from-PR?
 
-When creating a worktree from a PR, LazyWorktree uses the configured `pr_branch_name_template` to generate the branch name. If `branch_name_script` is configured and the template includes `{generated}`, the AI-generated name may differ from the original PR branch. If the script fails or times out, `{generated}` falls back to `{title}`.
+When creating a worktree from a PR, LazyWorktree uses the configured `pr_branch_name_template` to generate the worktree directory name. The local branch always matches the PR head branch name exactly. If `branch_name_script` is configured and the template includes `{generated}`, the AI-generated worktree name may differ from the original PR branch. If the script fails or times out, `{generated}` falls back to `{title}`.
 
-To preserve the original PR branch name exactly, use a template without `{generated}`:
+To use the original PR branch name as the worktree name, use a template without `{generated}`:
 
 ```yaml
 pr_branch_name_template: "pr-{number}-{title}"

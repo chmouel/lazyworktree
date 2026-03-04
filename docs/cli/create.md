@@ -29,6 +29,5 @@ lazyworktree create my-feature --exec 'npm test'
 
 PR-specific branch behaviour:
 
-- worktree name always uses generated worktree name
-- local branch may preserve PR branch if you are PR author
-- unresolved identity falls back to PR branch name
+- worktree name is generated from the configured template
+- local branch name always matches the PR head branch name
