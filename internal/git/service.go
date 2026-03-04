@@ -1624,6 +1624,7 @@ func (s *Service) RenameWorktree(ctx context.Context, oldPath, newPath, oldBranc
 type prRefInfo struct {
 	headCommit string
 	repoURL    string
+	remoteName string
 	mergeRef   string
 }
 
@@ -1664,6 +1665,7 @@ func (s *Service) fetchPRRefInfo(ctx context.Context, prNumber int, remoteBranch
 		return &prRefInfo{
 			headCommit: headCommit,
 			repoURL:    repoURL,
+			remoteName: "origin",
 			mergeRef:   fmt.Sprintf("refs/pull/%d/head", prNumber),
 		}, true
 
@@ -1701,17 +1703,24 @@ func (s *Service) fetchPRRefInfo(ctx context.Context, prNumber int, remoteBranch
 		return &prRefInfo{
 			headCommit: headCommit,
 			repoURL:    repoURL,
+			remoteName: "origin",
 			mergeRef:   "refs/heads/" + sourceBranch,
 		}, true
 	}
 	return nil, false
 }
 
-// configureBranchTracking sets the merge ref for a local branch.
+// configureBranchTracking sets upstream tracking for a local branch.
 func (s *Service) configureBranchTracking(ctx context.Context, localBranch, cwd string, ref *prRefInfo) {
-	if ref == nil || ref.mergeRef == "" {
+	if ref == nil || ref.mergeRef == "" || localBranch == "" {
 		return
 	}
+	remoteName := strings.TrimSpace(ref.remoteName)
+	if remoteName == "" {
+		remoteName = "origin"
+	}
+	s.RunGit(ctx, []string{"git", "config", fmt.Sprintf("branch.%s.remote", localBranch), remoteName}, cwd, []int{0}, true, true)
+	s.RunGit(ctx, []string{"git", "config", fmt.Sprintf("branch.%s.pushRemote", localBranch), remoteName}, cwd, []int{0}, true, true)
 	s.RunGit(ctx, []string{"git", "config", fmt.Sprintf("branch.%s.merge", localBranch), ref.mergeRef}, cwd, []int{0}, true, true)
 }
 
@@ -1762,6 +1771,7 @@ func (s *Service) syncPRLocalBranch(ctx context.Context, localBranch, targetRef 
 	}
 
 	if s.localBranchExists(ctx, localBranch) {
+		s.notify(fmt.Sprintf("Warning: local branch %q already exists and will be reset to PR head", localBranch), "warning")
 		return s.RunCommandChecked(
 			ctx,
 			[]string{"git", "branch", "-f", localBranch, targetRef},
@@ -1793,7 +1803,14 @@ func (s *Service) CreateWorktreeFromPR(ctx context.Context, prNumber int, remote
 		if !s.syncPRLocalBranch(ctx, localBranch, remoteRef) {
 			return false
 		}
-		return s.RunCommandChecked(ctx, []string{"git", "worktree", "add", targetPath, localBranch}, "", fmt.Sprintf("Failed to create worktree from PR branch %s", remoteBranch))
+		if !s.RunCommandChecked(ctx, []string{"git", "worktree", "add", targetPath, localBranch}, "", fmt.Sprintf("Failed to create worktree from PR branch %s", remoteBranch)) {
+			return false
+		}
+		s.configureBranchTracking(ctx, localBranch, targetPath, &prRefInfo{
+			remoteName: "origin",
+			mergeRef:   "refs/heads/" + remoteBranch,
+		})
+		return true
 	}
 
 	ref, ok := s.fetchPRRefInfo(ctx, prNumber, remoteBranch)
@@ -1823,6 +1840,10 @@ func (s *Service) CheckoutPRBranch(ctx context.Context, prNumber int, remoteBran
 		if !s.syncPRLocalBranch(ctx, localBranch, remoteRef) {
 			return false
 		}
+		s.configureBranchTracking(ctx, localBranch, "", &prRefInfo{
+			remoteName: "origin",
+			mergeRef:   "refs/heads/" + remoteBranch,
+		})
 		return s.RunCommandChecked(ctx, []string{"git", "switch", localBranch}, "", fmt.Sprintf("Failed to switch to branch %s", localBranch))
 	}
 

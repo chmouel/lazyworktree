@@ -837,7 +837,15 @@ func TestCreateWorktreeFromPR(t *testing.T) {
 	})
 
 	t.Run("existing local branch is reset to PR branch before worktree creation", func(t *testing.T) {
-		service := NewService(notify, notifyOnce)
+		var notifications []string
+		service := NewService(
+			func(msg, level string) {
+				if level == "warning" {
+					notifications = append(notifications, msg)
+				}
+			},
+			notifyOnce,
+		)
 		remoteRepo := t.TempDir()
 		runGit(t, remoteRepo, "init", "--bare", "-b", "main")
 
@@ -877,6 +885,11 @@ func TestCreateWorktreeFromPR(t *testing.T) {
 		gotSHA := runGit(t, testRepo, "rev-parse", "feature-branch")
 		assert.Equal(t, featureSHA, gotSHA)
 		assert.Equal(t, "feature-branch", runGit(t, targetPath, "rev-parse", "--abbrev-ref", "HEAD"))
+		assert.Equal(t, "origin", runGit(t, testRepo, "config", "--get", "branch.feature-branch.remote"))
+		assert.Equal(t, "origin", runGit(t, testRepo, "config", "--get", "branch.feature-branch.pushRemote"))
+		assert.Equal(t, "refs/heads/feature-branch", runGit(t, testRepo, "config", "--get", "branch.feature-branch.merge"))
+		require.NotEmpty(t, notifications)
+		assert.Contains(t, notifications[0], "already exists and will be reset")
 	})
 
 	t.Run("returns false when PR branch is already attached to another worktree", func(t *testing.T) {
@@ -972,6 +985,9 @@ func TestCreateWorktreeFromPRUnknownHostSuccess(t *testing.T) {
 	// This tests the full path when remote is actually accessible.
 	ok := service.CreateWorktreeFromPR(ctx, 1, "feature-branch", "local-pr-branch", targetPath)
 	require.True(t, ok)
+	assert.Equal(t, "origin", runGit(t, testRepo, "config", "--get", "branch.local-pr-branch.remote"))
+	assert.Equal(t, "origin", runGit(t, testRepo, "config", "--get", "branch.local-pr-branch.pushRemote"))
+	assert.Equal(t, "refs/heads/feature-branch", runGit(t, testRepo, "config", "--get", "branch.local-pr-branch.merge"))
 }
 
 func TestCreateWorktreeFromPRBranchTracking(t *testing.T) {
