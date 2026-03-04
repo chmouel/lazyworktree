@@ -95,6 +95,11 @@ worktree_go_last() {
     return 1
 }
 
+worktree_go_main() {
+    local dir=$(lazyworktree list --pristine --main)
+    [[ -n ${dir} ]] && cd ${dir}
+}
+
 _worktree_jump() {
     local dir="$1"
     local id repo slug wt_root
@@ -115,7 +120,8 @@ _worktree_jump() {
     _describe 'worktree' dirs
 }
 
-# Adjust at your will
+# Add alias to your favorite git repository if you want to quickly jump between
+# worktrees there. For example:
 # if [[ -d ~/git/myrepo ]]; then
 #     pm() { worktree_jump ~/git/myrepo "$@" }
 #     _pm() { _worktree_jump ~/git/myrepo }
