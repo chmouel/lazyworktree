@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/chmouel/lazyworktree/internal/config"
+	"github.com/chmouel/lazyworktree/internal/log"
+	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
 // DetectContainerRuntime returns the container runtime binary to use.
@@ -37,11 +39,16 @@ func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath s
 	if err != nil {
 		return "", err
 	}
+	log.Printf("container: detected runtime %q", runtime)
+
+	// Honour interactive from either the call site or the config field
+	interactive = interactive || cfg.Interactive
 
 	var args []string
 	args = append(args, runtime, "run", "--rm")
 
 	if interactive {
+		log.Printf("container: interactive mode enabled")
 		args = append(args, "-it")
 	}
 
@@ -49,6 +56,11 @@ func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath s
 	if workDir == "" {
 		workDir = "/workspace"
 	}
+	if cfg.Entrypoint != "" {
+		log.Printf("container: entrypoint override %q", cfg.Entrypoint)
+		args = append(args, "--entrypoint", cfg.Entrypoint)
+	}
+
 	args = append(args, "-w", workDir)
 
 	// Auto-mount worktree unless user already mounts the working dir
@@ -64,7 +76,11 @@ func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath s
 
 	// User-specified mounts
 	for _, m := range cfg.Mounts {
-		mountStr := m.Source + ":" + m.Target
+		source, err := utils.ExpandPath(m.Source)
+		if err != nil {
+			return "", fmt.Errorf("expanding mount source %q: %w", m.Source, err)
+		}
+		mountStr := source + ":" + m.Target
 		if m.ReadOnly {
 			mountStr += ":ro"
 		}
@@ -109,7 +125,9 @@ func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath s
 	for i, a := range args {
 		quoted[i] = ShellQuote(a)
 	}
-	return strings.Join(quoted, " "), nil
+	result := strings.Join(quoted, " ")
+	log.Printf("container: final command: %s", result)
+	return result, nil
 }
 
 // WrapWindowCommandsForContainer wraps each window's command in a container

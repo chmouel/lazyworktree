@@ -52,12 +52,14 @@ type ContainerMount struct {
 
 // ContainerCommand configures OCI container execution for a custom command.
 type ContainerCommand struct {
-	Image      string            // Required: container image (e.g. "golang:1.22")
-	Runtime    string            // Optional: "docker" or "podman" (auto-detected if empty)
-	Mounts     []ContainerMount  // Optional: additional bind mounts
-	Env        map[string]string // Optional: extra environment variables
-	WorkingDir string            // Optional: working directory inside container (default: /workspace)
-	ExtraArgs  []string          // Optional: extra docker/podman run arguments
+	Image       string            // Required: container image (e.g. "golang:1.22")
+	Runtime     string            // Optional: "docker" or "podman" (auto-detected if empty)
+	Mounts      []ContainerMount  // Optional: additional bind mounts
+	Env         map[string]string // Optional: extra environment variables
+	WorkingDir  string            // Optional: working directory inside container (default: /workspace)
+	ExtraArgs   []string          // Optional: extra docker/podman run arguments
+	Entrypoint  string            // Optional: override container entrypoint
+	Interactive bool              // Optional: allocate TTY for interactive use
 }
 
 // CustomCreateMenu defines a custom entry in the worktree creation menu.
@@ -508,9 +510,11 @@ func parseTmuxCommand(data map[string]any) *TmuxCommand {
 
 func parseContainerCommand(data map[string]any) *ContainerCommand {
 	cmd := &ContainerCommand{
-		Image:      getString(data, "image"),
-		Runtime:    getString(data, "runtime"),
-		WorkingDir: getString(data, "working_dir"),
+		Image:       getString(data, "image"),
+		Runtime:     getString(data, "runtime"),
+		WorkingDir:  getString(data, "working_dir"),
+		Entrypoint:  getString(data, "entrypoint"),
+		Interactive: coerceBool(data["interactive"], false),
 	}
 	if mounts, ok := data["mounts"].([]any); ok {
 		for _, m := range mounts {

@@ -1,6 +1,7 @@
 package multiplexer
 
 import (
+	"os"
 	"testing"
 
 	"github.com/chmouel/lazyworktree/internal/config"
@@ -119,12 +120,44 @@ func TestBuildContainerCommand(t *testing.T) {
 			wantContains: []string{"--network=host", "--privileged"},
 		},
 		{
+			name: "entrypoint override",
+			cfg: &config.ContainerCommand{
+				Image: "alpine", Runtime: "echo",
+				Entrypoint: "/bin/bash",
+			},
+			command:      "echo hello",
+			worktreePath: "/wt",
+			env:          map[string]string{},
+			wantContains: []string{"'--entrypoint'", "'/bin/bash'"},
+		},
+		{
+			name:            "empty entrypoint omits flag",
+			cfg:             &config.ContainerCommand{Image: "alpine", Runtime: "echo"},
+			command:         "echo hello",
+			worktreePath:    "/wt",
+			env:             map[string]string{},
+			wantNotContains: []string{"--entrypoint"},
+		},
+		{
 			name:         "empty command gives image only",
 			cfg:          &config.ContainerCommand{Image: "alpine", Runtime: "echo"},
 			command:      "",
 			worktreePath: "/wt",
 			env:          map[string]string{},
 			wantContains: []string{"'echo'", "'run'", "'--rm'", "'alpine'"},
+		},
+		{
+			name: "tilde in mount source expands to home dir",
+			cfg: &config.ContainerCommand{
+				Image: "alpine", Runtime: "echo",
+				Mounts: []config.ContainerMount{
+					{Source: "~/.claude", Target: "/config"},
+				},
+			},
+			command:      "ls",
+			worktreePath: "/wt",
+			env:          map[string]string{},
+			wantContains: []string{os.Getenv("HOME") + "/.claude:/config"},
 		},
 		{
 			name:         "missing runtime binary errors",
@@ -169,6 +202,23 @@ func TestBuildContainerCommandInteractive(t *testing.T) {
 		got, err := BuildContainerCommand(cfg, "cat /etc/os-release", "/wt", map[string]string{}, false)
 		require.NoError(t, err)
 		assert.NotContains(t, got, "-it")
+	})
+	t.Run("cfg Interactive true adds -it even when parameter is false", func(t *testing.T) {
+		t.Parallel()
+		cfg := &config.ContainerCommand{Image: "alpine", Runtime: "echo", Interactive: true}
+		got, err := BuildContainerCommand(cfg, "bash", "/wt", map[string]string{}, false)
+		require.NoError(t, err)
+		assert.Contains(t, got, "'-it'")
+	})
+	t.Run("entrypoint set with empty command runs image directly", func(t *testing.T) {
+		t.Parallel()
+		cfg := &config.ContainerCommand{Image: "alpine", Runtime: "echo", Entrypoint: "/bin/bash"}
+		got, err := BuildContainerCommand(cfg, "", "/wt", map[string]string{}, false)
+		require.NoError(t, err)
+		assert.Contains(t, got, "'--entrypoint'")
+		assert.Contains(t, got, "'/bin/bash'")
+		assert.Contains(t, got, "'alpine'")
+		assert.NotContains(t, got, "sh -c")
 	})
 }
 

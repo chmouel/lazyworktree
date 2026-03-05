@@ -184,7 +184,8 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 - The worktree is automatically mounted to /workspace inside the container
 - Runtime is auto-detected (podman preferred over docker)
 - Works with direct execution, tmux/zellij, pager, and terminal tabs
-- Additional mounts, environment variables, and extra arguments are supported
+- Additional mounts, environment variables, extra arguments, entrypoint override, and interactive mode are supported
+- Set 'interactive: true' in the container section to allocate a TTY (command is optional with entrypoint)
 
 **{{HELP_FILTERING_SEARCH}}Filtering & Search**
 - f: Filter focused pane

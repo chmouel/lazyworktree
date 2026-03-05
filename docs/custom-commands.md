@@ -75,6 +75,18 @@ Custom commands let you bind shell commands, tmux sessions, zellij sessions, OCI
             - "--network=host"
     ```
 
+=== "Container + entrypoint"
+
+    ```yaml
+    custom_commands:
+      ctrl+c:
+        description: Claude Code in container
+        container:
+          image: "ghcr.io/anthropics/claude-code:latest"
+          entrypoint: "/bin/bash"
+          interactive: true
+    ```
+
 ## Complete Configuration Example
 
 ```yaml
@@ -124,7 +136,7 @@ Palette lists sessions matching `session_prefix` (default: `wt-`).
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `command` | string | **required** | Command to execute |
+| `command` | string | `""` | Command to execute (optional when container entrypoint is set) |
 | `description` | string | `""` | Shown in help and palette |
 | `show_help` | bool | `false` | Show in help screen (`?`) and footer |
 | `wait` | bool | `false` | Wait for keypress after completion |
@@ -182,6 +194,8 @@ If `windows` is empty, a single `shell` tab is created. Session names with `/`, 
 | `env` | map | `{}` | Extra environment variables for the container |
 | `working_dir` | string | `/workspace` | Working directory inside the container |
 | `extra_args` | list | `[]` | Additional docker/podman run arguments |
+| `entrypoint` | string | `""` | Override the image's default entrypoint |
+| `interactive` | bool | `false` | Allocate TTY for interactive use (`-it` flags) |
 
 Each mount entry has:
 
@@ -192,6 +206,8 @@ Each mount entry has:
 | `read_only` | bool | `false` | Mount as read-only |
 
 The worktree path is automatically mounted to the working directory. If a user-specified mount targets the same path as `working_dir`, the automatic mount is skipped. WORKTREE_* environment variables are forwarded into the container automatically.
+
+**`entrypoint` vs `command`:** The `entrypoint` overrides the container image's default entrypoint (the binary that runs inside the container), whilst `command` provides arguments passed to that entrypoint via `sh -c`. When both are set, the entrypoint runs with the command as its argument. When only `entrypoint` is set (no `command`), the container runs the entrypoint directly — useful for interactive shells or tools that need no additional arguments. When only `command` is set, it runs under the image's default entrypoint.
 
 When combined with `tmux` or `zellij`, each window/tab command is individually wrapped in a container invocation.
 

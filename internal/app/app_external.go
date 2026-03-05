@@ -157,7 +157,7 @@ func (m *Model) executeCustomCommand(key string) tea.Cmd {
 	}
 
 	if customCmd.NewTab {
-		if customCmd.Container != nil && customCmd.Command != "" {
+		if customCmd.Container != nil && (customCmd.Command != "" || customCmd.Container.Entrypoint != "") {
 			env := m.buildCommandEnv(wt.Branch, wt.Path)
 			wrappedCmd, err := multiplexer.BuildContainerCommand(customCmd.Container, customCmd.Command, wt.Path, env, true)
 			if err != nil {
@@ -183,7 +183,7 @@ func (m *Model) executeCustomCommand(key string) tea.Cmd {
 
 	var c *exec.Cmd
 	baseCmd := customCmd.Command
-	if customCmd.Container != nil && baseCmd != "" {
+	if customCmd.Container != nil && (baseCmd != "" || customCmd.Container.Entrypoint != "") {
 		var err error
 		baseCmd, err = multiplexer.BuildContainerCommand(customCmd.Container, baseCmd, wt.Path, env, true)
 		if err != nil {

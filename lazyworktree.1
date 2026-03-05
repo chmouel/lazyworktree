@@ -1254,6 +1254,10 @@ For container execution, the following fields are available:
 \fBworking_dir\fR: Working directory inside the container (default: /workspace)
 .IP \(bu 2
 \fBextra_args\fR: Additional docker/podman run arguments (optional, e.g. --network=host, --privileged)
+.IP \(bu 2
+\fBentrypoint\fR: Override the container image's default entrypoint (optional, e.g. "/bin/bash")
+.IP \(bu 2
+\fBinteractive\fR: Allocate TTY for interactive use (\-it flags, default: false). When set, the command field is optional \(em the container runs the entrypoint directly.
 .RE
 .
 .TP

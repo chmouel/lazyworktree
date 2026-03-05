@@ -2441,6 +2441,30 @@ func TestParseContainerCommandMountReadOnly(t *testing.T) {
 	assert.False(t, got.Mounts[1].ReadOnly)
 }
 
+func TestParseContainerCommandEntrypointAndInteractive(t *testing.T) {
+	t.Parallel()
+	input := map[string]any{
+		"image":       "alpine",
+		"entrypoint":  "/bin/bash",
+		"interactive": true,
+	}
+	got := parseContainerCommand(input)
+	require.NotNil(t, got)
+	assert.Equal(t, "/bin/bash", got.Entrypoint)
+	assert.True(t, got.Interactive)
+}
+
+func TestParseContainerCommandInteractiveDefaults(t *testing.T) {
+	t.Parallel()
+	input := map[string]any{
+		"image": "alpine",
+	}
+	got := parseContainerCommand(input)
+	require.NotNil(t, got)
+	assert.Empty(t, got.Entrypoint)
+	assert.False(t, got.Interactive)
+}
+
 func TestParseCustomCommandsWithContainer(t *testing.T) {
 	t.Parallel()
 	input := map[string]any{
