@@ -21,6 +21,7 @@
 - Stage, unstage, commit, and inspect diffs in-terminal.
 - View CI checks and logs from GitHub/GitLab workflows.
 - Open PR/MR links and worktree-aware tooling from the same view.
+- Run commands inside OCI containers (Docker/Podman) with automatic worktree mounting.
 
 ### Customisation
 
@@ -43,3 +44,4 @@ This is useful when you need to:
 - PR/MR and CI-aware status surface.
 - Built-in notes and taskboard per worktree.
 - Strong scripting and multiplexer integration.
+- OCI container execution for isolated, reproducible builds.

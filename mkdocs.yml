@@ -91,6 +91,7 @@ nav:
       - Guides:
           - Multiplexer Integration: guides/multiplexer-integration.md
           - AI Integration: guides/ai-integration.md
+          - Container Execution: guides/container-execution.md
       - Reference:
           - Keybindings: keybindings.md
           - Configuration: configuration.md

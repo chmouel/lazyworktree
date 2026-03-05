@@ -197,6 +197,8 @@ If `windows` is empty, a single `shell` tab is created. Session names with `/`, 
 
 ### Container Fields
 
+For a step-by-step walkthrough with examples, see the [Container Execution guide](guides/container-execution.md).
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `image` | string | **required** | Container image (e.g. `golang:1.22`, `node:20`) |
