@@ -25,6 +25,7 @@ type CustomCommand struct {
 	NewTab      bool // Launch command in a new terminal tab (Kitty, etc.)
 	Tmux        *TmuxCommand
 	Zellij      *TmuxCommand
+	Container   *ContainerCommand
 }
 
 // TmuxCommand represents a configured tmux session layout.
@@ -40,6 +41,23 @@ type TmuxWindow struct {
 	Name    string
 	Command string
 	Cwd     string
+}
+
+// ContainerMount represents a bind mount for a container.
+type ContainerMount struct {
+	Source   string // Host path (supports env var expansion)
+	Target  string // Container path
+	ReadOnly bool  // Mount as read-only
+}
+
+// ContainerCommand configures OCI container execution for a custom command.
+type ContainerCommand struct {
+	Image      string            // Required: container image (e.g. "golang:1.22")
+	Runtime    string            // Optional: "docker" or "podman" (auto-detected if empty)
+	Mounts     []ContainerMount  // Optional: additional bind mounts
+	Env        map[string]string // Optional: extra environment variables
+	WorkingDir string            // Optional: working directory inside container (default: /workspace)
+	ExtraArgs  []string          // Optional: extra docker/podman run arguments
 }
 
 // CustomCreateMenu defines a custom entry in the worktree creation menu.
@@ -444,8 +462,11 @@ func parseCustomCommands(data map[string]any) map[string]*CustomCommand {
 		if zellij, ok := cmdData["zellij"].(map[string]any); ok {
 			cmd.Zellij = parseTmuxCommand(zellij)
 		}
+		if container, ok := cmdData["container"].(map[string]any); ok {
+			cmd.Container = parseContainerCommand(container)
+		}
 
-		if cmd.Command != "" || cmd.Tmux != nil || cmd.Zellij != nil {
+		if cmd.Command != "" || cmd.Tmux != nil || cmd.Zellij != nil || cmd.Container != nil {
 			cmds[key] = cmd
 		}
 	}
@@ -481,6 +502,40 @@ func parseTmuxCommand(data map[string]any) *TmuxCommand {
 				Cwd:     "",
 			},
 		}
+	}
+	return cmd
+}
+
+func parseContainerCommand(data map[string]any) *ContainerCommand {
+	cmd := &ContainerCommand{
+		Image:      getString(data, "image"),
+		Runtime:    getString(data, "runtime"),
+		WorkingDir: getString(data, "working_dir"),
+	}
+	if mounts, ok := data["mounts"].([]any); ok {
+		for _, m := range mounts {
+			if mData, ok := m.(map[string]any); ok {
+				cmd.Mounts = append(cmd.Mounts, ContainerMount{
+					Source:   getString(mData, "source"),
+					Target:   getString(mData, "target"),
+					ReadOnly: coerceBool(mData["read_only"], false),
+				})
+			}
+		}
+	}
+	if envData, ok := data["env"].(map[string]any); ok {
+		cmd.Env = make(map[string]string)
+		for k, v := range envData {
+			cmd.Env[k] = fmt.Sprint(v)
+		}
+	}
+	if args, ok := data["extra_args"].([]any); ok {
+		for _, a := range args {
+			cmd.ExtraArgs = append(cmd.ExtraArgs, fmt.Sprint(a))
+		}
+	}
+	if cmd.Image == "" {
+		return nil
 	}
 	return cmd
 }
