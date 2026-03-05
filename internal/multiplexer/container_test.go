@@ -1,7 +1,6 @@
 package multiplexer
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/chmouel/lazyworktree/internal/config"
@@ -146,10 +145,10 @@ func TestBuildContainerCommand(t *testing.T) {
 			}
 			require.NoError(t, err)
 			for _, want := range tt.wantContains {
-				assert.True(t, strings.Contains(got, want), "output %q missing %q", got, want)
+				assert.Contains(t, got, want, "output %q missing %q", got, want)
 			}
 			for _, notWant := range tt.wantNotContains {
-				assert.False(t, strings.Contains(got, notWant), "output %q should not contain %q", got, notWant)
+				assert.NotContains(t, got, notWant, "output %q should not contain %q", got, notWant)
 			}
 		})
 	}
@@ -174,7 +173,7 @@ func TestWrapWindowCommandsForContainer(t *testing.T) {
 		got, err := WrapWindowCommandsForContainer(windows, cfg, map[string]string{})
 		require.NoError(t, err)
 		assert.Contains(t, got[0].Command, "'echo'")
-		assert.Equal(t, "", got[1].Command)
+		assert.Empty(t, got[1].Command)
 	})
 	t.Run("preserves window metadata", func(t *testing.T) {
 		t.Parallel()

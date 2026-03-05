@@ -48,6 +48,8 @@ Tmux Integration: Create and manage tmux sessions per worktree with multi-window
 .IP \(bu 2
 Zellij Integration: Create and manage zellij sessions per worktree with multi-tab support
 .IP \(bu 2
+Container Execution: Run custom commands inside OCI containers (docker/podman) with automatic worktree mounting
+.IP \(bu 2
 Diff Viewer: View diff with optional delta support
 .IP \(bu 2
 Repo Automation: \fB.wt\fR init/terminate commands with TOFU security
@@ -1206,6 +1208,8 @@ Each custom command supports the following fields:
 \fBtmux\fR: Configure a tmux session instead of executing a single command (object, optional)
 .IP \(bu 2
 \fBzellij\fR: Configure a zellij session instead of executing a single command (object, optional)
+.IP \(bu 2
+\fBcontainer\fR: Run the command inside an OCI container (object, optional). Can be combined with \fBtmux\fR or \fBzellij\fR to run each window/tab inside a container.
 .RE
 .PP
 Supported key formats: single keys (e, s, t), modifier combinations (ctrl+e, alt+t), special keys (enter, esc, tab, space).
@@ -1234,6 +1238,22 @@ For zellij sessions, the following fields are available:
 \fBon_exists\fR: Behaviour if session exists: switch, attach, kill, new (default: switch)
 .IP \(bu 2
 \fBwindows\fR: List of tab definitions. Each tab has: name (supports env vars), command (empty uses default shell), cwd (default: $WORKTREE_PATH). If omitted, creates a single shell tab.
+.RE
+.PP
+For container execution, the following fields are available:
+.RS
+.IP \(bu 2
+\fBimage\fR: Container image to use (required, e.g. "golang:1.22", "node:20")
+.IP \(bu 2
+\fBruntime\fR: Container runtime binary (optional, auto-detected: podman preferred, then docker)
+.IP \(bu 2
+\fBmounts\fR: Additional bind mounts (optional). Each mount has: source (host path), target (container path), read_only (default: false). The worktree path is automatically mounted to the working directory.
+.IP \(bu 2
+\fBenv\fR: Extra environment variables passed to the container (optional). WORKTREE_* variables are forwarded automatically.
+.IP \(bu 2
+\fBworking_dir\fR: Working directory inside the container (default: /workspace)
+.IP \(bu 2
+\fBextra_args\fR: Additional docker/podman run arguments (optional, e.g. --network=host, --privileged)
 .RE
 .
 .TP

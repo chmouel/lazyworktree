@@ -178,6 +178,14 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 **{{HELP_TIPS}}Tips & Shortcuts**
 {{HELP_TIP_LINES}}
 
+**{{HELP_CONFIGURATION}}Container Execution**
+- Custom commands support OCI container execution via docker or podman
+- Add a 'container' section with 'image' to your custom command config
+- The worktree is automatically mounted to /workspace inside the container
+- Runtime is auto-detected (podman preferred over docker)
+- Works with direct execution, tmux/zellij, pager, and terminal tabs
+- Additional mounts, environment variables, and extra arguments are supported
+
 **{{HELP_FILTERING_SEARCH}}Filtering & Search**
 - f: Filter focused pane
 - Selection menus: press f to show the filter, Esc returns to the list

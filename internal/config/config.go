@@ -46,8 +46,8 @@ type TmuxWindow struct {
 // ContainerMount represents a bind mount for a container.
 type ContainerMount struct {
 	Source   string // Host path (supports env var expansion)
-	Target  string // Container path
-	ReadOnly bool  // Mount as read-only
+	Target   string // Container path
+	ReadOnly bool   // Mount as read-only
 }
 
 // ContainerCommand configures OCI container execution for a custom command.

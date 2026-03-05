@@ -309,6 +309,45 @@ terminate_commands:
 #   show_help: Show in help screen and footer hints (default: false)
 #   wait: Wait for keypress after command completes (default: false, useful for quick commands)
 #   show_output: Display command output in the pager instead of running interactively (default: false)
+#
+# Container execution: run commands inside OCI containers (docker/podman).
+# The container runtime is auto-detected (podman preferred, then docker).
+# The worktree path is automatically mounted to /workspace.
+#
+# Container fields:
+#   image: Container image (required, e.g. "golang:1.22")
+#   runtime: Override runtime binary (optional, auto-detect if empty)
+#   mounts: Additional bind mounts (optional)
+#     - source: Host path
+#       target: Container path
+#       read_only: true/false (default: false)
+#   env: Extra environment variables (optional)
+#   working_dir: Working directory inside container (default: /workspace)
+#   extra_args: Additional docker/podman run arguments (optional)
+#
+# Container examples:
+#
+#   # Run tests in a Go container
+#   # ctrl+g:
+#   #   command: "go test ./..."
+#   #   description: "Run tests in container"
+#   #   show_output: true
+#   #   container:
+#   #     image: "golang:1.22"
+#
+#   # Container + tmux: each window runs inside the container
+#   # ctrl+l:
+#   #   description: "Dev environment in container"
+#   #   tmux:
+#   #     session_name: "dev:$WORKTREE_NAME"
+#   #     windows:
+#   #       - name: test
+#   #         command: "go test -v ./..."
+#   #       - name: shell
+#   #   container:
+#   #     image: "golang:1.22"
+#   #     extra_args:
+#   #       - "--network=host"
 custom_commands:
   s:
     command: zsh

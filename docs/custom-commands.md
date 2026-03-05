@@ -1,6 +1,6 @@
 # Custom Commands
 
-Custom commands let you bind shell commands, tmux sessions, zellij sessions, or output views to keys. Commands can appear in help/footer and in the command palette.
+Custom commands let you bind shell commands, tmux sessions, zellij sessions, OCI container execution, or output views to keys. Commands can appear in help/footer and in the command palette.
 
 <div class="lw-callout">
   <p><strong>Defaults:</strong> <code>t</code> opens tmux and <code>Z</code> opens zellij. Override either key with your own command definition.</p>
@@ -43,6 +43,36 @@ Custom commands let you bind shell commands, tmux sessions, zellij sessions, or 
               command: zsh
             - name: lazygit
               command: lazygit
+    ```
+
+=== "Container command"
+
+    ```yaml
+    custom_commands:
+      C:
+        command: "go test ./..."
+        description: Tests in container
+        show_output: true
+        container:
+          image: "golang:1.22"
+    ```
+
+=== "Container + tmux"
+
+    ```yaml
+    custom_commands:
+      ctrl+l:
+        description: Dev container
+        tmux:
+          session_name: "dev:$WORKTREE_NAME"
+          windows:
+            - name: test
+              command: "go test -v ./..."
+            - name: shell
+        container:
+          image: "golang:1.22"
+          extra_args:
+            - "--network=host"
     ```
 
 ## Complete Configuration Example
@@ -102,6 +132,7 @@ Palette lists sessions matching `session_prefix` (default: `wt-`).
 | `new_tab` | bool | `false` | Launch in new terminal tab. Can be used with tmux/zellij (Kitty with remote control enabled, WezTerm, or iTerm) |
 | `tmux` | object | `null` | Configure tmux session |
 | `zellij` | object | `null` | Configure zellij session |
+| `container` | object | `null` | Run command inside OCI container (combinable with tmux/zellij) |
 
 ### tmux Fields
 
@@ -140,6 +171,29 @@ If `windows` is empty, a single `shell` tab is created. Session names with `/`, 
 | `name` | string | `window-N` | Tab name (supports env vars) |
 | `command` | string | `""` | Command to run in the tab (empty uses your default shell) |
 | `cwd` | string | `$WORKTREE_PATH` | Working directory for the tab (supports env vars) |
+
+### Container Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `image` | string | **required** | Container image (e.g. `golang:1.22`, `node:20`) |
+| `runtime` | string | auto-detect | Container runtime binary (`docker` or `podman`; podman preferred) |
+| `mounts` | list | `[]` | Additional bind mounts (worktree auto-mounted to working dir) |
+| `env` | map | `{}` | Extra environment variables for the container |
+| `working_dir` | string | `/workspace` | Working directory inside the container |
+| `extra_args` | list | `[]` | Additional docker/podman run arguments |
+
+Each mount entry has:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `source` | string | **required** | Host path |
+| `target` | string | **required** | Container path |
+| `read_only` | bool | `false` | Mount as read-only |
+
+The worktree path is automatically mounted to the working directory. If a user-specified mount targets the same path as `working_dir`, the automatic mount is skipped. WORKTREE_* environment variables are forwarded into the container automatically.
+
+When combined with `tmux` or `zellij`, each window/tab command is individually wrapped in a container invocation.
 
 ## Environment Variables
 

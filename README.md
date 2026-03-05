@@ -8,7 +8,8 @@ LazyWorktree is a terminal UI for managing Git worktrees with a keyboard-first
 workflow.
 
 Built with [BubbleTea](https://github.com/charmbracelet/bubbletea), it focuses
-on fast iteration, clear state visibility, and tight Git tooling integration.
+on fast iteration, clear state visibility, and tight Git tooling integration
+including tmux/zellij sessions and OCI container execution (docker/podman).
 
 ## Documentation
 
