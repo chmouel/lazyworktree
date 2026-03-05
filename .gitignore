@@ -8,3 +8,4 @@ tmp/
 /lazyworktree
 /tmp
 site/
+.worktrees/
