@@ -61,6 +61,67 @@ custom_commands:
 !!! tip
     **`entrypoint` vs `command`:** The `entrypoint` overrides the binary that runs inside the container, whilst `command` provides arguments passed via `sh -c`. When both are set, the entrypoint runs with the command as its argument. When neither is set, the container runs with its image defaults.
 
+## Claude Code in a Container
+
+Run [Claude Code](https://docs.anthropic.com/en/docs/claude-code) inside a container for each worktree. The examples below use `--dangerously-skip-permissions` and `--user` to avoid permission issues with mounted host directories.
+
+### With Anthropic API
+
+Use the Anthropic API directly. Pass your API key via an environment variable:
+
+```yaml
+custom_commands:
+  C:
+    description: Claude Code
+    command: "claude"
+    container:
+      interactive: true
+      image: gendosu/claude-code-docker
+      args:
+        - "--model=claude-sonnet-4-20250514"
+        - "--dangerously-skip-permissions"
+      env:
+        CLAUDE_CONFIG_DIR: "/claude"
+        ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
+      mounts:
+        - source: "~/.claude"
+          target: "/claude"
+      extra_args:
+        - "--user=1000:1000"
+```
+
+!!! tip
+    The `--user=1000:1000` flag runs the container as your host UID, preventing `EACCES` errors when writing to mounted directories like `~/.claude/debug/`. Replace `1000:1000` with your actual UID/GID if different (check with `id -u` and `id -g`).
+
+### With Vertex AI
+
+Use Google Cloud Vertex AI as the backend. Mount your gcloud credentials and set the required environment variables:
+
+```yaml
+custom_commands:
+  C:
+    description: Claude Code (Vertex)
+    command: "claude"
+    container:
+      interactive: true
+      image: gendosu/claude-code-docker
+      args:
+        - "--model=claude-sonnet-4-20250514"
+        - "--dangerously-skip-permissions"
+      env:
+        CLAUDE_CONFIG_DIR: "/claude"
+        CLAUDE_CODE_USE_VERTEX: 1
+        CLOUD_ML_REGION: us-east5
+        ANTHROPIC_VERTEX_PROJECT_ID: my-gcp-project-id
+      mounts:
+        - source: "~/.claude"
+          target: "/claude"
+        - source: "~/.config/gcloud"
+          target: "/home/appuser/.config/gcloud"
+      extra_args:
+        - "--user=1000:1000"
+```
+
 ## Combining with Multiplexers
 
 Container execution can be combined with tmux or zellij. Each window/tab command is individually wrapped in a container invocation, so every pane runs inside the same image.
