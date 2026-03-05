@@ -82,14 +82,27 @@ func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath s
 		args = append(args, "-v", mountStr)
 	}
 
+	// Copy env to avoid mutating the caller's map, then remap path env vars
+	// to container paths — host paths are meaningless inside the container
+	containerEnv := make(map[string]string, len(env))
+	for k, v := range env {
+		containerEnv[k] = v
+	}
+	if _, ok := containerEnv["WORKTREE_PATH"]; ok {
+		containerEnv["WORKTREE_PATH"] = workDir
+	}
+	if _, ok := containerEnv["MAIN_WORKTREE_PATH"]; ok {
+		containerEnv["MAIN_WORKTREE_PATH"] = workDir
+	}
+
 	// Forward env vars (sorted for determinism)
-	envKeys := make([]string, 0, len(env))
-	for k := range env {
+	envKeys := make([]string, 0, len(containerEnv))
+	for k := range containerEnv {
 		envKeys = append(envKeys, k)
 	}
 	sort.Strings(envKeys)
 	for _, k := range envKeys {
-		args = append(args, "-e", k+"="+env[k])
+		args = append(args, "-e", k+"="+containerEnv[k])
 	}
 
 	// Container-specific env vars (sorted for determinism)

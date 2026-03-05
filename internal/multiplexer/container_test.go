@@ -95,7 +95,16 @@ func TestBuildContainerCommand(t *testing.T) {
 			command:      "echo hi",
 			worktreePath: "/wt",
 			env:          map[string]string{"WORKTREE_NAME": "feat", "WORKTREE_PATH": "/wt"},
-			wantContains: []string{"WORKTREE_NAME=feat", "WORKTREE_PATH=/wt"},
+			wantContains: []string{"WORKTREE_NAME=feat", "WORKTREE_PATH=/workspace"},
+		},
+		{
+			name:            "WORKTREE_PATH and MAIN_WORKTREE_PATH remapped to container workdir",
+			cfg:             &config.ContainerCommand{Image: "alpine", Runtime: "echo", WorkingDir: "/src"},
+			command:         "ls",
+			worktreePath:    "/home/user/repos/project/feat",
+			env:             map[string]string{"WORKTREE_PATH": "/home/user/repos/project/feat", "MAIN_WORKTREE_PATH": "/home/user/repos/project"},
+			wantContains:    []string{"WORKTREE_PATH=/src", "MAIN_WORKTREE_PATH=/src"},
+			wantNotContains: []string{"WORKTREE_PATH=/home", "MAIN_WORKTREE_PATH=/home"},
 		},
 		{
 			name: "container env vars",

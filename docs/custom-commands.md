@@ -75,6 +75,17 @@ Custom commands let you bind shell commands, tmux sessions, zellij sessions, OCI
             - "--network=host"
     ```
 
+=== "Container (image only)"
+
+    ```yaml
+    custom_commands:
+      ctrl+d:
+        description: Default shell in container
+        container:
+          image: "ubuntu:24.04"
+          interactive: true
+    ```
+
 === "Container + entrypoint"
 
     ```yaml
@@ -136,7 +147,7 @@ Palette lists sessions matching `session_prefix` (default: `wt-`).
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `command` | string | `""` | Command to execute (optional when container entrypoint is set) |
+| `command` | string | `""` | Command to execute (optional when using a container) |
 | `description` | string | `""` | Shown in help and palette |
 | `show_help` | bool | `false` | Show in help screen (`?`) and footer |
 | `wait` | bool | `false` | Wait for keypress after completion |
@@ -144,7 +155,7 @@ Palette lists sessions matching `session_prefix` (default: `wt-`).
 | `new_tab` | bool | `false` | Launch in new terminal tab. Can be used with tmux/zellij (Kitty with remote control enabled, WezTerm, or iTerm) |
 | `tmux` | object | `null` | Configure tmux session |
 | `zellij` | object | `null` | Configure zellij session |
-| `container` | object | `null` | Run command inside OCI container (combinable with tmux/zellij) |
+| `container` | object | `null` | Run inside an OCI container; specifying just an image uses its defaults (combinable with tmux/zellij) |
 
 ### tmux Fields
 
@@ -207,7 +218,7 @@ Each mount entry has:
 
 The worktree path is automatically mounted to the working directory. If a user-specified mount targets the same path as `working_dir`, the automatic mount is skipped. WORKTREE_* environment variables are forwarded into the container automatically.
 
-**`entrypoint` vs `command`:** The `entrypoint` overrides the container image's default entrypoint (the binary that runs inside the container), whilst `command` provides arguments passed to that entrypoint via `sh -c`. When both are set, the entrypoint runs with the command as its argument. When only `entrypoint` is set (no `command`), the container runs the entrypoint directly — useful for interactive shells or tools that need no additional arguments. When only `command` is set, it runs under the image's default entrypoint.
+**`entrypoint` vs `command`:** The `entrypoint` overrides the container image's default entrypoint (the binary that runs inside the container), whilst `command` provides arguments passed to that entrypoint via `sh -c`. When both are set, the entrypoint runs with the command as its argument. When only `entrypoint` is set (no `command`), the container runs the entrypoint directly — useful for interactive shells or tools that need no additional arguments. When only `command` is set, it runs under the image's default entrypoint. When neither is set, the container runs with its image defaults.
 
 When combined with `tmux` or `zellij`, each window/tab command is individually wrapped in a container invocation.
 

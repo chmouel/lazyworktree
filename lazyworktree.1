@@ -1209,7 +1209,7 @@ Each custom command supports the following fields:
 .IP \(bu 2
 \fBzellij\fR: Configure a zellij session instead of executing a single command (object, optional)
 .IP \(bu 2
-\fBcontainer\fR: Run the command inside an OCI container (object, optional). Can be combined with \fBtmux\fR or \fBzellij\fR to run each window/tab inside a container.
+\fBcontainer\fR: Run inside an OCI container (object, optional). Specifying just an image uses its defaults. Can be combined with \fBtmux\fR or \fBzellij\fR to run each window/tab inside a container.
 .RE
 .PP
 Supported key formats: single keys (e, s, t), modifier combinations (ctrl+e, alt+t), special keys (enter, esc, tab, space).
@@ -1255,7 +1255,7 @@ For container execution, the following fields are available:
 .IP \(bu 2
 \fBextra_args\fR: Additional docker/podman run arguments (optional, e.g. --network=host, --privileged)
 .IP \(bu 2
-\fBargs\fR: Arguments passed after the image as CMD (optional). When \fBcommand\fR is set, it becomes the container entrypoint via \-\-entrypoint, and \fBargs\fR are passed as arguments. When \fBcommand\fR is empty, the image's default entrypoint is used with \fBargs\fR appended.
+\fBargs\fR: Arguments passed after the image as CMD (optional). When \fBcommand\fR is set, it becomes the container entrypoint via \-\-entrypoint, and \fBargs\fR are passed as arguments. When \fBcommand\fR is empty, the image's default entrypoint is used with \fBargs\fR appended. When neither \fBcommand\fR nor \fBargs\fR is set, the container runs with its image defaults.
 .IP \(bu 2
 \fBinteractive\fR: Allocate TTY for interactive use (\-it flags, default: false).
 .RE
