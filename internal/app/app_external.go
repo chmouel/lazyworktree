@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/multiplexer"
 )
 
 // openURLInBrowser opens the given URL in the default browser.
@@ -156,6 +157,16 @@ func (m *Model) executeCustomCommand(key string) tea.Cmd {
 	}
 
 	if customCmd.NewTab {
+		if customCmd.Container != nil && customCmd.Command != "" {
+			env := m.buildCommandEnv(wt.Branch, wt.Path)
+			wrappedCmd, err := multiplexer.BuildContainerCommand(customCmd.Container, customCmd.Command, wt.Path, env)
+			if err != nil {
+				return func() tea.Msg { return errMsg{err: err} }
+			}
+			wrapped := *customCmd
+			wrapped.Command = wrappedCmd
+			return m.openTerminalTab(&wrapped, wt)
+		}
 		return m.openTerminalTab(customCmd, wt)
 	}
 
@@ -171,12 +182,20 @@ func (m *Model) executeCustomCommand(key string) tea.Cmd {
 	}
 
 	var c *exec.Cmd
+	baseCmd := customCmd.Command
+	if customCmd.Container != nil && baseCmd != "" {
+		var err error
+		baseCmd, err = multiplexer.BuildContainerCommand(customCmd.Container, baseCmd, wt.Path, env)
+		if err != nil {
+			return func() tea.Msg { return errMsg{err: err} }
+		}
+	}
 	var cmdStr string
 	if customCmd.Wait {
 		// Wrap command with a pause prompt when wait is true
-		cmdStr = fmt.Sprintf("%s; echo ''; echo 'Press any key to continue...'; read -n 1", customCmd.Command)
+		cmdStr = fmt.Sprintf("%s; echo ''; echo 'Press any key to continue...'; read -n 1", baseCmd)
 	} else {
-		cmdStr = customCmd.Command
+		cmdStr = baseCmd
 	}
 	// Always run via shell to support pipes, redirects, and shell features
 	// #nosec G204 -- command comes from user's own config file
@@ -206,7 +225,15 @@ func (m *Model) executeCustomCommandWithPager(customCmd *config.CustomCommand, w
 	if pagerEnv != "" {
 		pagerCmd = fmt.Sprintf("%s %s", pagerEnv, pager)
 	}
-	cmdStr := fmt.Sprintf("set -o pipefail; (%s) 2>&1 | %s", customCmd.Command, pagerCmd)
+	innerCmd := customCmd.Command
+	if customCmd.Container != nil {
+		var err error
+		innerCmd, err = multiplexer.BuildContainerCommand(customCmd.Container, innerCmd, wt.Path, env)
+		if err != nil {
+			return func() tea.Msg { return errMsg{err: err} }
+		}
+	}
+	cmdStr := fmt.Sprintf("set -o pipefail; (%s) 2>&1 | %s", innerCmd, pagerCmd)
 	// Always run via shell to support pipes, redirects, and shell features
 	// #nosec G204 -- command comes from user's own config file
 	c := m.commandRunner(m.ctx, "bash", "-c", cmdStr)

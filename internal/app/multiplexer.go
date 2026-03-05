@@ -243,6 +243,15 @@ func (m *Model) openTmuxSession(customCmd *config.CustomCommand, wt *models.Work
 		}
 	}
 
+	// Wrap window commands in container if configured
+	if customCmd.Container != nil {
+		var err error
+		resolved, err = multiplexer.WrapWindowCommandsForContainer(resolved, customCmd.Container, env)
+		if err != nil {
+			return func() tea.Msg { return errMsg{err: err} }
+		}
+	}
+
 	// When new_tab is set, run the entire tmux script (create + attach) in a
 	// new terminal tab so the TUI is never suspended.
 	if customCmd.NewTab {
@@ -498,6 +507,14 @@ func (m *Model) openZellijSession(customCmd *config.CustomCommand, wt *models.Wo
 		if !ok {
 			return func() tea.Msg {
 				return errMsg{err: fmt.Errorf("failed to resolve zellij windows")}
+			}
+		}
+		// Wrap window commands in container if configured
+		if customCmd.Container != nil {
+			var wrapErr error
+			resolved, wrapErr = multiplexer.WrapWindowCommandsForContainer(resolved, customCmd.Container, env)
+			if wrapErr != nil {
+				return func() tea.Msg { return errMsg{err: wrapErr} }
 			}
 		}
 		layoutPaths, err := writeZellijLayouts(resolved)

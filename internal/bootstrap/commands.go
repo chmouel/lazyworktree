@@ -1131,11 +1131,11 @@ func executeKeyAction(ctx context.Context, key string, cfg *config.AppConfig, wt
 
 	// Determine command type based on config fields
 	if customCmd.Tmux != nil {
-		return executeTmuxAction(ctx, customCmd.Tmux, cfg, wt, env)
+		return executeTmuxAction(ctx, customCmd.Tmux, customCmd.Container, cfg, wt, env)
 	}
 
 	if customCmd.Zellij != nil {
-		return executeZellijAction(ctx, customCmd.Zellij, cfg, wt, env)
+		return executeZellijAction(ctx, customCmd.Zellij, customCmd.Container, cfg, wt, env)
 	}
 
 	if customCmd.NewTab {
@@ -1144,14 +1144,30 @@ func executeKeyAction(ctx context.Context, key string, cfg *config.AppConfig, wt
 	}
 
 	if customCmd.ShowOutput {
-		return executeShowOutputAction(ctx, customCmd.Command, cfg, wt, env)
+		command := customCmd.Command
+		if customCmd.Container != nil && command != "" {
+			var err error
+			command, err = multiplexer.BuildContainerCommand(customCmd.Container, command, wt.Path, env)
+			if err != nil {
+				return err
+			}
+		}
+		return executeShowOutputAction(ctx, command, cfg, wt, env)
 	}
 
 	// Default: shell command
-	return executeShellCommand(ctx, customCmd.Command, wt.Path, env)
+	command := customCmd.Command
+	if customCmd.Container != nil && command != "" {
+		var err error
+		command, err = multiplexer.BuildContainerCommand(customCmd.Container, command, wt.Path, env)
+		if err != nil {
+			return err
+		}
+	}
+	return executeShellCommand(ctx, command, wt.Path, env)
 }
 
-func executeTmuxAction(ctx context.Context, tmuxCfg *config.TmuxCommand, cfg *config.AppConfig, wt *models.WorktreeInfo, env map[string]string) error {
+func executeTmuxAction(ctx context.Context, tmuxCfg *config.TmuxCommand, containerCfg *config.ContainerCommand, cfg *config.AppConfig, wt *models.WorktreeInfo, env map[string]string) error {
 	if tmuxCfg == nil {
 		return fmt.Errorf("tmux configuration is nil")
 	}
@@ -1167,6 +1183,15 @@ func executeTmuxAction(ctx context.Context, tmuxCfg *config.TmuxCommand, cfg *co
 	windows, ok := multiplexer.ResolveTmuxWindows(tmuxCfg.Windows, env, wt.Path)
 	if !ok {
 		return fmt.Errorf("failed to resolve tmux windows")
+	}
+
+	// Wrap window commands in container if configured
+	if containerCfg != nil {
+		var err error
+		windows, err = multiplexer.WrapWindowCommandsForContainer(windows, containerCfg, env)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Create session file for script to write final session name
@@ -1198,7 +1223,7 @@ func executeTmuxAction(ctx context.Context, tmuxCfg *config.TmuxCommand, cfg *co
 	return execCmd.Run()
 }
 
-func executeZellijAction(ctx context.Context, zellijCfg *config.TmuxCommand, cfg *config.AppConfig, wt *models.WorktreeInfo, env map[string]string) error {
+func executeZellijAction(ctx context.Context, zellijCfg *config.TmuxCommand, containerCfg *config.ContainerCommand, cfg *config.AppConfig, wt *models.WorktreeInfo, env map[string]string) error {
 	if zellijCfg == nil {
 		return fmt.Errorf("zellij configuration is nil")
 	}
@@ -1214,6 +1239,15 @@ func executeZellijAction(ctx context.Context, zellijCfg *config.TmuxCommand, cfg
 	windows, ok := multiplexer.ResolveTmuxWindows(zellijCfg.Windows, env, wt.Path)
 	if !ok {
 		return fmt.Errorf("failed to resolve zellij windows")
+	}
+
+	// Wrap window commands in container if configured
+	if containerCfg != nil {
+		var err error
+		windows, err = multiplexer.WrapWindowCommandsForContainer(windows, containerCfg, env)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Write layout files
