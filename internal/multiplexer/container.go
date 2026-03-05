@@ -56,11 +56,6 @@ func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath s
 	if workDir == "" {
 		workDir = "/workspace"
 	}
-	if cfg.Entrypoint != "" {
-		log.Printf("container: entrypoint override %q", cfg.Entrypoint)
-		args = append(args, "--entrypoint", cfg.Entrypoint)
-	}
-
 	args = append(args, "-w", workDir)
 
 	// Auto-mount worktree unless user already mounts the working dir
@@ -112,13 +107,17 @@ func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath s
 	// Extra args pass-through
 	args = append(args, cfg.ExtraArgs...)
 
+	// Entrypoint override: command becomes --entrypoint
+	if command != "" {
+		log.Printf("container: entrypoint override %q", command)
+		args = append(args, "--entrypoint", command)
+	}
+
 	// Image
 	args = append(args, cfg.Image)
 
-	// Command
-	if command != "" {
-		args = append(args, "sh", "-c", command)
-	}
+	// Arguments passed after the image (as CMD)
+	args = append(args, cfg.Args...)
 
 	// Shell-quote each arg
 	quoted := make([]string, len(args))

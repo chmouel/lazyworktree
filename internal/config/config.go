@@ -58,7 +58,7 @@ type ContainerCommand struct {
 	Env         map[string]string // Optional: extra environment variables
 	WorkingDir  string            // Optional: working directory inside container (default: /workspace)
 	ExtraArgs   []string          // Optional: extra docker/podman run arguments
-	Entrypoint  string            // Optional: override container entrypoint
+	Args        []string          // Optional: arguments passed after image (as CMD)
 	Interactive bool              // Optional: allocate TTY for interactive use
 }
 
@@ -513,8 +513,12 @@ func parseContainerCommand(data map[string]any) *ContainerCommand {
 		Image:       getString(data, "image"),
 		Runtime:     getString(data, "runtime"),
 		WorkingDir:  getString(data, "working_dir"),
-		Entrypoint:  getString(data, "entrypoint"),
 		Interactive: coerceBool(data["interactive"], false),
+	}
+	if args, ok := data["args"].([]any); ok {
+		for _, a := range args {
+			cmd.Args = append(cmd.Args, fmt.Sprint(a))
+		}
 	}
 	if mounts, ok := data["mounts"].([]any); ok {
 		for _, m := range mounts {

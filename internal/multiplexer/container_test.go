@@ -120,22 +120,36 @@ func TestBuildContainerCommand(t *testing.T) {
 			wantContains: []string{"--network=host", "--privileged"},
 		},
 		{
-			name: "entrypoint override",
+			name: "command as entrypoint with args",
 			cfg: &config.ContainerCommand{
 				Image: "alpine", Runtime: "echo",
-				Entrypoint: "/bin/bash",
+				Args: []string{"--flag1", "--flag2"},
 			},
-			command:      "echo hello",
-			worktreePath: "/wt",
-			env:          map[string]string{},
-			wantContains: []string{"'--entrypoint'", "'/bin/bash'"},
-		},
-		{
-			name:            "empty entrypoint omits flag",
-			cfg:             &config.ContainerCommand{Image: "alpine", Runtime: "echo"},
-			command:         "echo hello",
+			command:         "claude",
 			worktreePath:    "/wt",
 			env:             map[string]string{},
+			wantContains:    []string{"'--entrypoint'", "'claude'", "'alpine'", "'--flag1'", "'--flag2'"},
+			wantNotContains: []string{"'sh'", "'-c'"},
+		},
+		{
+			name: "empty command with args uses image default entrypoint",
+			cfg: &config.ContainerCommand{
+				Image: "alpine", Runtime: "echo",
+				Args: []string{"arg1", "arg2"},
+			},
+			command:         "",
+			worktreePath:    "/wt",
+			env:             map[string]string{},
+			wantContains:    []string{"'alpine'", "'arg1'", "'arg2'"},
+			wantNotContains: []string{"--entrypoint"},
+		},
+		{
+			name:            "empty command no args gives image defaults",
+			cfg:             &config.ContainerCommand{Image: "alpine", Runtime: "echo"},
+			command:         "",
+			worktreePath:    "/wt",
+			env:             map[string]string{},
+			wantContains:    []string{"'alpine'"},
 			wantNotContains: []string{"--entrypoint"},
 		},
 		{
@@ -210,15 +224,14 @@ func TestBuildContainerCommandInteractive(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, got, "'-it'")
 	})
-	t.Run("entrypoint set with empty command runs image directly", func(t *testing.T) {
+	t.Run("command as entrypoint with empty args", func(t *testing.T) {
 		t.Parallel()
-		cfg := &config.ContainerCommand{Image: "alpine", Runtime: "echo", Entrypoint: "/bin/bash"}
-		got, err := BuildContainerCommand(cfg, "", "/wt", map[string]string{}, false)
+		cfg := &config.ContainerCommand{Image: "alpine", Runtime: "echo"}
+		got, err := BuildContainerCommand(cfg, "bash", "/wt", map[string]string{}, false)
 		require.NoError(t, err)
 		assert.Contains(t, got, "'--entrypoint'")
-		assert.Contains(t, got, "'/bin/bash'")
+		assert.Contains(t, got, "'bash'")
 		assert.Contains(t, got, "'alpine'")
-		assert.NotContains(t, got, "sh -c")
 	})
 }
 

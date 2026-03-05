@@ -1255,9 +1255,9 @@ For container execution, the following fields are available:
 .IP \(bu 2
 \fBextra_args\fR: Additional docker/podman run arguments (optional, e.g. --network=host, --privileged)
 .IP \(bu 2
-\fBentrypoint\fR: Override the container image's default entrypoint (optional, e.g. "/bin/bash")
+\fBargs\fR: Arguments passed after the image as CMD (optional). When \fBcommand\fR is set, it becomes the container entrypoint via \-\-entrypoint, and \fBargs\fR are passed as arguments. When \fBcommand\fR is empty, the image's default entrypoint is used with \fBargs\fR appended.
 .IP \(bu 2
-\fBinteractive\fR: Allocate TTY for interactive use (\-it flags, default: false). When set, the command field is optional \(em the container runs the entrypoint directly.
+\fBinteractive\fR: Allocate TTY for interactive use (\-it flags, default: false).
 .RE
 .
 .TP
