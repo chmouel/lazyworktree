@@ -159,7 +159,7 @@ func (m *Model) executeCustomCommand(key string) tea.Cmd {
 	if customCmd.NewTab {
 		if customCmd.Container != nil && customCmd.Command != "" {
 			env := m.buildCommandEnv(wt.Branch, wt.Path)
-			wrappedCmd, err := multiplexer.BuildContainerCommand(customCmd.Container, customCmd.Command, wt.Path, env)
+			wrappedCmd, err := multiplexer.BuildContainerCommand(customCmd.Container, customCmd.Command, wt.Path, env, true)
 			if err != nil {
 				return func() tea.Msg { return errMsg{err: err} }
 			}
@@ -185,7 +185,7 @@ func (m *Model) executeCustomCommand(key string) tea.Cmd {
 	baseCmd := customCmd.Command
 	if customCmd.Container != nil && baseCmd != "" {
 		var err error
-		baseCmd, err = multiplexer.BuildContainerCommand(customCmd.Container, baseCmd, wt.Path, env)
+		baseCmd, err = multiplexer.BuildContainerCommand(customCmd.Container, baseCmd, wt.Path, env, true)
 		if err != nil {
 			return func() tea.Msg { return errMsg{err: err} }
 		}
@@ -228,7 +228,7 @@ func (m *Model) executeCustomCommandWithPager(customCmd *config.CustomCommand, w
 	innerCmd := customCmd.Command
 	if customCmd.Container != nil {
 		var err error
-		innerCmd, err = multiplexer.BuildContainerCommand(customCmd.Container, innerCmd, wt.Path, env)
+		innerCmd, err = multiplexer.BuildContainerCommand(customCmd.Container, innerCmd, wt.Path, env, false)
 		if err != nil {
 			return func() tea.Msg { return errMsg{err: err} }
 		}

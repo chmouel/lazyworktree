@@ -31,7 +31,8 @@ func DetectContainerRuntime(runtime string) (string, error) {
 // BuildContainerCommand wraps a shell command in a container run invocation.
 // The worktree path is auto-mounted to the working directory (default /workspace).
 // Environment variables from env are forwarded into the container via -e flags.
-func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath string, env map[string]string) (string, error) {
+// When interactive is true, -it flags are added for TTY allocation.
+func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath string, env map[string]string, interactive bool) (string, error) {
 	runtime, err := DetectContainerRuntime(cfg.Runtime)
 	if err != nil {
 		return "", err
@@ -39,6 +40,10 @@ func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath s
 
 	var args []string
 	args = append(args, runtime, "run", "--rm")
+
+	if interactive {
+		args = append(args, "-it")
+	}
 
 	workDir := cfg.WorkingDir
 	if workDir == "" {
@@ -117,7 +122,7 @@ func WrapWindowCommandsForContainer(windows []ResolvedWindow, containerCfg *conf
 	for i, w := range windows {
 		wrapped[i] = w
 		if w.Command != "" {
-			containerCmd, err := BuildContainerCommand(containerCfg, w.Command, w.Cwd, env)
+			containerCmd, err := BuildContainerCommand(containerCfg, w.Command, w.Cwd, env, true)
 			if err != nil {
 				return nil, err
 			}

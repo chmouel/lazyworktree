@@ -138,7 +138,7 @@ func TestBuildContainerCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := BuildContainerCommand(tt.cfg, tt.command, tt.worktreePath, tt.env)
+			got, err := BuildContainerCommand(tt.cfg, tt.command, tt.worktreePath, tt.env, false)
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -152,6 +152,24 @@ func TestBuildContainerCommand(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildContainerCommandInteractive(t *testing.T) {
+	t.Parallel()
+	t.Run("interactive true adds -it flags", func(t *testing.T) {
+		t.Parallel()
+		cfg := &config.ContainerCommand{Image: "alpine", Runtime: "echo"}
+		got, err := BuildContainerCommand(cfg, "bash", "/wt", map[string]string{}, true)
+		require.NoError(t, err)
+		assert.Contains(t, got, "'-it'")
+	})
+	t.Run("interactive false omits -it flags", func(t *testing.T) {
+		t.Parallel()
+		cfg := &config.ContainerCommand{Image: "alpine", Runtime: "echo"}
+		got, err := BuildContainerCommand(cfg, "cat /etc/os-release", "/wt", map[string]string{}, false)
+		require.NoError(t, err)
+		assert.NotContains(t, got, "-it")
+	})
 }
 
 func TestWrapWindowCommandsForContainer(t *testing.T) {

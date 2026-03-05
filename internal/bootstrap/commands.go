@@ -1147,7 +1147,7 @@ func executeKeyAction(ctx context.Context, key string, cfg *config.AppConfig, wt
 		command := customCmd.Command
 		if customCmd.Container != nil && command != "" {
 			var err error
-			command, err = multiplexer.BuildContainerCommand(customCmd.Container, command, wt.Path, env)
+			command, err = multiplexer.BuildContainerCommand(customCmd.Container, command, wt.Path, env, false)
 			if err != nil {
 				return err
 			}
@@ -1159,7 +1159,7 @@ func executeKeyAction(ctx context.Context, key string, cfg *config.AppConfig, wt
 	command := customCmd.Command
 	if customCmd.Container != nil && command != "" {
 		var err error
-		command, err = multiplexer.BuildContainerCommand(customCmd.Container, command, wt.Path, env)
+		command, err = multiplexer.BuildContainerCommand(customCmd.Container, command, wt.Path, env, true)
 		if err != nil {
 			return err
 		}
