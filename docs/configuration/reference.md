@@ -42,7 +42,7 @@ This page is generated from `internal/config/config.go`. Run `make docs-sync` af
 | `palette_mru_limit` | `int` | `5` | Maximum MRU items in command palette. |
 | `init_commands` | `[]string` | `none` | Global commands run after worktree creation. |
 | `terminate_commands` | `[]string` | `none` | Global commands run before worktree removal. |
-| `custom_commands` | `map[string]object` | `built-in keys: t, Z` | Custom key bindings, palette-only actions, and command actions. |
+| `custom_commands` | `map[string]object` | `built-in keys: t, Z` | Custom key bindings and command actions. |
 | `custom_create_menus` | `[]object` | `none` | Custom create menu entries. |
 | `custom_themes` | `map[string]object` | `none` | Custom theme definitions. |
 | `debug_log` | `string` | `none` | Debug log file path. |
