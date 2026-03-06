@@ -36,6 +36,7 @@ func Run(args []string) int {
 			deleteCommand(),
 			listCommand(),
 			execCommand(),
+			noteCommand(),
 		},
 
 		Action: func(ctx context.Context, cmd *cli.Command) error {

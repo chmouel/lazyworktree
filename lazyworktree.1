@@ -245,6 +245,25 @@ The repository name.
 .B MAIN_WORKTREE_PATH
 The path to the main worktree.
 .
+.SS note
+Show or edit worktree notes from the CLI, without launching the TUI. Useful for scripting, piping, and quick edits.
+.
+.PP
+.B Subcommands:
+.TP
+.B show \fR[\fIworktree-name\fR]
+Print the raw note text for a worktree to stdout. Defaults to the worktree detected from the current directory. Suitable for piping.
+.
+.TP
+.B edit \fR[\fIworktree-name\fR]
+Open the note in \fB$EDITOR\fR (falls back to \fB$VISUAL\fR, then \fBvi\fR). The file uses YAML frontmatter for metadata (icon, updated_at) followed by markdown body text.
+.
+.PP
+.B Options (edit):
+.TP
+.B \-\-input \fIFILE\fR, \-i \fIFILE\fR
+Read the note from a file instead of opening an editor. Use \fB\-\fR to read from stdin. The input format is the same frontmatter+markdown used by the editor.
+.
 .SH EXAMPLES
 .SS Worktree Management
 List worktrees (table format):
@@ -395,6 +414,31 @@ Trigger a tmux custom command:
 Trigger a zellij custom command in the current worktree:
 .br
 .B lazyworktree exec \-k z
+.
+.SS Notes
+Show the note for the current worktree:
+.br
+.B lazyworktree note show
+.
+.PP
+Show the note for a specific worktree:
+.br
+.B lazyworktree note show my\-feature
+.
+.PP
+Edit a worktree note in your editor:
+.br
+.B lazyworktree note edit my\-feature
+.
+.PP
+Set a note from stdin:
+.br
+.B echo "release prep" | lazyworktree note edit \-i \-
+.
+.PP
+Set a note from a file:
+.br
+.B lazyworktree note edit my\-feature \-i note.md
 .
 .SS TUI Launch
 Launch the TUI (default):

@@ -2,13 +2,19 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	appservices "github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/security"
@@ -678,5 +684,531 @@ func TestDeleteWorktree(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+	})
+}
+
+func TestNoteShow(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("prints note text for worktree found by name", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wtPath := filepath.Join(tmpDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		cfg := &config.AppConfig{
+			WorktreeDir: tmpDir,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(tmpDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		// Pre-populate note via SaveWorktreeNotes
+		key := appservices.WorktreeNoteKey(testRepoName, tmpDir, "", wtPath)
+		notes := map[string]models.WorktreeNote{
+			key: {Note: "hello from note", UpdatedAt: 1},
+		}
+		require.NoError(t, appservices.SaveWorktreeNotes(testRepoName, tmpDir, "", "", notes, nil))
+
+		// Capture stdout
+		oldStdout := os.Stdout
+		r, w, pipeErr := os.Pipe()
+		require.NoError(t, pipeErr)
+		os.Stdout = w
+
+		err := NoteShow(ctx, svc, cfg, "my-feature")
+
+		_ = w.Close()
+		os.Stdout = oldStdout
+
+		require.NoError(t, err)
+
+		out, copyErr := io.ReadAll(r)
+		require.NoError(t, copyErr)
+
+		assert.Contains(t, string(out), "hello from note")
+	})
+
+	t.Run("returns nil when no note exists", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wtPath := filepath.Join(tmpDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		cfg := &config.AppConfig{
+			WorktreeDir: tmpDir,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(tmpDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		err := NoteShow(ctx, svc, cfg, "my-feature")
+		assert.NoError(t, err)
+	})
+
+	t.Run("falls back to legacy absolute path key in shared notes", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		repoDir := filepath.Join(tmpDir, testRepoName)
+		wtPath := filepath.Join(repoDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		sharedNotesPath := filepath.Join(tmpDir, "shared-notes.json")
+		payload := map[string]map[string]models.WorktreeNote{
+			testRepoName: {
+				filepath.Clean(wtPath): {Note: "legacy shared note", UpdatedAt: 1},
+			},
+		}
+		data, err := json.Marshal(payload)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(sharedNotesPath, data, 0o600))
+
+		cfg := &config.AppConfig{
+			WorktreeDir:       tmpDir,
+			WorktreeNotesPath: sharedNotesPath,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(repoDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		oldStdout := os.Stdout
+		r, w, pipeErr := os.Pipe()
+		require.NoError(t, pipeErr)
+		os.Stdout = w
+
+		err = NoteShow(ctx, svc, cfg, "my-feature")
+
+		_ = w.Close()
+		os.Stdout = oldStdout
+
+		require.NoError(t, err)
+
+		out, copyErr := io.ReadAll(r)
+		require.NoError(t, copyErr)
+		assert.Contains(t, string(out), "legacy shared note")
+	})
+
+	t.Run("errors when worktree not found", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		cfg := &config.AppConfig{
+			WorktreeDir: tmpDir,
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       []*models.WorktreeInfo{},
+		}
+
+		err := NoteShow(ctx, svc, cfg, "nonexistent")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "worktree not found")
+	})
+}
+
+func TestNoteEdit(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("edit from stdin", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wtPath := filepath.Join(tmpDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		cfg := &config.AppConfig{
+			WorktreeDir: tmpDir,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(tmpDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		// Set up stdin with note content
+		oldStdin := os.Stdin
+		r, w, pipeErr := os.Pipe()
+		require.NoError(t, pipeErr)
+		_, _ = w.WriteString("---\nicon: rocket\n---\nnew note from stdin\n")
+		_ = w.Close()
+		os.Stdin = r
+
+		err := NoteEdit(ctx, svc, cfg, "my-feature", "-")
+		os.Stdin = oldStdin
+
+		require.NoError(t, err)
+
+		// Verify note was saved
+		key := appservices.WorktreeNoteKey(testRepoName, tmpDir, "", wtPath)
+		notes, loadErr := appservices.LoadWorktreeNotes(testRepoName, tmpDir, "", "", nil)
+		require.NoError(t, loadErr)
+		assert.Equal(t, "new note from stdin", notes[key].Note)
+		assert.Equal(t, "rocket", notes[key].Icon)
+	})
+
+	t.Run("edit from file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wtPath := filepath.Join(tmpDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		cfg := &config.AppConfig{
+			WorktreeDir: tmpDir,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(tmpDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		// Write a note file
+		noteFile := filepath.Join(tmpDir, "input-note.md")
+		require.NoError(t, os.WriteFile(noteFile, []byte("note from file\n"), 0o600))
+
+		err := NoteEdit(ctx, svc, cfg, "my-feature", noteFile)
+		require.NoError(t, err)
+
+		// Verify note was saved
+		key := appservices.WorktreeNoteKey(testRepoName, tmpDir, "", wtPath)
+		notes, loadErr := appservices.LoadWorktreeNotes(testRepoName, tmpDir, "", "", nil)
+		require.NoError(t, loadErr)
+		assert.Equal(t, "note from file", notes[key].Note)
+	})
+
+	t.Run("empty input clears note", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wtPath := filepath.Join(tmpDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		cfg := &config.AppConfig{
+			WorktreeDir: tmpDir,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(tmpDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		// Pre-populate a note
+		key := appservices.WorktreeNoteKey(testRepoName, tmpDir, "", wtPath)
+		notes := map[string]models.WorktreeNote{
+			key: {Note: "existing note", UpdatedAt: 1},
+		}
+		require.NoError(t, appservices.SaveWorktreeNotes(testRepoName, tmpDir, "", "", notes, nil))
+
+		// Send empty stdin
+		oldStdin := os.Stdin
+		r, w, pipeErr := os.Pipe()
+		require.NoError(t, pipeErr)
+		_ = w.Close()
+		os.Stdin = r
+
+		err := NoteEdit(ctx, svc, cfg, "my-feature", "-")
+		os.Stdin = oldStdin
+		require.NoError(t, err)
+
+		// Verify note was cleared
+		notes, loadErr := appservices.LoadWorktreeNotes(testRepoName, tmpDir, "", "", nil)
+		require.NoError(t, loadErr)
+		_, exists := notes[key]
+		assert.False(t, exists)
+	})
+
+	t.Run("empty input removes splitted note file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wtPath := filepath.Join(tmpDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		notesPath := filepath.Join(tmpDir, "notes", "${WORKTREE_NAME}.md")
+		cfg := &config.AppConfig{
+			WorktreeDir:       tmpDir,
+			WorktreeNoteType:  config.NoteTypeSplitted,
+			WorktreeNotesPath: notesPath,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(tmpDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		require.NoError(t, appservices.SaveWorktreeNotes(testRepoName, tmpDir, notesPath, config.NoteTypeSplitted, map[string]models.WorktreeNote{
+			"my-feature": {Note: "existing note", UpdatedAt: 1},
+		}, nil))
+
+		noteFile := filepath.Join(tmpDir, "notes", "my-feature.md")
+		if _, err := os.Stat(noteFile); err != nil {
+			t.Fatalf("expected note file to exist: %v", err)
+		}
+
+		oldStdin := os.Stdin
+		r, w, pipeErr := os.Pipe()
+		require.NoError(t, pipeErr)
+		_ = w.Close()
+		os.Stdin = r
+
+		err := NoteEdit(ctx, svc, cfg, "my-feature", "-")
+		os.Stdin = oldStdin
+		require.NoError(t, err)
+
+		if _, err := os.Stat(noteFile); !os.IsNotExist(err) {
+			t.Fatalf("expected note file removed, got err=%v", err)
+		}
+	})
+
+	t.Run("edit in editor honours configured editor", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wtPath := filepath.Join(tmpDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		editorScript := filepath.Join(tmpDir, "editor.sh")
+		require.NoError(t, os.WriteFile(editorScript, []byte("#!/bin/sh\nlast=''\nfor arg in \"$@\"; do last=\"$arg\"; done\nprintf 'edited from config\\n' > \"$last\"\n"), 0o600))
+
+		t.Setenv("EDITOR", "")
+		t.Setenv("VISUAL", "")
+
+		cfg := &config.AppConfig{
+			WorktreeDir: tmpDir,
+			Editor:      "sh " + editorScript,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(tmpDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		err := NoteEdit(ctx, svc, cfg, "my-feature", "")
+		require.NoError(t, err)
+
+		key := appservices.WorktreeNoteKey(testRepoName, tmpDir, "", wtPath)
+		notes, loadErr := appservices.LoadWorktreeNotes(testRepoName, tmpDir, "", "", nil)
+		require.NoError(t, loadErr)
+		assert.Equal(t, "edited from config", notes[key].Note)
+	})
+
+	t.Run("edit in editor parses editor command flags", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wtPath := filepath.Join(tmpDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		editorScript := filepath.Join(tmpDir, "editor-with-flags.sh")
+		require.NoError(t, os.WriteFile(editorScript, []byte("#!/bin/sh\nlast=''\nfor arg in \"$@\"; do last=\"$arg\"; done\nprintf '%s\\n' '---' 'icon: rocket' '---' 'edited with flags' > \"$last\"\n"), 0o600))
+
+		t.Setenv("EDITOR", "sh "+editorScript+" --wait")
+		t.Setenv("VISUAL", "")
+
+		cfg := &config.AppConfig{
+			WorktreeDir: tmpDir,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(tmpDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		err := NoteEdit(ctx, svc, cfg, "my-feature", "")
+		require.NoError(t, err)
+
+		key := appservices.WorktreeNoteKey(testRepoName, tmpDir, "", wtPath)
+		notes, loadErr := appservices.LoadWorktreeNotes(testRepoName, tmpDir, "", "", nil)
+		require.NoError(t, loadErr)
+		assert.Equal(t, "edited with flags", notes[key].Note)
+		assert.Equal(t, "rocket", notes[key].Icon)
+	})
+
+	t.Run("editing legacy shared note migrates key", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		repoDir := filepath.Join(tmpDir, testRepoName)
+		wtPath := filepath.Join(repoDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		sharedNotesPath := filepath.Join(tmpDir, "shared-notes.json")
+		payload := map[string]map[string]models.WorktreeNote{
+			testRepoName: {
+				filepath.Clean(wtPath): {Note: "legacy note", UpdatedAt: 1},
+			},
+		}
+		data, err := json.Marshal(payload)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(sharedNotesPath, data, 0o600))
+
+		cfg := &config.AppConfig{
+			WorktreeDir:       tmpDir,
+			WorktreeNotesPath: sharedNotesPath,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(repoDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		noteFile := filepath.Join(tmpDir, "input-note.md")
+		require.NoError(t, os.WriteFile(noteFile, []byte("updated shared note\n"), 0o600))
+
+		err = NoteEdit(ctx, svc, cfg, "my-feature", noteFile)
+		require.NoError(t, err)
+
+		notes, loadErr := appservices.LoadWorktreeNotes(testRepoName, tmpDir, sharedNotesPath, "", nil)
+		require.NoError(t, loadErr)
+
+		relativeKey := appservices.WorktreeNoteKey(testRepoName, tmpDir, sharedNotesPath, wtPath)
+		assert.Equal(t, "updated shared note", notes[relativeKey].Note)
+		_, hasLegacy := notes[filepath.Clean(wtPath)]
+		assert.False(t, hasLegacy)
+	})
+
+	t.Run("errors on nonexistent input file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wtPath := filepath.Join(tmpDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		cfg := &config.AppConfig{
+			WorktreeDir: tmpDir,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(tmpDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		err := NoteEdit(ctx, svc, cfg, "my-feature", "/nonexistent/file.md")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read file")
+	})
+}
+
+func TestResolveNoteContext(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("resolves from cwd", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wtPath := filepath.Join(tmpDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		cfg := &config.AppConfig{
+			WorktreeDir: tmpDir,
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(tmpDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		// Change to the worktree dir
+		oldDir, cwdErr := os.Getwd()
+		require.NoError(t, cwdErr)
+		defer func() { _ = os.Chdir(oldDir) }()
+		require.NoError(t, os.Chdir(wtPath))
+
+		nc, err := resolveNoteContext(ctx, svc, cfg, "")
+		require.NoError(t, err)
+		assert.Equal(t, wtPath, nc.worktree.Path)
+		assert.NotEmpty(t, nc.key)
+	})
+
+	t.Run("errors when cwd is not a worktree", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		cfg := &config.AppConfig{
+			WorktreeDir: tmpDir,
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       []*models.WorktreeInfo{},
+		}
+
+		oldDir, cwdErr := os.Getwd()
+		require.NoError(t, cwdErr)
+		defer func() { _ = os.Chdir(oldDir) }()
+		require.NoError(t, os.Chdir(tmpDir))
+
+		_, err := resolveNoteContext(ctx, svc, cfg, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not inside a known worktree")
+	})
+
+	t.Run("splitted note type uses basename key", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wtPath := filepath.Join(tmpDir, "my-feature")
+		require.NoError(t, os.MkdirAll(wtPath, 0o750))
+
+		cfg := &config.AppConfig{
+			WorktreeDir:       tmpDir,
+			WorktreeNoteType:  config.NoteTypeSplitted,
+			WorktreeNotesPath: filepath.Join(tmpDir, "notes", "${WORKTREE_NAME}.md"),
+		}
+
+		worktrees := []*models.WorktreeInfo{
+			{Path: wtPath, Branch: "my-feature", IsMain: false},
+			{Path: filepath.Join(tmpDir, "main"), Branch: "main", IsMain: true},
+		}
+
+		svc := &fakeGitService{
+			resolveRepoName: testRepoName,
+			worktrees:       worktrees,
+		}
+
+		nc, err := resolveNoteContext(ctx, svc, cfg, "my-feature")
+		require.NoError(t, err)
+		assert.Equal(t, "my-feature", nc.key)
 	})
 }

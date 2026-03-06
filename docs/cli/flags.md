@@ -66,6 +66,12 @@ Run `make docs-sync` after changing flag definitions.
 | `--key`, `-k` | `string` | Custom command key to trigger (e.g. 't' for tmux) |
 | `--workspace`, `-w` | `string` | Target worktree name or path |
 
+### `note`
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--input`, `-i` | `string` | (edit) Read note from file (use '-' for stdin) |
+
 <!-- END GENERATED:command-flags -->
 
 ## Validation Rules

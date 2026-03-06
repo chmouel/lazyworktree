@@ -122,6 +122,7 @@ nav:
       - delete: cli/delete.md
       - rename: cli/rename.md
       - exec: cli/exec.md
+      - note: cli/note.md
 extra:
   generator: false
   social:

@@ -212,22 +212,77 @@ func parseCommands(path string) ([]commandSpec, error) {
 		if cmd.Name == "" {
 			continue
 		}
-		if !slices.Contains([]string{"create", "delete", "rename", "list", "exec"}, cmd.Name) {
+		if !slices.Contains([]string{"create", "delete", "rename", "list", "exec", "note"}, cmd.Name) {
 			continue
 		}
 		sort.Slice(cmd.Flags, func(i, j int) bool { return cmd.Flags[i].Name < cmd.Flags[j].Name })
 		commands = append(commands, cmd)
 	}
 
+	// Parse note subcommands (show, edit) and attach their flags to the parent.
+	noteCmd := parseNoteSubcommands(file, commands)
+	if noteCmd != nil {
+		for i, cmd := range commands {
+			if cmd.Name == "note" {
+				commands[i] = *noteCmd
+				break
+			}
+		}
+	}
+
 	if len(commands) == 0 {
 		return nil, errors.New("no command definitions found")
 	}
 
-	order := map[string]int{"list": 0, "create": 1, "delete": 2, "rename": 3, "exec": 4}
+	order := map[string]int{"list": 0, "create": 1, "delete": 2, "rename": 3, "exec": 4, "note": 5}
 	sort.Slice(commands, func(i, j int) bool {
 		return order[commands[i].Name] < order[commands[j].Name]
 	})
 	return commands, nil
+}
+
+// parseNoteSubcommands extracts the show and edit subcommand definitions and
+// merges their flags into a single "note" commandSpec for documentation.
+func parseNoteSubcommands(file *ast.File, _ []commandSpec) *commandSpec {
+	subFuncs := map[string]string{
+		"noteShowCommand": "show",
+		"noteEditCommand": "edit",
+	}
+	var subs []commandSpec
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+		subName, ok := subFuncs[fn.Name.Name]
+		if !ok {
+			continue
+		}
+		lit := extractReturnedCompositeLit(fn)
+		if lit == nil {
+			continue
+		}
+		sub := parseCommandLiteral(lit)
+		sub.Name = subName
+		subs = append(subs, sub)
+	}
+	if len(subs) == 0 {
+		return nil
+	}
+
+	cmd := &commandSpec{
+		Name:  "note",
+		Usage: "Show or edit worktree notes",
+	}
+	// Merge subcommand flags with subcommand prefix for documentation clarity.
+	for _, sub := range subs {
+		for _, fl := range sub.Flags {
+			fl.Usage = fmt.Sprintf("(%s) %s", sub.Name, fl.Usage)
+			cmd.Flags = append(cmd.Flags, fl)
+		}
+	}
+	sort.Slice(cmd.Flags, func(i, j int) bool { return cmd.Flags[i].Name < cmd.Flags[j].Name })
+	return cmd
 }
 
 func parseConfigKeys(path string) ([]configKeySpec, error) {

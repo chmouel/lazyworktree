@@ -476,6 +476,28 @@ func TestSplittedWorktreeNotesSavingEmptyNotesSkips(t *testing.T) {
 	}
 }
 
+func TestSplittedWorktreeNotesSaveRemovesStaleFiles(t *testing.T) {
+	baseDir := t.TempDir()
+	pathTemplate := filepath.Join(baseDir, "$WORKTREE_NAME", "note.md")
+	env := map[string]string{}
+
+	require.NoError(t, SaveWorktreeNotes("repo", "", pathTemplate, "splitted", map[string]models.WorktreeNote{
+		"feat-a": {Note: "keep", UpdatedAt: 1},
+		"feat-b": {Note: "remove", UpdatedAt: 1},
+	}, env))
+
+	require.NoError(t, SaveWorktreeNotes("repo", "", pathTemplate, "splitted", map[string]models.WorktreeNote{
+		"feat-a": {Note: "keep", UpdatedAt: 2},
+	}, env))
+
+	if _, err := os.Stat(filepath.Join(baseDir, "feat-a", "note.md")); err != nil {
+		t.Fatalf("expected feat-a note to remain: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(baseDir, "feat-b", "note.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected feat-b note removed, got err=%v", err)
+	}
+}
+
 func TestSplitRepoKey(t *testing.T) {
 	tests := []struct {
 		input     string

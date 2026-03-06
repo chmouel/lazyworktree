@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/git"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/multiplexer"
 	"github.com/chmouel/lazyworktree/internal/security"
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
@@ -884,4 +886,224 @@ func createWorktreeWithChanges(ctx context.Context, gitSvc gitService, cfg *conf
 	}
 
 	return nil
+}
+
+// noteContext holds resolved state needed by both NoteShow and NoteEdit.
+type noteContext struct {
+	worktree  *models.WorktreeInfo
+	notes     map[string]models.WorktreeNote
+	key       string
+	legacyKey string
+	env       map[string]string
+	repoKey   string
+}
+
+// resolveNoteContext resolves the target worktree and loads its notes.
+func resolveNoteContext(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, worktreePathOrName string) (*noteContext, error) {
+	worktrees, err := gitSvc.GetWorktrees(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get worktrees: %w", err)
+	}
+
+	var target *models.WorktreeInfo
+	if worktreePathOrName == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current directory: %w", err)
+		}
+		for _, wt := range worktrees {
+			if cwd == wt.Path || strings.HasPrefix(cwd, wt.Path+string(filepath.Separator)) {
+				target = wt
+				break
+			}
+		}
+		if target == nil {
+			return nil, fmt.Errorf("current directory is not inside a known worktree")
+		}
+	} else {
+		repoName := gitSvc.ResolveRepoName(ctx)
+		target, err = FindWorktreeByPathOrName(worktreePathOrName, worktrees, cfg.WorktreeDir, repoName)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	repoKey := gitSvc.ResolveRepoName(ctx)
+
+	// Find main worktree path for env
+	var mainPath string
+	for _, wt := range worktrees {
+		if wt.IsMain {
+			mainPath = wt.Path
+			break
+		}
+	}
+
+	env := appservices.BuildCommandEnv(target.Branch, target.Path, repoKey, mainPath)
+
+	notes, err := appservices.LoadWorktreeNotes(repoKey, cfg.WorktreeDir, cfg.WorktreeNotesPath, cfg.WorktreeNoteType, env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load notes: %w", err)
+	}
+
+	var key string
+	if cfg.WorktreeNoteType == config.NoteTypeSplitted {
+		key = filepath.Base(target.Path)
+	} else {
+		key = appservices.WorktreeNoteKey(repoKey, cfg.WorktreeDir, cfg.WorktreeNotesPath, target.Path)
+	}
+
+	legacyKey := ""
+	if cfg.WorktreeNoteType != config.NoteTypeSplitted && strings.TrimSpace(cfg.WorktreeNotesPath) != "" {
+		legacyKey = filepath.Clean(target.Path)
+		if legacyKey == key {
+			legacyKey = ""
+		}
+	}
+
+	return &noteContext{
+		worktree:  target,
+		notes:     notes,
+		key:       key,
+		legacyKey: legacyKey,
+		env:       env,
+		repoKey:   repoKey,
+	}, nil
+}
+
+func (nc *noteContext) note() (string, models.WorktreeNote, bool) {
+	note, ok := nc.notes[nc.key]
+	if ok {
+		return nc.key, note, true
+	}
+	if nc.legacyKey != "" {
+		note, ok = nc.notes[nc.legacyKey]
+		if ok {
+			return nc.legacyKey, note, true
+		}
+	}
+	return "", models.WorktreeNote{}, false
+}
+
+// NoteShow prints the note text for a worktree to stdout.
+func NoteShow(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, worktreePathOrName string) error {
+	nc, err := resolveNoteContext(ctx, gitSvc, cfg, worktreePathOrName)
+	if err != nil {
+		return err
+	}
+
+	_, note, ok := nc.note()
+	if !ok || strings.TrimSpace(note.Note) == "" {
+		return nil
+	}
+
+	fmt.Print(note.Note)
+	if note.Note != "" && note.Note[len(note.Note)-1] != '\n' {
+		fmt.Println()
+	}
+	return nil
+}
+
+// NoteEdit edits the note for a worktree. If inputFile is "-", reads from
+// stdin. If inputFile is non-empty, reads from that file. Otherwise opens
+// $EDITOR.
+func NoteEdit(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, worktreePathOrName, inputFile string) error {
+	nc, err := resolveNoteContext(ctx, gitSvc, cfg, worktreePathOrName)
+	if err != nil {
+		return err
+	}
+
+	_, existingNote, _ := nc.note()
+
+	var parsed models.WorktreeNote
+	switch {
+	case inputFile == "-":
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("failed to read from stdin: %w", err)
+		}
+		parsed, err = appservices.ParseNoteFile(data)
+		if err != nil {
+			return fmt.Errorf("failed to parse note: %w", err)
+		}
+	case inputFile != "":
+		// #nosec G304 -- user-specified input file for note content
+		data, err := os.ReadFile(inputFile)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s: %w", inputFile, err)
+		}
+		parsed, err = appservices.ParseNoteFile(data)
+		if err != nil {
+			return fmt.Errorf("failed to parse note: %w", err)
+		}
+	default:
+		edited, err := editNoteInEditor(cfg, existingNote)
+		if err != nil {
+			return err
+		}
+		parsed = edited
+	}
+
+	parsed.Note = strings.TrimSpace(parsed.Note)
+	if nc.legacyKey != "" && nc.legacyKey != nc.key {
+		delete(nc.notes, nc.legacyKey)
+	}
+
+	if parsed.Note == "" && parsed.Icon == "" {
+		delete(nc.notes, nc.key)
+	} else {
+		if parsed.UpdatedAt == 0 {
+			parsed.UpdatedAt = time.Now().Unix()
+		}
+		nc.notes[nc.key] = parsed
+	}
+
+	return appservices.SaveWorktreeNotes(nc.repoKey, cfg.WorktreeDir, cfg.WorktreeNotesPath, cfg.WorktreeNoteType, nc.notes, nc.env)
+}
+
+// editNoteInEditor opens the note in an editor and returns the parsed result.
+func editNoteInEditor(cfg *config.AppConfig, existing models.WorktreeNote) (models.WorktreeNote, error) {
+	tmpFile, err := os.CreateTemp("", "lazyworktree-note-*.md")
+	if err != nil {
+		return models.WorktreeNote{}, fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	content := appservices.FormatNoteFile(existing)
+	if _, err := tmpFile.Write(content); err != nil {
+		_ = tmpFile.Close()
+		return models.WorktreeNote{}, fmt.Errorf("failed to write temp file: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return models.WorktreeNote{}, fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	editor := appservices.EditorCommand(cfg)
+	if strings.TrimSpace(editor) == "" {
+		return models.WorktreeNote{}, fmt.Errorf("no editor configured: set editor in config or $EDITOR")
+	}
+
+	cmdStr := fmt.Sprintf("%s %s", editor, multiplexer.ShellQuote(tmpPath))
+	// #nosec G204 G702 -- editor command is user-controlled config/env and tmpPath is shell-quoted
+	cmd := exec.Command("bash", "-c", cmdStr)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return models.WorktreeNote{}, fmt.Errorf("editor exited with error: %w", err)
+	}
+
+	// #nosec G304 G703 -- tmpPath is a controlled temp file we just created
+	data, err := os.ReadFile(tmpPath)
+	if err != nil {
+		return models.WorktreeNote{}, fmt.Errorf("failed to read edited file: %w", err)
+	}
+
+	parsed, err := appservices.ParseNoteFile(data)
+	if err != nil {
+		return models.WorktreeNote{}, fmt.Errorf("failed to parse edited note: %w", err)
+	}
+
+	return parsed, nil
 }

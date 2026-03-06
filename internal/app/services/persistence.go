@@ -477,29 +477,13 @@ func loadSharedWorktreeNotes(repoKey, worktreeNotesPath string) (map[string]map[
 
 // loadSplittedWorktreeNotes discovers individual note files matching a path template.
 func loadSplittedWorktreeNotes(pathTemplate string, env map[string]string) (map[string]models.WorktreeNote, error) {
-	// Expand all variables, substituting WORKTREE_NAME with a glob wildcard.
-	pattern := ExpandWithEnv(pathTemplate, cloneEnvWith(env, "WORKTREE_NAME", "*"))
-
-	matches, err := filepath.Glob(pattern)
+	matches, err := findSplittedNotePaths(pathTemplate, env)
 	if err != nil {
 		return nil, err
 	}
 
-	// Compute prefix/suffix once from the template — they don't depend on the matched path.
-	sentinelExpanded := ExpandWithEnv(pathTemplate, cloneEnvWith(env, "WORKTREE_NAME", worktreeNameSentinel))
-	sentinelParts := strings.SplitN(sentinelExpanded, worktreeNameSentinel, 2)
-	var prefix, suffix string
-	if len(sentinelParts) == 2 {
-		prefix, suffix = sentinelParts[0], sentinelParts[1]
-	}
-
 	notes := make(map[string]models.WorktreeNote, len(matches))
-	for _, match := range matches {
-		// Derive the worktree name from the precomputed prefix/suffix.
-		wtName := extractWorktreeNameFromParts(match, prefix, suffix)
-		if wtName == "" {
-			continue
-		}
+	for wtName, match := range matches {
 		// #nosec G304 -- match comes from filepath.Glob on user-configured template
 		data, rerr := os.ReadFile(match)
 		if rerr != nil {
@@ -517,6 +501,35 @@ func loadSplittedWorktreeNotes(pathTemplate string, env map[string]string) (map[
 		notes[wtName] = note
 	}
 	return notes, nil
+}
+
+func findSplittedNotePaths(pathTemplate string, env map[string]string) (map[string]string, error) {
+	// Expand all variables, substituting WORKTREE_NAME with a glob wildcard.
+	pattern := ExpandWithEnv(pathTemplate, cloneEnvWith(env, "WORKTREE_NAME", "*"))
+
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	// Compute prefix/suffix once from the template — they don't depend on the matched path.
+	sentinelExpanded := ExpandWithEnv(pathTemplate, cloneEnvWith(env, "WORKTREE_NAME", worktreeNameSentinel))
+	sentinelParts := strings.SplitN(sentinelExpanded, worktreeNameSentinel, 2)
+	var prefix, suffix string
+	if len(sentinelParts) == 2 {
+		prefix, suffix = sentinelParts[0], sentinelParts[1]
+	}
+
+	paths := make(map[string]string, len(matches))
+	for _, match := range matches {
+		// Derive the worktree name from the precomputed prefix/suffix.
+		wtName := extractWorktreeNameFromParts(match, prefix, suffix)
+		if wtName == "" {
+			continue
+		}
+		paths[wtName] = match
+	}
+	return paths, nil
 }
 
 // extractWorktreeNameFromParts extracts the worktree name from a matched path
@@ -538,6 +551,19 @@ func extractWorktreeNameFromParts(matched, prefix, suffix string) string {
 // saveSplittedWorktreeNotes saves individual note files for each worktree.
 func saveSplittedWorktreeNotes(pathTemplate string, notes map[string]models.WorktreeNote, env map[string]string) error {
 	normalized := normalizeWorktreeNotes(notes)
+
+	existingPaths, err := findSplittedNotePaths(pathTemplate, env)
+	if err != nil {
+		return err
+	}
+	for wtName, notePath := range existingPaths {
+		if _, ok := normalized[wtName]; ok {
+			continue
+		}
+		if err := os.Remove(notePath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
 
 	// Write each note as an individual file.
 	for wtName, note := range normalized {

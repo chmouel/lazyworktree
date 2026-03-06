@@ -149,7 +149,7 @@ func completionWorktreeBasenames(ctx context.Context, cmd *appiCli.Command) []st
 		return listSubcommandWorktreeNamesFunc(ctx, cmd)
 	}
 
-	if (cmd.Name != "delete" && cmd.Name != "rename") || cmd.NArg() != 0 {
+	if (cmd.Name != "delete" && cmd.Name != "rename" && cmd.Name != "show" && cmd.Name != "edit") || cmd.NArg() != 0 {
 		return nil
 	}
 
@@ -969,6 +969,112 @@ func handleRenameAction(ctx context.Context, cmd *appiCli.Command) error {
 
 	silent := cmd.Bool("silent")
 	if err := renameWorktreeFunc(ctx, gitSvc, cfg, worktreePath, newName, silent); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		_ = log.Close()
+		return err
+	}
+
+	_ = log.Close()
+	return nil
+}
+
+func noteCommand() *appiCli.Command {
+	return &appiCli.Command{
+		Name:  "note",
+		Usage: "Show or edit worktree notes",
+		Commands: []*appiCli.Command{
+			noteShowCommand(),
+			noteEditCommand(),
+		},
+	}
+}
+
+func noteShowCommand() *appiCli.Command {
+	return &appiCli.Command{
+		Name:      "show",
+		Usage:     "Show the note for a worktree",
+		ArgsUsage: "[worktree-name]",
+		Action: func(ctx context.Context, cmd *appiCli.Command) error {
+			if handleSubcommandCompletion(ctx, cmd) {
+				return nil
+			}
+			return handleNoteShowAction(ctx, cmd)
+		},
+		ShellComplete: subcommandShellComplete,
+	}
+}
+
+func noteEditCommand() *appiCli.Command {
+	return &appiCli.Command{
+		Name:      "edit",
+		Usage:     "Edit the note for a worktree",
+		ArgsUsage: "[worktree-name]",
+		Action: func(ctx context.Context, cmd *appiCli.Command) error {
+			if handleSubcommandCompletion(ctx, cmd) {
+				return nil
+			}
+			return handleNoteEditAction(ctx, cmd)
+		},
+		ShellComplete: subcommandShellComplete,
+		Flags: []appiCli.Flag{
+			&appiCli.StringFlag{
+				Name:    "input",
+				Aliases: []string{"i"},
+				Usage:   "Read note from file (use '-' for stdin)",
+			},
+		},
+	}
+}
+
+func handleNoteShowAction(ctx context.Context, cmd *appiCli.Command) error {
+	cfg, err := loadCLIConfigFunc(
+		cmd.String("config-file"),
+		cmd.String("worktree-dir"),
+		cmd.StringSlice("config"),
+	)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return err
+	}
+
+	gitSvc := newCLIGitServiceFunc(cfg)
+
+	worktreeName := ""
+	if cmd.NArg() > 0 {
+		worktreeName = cmd.Args().Get(0)
+	}
+
+	if err := cli.NoteShow(ctx, gitSvc, cfg, worktreeName); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		_ = log.Close()
+		return err
+	}
+
+	_ = log.Close()
+	return nil
+}
+
+func handleNoteEditAction(ctx context.Context, cmd *appiCli.Command) error {
+	cfg, err := loadCLIConfigFunc(
+		cmd.String("config-file"),
+		cmd.String("worktree-dir"),
+		cmd.StringSlice("config"),
+	)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return err
+	}
+
+	gitSvc := newCLIGitServiceFunc(cfg)
+
+	worktreeName := ""
+	if cmd.NArg() > 0 {
+		worktreeName = cmd.Args().Get(0)
+	}
+
+	inputFile := cmd.String("input")
+
+	if err := cli.NoteEdit(ctx, gitSvc, cfg, worktreeName, inputFile); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		_ = log.Close()
 		return err

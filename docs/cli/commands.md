@@ -10,6 +10,7 @@ This page is generated from `internal/bootstrap/commands.go`. Run `make docs-syn
 | `delete` | Delete a worktree | `[worktree-path]` | - | [`delete`](delete.md) |
 | `rename` | Rename a worktree | `<new-name> \| <worktree> <new-name>` | - | [`rename`](rename.md) |
 | `exec` | Run a command or trigger a key action in a worktree | `[command]` | - | [`exec`](exec.md) |
+| `note` | Show or edit worktree notes | `-` | - | [`note`](note.md) |
 
 ## `list`
 
@@ -65,5 +66,13 @@ Run a command or trigger a key action in a worktree
 | --- | --- | --- |
 | `--key`, `-k` | `string` | Custom command key to trigger (e.g. 't' for tmux) |
 | `--workspace`, `-w` | `string` | Target worktree name or path |
+
+## `note`
+
+Show or edit worktree notes
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--input`, `-i` | `string` | (edit) Read note from file (use '-' for stdin) |
 
 <!-- END GENERATED:cli-commands -->
