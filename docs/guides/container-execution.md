@@ -53,7 +53,7 @@ custom_commands:
   ctrl+c:
     description: Claude Code in container
     container:
-      image: "ghcr.io/anthropics/claude-code:latest"
+      image: "ghcr.io/chmouel/agents-image"
       entrypoint: "/bin/bash"
       interactive: true
 ```
@@ -76,7 +76,7 @@ custom_commands:
     command: "claude"
     container:
       interactive: true
-      image: gendosu/claude-code-docker
+      image: ghcr.io/chmouel/agents-image
       args:
         - "--model=claude-sonnet-4-20250514"
         - "--dangerously-skip-permissions"
@@ -104,7 +104,7 @@ custom_commands:
     command: "claude"
     container:
       interactive: true
-      image: gendosu/claude-code-docker
+      image: ghcr.io/chmouel/agents-image
       args:
         - "--model=claude-sonnet-4-20250514"
         - "--dangerously-skip-permissions"

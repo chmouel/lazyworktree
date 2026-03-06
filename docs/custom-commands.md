@@ -93,7 +93,7 @@ Custom commands let you bind shell commands, tmux sessions, zellij sessions, OCI
       ctrl+c:
         description: Claude Code in container
         container:
-          image: "ghcr.io/anthropics/claude-code:latest"
+          image: "ghcr.io/chmouel/agents-image"
           entrypoint: "/bin/bash"
           interactive: true
     ```
