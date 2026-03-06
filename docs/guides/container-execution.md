@@ -50,11 +50,11 @@ Override the image's default entrypoint — useful for images that bundle multip
 
 ```yaml
 custom_commands:
-  ctrl+c:
-    description: Claude Code in container
+  ctrl+s:
+    description: Shell in Python container
     container:
-      image: "ghcr.io/chmouel/agents-image"
-      entrypoint: "/bin/bash"
+      image: "python:3.12"
+      entrypoint: "/bin/sh"
       interactive: true
 ```
 
@@ -78,7 +78,7 @@ custom_commands:
       interactive: true
       image: ghcr.io/chmouel/agents-image
       args:
-        - "--model=claude-sonnet-4-20250514"
+        - "--model=claude-sonnet-4-6@default"
         - "--dangerously-skip-permissions"
       env:
         CLAUDE_CONFIG_DIR: "/claude"
@@ -106,7 +106,7 @@ custom_commands:
       interactive: true
       image: ghcr.io/chmouel/agents-image
       args:
-        - "--model=claude-sonnet-4-20250514"
+        - "--model=claude-sonnet-4-6@default"
         - "--dangerously-skip-permissions"
       env:
         CLAUDE_CONFIG_DIR: "/claude"
@@ -117,7 +117,7 @@ custom_commands:
         - source: "~/.claude"
           target: "/claude"
         - source: "~/.config/gcloud"
-          target: "/home/appuser/.config/gcloud"
+          target: "/home/ubuntu/.config/gcloud"
       extra_args:
         - "--user=1000:1000"
 ```

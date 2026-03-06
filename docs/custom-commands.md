@@ -90,11 +90,11 @@ Custom commands let you bind shell commands, tmux sessions, zellij sessions, OCI
 
     ```yaml
     custom_commands:
-      ctrl+c:
-        description: Claude Code in container
+      ctrl+s:
+        description: Shell in Python container
         container:
-          image: "ghcr.io/chmouel/agents-image"
-          entrypoint: "/bin/bash"
+          image: "python:3.12"
+          entrypoint: "/bin/sh"
           interactive: true
     ```
 

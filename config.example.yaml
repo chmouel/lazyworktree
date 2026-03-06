@@ -366,13 +366,22 @@ terminate_commands:
 #   #     extra_args:
 #   #       - "--network=host"
 #
-#   # Claude Code in a container with entrypoint override and interactive mode
+#   # Claude Code in a container
 #   # ctrl+c:
 #   #   description: "Claude Code in container"
+#   #   command: "claude"
 #   #   container:
 #   #     image: "ghcr.io/chmouel/agents-image"
-#   #     entrypoint: "/bin/bash"
 #   #     interactive: true
+#   #     args:
+#   #       - "--dangerously-skip-permissions"
+#   #     env:
+#   #       CLAUDE_CONFIG_DIR: "/claude"
+#   #     mounts:
+#   #       - source: "~/.claude"
+#   #         target: "/claude"
+#   #     extra_args:
+#   #       - "--user=1000:1000"
 #   #
 #   # Prefix a key with "_" to make it command-palette only (no direct keybinding)
 #   # _review:
