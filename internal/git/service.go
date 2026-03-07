@@ -1979,21 +1979,15 @@ func (s *Service) BuildThreePartDiff(ctx context.Context, path string, cfg *conf
 
 	var stagedDiff, unstagedDiff, untrackedRaw string
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		stagedDiff = s.RunGit(ctx, []string{"git", "diff", "--cached", "--patch", "--no-color"}, path, []int{0}, false, false)
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		unstagedDiff = s.RunGit(ctx, []string{"git", "diff", "--patch", "--no-color"}, path, []int{0}, false, false)
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		untrackedRaw = s.RunGit(ctx, []string{"git", "ls-files", "--others", "--exclude-standard"}, path, []int{0}, false, false)
-	}()
+	})
 	wg.Wait()
 
 	// Part 1: Staged changes

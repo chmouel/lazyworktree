@@ -10,6 +10,7 @@ import (
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/utils"
+	"github.com/chmouel/lazyworktree/internal/worktreecolor"
 )
 
 const (
@@ -395,13 +396,12 @@ func normalizeWorktreeNotes(notes map[string]models.WorktreeNote) map[string]mod
 
 	normalized := make(map[string]models.WorktreeNote, len(notes))
 	for noteKey, note := range notes {
-		trimmedNote := strings.TrimSpace(note.Note)
-		trimmedIcon := strings.TrimSpace(note.Icon)
-		if trimmedNote == "" && trimmedIcon == "" {
+		note.Note = strings.TrimSpace(note.Note)
+		note.Icon = strings.TrimSpace(note.Icon)
+		note.Color = worktreecolor.Normalize(note.Color)
+		if note.IsEmpty() {
 			continue
 		}
-		note.Note = trimmedNote
-		note.Icon = trimmedIcon
 		normalized[noteKey] = note
 	}
 	return normalized
@@ -495,7 +495,7 @@ func loadSplittedWorktreeNotes(pathTemplate string, env map[string]string) (map[
 		}
 		// Trim the note body for consistency with onejson normalisation.
 		note.Note = strings.TrimSpace(note.Note)
-		if note.Note == "" && note.Icon == "" {
+		if note.IsEmpty() {
 			continue
 		}
 		notes[wtName] = note

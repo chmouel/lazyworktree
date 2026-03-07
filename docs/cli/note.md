@@ -12,7 +12,7 @@ current directory. Suitable for piping and scripting.
 ### `note edit [worktree-name]`
 
 Open the note in `$EDITOR` (falls back to `$VISUAL`, then `vi`). The file uses
-YAML frontmatter for metadata (icon, updated_at) followed by a markdown body.
+YAML frontmatter for metadata (icon, color, updated_at) followed by a markdown body.
 
 | Flag | Type | Usage |
 | --- | --- | --- |
@@ -44,8 +44,10 @@ When editing, the file uses YAML frontmatter:
 ```markdown
 ---
 icon: rocket
+color: "#FF0000"
 ---
 This is the note body in markdown.
 ```
 
 The `icon` field is optional and sets a custom icon for the worktree in the TUI.
+The `color` field is optional and sets a colour for the worktree name (hex, supported named colour, or 256 index); see **Set worktree colour** in the TUI command palette.

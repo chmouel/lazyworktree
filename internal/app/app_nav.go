@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -11,7 +12,9 @@ import (
 	"charm.land/bubbles/v2/table"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/worktreecolor"
 )
 
 func (m *Model) inputLabel() string {
@@ -172,10 +175,17 @@ func (m *Model) updateTable() {
 
 	sortWorktrees(m.state.data.filteredWts, m.sortMode)
 
+	selectedCursor := max(m.state.ui.worktreeTable.Cursor(), 0)
+	if len(m.state.data.filteredWts) == 0 {
+		selectedCursor = -1
+	} else if selectedCursor >= len(m.state.data.filteredWts) {
+		selectedCursor = len(m.state.data.filteredWts) - 1
+	}
+
 	// Update table rows
 	showIcons := m.config.IconsEnabled()
 	rows := make([]table.Row, 0, len(m.state.data.filteredWts))
-	for _, wt := range m.state.data.filteredWts {
+	for idx, wt := range m.state.data.filteredWts {
 		name := filepath.Base(wt.Path)
 		worktreeIcon := UIIconWorktree
 		if wt.IsMain {
@@ -184,7 +194,13 @@ func (m *Model) updateTable() {
 		}
 
 		prefix := iconPrefix(worktreeIcon, showIcons)
-		if note, ok := m.getWorktreeNote(wt.Path); ok && note.Icon != "" && showIcons {
+		var note models.WorktreeNote
+		hasNote := false
+		if n, ok := m.getWorktreeNote(wt.Path); ok {
+			note = n
+			hasNote = true
+		}
+		if hasNote && note.Icon != "" && showIcons {
 			prefix = note.Icon + " "
 		}
 		name = "  " + prefix + name
@@ -194,6 +210,11 @@ func (m *Model) updateTable() {
 			nameRunes := []rune(name)
 			if len(nameRunes) > m.config.MaxNameLength {
 				name = string(nameRunes[:m.config.MaxNameLength]) + "..."
+			}
+		}
+		if hasNote && note.Color != "" && idx != selectedCursor {
+			if c := worktreecolor.Resolve(note.Color); c != nil {
+				name = lipgloss.NewStyle().Foreground(c).Render(name)
 			}
 		}
 		statusStr := combinedStatusIndicator(wt.Dirty, wt.HasUpstream, wt.Ahead, wt.Behind, wt.Unpushed, showIcons)
@@ -228,13 +249,10 @@ func (m *Model) updateTable() {
 		m.state.data.selectedIndex = len(m.state.data.filteredWts) - 1
 	}
 	if len(m.state.data.filteredWts) > 0 {
-		cursor := max(m.state.ui.worktreeTable.Cursor(), 0)
-		if cursor >= len(m.state.data.filteredWts) {
-			cursor = len(m.state.data.filteredWts) - 1
-		}
-		m.state.data.selectedIndex = cursor
-		m.state.ui.worktreeTable.SetCursor(cursor)
+		m.state.data.selectedIndex = selectedCursor
+		m.state.ui.worktreeTable.SetCursor(selectedCursor)
 	}
+	m.updateWorktreeTableStyles()
 	m.updateWorktreeArrows()
 }
 
@@ -298,26 +316,34 @@ func setLeadingMarker(value string, selected bool) (string, bool) {
 		return value, false
 	}
 
-	// Fast-path: check first byte(s) before allocating []rune.
+	prefix := leadingANSIPrefixRegexp.FindString(value)
+	visible := value[len(prefix):]
+	if visible == "" {
+		return value, false
+	}
+
+	// Fast-path: check first visible byte(s) before allocating []rune.
 	// Space is ASCII 0x20; '›' is UTF-8 \xe2\x80\xba.
 	if selected {
-		if strings.HasPrefix(value, "›") {
+		if strings.HasPrefix(visible, "›") {
 			return value, false
 		}
 	} else {
-		if value[0] == ' ' {
+		if visible[0] == ' ' {
 			return value, false
 		}
 	}
 
-	runes := []rune(value)
+	runes := []rune(visible)
 	next := ' '
 	if selected {
 		next = '›'
 	}
 	runes[0] = next
-	return string(runes), true
+	return prefix + string(runes), true
 }
+
+var leadingANSIPrefixRegexp = regexp.MustCompile(`^(?:\x1b\[[0-9;]*m)*`)
 
 func (m *Model) updateDetailsView() tea.Cmd {
 	m.state.data.selectedIndex = m.state.ui.worktreeTable.Cursor()

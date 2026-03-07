@@ -432,6 +432,29 @@ func TestSplittedWorktreeNotesRoundTrip(t *testing.T) {
 	}
 }
 
+func TestSplittedWorktreeNotesRetainsColorOnly(t *testing.T) {
+	baseDir := t.TempDir()
+	pathTemplate := filepath.Join(baseDir, "$WORKTREE_NAME", "note.md")
+	env := map[string]string{}
+
+	notes := map[string]models.WorktreeNote{
+		"color-only": {Color: "red", UpdatedAt: 1709740800},
+	}
+	if err := SaveWorktreeNotes("repo", "", pathTemplate, "splitted", notes, env); err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+	got, err := LoadWorktreeNotes("repo", "", pathTemplate, "splitted", env)
+	if err != nil {
+		t.Fatalf("load failed: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 note, got %d", len(got))
+	}
+	if got["color-only"].Color != "red" {
+		t.Fatalf("expected color red, got %q", got["color-only"].Color)
+	}
+}
+
 func TestSplittedWorktreeNotesDeletesEmptyNote(t *testing.T) {
 	baseDir := t.TempDir()
 	pathTemplate := filepath.Join(baseDir, "$WORKTREE_NAME", "note.md")

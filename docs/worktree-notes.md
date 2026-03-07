@@ -50,7 +50,7 @@ When `worktree_notes_path` is set, note keys are stored relative to `worktree_di
 
 ### Splitted mode
 
-For individual markdown files instead of a single JSON file, use the `splitted` note type. Each worktree note becomes a separate file with YAML frontmatter (icon, timestamp) and a markdown body:
+For individual markdown files instead of a single JSON file, use the `splitted` note type. Each worktree note becomes a separate file with YAML frontmatter (icon, color, timestamp) and a markdown body:
 
 ```yaml
 worktree_note_type: splitted
@@ -69,6 +69,7 @@ Note files use this format:
 ```markdown
 ---
 icon: "⚡"
+color: red
 updated_at: 1709740800
 ---
 The note content here.

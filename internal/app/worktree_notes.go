@@ -8,6 +8,7 @@ import (
 	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/worktreecolor"
 )
 
 func worktreeNoteKey(path string) string {
@@ -100,13 +101,15 @@ func (m *Model) getWorktreeNote(path string) (models.WorktreeNote, bool) {
 	if !ok {
 		return models.WorktreeNote{}, false
 	}
-	if strings.TrimSpace(note.Note) == "" && strings.TrimSpace(note.Icon) == "" {
+	if note.IsEmpty() {
 		return models.WorktreeNote{}, false
 	}
 	return note, true
 }
 
-func (m *Model) setWorktreeNote(path, noteText string) {
+// updateWorktreeNoteField applies updater to the existing note for path, then
+// persists the result (or deletes the entry if the updated note is empty).
+func (m *Model) updateWorktreeNoteField(path string, updater func(existing models.WorktreeNote) models.WorktreeNote) {
 	if strings.TrimSpace(path) == "" {
 		return
 	}
@@ -114,58 +117,51 @@ func (m *Model) setWorktreeNote(path, noteText string) {
 		m.worktreeNotes = make(map[string]models.WorktreeNote)
 	}
 
-	trimmed := strings.TrimSpace(noteText)
 	key := m.worktreeNoteKey(path)
-	existing := m.worktreeNotes[key]
+	updated := updater(m.worktreeNotes[key])
+	updated.UpdatedAt = time.Now().Unix()
 
-	if trimmed == "" && existing.Icon == "" {
+	if updated.IsEmpty() {
 		delete(m.worktreeNotes, key)
-		m.saveWorktreeNotes()
-		m.refreshSelectedWorktreeNotesPane()
-		return
-	}
-
-	m.worktreeNotes[key] = models.WorktreeNote{
-		Note:      trimmed,
-		Icon:      existing.Icon,
-		UpdatedAt: time.Now().Unix(),
-	}
-	if m.getWorktreeNotesPath() != "" {
-		delete(m.worktreeNotes, filepath.Clean(path))
+	} else {
+		m.worktreeNotes[key] = updated
+		if m.getWorktreeNotesPath() != "" {
+			delete(m.worktreeNotes, filepath.Clean(path))
+		}
 	}
 	m.saveWorktreeNotes()
 	m.refreshSelectedWorktreeNotesPane()
 }
 
+func (m *Model) setWorktreeNote(path, noteText string) {
+	trimmed := strings.TrimSpace(noteText)
+	m.updateWorktreeNoteField(path, func(existing models.WorktreeNote) models.WorktreeNote {
+		existing.Note = trimmed
+		return existing
+	})
+}
+
 func (m *Model) setWorktreeIcon(path, icon string) {
-	if strings.TrimSpace(path) == "" {
-		return
-	}
-	if m.worktreeNotes == nil {
-		m.worktreeNotes = make(map[string]models.WorktreeNote)
-	}
-
 	trimmedIcon := strings.TrimSpace(icon)
-	key := m.worktreeNoteKey(path)
-	existing := m.worktreeNotes[key]
+	m.updateWorktreeNoteField(path, func(existing models.WorktreeNote) models.WorktreeNote {
+		existing.Icon = trimmedIcon
+		return existing
+	})
+}
 
-	if trimmedIcon == "" && existing.Note == "" {
-		delete(m.worktreeNotes, key)
-		m.saveWorktreeNotes()
-		m.refreshSelectedWorktreeNotesPane()
-		return
-	}
+func (m *Model) toggleWorktreeBold(path string) {
+	m.updateWorktreeNoteField(path, func(existing models.WorktreeNote) models.WorktreeNote {
+		existing.Bold = !existing.Bold
+		return existing
+	})
+}
 
-	m.worktreeNotes[key] = models.WorktreeNote{
-		Note:      existing.Note,
-		Icon:      trimmedIcon,
-		UpdatedAt: time.Now().Unix(),
-	}
-	if m.getWorktreeNotesPath() != "" {
-		delete(m.worktreeNotes, filepath.Clean(path))
-	}
-	m.saveWorktreeNotes()
-	m.refreshSelectedWorktreeNotesPane()
+func (m *Model) setWorktreeColor(path, color string) {
+	trimmedColor := worktreecolor.Normalize(color)
+	m.updateWorktreeNoteField(path, func(existing models.WorktreeNote) models.WorktreeNote {
+		existing.Color = trimmedColor
+		return existing
+	})
 }
 
 func (m *Model) deleteWorktreeNote(path string) {

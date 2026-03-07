@@ -448,18 +448,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 		table.WithHeight(5),
 	)
 
-	s := table.DefaultStyles()
-	s.Selected = s.Selected.Foreground(thm.Accent)
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(thm.BorderDim).
-		BorderBottom(true).
-		Bold(true).
-		Foreground(thm.Cyan).
-		Background(thm.AccentDim) // Add subtle background to header
-	s.Selected = s.Selected.Bold(true) // Arrow indicator shows selection, no background
-	// Don't set Foreground on Cell - let Selected style's foreground take effect
-	t.SetStyles(s)
+	t.SetStyles(buildWorktreeTableStyles(thm, nil, true))
 
 	infoVp := viewport.New(viewport.WithWidth(40), viewport.WithHeight(5))
 	infoVp.SoftWrap = true
@@ -479,7 +468,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 		table.WithColumns(logColumns),
 		table.WithHeight(5),
 	)
-	logStyles := s
+	logStyles := buildWorktreeTableStyles(thm, nil, true)
 	logT.SetStyles(logStyles)
 
 	filterInput := textinput.New()

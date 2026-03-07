@@ -22,6 +22,22 @@ func TestParseNoteFileRoundTrip(t *testing.T) {
 	assert.Equal(t, note.Note+"\n", got.Note)
 }
 
+func TestParseNoteFileRoundTripWithColor(t *testing.T) {
+	note := models.WorktreeNote{
+		Icon:      "🔥",
+		Color:     "red",
+		UpdatedAt: 1709740800,
+		Note:      "Coloured note.",
+	}
+	data := FormatNoteFile(note)
+	got, err := ParseNoteFile(data)
+	require.NoError(t, err)
+	assert.Equal(t, note.Icon, got.Icon)
+	assert.Equal(t, note.Color, got.Color)
+	assert.Equal(t, note.UpdatedAt, got.UpdatedAt)
+	assert.Equal(t, note.Note+"\n", got.Note)
+}
+
 func TestParseNoteFileEmptyIcon(t *testing.T) {
 	note := models.WorktreeNote{
 		UpdatedAt: 1709740800,
@@ -79,4 +95,14 @@ func TestFormatNoteFileNoMetadata(t *testing.T) {
 	data := FormatNoteFile(note)
 	assert.NotContains(t, string(data), "---")
 	assert.Contains(t, string(data), "plain note")
+}
+
+func TestFormatNoteFileColorOnly(t *testing.T) {
+	note := models.WorktreeNote{Color: "#ff0000", UpdatedAt: 1}
+	data := FormatNoteFile(note)
+	assert.Contains(t, string(data), "color:")
+	assert.Contains(t, string(data), "#ff0000")
+	got, err := ParseNoteFile(data)
+	require.NoError(t, err)
+	assert.Equal(t, "#ff0000", got.Color)
 }

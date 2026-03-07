@@ -48,6 +48,66 @@ func TestSetWorktreeNoteClearsEntryWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestGetWorktreeNoteReturnsNoteWhenOnlyColorSet(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.repoKey = testRepoKey
+	path := "/tmp/worktrees/feature-a"
+	m.worktreeNotes = map[string]models.WorktreeNote{
+		worktreeNoteKey(path): {Color: "red", UpdatedAt: 1},
+	}
+
+	note, ok := m.getWorktreeNote(path)
+	if !ok {
+		t.Fatal("expected note to be present when only Color set")
+	}
+	if note.Color != "red" {
+		t.Fatalf("expected color red, got %q", note.Color)
+	}
+}
+
+func TestSetWorktreeColorPreservesNoteAndIcon(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.repoKey = testRepoKey
+	path := "/tmp/worktrees/feature-a"
+	m.setWorktreeNote(path, "my note")
+	m.setWorktreeIcon(path, "🔥")
+
+	m.setWorktreeColor(path, "blue")
+
+	note, ok := m.getWorktreeNote(path)
+	if !ok {
+		t.Fatal("expected note to remain")
+	}
+	if note.Note != "my note" || note.Icon != "🔥" || note.Color != "blue" {
+		t.Fatalf("unexpected note: Note=%q Icon=%q Color=%q", note.Note, note.Icon, note.Color)
+	}
+}
+
+func TestSetWorktreeColorClearRemovesEntryOnlyWhenAllEmpty(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.repoKey = testRepoKey
+	path := "/tmp/worktrees/feature-a"
+
+	// Only color set: clearing removes entry
+	m.setWorktreeColor(path, "red")
+	m.setWorktreeColor(path, "")
+	if _, ok := m.getWorktreeNote(path); ok {
+		t.Fatal("expected note to be deleted when only color was set and then cleared")
+	}
+
+	// Note present: clearing color keeps entry
+	m.setWorktreeNote(path, "keep")
+	m.setWorktreeColor(path, "red")
+	m.setWorktreeColor(path, "")
+	note, ok := m.getWorktreeNote(path)
+	if !ok || note.Note != "keep" {
+		t.Fatalf("expected note to remain with Note after clearing color: ok=%v note=%#v", ok, note)
+	}
+}
+
 func TestMigrateWorktreeNote(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
@@ -342,5 +402,27 @@ func TestSetAndLoadWorktreeNotesSharedFileUsesRelativeKeys(t *testing.T) {
 	}
 	if note.Note != "shared note" {
 		t.Fatalf("unexpected note text: %q", note.Note)
+	}
+}
+
+func TestUpdateTableSkipsInlineColourOnSelectedRow(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	path := "/tmp/worktrees/feature-a"
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: path, Branch: "feature-a"},
+	}
+	m.state.ui.worktreeTable.SetCursor(0)
+	m.state.data.selectedIndex = 0
+	m.setWorktreeColor(path, "coral")
+
+	m.updateTable()
+
+	rows := m.state.ui.worktreeTable.Rows()
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(rows))
+	}
+	if strings.Contains(rows[0][0], "[38;2;") {
+		t.Fatalf("expected selected row to avoid inline ANSI fragment, got %q", rows[0][0])
 	}
 }

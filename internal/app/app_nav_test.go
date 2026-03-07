@@ -7,6 +7,8 @@ import (
 
 	"charm.land/bubbles/v2/table"
 	"charm.land/bubbles/v2/viewport"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/theme"
@@ -366,6 +368,29 @@ func TestSetLeadingMarker(t *testing.T) {
 	}
 }
 
+func TestSetLeadingMarkerPreservesANSIPrefix(t *testing.T) {
+	styled := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7f50")).Render(" alpha")
+
+	value, changed := setLeadingMarker(styled, true)
+	if !changed {
+		t.Fatal("expected selected marker to update value")
+	}
+	if !strings.HasPrefix(value, "\x1b[") {
+		t.Fatalf("expected ANSI prefix to remain, got %q", value)
+	}
+	if got := ansi.Strip(value); got != "›alpha" {
+		t.Fatalf("expected stripped selected marker, got %q", got)
+	}
+
+	value, changed = setLeadingMarker(value, false)
+	if !changed {
+		t.Fatal("expected deselected marker to update value")
+	}
+	if got := ansi.Strip(value); got != " alpha" {
+		t.Fatalf("expected stripped deselected marker, got %q", got)
+	}
+}
+
 func TestUpdateWorktreeArrowsMovesSelection(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
@@ -416,5 +441,26 @@ func TestUpdateWorktreeArrowsReappliesAfterRowsReset(t *testing.T) {
 	rows := m.state.ui.worktreeTable.Rows()
 	if got := rows[1][0]; got != "›beta" {
 		t.Fatalf("expected selected arrow after rows reset, got %q", got)
+	}
+}
+
+func TestUpdateWorktreeArrowsPreservesANSIPrefix(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	styled := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff7f50")).Render(" alpha")
+	m.state.ui.worktreeTable.SetRows([]table.Row{
+		{styled, "", ""},
+	})
+	m.state.ui.worktreeTable.SetCursor(0)
+
+	m.updateWorktreeArrows()
+
+	rows := m.state.ui.worktreeTable.Rows()
+	if !strings.HasPrefix(rows[0][0], "\x1b[") {
+		t.Fatalf("expected ANSI prefix to remain after arrow update, got %q", rows[0][0])
+	}
+	if got := ansi.Strip(rows[0][0]); got != "›alpha" {
+		t.Fatalf("expected stripped selected row, got %q", got)
 	}
 }

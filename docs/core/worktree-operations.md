@@ -42,7 +42,33 @@ To return to the default icon, choose **Default Folder** in the picker.
 - Use `` or `󱃾` for infrastructure and platform changes.
 - Use `🚀` or `󰜎` for feature delivery streams.
 
-For teams, adopting a simple icon convention improves visual scanning during reviews, pairing, and release preparation.
+## Custom worktree colours
+
+You can assign a colour to each worktree name (hex, supported named colour, or 256-colour index). The value is stored in worktree notes (JSON or splitted frontmatter), like the icon.
+
+### How to set a colour
+
+1. Select a worktree in the Worktree pane.
+2. Open the command palette (`Ctrl+p` or `:`) and search for **Set worktree colour**.
+3. Pick a named colour, a 256-palette index (0–255), choose **Custom…** to enter a value, or choose **None** to clear.
+
+If you pick `None`, the colour is cleared and the worktree name will use the default colour.
+If you choose `Bold` the worktree colour will be displayed in bold.
+
+Colours are applied to the worktree name in the table. Stored values can be hex
+(`#RRGGBB`), supported named colours (for example `red` or `Light Blue`), or a
+decimal index for the 256-colour palette.
+
+### Practical use cases
+
+Use colour coding to indicate worktree status. For example:
+
+- Use `red` or a bright colour for worktrees with uncommitted changes.
+- Use `green` for worktrees that are up to date with the main branch.
+- Use `yellow` for worktrees that are in progress or need attention.
+- Use `blue` for worktrees associated with open PRs or issues.
+
+![Worktree colour picker](../assets/colorpicker.png)
 
 ### Default Location
 

@@ -1,7 +1,10 @@
 // Package models defines the data objects shared across lazyworktree packages.
 package models
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // CommitFile represents a file changed in a commit.
 type CommitFile struct {
@@ -74,7 +77,14 @@ type WorktreeInfo struct {
 type WorktreeNote struct {
 	Note      string `json:"note,omitempty"`
 	Icon      string `json:"icon,omitempty"`
+	Color     string `json:"color,omitempty"`
+	Bold      bool   `json:"bold,omitempty"`
 	UpdatedAt int64  `json:"updated_at"`
+}
+
+// IsEmpty returns true when every user-visible field is blank (after trimming whitespace).
+func (w WorktreeNote) IsEmpty() bool {
+	return strings.TrimSpace(w.Note) == "" && strings.TrimSpace(w.Icon) == "" && strings.TrimSpace(w.Color) == "" && !w.Bold
 }
 
 const (

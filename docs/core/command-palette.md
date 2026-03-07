@@ -18,7 +18,7 @@ The command palette is the fastest way to trigger actions without remembering ev
 
 The palette surfaces all available actions, including:
 
-- **Worktree actions** — create, delete, rename, set icon, absorb, prune, sync
+- **Worktree actions** — create, delete, rename, set icon, set colour, absorb, prune, sync
 - **Git operations** — lazygit, cherry-pick, diff viewing
 - **Navigation and pane controls** — focus pane, toggle zoom, switch layout
 - **Settings** — theme selection with live preview

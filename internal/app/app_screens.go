@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"charm.land/bubbles/v2/table"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -139,6 +138,7 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 		Rename:            m.showRenameWorktree,
 		Annotate:          m.showAnnotateWorktree,
 		SetIcon:           m.showSetWorktreeIcon,
+		SetColor:          m.showSetWorktreeColor,
 		Absorb:            m.showAbsorbWorktree,
 		Prune:             m.showPruneMerged,
 		CreateFromCurrent: m.showCreateFromCurrent,
@@ -382,19 +382,8 @@ func (m *Model) UpdateTheme(themeName string) {
 	m.invalidateRenderStyleCache()
 
 	// Update table styles
-	s := table.DefaultStyles()
-	s.Selected = s.Selected.Foreground(thm.AccentFg).Background(thm.Accent)
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(thm.BorderDim).
-		BorderBottom(true).
-		Bold(true).
-		Foreground(thm.Cyan).
-		Background(thm.AccentDim)
-	s.Selected = s.Selected.Bold(true) // Arrow indicator shows selection, no background
-
-	m.state.ui.worktreeTable.SetStyles(s)
-	m.state.ui.logTable.SetStyles(s)
+	m.state.ui.worktreeTable.SetStyles(buildWorktreeTableStyles(thm, nil, true))
+	m.state.ui.logTable.SetStyles(buildWorktreeTableStyles(thm, nil, true))
 
 	// Update spinner style
 	m.state.ui.spinner.Style = lipgloss.NewStyle().Foreground(thm.Accent)

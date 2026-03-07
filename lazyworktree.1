@@ -256,7 +256,7 @@ Print the raw note text for a worktree to stdout. Defaults to the worktree detec
 .
 .TP
 .B edit \fR[\fIworktree-name\fR]
-Open the note in \fB$EDITOR\fR (falls back to \fB$VISUAL\fR, then \fBvi\fR). The file uses YAML frontmatter for metadata (icon, updated_at) followed by markdown body text.
+Open the note in \fB$EDITOR\fR (falls back to \fB$VISUAL\fR, then \fBvi\fR). The file uses YAML frontmatter for metadata (icon, color, updated_at) followed by markdown body text.
 .
 .PP
 .B Options (edit):
@@ -558,7 +558,7 @@ Create new worktree (from branch, commit, PR/MR, or issue).
 .
 .TP
 .B i
-Open selected worktree notes. If a note exists, a viewer opens first; if no note exists, the editor opens directly. In the note viewer, j/k (or arrow keys) scroll, Ctrl+D/Ctrl+U move half a page, g/G jump to top/bottom, e opens edit mode, and q/Esc closes. In the note editor, Ctrl+S saves, Ctrl+X opens the note in an external editor, Enter inserts a new line, and Esc cancels. Worktrees with non-empty notes show a note marker beside the name. In the Info pane, notes render Markdown for headings, bold text, inline code, lists, quotes, links, and fenced code blocks. Uppercase note tags such as TODO, FIXME, or WARNING: are highlighted with icons outside fenced code blocks. Lowercase tags are left unchanged.
+Open selected worktree notes. If a note exists, a viewer opens first; if no note exists, the editor opens directly. In the note viewer, j/k (or arrow keys) scroll, Ctrl+D/Ctrl+U move half a page, g/G jump to top/bottom, e opens edit mode, and q/Esc closes. In the note editor, Ctrl+S saves, Ctrl+X opens the note in an external editor, Enter inserts a new line, and Esc cancels. Worktrees with non-empty notes show a note marker beside the name. Set worktree colour is available from the command palette only; it stores a colour in notes/frontmatter and applies it to the worktree name. Use the picker for named colours and 256 indices, or choose Custom for a hex value or another supported named colour. In the Info pane, notes render Markdown for headings, bold text, inline code, lists, quotes, links, and fenced code blocks. Uppercase note tags such as TODO, FIXME, or WARNING: are highlighted with icons outside fenced code blocks. Lowercase tags are left unchanged.
 .
 .TP
 .B T

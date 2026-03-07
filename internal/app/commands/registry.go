@@ -72,6 +72,7 @@ type WorktreeHandlers struct {
 	Rename            func() tea.Cmd
 	Annotate          func() tea.Cmd
 	SetIcon           func() tea.Cmd
+	SetColor          func() tea.Cmd
 	Absorb            func() tea.Cmd
 	Prune             func() tea.Cmd
 	CreateFromCurrent func() tea.Cmd
@@ -104,6 +105,7 @@ func RegisterWorktreeActions(r *Registry, h WorktreeHandlers) {
 		CommandAction{ID: "rename", Label: "Rename worktree", Description: "Rename worktree (and branch when names match)", Section: sectionWorktreeActions, Shortcut: "m", Icon: IconWorktree, Handler: h.Rename},
 		CommandAction{ID: "annotate", Label: "Worktree notes", Description: "View or edit notes for the selected worktree", Section: sectionWorktreeActions, Shortcut: "i", Icon: IconWorktree, Handler: h.Annotate},
 		CommandAction{ID: "set-icon", Label: "Set worktree icon", Description: "Choose a custom icon for the selected worktree", Section: sectionWorktreeActions, Shortcut: "I", Icon: IconWorktree, Handler: h.SetIcon},
+		CommandAction{ID: "set-color", Label: "Set worktree colour", Description: "Choose a colour for the selected worktree name", Section: sectionWorktreeActions, Icon: IconWorktree, Handler: h.SetColor},
 		CommandAction{ID: "absorb", Label: "Absorb worktree", Description: "Merge branch into main and remove worktree", Section: sectionWorktreeActions, Shortcut: "A", Icon: IconWorktree, Handler: h.Absorb},
 		CommandAction{ID: "prune", Label: "Prune merged", Description: "Remove merged PR worktrees", Section: sectionWorktreeActions, Shortcut: "X", Icon: IconWorktree, Handler: h.Prune},
 	)
