@@ -76,10 +76,8 @@ LazyWorktree is a TUI for Git worktree management built with [BubbleTea](https:/
 │   │   ├── render_*.go        # View functions
 │   │   └── messages.go        # BubbleTea messages
 │   ├── git/                   # Git operations and API integration
-│   │   ├── service.go         # Main service with semaphore
-│   │   ├── worktree.go        # Worktree operations
-│   │   ├── github.go          # GitHub API
-│   │   └── gitlab.go          # GitLab API
+│   │   ├── service.go         # Git operations, GitHub and GitLab API (PRs/MRs, CI, issues)
+│   │   └── worktree.go        # Worktree operations
 │   ├── config/                # Configuration cascade
 │   │   ├── config.go          # Main config struct
 │   │   └── load.go            # YAML loading + precedence
@@ -383,10 +381,8 @@ internal/theme
 - `internal/app/messages.go:1-215` - BubbleTea message types
 
 ### Git Service
-- `internal/git/service.go:54-97` - Service struct + semaphore setup
+- `internal/git/service.go` - Service struct, semaphore, GitHub and GitLab API (PRs/MRs, CI, issues)
 - `internal/git/worktree.go:1-450` - Worktree operations (list, create, remove)
-- `internal/git/github.go:1-380` - GitHub API integration (PRs, CI checks)
-- `internal/git/gitlab.go:1-280` - GitLab API integration (MRs)
 
 ### Screen Management
 - `internal/app/screen/manager.go:1-74` - Screen stack implementation

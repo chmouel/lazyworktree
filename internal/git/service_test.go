@@ -928,6 +928,104 @@ func TestCreateWorktreeFromPR(t *testing.T) {
 		ok := service.CreateWorktreeFromPR(ctx, 1, "feature-branch", "feature-branch", targetPath)
 		assert.False(t, ok)
 	})
+
+	t.Run("GitLab MR ref from glab api merge_requests succeeds", func(t *testing.T) {
+		remoteRepo := t.TempDir()
+		runGit(t, remoteRepo, "init", "--bare", "-b", "main")
+
+		setupRepo := t.TempDir()
+		runGit(t, setupRepo, "clone", remoteRepo, ".")
+		runGit(t, setupRepo, "config", "user.email", "test@test.com")
+		runGit(t, setupRepo, "config", "user.name", "Test User")
+		runGit(t, setupRepo, "config", "commit.gpgsign", "false")
+
+		testFile := filepath.Join(setupRepo, "test.txt")
+		require.NoError(t, os.WriteFile(testFile, []byte("initial"), 0o600))
+		runGit(t, setupRepo, "add", "test.txt")
+		runGit(t, setupRepo, "commit", "-m", "initial")
+		runGit(t, setupRepo, "push", "-u", "origin", "main")
+
+		runGit(t, setupRepo, "checkout", "-b", "feature-branch")
+		require.NoError(t, os.WriteFile(testFile, []byte("feature content"), 0o600))
+		runGit(t, setupRepo, "commit", "-am", "feature commit")
+		runGit(t, setupRepo, "push", "-u", "origin", "feature-branch")
+		featureSHA := runGit(t, setupRepo, "rev-parse", "HEAD")
+
+		testRepo := t.TempDir()
+		runGit(t, testRepo, "clone", remoteRepo, ".")
+		runGit(t, testRepo, "config", "user.email", "test@test.com")
+		runGit(t, testRepo, "config", "user.name", "Test User")
+		runGit(t, testRepo, "config", "commit.gpgsign", "false")
+
+		stub := "#!/bin/sh\n" +
+			"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"merge_requests/1\" ]; then\n" +
+			"  echo '{\"sha\":\"" + featureSHA + "\",\"source_branch\":\"feature-branch\"}'\n" +
+			"  exit 0\n" +
+			"fi\n" +
+			"exit 1\n"
+		dir := writeStub(t, "glab", stub)
+		withStubbedPath(t, dir)
+
+		service := NewService(notify, notifyOnce)
+		service.gitHost = gitHostGitLab
+
+		withCwd(t, testRepo)
+		targetPath := filepath.Join(t.TempDir(), "feature-branch")
+		ok := service.CreateWorktreeFromPR(ctx, 1, "feature-branch", "feature-branch", targetPath)
+		require.True(t, ok)
+
+		assert.Equal(t, featureSHA, runGit(t, testRepo, "rev-parse", "feature-branch"))
+		assert.Equal(t, "feature-branch", runGit(t, targetPath, "rev-parse", "--abbrev-ref", "HEAD"))
+	})
+
+	t.Run("GitLab MR ref uses diff_refs.head_sha when sha missing", func(t *testing.T) {
+		remoteRepo := t.TempDir()
+		runGit(t, remoteRepo, "init", "--bare", "-b", "main")
+
+		setupRepo := t.TempDir()
+		runGit(t, setupRepo, "clone", remoteRepo, ".")
+		runGit(t, setupRepo, "config", "user.email", "test@test.com")
+		runGit(t, setupRepo, "config", "user.name", "Test User")
+		runGit(t, setupRepo, "config", "commit.gpgsign", "false")
+
+		testFile := filepath.Join(setupRepo, "test.txt")
+		require.NoError(t, os.WriteFile(testFile, []byte("initial"), 0o600))
+		runGit(t, setupRepo, "add", "test.txt")
+		runGit(t, setupRepo, "commit", "-m", "initial")
+		runGit(t, setupRepo, "push", "-u", "origin", "main")
+
+		runGit(t, setupRepo, "checkout", "-b", "feature-branch")
+		require.NoError(t, os.WriteFile(testFile, []byte("feature content"), 0o600))
+		runGit(t, setupRepo, "commit", "-am", "feature commit")
+		runGit(t, setupRepo, "push", "-u", "origin", "feature-branch")
+		featureSHA := runGit(t, setupRepo, "rev-parse", "HEAD")
+
+		testRepo := t.TempDir()
+		runGit(t, testRepo, "clone", remoteRepo, ".")
+		runGit(t, testRepo, "config", "user.email", "test@test.com")
+		runGit(t, testRepo, "config", "user.name", "Test User")
+		runGit(t, testRepo, "config", "commit.gpgsign", "false")
+
+		stub := "#!/bin/sh\n" +
+			"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"merge_requests/1\" ]; then\n" +
+			"  echo '{\"diff_refs\":{\"head_sha\":\"" + featureSHA + "\"},\"source_branch\":\"feature-branch\"}'\n" +
+			"  exit 0\n" +
+			"fi\n" +
+			"exit 1\n"
+		dir := writeStub(t, "glab", stub)
+		withStubbedPath(t, dir)
+
+		service := NewService(notify, notifyOnce)
+		service.gitHost = gitHostGitLab
+
+		withCwd(t, testRepo)
+		targetPath := filepath.Join(t.TempDir(), "feature-branch")
+		ok := service.CreateWorktreeFromPR(ctx, 1, "feature-branch", "feature-branch", targetPath)
+		require.True(t, ok)
+
+		assert.Equal(t, featureSHA, runGit(t, testRepo, "rev-parse", "feature-branch"))
+		assert.Equal(t, "feature-branch", runGit(t, targetPath, "rev-parse", "--abbrev-ref", "HEAD"))
+	})
 }
 
 func TestCreateWorktreeFromPRUnknownHostSuccess(t *testing.T) {

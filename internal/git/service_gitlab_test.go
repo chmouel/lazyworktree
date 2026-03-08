@@ -35,7 +35,7 @@ func withStubbedPath(t *testing.T, dir string) {
 func TestFetchGitLabPRs(t *testing.T) {
 	stub := "#!/bin/sh\n" +
 		"if [ \"$1\" = \"api\" ]; then\n" +
-		"  echo '[{\"iid\":1,\"state\":\"opened\",\"title\":\"One\",\"web_url\":\"https://example.com/1\",\"source_branch\":\"feature\"},{\"iid\":2,\"state\":\"closed\",\"title\":\"Two\",\"web_url\":\"https://example.com/2\",\"source_branch\":\"closed\"}]'\n" +
+		"  echo '[{\"iid\":1,\"state\":\"opened\",\"title\":\"One\",\"web_url\":\"https://example.com/1\",\"source_branch\":\"feature\",\"draft\":true},{\"iid\":2,\"state\":\"closed\",\"title\":\"Two\",\"web_url\":\"https://example.com/2\",\"source_branch\":\"closed\",\"draft\":false}]'\n" +
 		"  exit 0\n" +
 		"fi\n" +
 		"exit 0\n"
@@ -52,6 +52,7 @@ func TestFetchGitLabPRs(t *testing.T) {
 	assert.Equal(t, 1, pr.Number)
 	assert.Equal(t, prStateOpen, pr.State)
 	assert.Equal(t, "One", pr.Title)
+	assert.True(t, pr.IsDraft, "PR map should set IsDraft from GitLab draft field")
 }
 
 func TestFetchGitLabOpenPRs(t *testing.T) {

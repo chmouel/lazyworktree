@@ -744,6 +744,7 @@ func (s *Service) fetchGitLabPRs(ctx context.Context) (map[string]*models.PRInfo
 		webURL, _ := p["web_url"].(string)
 		sourceBranch, _ := p["source_branch"].(string)
 		author, authorName, authorIsBot := extractAuthor(p, gitlabAuthorKeys)
+		isDraft, _ := p["draft"].(bool)
 
 		if sourceBranch != "" {
 			prMap[sourceBranch] = &models.PRInfo{
@@ -756,6 +757,7 @@ func (s *Service) fetchGitLabPRs(ctx context.Context) (map[string]*models.PRInfo
 				Author:      author,
 				AuthorName:  authorName,
 				AuthorIsBot: authorIsBot,
+				IsDraft:     isDraft,
 			}
 		}
 	}
@@ -903,6 +905,7 @@ func (s *Service) FetchPRForWorktreeWithError(ctx context.Context, worktreePath 
 		sourceBranch, _ := pr["source_branch"].(string)
 		targetBranch, _ := pr["target_branch"].(string)
 		author, authorName, authorIsBot := extractAuthor(pr, gitlabAuthorKeys)
+		isDraft, _ := pr["draft"].(bool)
 
 		return &models.PRInfo{
 			Number:      int(iid),
@@ -915,6 +918,7 @@ func (s *Service) FetchPRForWorktreeWithError(ctx context.Context, worktreePath 
 			Author:      author,
 			AuthorName:  authorName,
 			AuthorIsBot: authorIsBot,
+			IsDraft:     isDraft,
 		}, nil
 	}
 
@@ -1671,8 +1675,7 @@ func (s *Service) fetchPRRefInfo(ctx context.Context, prNumber int, remoteBranch
 
 	case gitHostGitLab:
 		mrRaw := s.RunGit(ctx, []string{
-			"glab", "mr", "view", fmt.Sprintf("%d", prNumber),
-			"--output", "json",
+			"glab", "api", fmt.Sprintf("merge_requests/%d", prNumber),
 		}, "", []int{0}, true, true)
 		if mrRaw == "" {
 			s.notify(fmt.Sprintf("Failed to get MR #%d info", prNumber), "error")
@@ -1684,6 +1687,11 @@ func (s *Service) fetchPRRefInfo(ctx context.Context, prNumber int, remoteBranch
 			return nil, false
 		}
 		headCommit, _ := mr["sha"].(string)
+		if headCommit == "" {
+			if diffRefs, ok := mr["diff_refs"].(map[string]any); ok {
+				headCommit, _ = diffRefs["head_sha"].(string)
+			}
+		}
 		if headCommit == "" {
 			s.notify(fmt.Sprintf("Failed to get MR #%d head commit", prNumber), "error")
 			return nil, false
