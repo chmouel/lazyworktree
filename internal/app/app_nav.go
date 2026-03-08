@@ -380,6 +380,7 @@ func (m *Model) updateDetailsView() tea.Cmd {
 			}
 			logEntries = append(logEntries, commitLogEntry{
 				sha:            sha,
+				authorName:     author,
 				authorInitials: authorInitials(author),
 				message:        message,
 				isUnpushed:     unpushed[sha],

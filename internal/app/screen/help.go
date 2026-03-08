@@ -103,6 +103,10 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.Cu
 - C: Cherry-pick commit to another worktree
 - /: Search commit titles
 
+Commit Status Indicators:
+- {{UNPUSHED}} (red): Unpushed — commit not yet on remote
+- {{UNMERGED}} (yellow): Unmerged — pushed to remote but not in main branch
+
 **{{HELP_COMMIT_TREE}}Commit File Tree (viewing files in a commit)**
 - j / k: Navigate files and directories
 - Enter: Toggle directory or show file diff
@@ -215,6 +219,10 @@ Search Mode:
 - {{STATUS_BEHIND}}N: Behind remote by N commits
 - {{STATUS_DIRTY}} {{STATUS_AHEAD}}N: Dirty and ahead by N commits
 
+Commit Log Indicators:
+- {{UNPUSHED}} (red): Unpushed commit (not on remote)
+- {{UNMERGED}} (yellow): Unmerged commit (pushed but not in main)
+
 **{{HELP_HELP_NAVIGATION}}Help Navigation**
 - /: Search help (Enter to apply, Esc to clear)
 - q / Esc: Close help
@@ -249,6 +257,8 @@ Search Mode:
 		"{{STATUS_DIRTY}}", statusIndicator(false, showIcons),
 		"{{STATUS_AHEAD}}", aheadIndicator(showIcons),
 		"{{STATUS_BEHIND}}", behindIndicator(showIcons),
+		"{{UNPUSHED}}", aheadIndicator(showIcons),
+		"{{UNMERGED}}", unmergedIndicator(showIcons),
 		"{{ARROW_UP}}", arrowUp(showIcons),
 		"{{ARROW_DOWN}}", arrowDown(showIcons),
 		"{{ARROW_LEFT}}", arrowLeft(showIcons),

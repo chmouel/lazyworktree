@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/table"
+	"charm.land/lipgloss/v2"
 	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
@@ -197,7 +198,8 @@ func (m *Model) setLogEntries(entries []commitLogEntry, reset bool) {
 }
 
 // buildLogRow creates a table.Row from a commitLogEntry.
-// When styled is true and the entry is unpushed/unmerged, WarnFg colouring is applied.
+// When styled is true and the entry is unpushed, ErrorFg (red) colouring is applied;
+// for unmerged (pushed but not in main), WarnFg (yellow) colouring is applied.
 // When styled is false, cells are left as plain text so the table's Selected style applies cleanly.
 func (m *Model) buildLogRow(entry commitLogEntry, styled bool) table.Row {
 	sha := entry.sha
@@ -208,15 +210,25 @@ func (m *Model) buildLogRow(entry commitLogEntry, styled bool) table.Row {
 	initials := authorInitials(entry.authorInitials)
 	if entry.isUnpushed || entry.isUnmerged {
 		showIcons := m.config.IconsEnabled()
-		initials = aheadIndicator(showIcons)
+		var commitStyle lipgloss.Style
+		if entry.isUnpushed {
+			initials = aheadIndicator(showIcons)
+			commitStyle = m.renderStyles.unpushedCommitStyle
+		} else {
+			initials = unmergedIndicator(showIcons)
+			commitStyle = m.renderStyles.unmergedCommitStyle
+		}
 		if showIcons {
 			initials = iconWithSpace(initials)
 		}
 		if styled {
-			sha = m.renderStyles.unpushedCommitStyle.Render(sha)
-			initials = m.renderStyles.unpushedCommitStyle.Render(initials)
-			msg = m.renderStyles.unpushedCommitStyle.Render(msg)
+			sha = commitStyle.Render(sha)
+			initials = commitStyle.Render(initials)
+			msg = commitStyle.Render(msg)
 		}
+	} else if styled && entry.authorName != "" {
+		style := lipgloss.NewStyle().Foreground(authorColor(entry.authorName))
+		initials = style.Render(initials)
 	}
 	return table.Row{sha, initials, msg}
 }
@@ -247,19 +259,19 @@ func (m *Model) restyleLogRows() {
 	changed := false
 	previous := m.lastLogCursor
 
-	// Restore WarnFg on the old cursor row (it is no longer selected).
+	// Restore styling on the old cursor row (it is no longer selected).
 	if previous >= 0 && previous < len(rows) && previous < len(m.state.data.logEntries) {
 		entry := m.state.data.logEntries[previous]
-		if entry.isUnpushed || entry.isUnmerged {
+		if entry.isUnpushed || entry.isUnmerged || entry.authorName != "" {
 			rows[previous] = m.buildLogRow(entry, true)
 			changed = true
 		}
 	}
 
-	// Strip WarnFg from the new cursor row so Selected style applies.
+	// Strip styling from the new cursor row so Selected style applies.
 	if cursor >= 0 && cursor < len(rows) && cursor < len(m.state.data.logEntries) {
 		entry := m.state.data.logEntries[cursor]
-		if entry.isUnpushed || entry.isUnmerged {
+		if entry.isUnpushed || entry.isUnmerged || entry.authorName != "" {
 			rows[cursor] = m.buildLogRow(entry, false)
 			changed = true
 		}

@@ -125,6 +125,10 @@ func aheadIndicator(showIcons bool) string {
 	return "↑"
 }
 
+func unmergedIndicator(_ bool) string {
+	return "★"
+}
+
 func behindIndicator(showIcons bool) string {
 	if showIcons {
 		return "↓"

@@ -100,6 +100,16 @@ Press `T` to open Taskboard (Kanban-lite grouped by worktree notes).
 | `ctrl+j` | Next commit and open file tree |
 | `/` | Search commit titles (incremental) |
 
+### Commit Status Indicators
+
+Each commit in the log pane displays an indicator showing its push and merge status:
+
+| Indicator | Colour | Meaning |
+| --- | --- | --- |
+| `↑` | Red | Unpushed — commit has not been pushed to the remote |
+| `★` | Yellow | Unmerged — pushed to the remote but not yet in the main branch |
+| Author initials | Author colour | Merged — no special indicator |
+
 ## Commit File Tree
 
 | Key | Action |

@@ -228,6 +228,7 @@ type (
 
 type commitLogEntry struct {
 	sha            string
+	authorName     string
 	authorInitials string
 	message        string
 	isUnpushed     bool

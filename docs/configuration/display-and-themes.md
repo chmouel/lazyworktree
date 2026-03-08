@@ -56,6 +56,15 @@ You can also resize the worktree pane at runtime with `h` (shrink) and `l` (grow
 
 If glyphs render incorrectly, use `text` or install a patched Nerd Font.
 
+## Commit Log Indicators
+
+The commit log pane uses theme colours for push and merge status:
+
+- **`ErrorFg`** (typically red) — unpushed commits (`↑`)
+- **`WarnFg`** (typically yellow) — unmerged commits (`★`, pushed but not in main)
+
+These colours are defined in each theme and follow the selected theme automatically.
+
 ## Name Truncation
 
 - `max_name_length`: max display width for worktree names

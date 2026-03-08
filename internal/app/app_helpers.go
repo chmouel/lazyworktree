@@ -2,18 +2,47 @@ package app
 
 import (
 	"fmt"
+	"hash/fnv"
+	"image/color"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/app/util"
 	log "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
+
+// authorColors is a palette of visually distinct colours used to differentiate
+// commit authors in the log pane, similar to lazygit.
+var authorColors = []string{
+	"#E06C75", // red
+	"#98C379", // green
+	"#E5C07B", // yellow
+	"#61AFEF", // blue
+	"#C678DD", // magenta
+	"#56B6C2", // cyan
+	"#D19A66", // orange
+	"#BE5046", // dark red
+	"#7EC8E3", // light blue
+	"#C3E88D", // light green
+	"#FFCB6B", // gold
+	"#F78C6C", // peach
+}
+
+// authorColor returns a deterministic colour for a given author name by
+// hashing it with FNV-32 and indexing into the colour palette.
+func authorColor(name string) color.Color {
+	h := fnv.New32()
+	_, _ = h.Write([]byte(name))
+	//nolint:gosec // palette length is a small constant; no overflow risk
+	return lipgloss.Color(authorColors[h.Sum32()%uint32(len(authorColors))])
+}
 
 // commandPaletteUsage tracks usage frequency and recency for command palette items.
 type commandPaletteUsage = services.CommandPaletteUsage

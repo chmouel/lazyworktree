@@ -65,6 +65,7 @@ type renderStyleCache struct {
 	overlayLineStyle lipgloss.Style
 
 	unpushedCommitStyle lipgloss.Style
+	unmergedCommitStyle lipgloss.Style
 }
 
 func (m *Model) invalidateRenderStyleCache() {
@@ -169,6 +170,7 @@ func (m *Model) ensureRenderStyles() {
 		overlayLeftStyle: lipgloss.NewStyle(),
 		overlayLineStyle: lipgloss.NewStyle(),
 
-		unpushedCommitStyle: lipgloss.NewStyle().Foreground(m.theme.WarnFg),
+		unpushedCommitStyle: lipgloss.NewStyle().Foreground(m.theme.ErrorFg),
+		unmergedCommitStyle: lipgloss.NewStyle().Foreground(m.theme.WarnFg),
 	}
 }

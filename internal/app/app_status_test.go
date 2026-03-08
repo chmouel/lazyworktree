@@ -228,9 +228,9 @@ func TestApplyLogFilterUnpushedCommitsStyled(t *testing.T) {
 	m.state.view.FocusedPane = 3 // Log pane focused
 
 	m.state.data.logEntriesAll = []commitLogEntry{
-		{sha: "aaaa1234567890", authorInitials: "AB", message: "pushed commit", isUnpushed: false, isUnmerged: false},
-		{sha: "bbbb1234567890", authorInitials: "CD", message: "unpushed commit", isUnpushed: true, isUnmerged: false},
-		{sha: "cccc1234567890", authorInitials: "EF", message: "unmerged commit", isUnpushed: false, isUnmerged: true},
+		{sha: "aaaa1234567890", authorName: "Alice Bob", authorInitials: "AB", message: "pushed commit", isUnpushed: false, isUnmerged: false},
+		{sha: "bbbb1234567890", authorName: "Charlie Delta", authorInitials: "CD", message: "unpushed commit", isUnpushed: true, isUnmerged: false},
+		{sha: "cccc1234567890", authorName: "Echo Foxtrot", authorInitials: "EF", message: "unmerged commit", isUnpushed: false, isUnmerged: true},
 	}
 	m.applyLogFilter(true)
 
@@ -260,9 +260,9 @@ func TestApplyLogFilterUnfocusedKeepsAllStyled(t *testing.T) {
 	m.state.view.FocusedPane = 0 // Not the log pane
 
 	m.state.data.logEntriesAll = []commitLogEntry{
-		{sha: "aaaa1234567890", authorInitials: "AB", message: "pushed commit", isUnpushed: false, isUnmerged: false},
-		{sha: "bbbb1234567890", authorInitials: "CD", message: "unpushed commit", isUnpushed: true, isUnmerged: false},
-		{sha: "cccc1234567890", authorInitials: "EF", message: "unmerged commit", isUnpushed: false, isUnmerged: true},
+		{sha: "aaaa1234567890", authorName: "Alice Bob", authorInitials: "AB", message: "pushed commit", isUnpushed: false, isUnmerged: false},
+		{sha: "bbbb1234567890", authorName: "Charlie Delta", authorInitials: "CD", message: "unpushed commit", isUnpushed: true, isUnmerged: false},
+		{sha: "cccc1234567890", authorName: "Echo Foxtrot", authorInitials: "EF", message: "unmerged commit", isUnpushed: false, isUnmerged: true},
 	}
 	m.applyLogFilter(true)
 
@@ -288,9 +288,9 @@ func TestRestyleLogRowsSwapsStyling(t *testing.T) {
 	m.state.view.FocusedPane = 3 // Log pane focused
 
 	m.state.data.logEntriesAll = []commitLogEntry{
-		{sha: "aaaa1234567890", authorInitials: "AB", message: "pushed commit", isUnpushed: false, isUnmerged: false},
-		{sha: "bbbb1234567890", authorInitials: "CD", message: "unpushed commit", isUnpushed: true, isUnmerged: false},
-		{sha: "cccc1234567890", authorInitials: "EF", message: "another unpushed", isUnpushed: true, isUnmerged: false},
+		{sha: "aaaa1234567890", authorName: "Alice Bob", authorInitials: "AB", message: "pushed commit", isUnpushed: false, isUnmerged: false},
+		{sha: "bbbb1234567890", authorName: "Charlie Delta", authorInitials: "CD", message: "unpushed commit", isUnpushed: true, isUnmerged: false},
+		{sha: "cccc1234567890", authorName: "Echo Foxtrot", authorInitials: "EF", message: "another unpushed", isUnpushed: true, isUnmerged: false},
 	}
 	m.applyLogFilter(true)
 
@@ -360,4 +360,97 @@ func TestRestyleLogRowsSwapsStyling(t *testing.T) {
 			assert.NotContains(t, cell, "\x1b[", "cursor row should lose ANSI codes when refocused")
 		}
 	}
+}
+
+func TestBuildLogRowUnpushedVsUnmergedDistinctColours(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 0 // Unfocused so all rows keep styling
+
+	m.state.data.logEntriesAll = []commitLogEntry{
+		{sha: "aaaa1234567890", authorName: "Alice", authorInitials: "A", message: "unpushed commit", isUnpushed: true},
+		{sha: "bbbb1234567890", authorName: "Bob", authorInitials: "B", message: "unmerged commit", isUnmerged: true},
+	}
+	m.applyLogFilter(true)
+
+	rows := m.state.ui.logTable.Rows()
+	require.Len(t, rows, 2)
+
+	// Both rows should have ANSI escape codes
+	assert.Contains(t, rows[0][0], "\x1b[", "unpushed sha should have ANSI codes")
+	assert.Contains(t, rows[1][0], "\x1b[", "unmerged sha should have ANSI codes")
+
+	// The ANSI codes should differ (red vs yellow)
+	assert.NotEqual(t, rows[0][0], rows[1][0],
+		"unpushed and unmerged commits should have different colours on sha")
+	assert.NotEqual(t, rows[0][2], rows[1][2],
+		"unpushed and unmerged commits should have different colours on message")
+}
+
+func TestAuthorColorDeterministic(t *testing.T) {
+	t.Parallel()
+	// Same name should always produce the same colour.
+	c1 := authorColor("Alice Bob")
+	c2 := authorColor("Alice Bob")
+	assert.Equal(t, c1, c2, "same author name should produce the same colour")
+
+	// Different names should (very likely) produce different colours.
+	c3 := authorColor("Charlie Delta")
+	assert.NotEqual(t, c1, c3, "different author names should produce different colours")
+}
+
+func TestBuildLogRowAuthorColor(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	entry := commitLogEntry{
+		sha:            "aaaa1234567890",
+		authorName:     "Alice Bob",
+		authorInitials: "AB",
+		message:        "some commit",
+	}
+
+	// styled=true: initials cell should have ANSI codes (author colour)
+	row := m.buildLogRow(entry, true)
+	assert.Contains(t, row[1], "\x1b[", "styled normal commit should have author colour on initials")
+	// sha and msg should NOT have ANSI codes
+	assert.NotContains(t, row[0], "\x1b[", "sha should not have author colour")
+	assert.NotContains(t, row[2], "\x1b[", "message should not have author colour")
+
+	// styled=false: no ANSI codes anywhere
+	row = m.buildLogRow(entry, false)
+	for _, cell := range row {
+		assert.NotContains(t, cell, "\x1b[", "unstyled row should have no ANSI codes")
+	}
+}
+
+func TestRestyleLogRowsAuthorColor(t *testing.T) {
+	t.Parallel()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.state.view.FocusedPane = 3
+
+	m.state.data.logEntriesAll = []commitLogEntry{
+		{sha: "aaaa1234567890", authorName: "Alice Bob", authorInitials: "AB", message: "commit one"},
+		{sha: "bbbb1234567890", authorName: "Charlie Delta", authorInitials: "CD", message: "commit two"},
+	}
+	m.applyLogFilter(true)
+
+	rows := m.state.ui.logTable.Rows()
+	require.Len(t, rows, 2)
+
+	// Cursor at 0: row 0 initials should NOT have ANSI, row 1 should
+	assert.NotContains(t, rows[0][1], "\x1b[", "cursor row initials should be plain")
+	assert.Contains(t, rows[1][1], "\x1b[", "non-cursor row initials should have author colour")
+
+	// Move cursor to 1
+	m.state.ui.logTable.SetCursor(1)
+	m.restyleLogRows()
+	rows = m.state.ui.logTable.Rows()
+
+	// Now row 0 should have colour restored, row 1 should be plain
+	assert.Contains(t, rows[0][1], "\x1b[", "previous cursor row should regain author colour")
+	assert.NotContains(t, rows[1][1], "\x1b[", "new cursor row should be plain")
 }

@@ -52,6 +52,7 @@ func benchmarkModel(b *testing.B, worktrees, statusFiles, logEntries int) *Model
 	for i := range logEntries {
 		logs = append(logs, commitLogEntry{
 			sha:            fmt.Sprintf("%040x", i+1),
+			authorName:     "Alice Bob",
 			authorInitials: "ab",
 			message:        fmt.Sprintf("Benchmark commit message %d", i),
 		})

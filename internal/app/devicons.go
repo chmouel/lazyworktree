@@ -54,6 +54,7 @@ const (
 	UIIconStatusDirty
 	UIIconSyncClean
 	UIIconAhead
+	UIIconUnmerged
 	UIIconBehind
 	UIIconArrowLeft
 	UIIconArrowRight
@@ -95,6 +96,7 @@ const (
 	nerdFontUIIconStatusClean       = "-"
 	nerdFontUIIconStatusDirty       = ""
 	nerdFontUIIconAhead             = "↑"
+	nerdFontUIIconUnmerged          = "★"
 	nerdFontUIIconBehind            = "↓"
 	nerdFontUIIconArrowLeft         = "←"
 	nerdFontUIIconArrowRight        = "→"
@@ -136,6 +138,7 @@ const (
 	textUIIconStatusClean       = textUIIconShellCompletion
 	textUIIconStatusDirty       = "D"
 	textUIIconAhead             = "↑"
+	textUIIconUnmerged          = "★"
 	textUIIconBehind            = "↓"
 	textUIIconArrowLeft         = "←"
 	textUIIconArrowRight        = "→"
@@ -342,6 +345,8 @@ func nerdFontUIIcon(icon UIIcon, prIcon, issueIcon string) string {
 		return nerdFontUIIconStatusDirty
 	case UIIconAhead:
 		return nerdFontUIIconAhead
+	case UIIconUnmerged:
+		return nerdFontUIIconUnmerged
 	case UIIconBehind:
 		return nerdFontUIIconBehind
 	case UIIconArrowLeft:
@@ -431,6 +436,8 @@ func emojiUIIcon(icon UIIcon, prIcon, issueIcon string) string {
 		return "📝"
 	case UIIconAhead:
 		return "⏫"
+	case UIIconUnmerged:
+		return "⭐"
 	case UIIconBehind:
 		return "⏬"
 	case UIIconArrowLeft:
@@ -520,6 +527,8 @@ func textUIIcon(icon UIIcon, prIcon, issueIcon string) string {
 		return textUIIconStatusDirty
 	case UIIconAhead:
 		return textUIIconAhead
+	case UIIconUnmerged:
+		return textUIIconUnmerged
 	case UIIconBehind:
 		return textUIIconBehind
 	case UIIconArrowLeft:
@@ -605,6 +614,13 @@ func aheadIndicator(showIcons bool) string {
 		return uiIcon(UIIconAhead)
 	}
 	return "↑"
+}
+
+func unmergedIndicator(showIcons bool) string {
+	if showIcons {
+		return uiIcon(UIIconUnmerged)
+	}
+	return "★"
 }
 
 func behindIndicator(showIcons bool) string {

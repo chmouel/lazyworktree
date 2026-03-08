@@ -80,6 +80,8 @@ Press `=` to toggle zoom for the focused pane, expanding it to fill the entire s
 - `C` — cherry-pick commit to another worktree
 - `Ctrl+j` — move to next commit and open its file tree
 
+Each commit displays a status indicator: `↑` (red) for unpushed commits, `★` (yellow) for commits pushed but not yet in the main branch, or the author's initials when fully merged.
+
 ## Search and Filter
 
 | Mode | Key | Behaviour |
