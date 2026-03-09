@@ -16,11 +16,11 @@ ownership across subsystems.
 - If `uv` is missing locally, install with Homebrew: `brew install uv`.
 - If you add or change a CLI command, argument, or flag, update:
   - shell completion
-  - `README.md`
   - `lazyworktree.1`
   - internal help text/template in `internal/app/screen/help.go`
   - generated CLI docs via `make docs-sync`
   - relevant website docs
+- Do not add to README.md unless important to ask the human to approve.
 - Don't ever do commit unless you are being explicitly asked for it.
 - If you get asked to commit then use this rules:
   - Follow Conventional Commits 1.0.0.
