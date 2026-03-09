@@ -680,10 +680,6 @@ func (m *Model) showWorktreeNoteEditor(worktreePath string) tea.Cmd {
 	})
 	textareaScr.OnSubmit = func(value string) tea.Cmd {
 		m.setWorktreeNote(worktreePath, value)
-		m.updateTable()
-		if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
-			m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
-		}
 		return nil
 	}
 	textareaScr.OnCancel = func() tea.Cmd {

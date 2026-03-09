@@ -97,6 +97,32 @@ func TestFormatNoteFileNoMetadata(t *testing.T) {
 	assert.Contains(t, string(data), "plain note")
 }
 
+func TestParseNoteFileRoundTripWithDescription(t *testing.T) {
+	note := models.WorktreeNote{
+		Icon:        "⚡",
+		Description: "Fix auth flow",
+		UpdatedAt:   1709740800,
+		Note:        "Some details.",
+	}
+	data := FormatNoteFile(note)
+	got, err := ParseNoteFile(data)
+	require.NoError(t, err)
+	assert.Equal(t, note.Icon, got.Icon)
+	assert.Equal(t, note.Description, got.Description)
+	assert.Equal(t, note.UpdatedAt, got.UpdatedAt)
+	assert.Equal(t, note.Note+"\n", got.Note)
+}
+
+func TestFormatNoteFileDescriptionOnly(t *testing.T) {
+	note := models.WorktreeNote{Description: "My description", UpdatedAt: 1}
+	data := FormatNoteFile(note)
+	assert.Contains(t, string(data), "description:")
+	assert.Contains(t, string(data), "My description")
+	got, err := ParseNoteFile(data)
+	require.NoError(t, err)
+	assert.Equal(t, "My description", got.Description)
+}
+
 func TestFormatNoteFileColorOnly(t *testing.T) {
 	note := models.WorktreeNote{Color: "#ff0000", UpdatedAt: 1}
 	data := FormatNoteFile(note)

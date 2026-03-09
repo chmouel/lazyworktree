@@ -161,6 +161,9 @@ func (m *Model) updateTable() {
 				name = mainWorktreeName
 			}
 			haystacks := []string{strings.ToLower(name), strings.ToLower(wt.Branch)}
+			if n, ok := m.getWorktreeNote(wt.Path); ok && n.Description != "" {
+				haystacks = append(haystacks, strings.ToLower(n.Description))
+			}
 			if hasPathSep {
 				haystacks = append(haystacks, strings.ToLower(wt.Path))
 			}
@@ -202,6 +205,9 @@ func (m *Model) updateTable() {
 		}
 		if hasNote && note.Icon != "" && showIcons {
 			prefix = note.Icon + " "
+		}
+		if hasNote && note.Description != "" {
+			name = note.Description
 		}
 		name = "  " + prefix + name
 
@@ -479,6 +485,11 @@ func (m *Model) findWorktreeMatchIndex(query string, start int, forward bool) in
 		}
 		if strings.Contains(strings.ToLower(wt.Branch), lowerQuery) {
 			return true
+		}
+		if n, ok := m.getWorktreeNote(wt.Path); ok && n.Description != "" {
+			if strings.Contains(strings.ToLower(n.Description), lowerQuery) {
+				return true
+			}
 		}
 		return hasPathSep && strings.Contains(strings.ToLower(wt.Path), lowerQuery)
 	})

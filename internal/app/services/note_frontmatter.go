@@ -11,10 +11,11 @@ import (
 var frontmatterDelim = []byte("---\n")
 
 type noteFrontmatter struct {
-	Icon      string `yaml:"icon,omitempty"`
-	Color     string `yaml:"color,omitempty"`
-	Bold      bool   `yaml:"bold,omitempty"`
-	UpdatedAt int64  `yaml:"updated_at,omitempty"`
+	Icon        string `yaml:"icon,omitempty"`
+	Color       string `yaml:"color,omitempty"`
+	Bold        bool   `yaml:"bold,omitempty"`
+	Description string `yaml:"description,omitempty"`
+	UpdatedAt   int64  `yaml:"updated_at,omitempty"`
 }
 
 // ParseNoteFile parses a splitted note file (YAML frontmatter + markdown body).
@@ -42,11 +43,12 @@ func ParseNoteFile(data []byte) (models.WorktreeNote, error) {
 		}
 
 		return models.WorktreeNote{
-			Icon:      fm.Icon,
-			Color:     fm.Color,
-			Bold:      fm.Bold,
-			UpdatedAt: fm.UpdatedAt,
-			Note:      string(body),
+			Icon:        fm.Icon,
+			Color:       fm.Color,
+			Bold:        fm.Bold,
+			Description: fm.Description,
+			UpdatedAt:   fm.UpdatedAt,
+			Note:        string(body),
 		}, nil
 	}
 
@@ -59,14 +61,15 @@ func FormatNoteFile(note models.WorktreeNote) []byte {
 	var buf bytes.Buffer
 
 	fm := noteFrontmatter{
-		Icon:      note.Icon,
-		Color:     note.Color,
-		Bold:      note.Bold,
-		UpdatedAt: note.UpdatedAt,
+		Icon:        note.Icon,
+		Color:       note.Color,
+		Bold:        note.Bold,
+		Description: note.Description,
+		UpdatedAt:   note.UpdatedAt,
 	}
 
 	// Only write frontmatter if there is metadata to write.
-	if fm.Icon != "" || fm.Color != "" || fm.Bold || fm.UpdatedAt != 0 {
+	if fm.Icon != "" || fm.Color != "" || fm.Bold || fm.Description != "" || fm.UpdatedAt != 0 {
 		buf.Write(frontmatterDelim)
 		enc := yaml.NewEncoder(&buf)
 		enc.SetIndent(2)

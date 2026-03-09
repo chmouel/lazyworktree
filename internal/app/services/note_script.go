@@ -14,11 +14,12 @@ const worktreeNoteScriptTimeout = 30 * time.Second
 
 // WorktreeNoteScriptInput contains the context passed to worktree_note_script.
 type WorktreeNoteScriptInput struct {
-	Content string
-	Type    string
-	Number  int
-	Title   string
-	URL     string
+	Content     string
+	Type        string
+	Number      int
+	Title       string
+	URL         string
+	Description string
 }
 
 // RunWorktreeNoteScript executes worktree_note_script and returns the generated note text.
@@ -39,6 +40,7 @@ func RunWorktreeNoteScript(ctx context.Context, script string, input WorktreeNot
 		fmt.Sprintf("LAZYWORKTREE_NUMBER=%d", input.Number),
 		fmt.Sprintf("LAZYWORKTREE_TITLE=%s", input.Title),
 		fmt.Sprintf("LAZYWORKTREE_URL=%s", input.URL),
+		fmt.Sprintf("LAZYWORKTREE_DESCRIPTION=%s", input.Description),
 	)
 
 	var stdout, stderr bytes.Buffer

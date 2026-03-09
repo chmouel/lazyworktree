@@ -75,16 +75,17 @@ type WorktreeInfo struct {
 
 // WorktreeNote stores user-authored metadata for a worktree.
 type WorktreeNote struct {
-	Note      string `json:"note,omitempty"`
-	Icon      string `json:"icon,omitempty"`
-	Color     string `json:"color,omitempty"`
-	Bold      bool   `json:"bold,omitempty"`
-	UpdatedAt int64  `json:"updated_at"`
+	Note        string `json:"note,omitempty"`
+	Icon        string `json:"icon,omitempty"`
+	Color       string `json:"color,omitempty"`
+	Bold        bool   `json:"bold,omitempty"`
+	Description string `json:"description,omitempty"`
+	UpdatedAt   int64  `json:"updated_at"`
 }
 
 // IsEmpty returns true when every user-visible field is blank (after trimming whitespace).
 func (w WorktreeNote) IsEmpty() bool {
-	return strings.TrimSpace(w.Note) == "" && strings.TrimSpace(w.Icon) == "" && strings.TrimSpace(w.Color) == "" && !w.Bold
+	return strings.TrimSpace(w.Note) == "" && strings.TrimSpace(w.Icon) == "" && strings.TrimSpace(w.Color) == "" && strings.TrimSpace(w.Description) == "" && !w.Bold
 }
 
 const (

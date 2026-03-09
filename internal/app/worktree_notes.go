@@ -5,6 +5,9 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -156,6 +159,14 @@ func (m *Model) toggleWorktreeBold(path string) {
 	})
 }
 
+func (m *Model) setWorktreeDescription(path, description string) {
+	trimmed := strings.TrimSpace(description)
+	m.updateWorktreeNoteField(path, func(existing models.WorktreeNote) models.WorktreeNote {
+		existing.Description = trimmed
+		return existing
+	})
+}
+
 func (m *Model) setWorktreeColor(path, color string) {
 	trimmedColor := worktreecolor.Normalize(color)
 	m.updateWorktreeNoteField(path, func(existing models.WorktreeNote) models.WorktreeNote {
@@ -217,6 +228,40 @@ func (m *Model) refreshSelectedWorktreeNotesPane() {
 			m.state.view.ZoomedPane = -1
 		}
 	}
+}
+
+// showSetWorktreeDescription shows an input screen to set a short display label for the selected worktree.
+func (m *Model) showSetWorktreeDescription() tea.Cmd {
+	wt := m.selectedWorktree()
+	if wt == nil {
+		return nil
+	}
+
+	current := ""
+	if note, ok := m.getWorktreeNote(wt.Path); ok {
+		current = note.Description
+	}
+
+	inputScr := appscreen.NewInputScreen(
+		"Set worktree description",
+		"Short label for this worktree",
+		current,
+		m.theme,
+		m.config.IconsEnabled(),
+	)
+	inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
+		m.setWorktreeDescription(wt.Path, value)
+		m.updateTable()
+		if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
+			m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+		}
+		return nil
+	}
+	inputScr.OnCancel = func() tea.Cmd {
+		return nil
+	}
+	m.state.ui.screenManager.Push(inputScr)
+	return textinput.Blink
 }
 
 func (m *Model) pruneStaleWorktreeNotes(worktrees []*models.WorktreeInfo) {

@@ -34,6 +34,48 @@ func TestSetAndLoadWorktreeNotes(t *testing.T) {
 	}
 }
 
+func TestSetWorktreeDescriptionRoundTrip(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.repoKey = testRepoKey
+
+	path := "/tmp/worktrees/feature-a"
+	m.setWorktreeDescription(path, "Fix auth flow")
+
+	note, ok := m.getWorktreeNote(path)
+	if !ok {
+		t.Fatal("expected note to be present after setting description")
+	}
+	if note.Description != "Fix auth flow" {
+		t.Fatalf("unexpected description: %q", note.Description)
+	}
+
+	// Clear description — entry should be removed when nothing else is set
+	m.setWorktreeDescription(path, "")
+	if _, ok := m.getWorktreeNote(path); ok {
+		t.Fatal("expected note to be deleted when description cleared and no other fields")
+	}
+}
+
+func TestSetWorktreeDescriptionPreservesOtherFields(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	m.repoKey = testRepoKey
+
+	path := "/tmp/worktrees/feature-a"
+	m.setWorktreeNote(path, "my note")
+	m.setWorktreeIcon(path, "🔥")
+	m.setWorktreeDescription(path, "Short desc")
+
+	note, ok := m.getWorktreeNote(path)
+	if !ok {
+		t.Fatal("expected note to remain")
+	}
+	if note.Note != "my note" || note.Icon != "🔥" || note.Description != "Short desc" {
+		t.Fatalf("unexpected note: Note=%q Icon=%q Description=%q", note.Note, note.Icon, note.Description)
+	}
+}
+
 func TestSetWorktreeNoteClearsEntryWhenEmpty(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")

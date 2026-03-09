@@ -17,6 +17,10 @@ Press `i` on a selected worktree:
 Viewer controls include scrolling, half-page navigation, and quick edit entry.
 Editor supports save, external editor handoff, newline insertion, and cancel.
 
+### Description
+
+Use the command palette (`:`  or `Ctrl+P`) and select **Set worktree description** to assign a short human-readable label to a worktree. When set, the description replaces the directory name in the worktree list for display purposes. This is particularly useful for long directory names such as `pr-2423-feat-implement-graphql-batch-fetching`. Setting an empty description clears it and restores the directory name. The description is also included in filter and search matching, and is stored as part of the worktree note metadata (JSON or frontmatter).
+
 When a note exists for a worktree, a note marker appears in the worktree list and the Notes pane (pane 5) becomes visible.
 
 <div class="lw-media-grid">

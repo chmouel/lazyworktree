@@ -160,7 +160,7 @@ func (s *TextareaScreen) View() string {
 
 	footer := "Ctrl+S save • Esc cancel • Enter newline"
 	if s.OnEditExternal != nil {
-		footer = "Ctrl+S save • Ctrl+X editor • Esc cancel • Enter newline"
+		footer = "Ctrl+S save • Ctrl+X editor • Esc cancel"
 	}
 	contentLines = append(contentLines, "", footerStyle.Render(footer))
 

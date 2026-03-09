@@ -132,6 +132,7 @@ Commit Status Indicators:
 - Command palette: Set worktree colour (picker plus Custom for hex, supported named colours, or 256 indices; stored in notes/frontmatter)
 - Note viewer: j/k scroll, Ctrl+D/Ctrl+U half-page, g/G top/bottom, e edit, E edit in external editor, q/Esc close
 - Note editor: Ctrl+S saves, Ctrl+X opens in external editor, Enter adds a new line, Esc cancels
+- Command palette: Set worktree description — a short label that replaces the directory name in the worktree list for display
 - T: Open Taskboard (grouped by worktree from markdown checkbox notes)
 - Taskboard: a adds a new task, Enter/Space toggles selected checkbox task, f filters tasks, q/Esc closes
 - Worktrees with non-empty notes show a note marker beside the name
