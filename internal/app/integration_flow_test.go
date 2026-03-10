@@ -77,11 +77,11 @@ func TestIntegrationKeyBindingsTriggerCommands(t *testing.T) {
 
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
-		CustomCommands: map[string]*config.CustomCommand{
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
 			customKey: {
 				Command: customCommand,
 			},
-		},
+		}},
 	}
 
 	m := NewModel(cfg, "")
@@ -157,12 +157,12 @@ func TestIntegrationPaletteSelectsCustomCommand(t *testing.T) {
 
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
-		CustomCommands: map[string]*config.CustomCommand{
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
 			customKey: {
 				Command:     customCommand,
 				Description: customLabel,
 			},
-		},
+		}},
 	}
 
 	m := NewModel(cfg, "")
@@ -210,11 +210,11 @@ func TestIntegrationPaletteSelectsPaletteOnlyCustomCommand(t *testing.T) {
 
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
-		CustomCommands: map[string]*config.CustomCommand{
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
 			customKey: {
 				Command: customCommand,
 			},
-		},
+		}},
 	}
 
 	m := NewModel(cfg, "")

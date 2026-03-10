@@ -239,7 +239,7 @@ func (s *CommitFilesScreen) ApplyFilter() {
 
 	// Clamp cursor
 	if s.Cursor >= len(s.TreeFlat) {
-		s.Cursor = maxInt(0, len(s.TreeFlat)-1)
+		s.Cursor = max(0, len(s.TreeFlat)-1)
 	}
 	s.ScrollOffset = 0
 }
@@ -310,7 +310,7 @@ func (s *CommitFilesScreen) ToggleCollapse(path string) {
 	s.CollapsedDirs[path] = !s.CollapsedDirs[path]
 	s.RebuildFlat()
 	if s.Cursor >= len(s.TreeFlat) {
-		s.Cursor = maxInt(0, len(s.TreeFlat)-1)
+		s.Cursor = max(0, len(s.TreeFlat)-1)
 	}
 }
 
@@ -457,12 +457,12 @@ func (s *CommitFilesScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 			}
 		}
 	case keyCtrlD, "space":
-		s.Cursor = minInt(s.Cursor+maxVisible/2, len(s.TreeFlat)-1)
+		s.Cursor = min(s.Cursor+maxVisible/2, len(s.TreeFlat)-1)
 		if s.Cursor >= s.ScrollOffset+maxVisible {
 			s.ScrollOffset = s.Cursor - maxVisible + 1
 		}
 	case keyCtrlU:
-		s.Cursor = maxInt(s.Cursor-maxVisible/2, 0)
+		s.Cursor = max(s.Cursor-maxVisible/2, 0)
 		if s.Cursor < s.ScrollOffset {
 			s.ScrollOffset = s.Cursor
 		}
@@ -470,7 +470,7 @@ func (s *CommitFilesScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 		s.Cursor = 0
 		s.ScrollOffset = 0
 	case "G":
-		s.Cursor = maxInt(0, len(s.TreeFlat)-1)
+		s.Cursor = max(0, len(s.TreeFlat)-1)
 		if s.Cursor >= maxVisible {
 			s.ScrollOffset = s.Cursor - maxVisible + 1
 		}

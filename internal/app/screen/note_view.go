@@ -54,8 +54,8 @@ func (s *NoteViewScreen) Resize(maxWidth, maxHeight int) {
 	if maxHeight > 0 {
 		s.Height = clampInt(int(float64(maxHeight)*0.8), 18, 42)
 	}
-	s.Viewport.SetWidth(maxInt(1, s.Width-6))
-	s.Viewport.SetHeight(maxInt(3, s.Height-6))
+	s.Viewport.SetWidth(max(1, s.Width-6))
+	s.Viewport.SetHeight(max(3, s.Height-6))
 	s.setViewportContent()
 }
 

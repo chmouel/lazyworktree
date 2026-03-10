@@ -83,9 +83,16 @@ func (m *Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Check for custom commands first - allows users to override built-in keys
-	if _, ok := m.config.CustomCommands[msg.String()]; ok && config.CustomCommandHasKeyBinding(msg.String()) {
-		return m, m.executeCustomCommand(msg.String())
+	paneName := paneIndexToName(m.state.view.FocusedPane)
+
+	// Pane-specific keybinding → universal keybinding
+	if actionID, ok := m.config.Keybindings.Lookup(paneName, msg.String()); ok {
+		return m, m.executeRegistryAction(actionID)
+	}
+
+	// Pane-specific custom command → universal custom command
+	if cmd, ok := m.config.CustomCommands.Lookup(paneName, msg.String()); ok && config.CustomCommandHasKeyBinding(msg.String()) {
+		return m, m.executeCustomCommandDirect(cmd)
 	}
 
 	return m.handleBuiltInKey(msg)
@@ -645,7 +652,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.showCommandPalette()
 
 	case "?":
-		helpScreen := appscreen.NewHelpScreen(m.state.view.WindowWidth, m.state.view.WindowHeight, m.config.CustomCommands, m.theme, m.config.IconsEnabled())
+		helpScreen := appscreen.NewHelpScreen(m.state.view.WindowWidth, m.state.view.WindowHeight, m.config.CustomCommands, m.config.Keybindings, m.theme, m.config.IconsEnabled())
 		m.state.ui.screenManager.Push(helpScreen)
 		return m, nil
 
@@ -740,6 +747,24 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// paneIndexToName maps a focused pane index to its canonical name for keybinding lookup.
+func paneIndexToName(pane int) string {
+	switch pane {
+	case 0:
+		return config.PaneWorktrees
+	case 1:
+		return config.PaneInfo
+	case 2:
+		return config.PaneStatus
+	case 3:
+		return config.PaneLog
+	case 4:
+		return config.PaneNotes
+	default:
+		return config.PaneUniversal
+	}
 }
 
 // handleNavigationDown processes down arrow and 'j' key navigation.

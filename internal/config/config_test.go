@@ -30,10 +30,10 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Empty(t, cfg.TerminateCommands)
 	assert.Empty(t, cfg.DebugLog)
 	assert.NotNil(t, cfg.CustomCommands)
-	require.Contains(t, cfg.CustomCommands, "t")
-	assert.Equal(t, "Tmux", cfg.CustomCommands["t"].Description)
-	require.Contains(t, cfg.CustomCommands, "Z")
-	assert.Equal(t, "Zellij", cfg.CustomCommands["Z"].Description)
+	require.Contains(t, cfg.CustomCommands[PaneUniversal], "t")
+	assert.Equal(t, "Tmux", cfg.CustomCommands[PaneUniversal]["t"].Description)
+	require.Contains(t, cfg.CustomCommands[PaneUniversal], "Z")
+	assert.Equal(t, "Zellij", cfg.CustomCommands[PaneUniversal]["Z"].Description)
 	assert.Empty(t, cfg.BranchNameScript)
 	assert.Equal(t, "issue-{number}-{title}", cfg.IssueBranchNameTemplate)
 	assert.Empty(t, cfg.Commit.AutoGenerateCommand)
@@ -1431,38 +1431,42 @@ func TestParseCustomCommands(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    map[string]interface{}
-		expected map[string]*CustomCommand
+		expected CustomCommandsConfig
 	}{
 		{
 			name:     "nil input",
 			input:    nil,
-			expected: map[string]*CustomCommand{},
+			expected: CustomCommandsConfig{},
 		},
 		{
 			name:     "empty map",
 			input:    map[string]interface{}{},
-			expected: map[string]*CustomCommand{},
+			expected: CustomCommandsConfig{},
 		},
 		{
 			name: "single command with all fields",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"e": map[string]interface{}{
-						"command":     "nvim",
-						"description": "Open editor",
-						"show_help":   true,
-						"wait":        true,
-						"show_output": true,
+					PaneUniversal: map[string]interface{}{
+						"e": map[string]interface{}{
+							"command":     "nvim",
+							"description": "Open editor",
+							"show_help":   true,
+							"wait":        true,
+							"show_output": true,
+						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"e": {
-					Command:     "nvim",
-					Description: "Open editor",
-					ShowHelp:    true,
-					Wait:        true,
-					ShowOutput:  true,
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"e": {
+						Command:     "nvim",
+						Description: "Open editor",
+						ShowHelp:    true,
+						Wait:        true,
+						ShowOutput:  true,
+					},
 				},
 			},
 		},
@@ -1470,30 +1474,34 @@ func TestParseCustomCommands(t *testing.T) {
 			name: "multiple commands",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"e": map[string]interface{}{
-						"command":     "nvim",
-						"description": "Open editor",
-						"show_help":   true,
-					},
-					"s": map[string]interface{}{
-						"command":     "zsh",
-						"description": "Open shell",
-						"show_help":   false,
+					PaneUniversal: map[string]interface{}{
+						"e": map[string]interface{}{
+							"command":     "nvim",
+							"description": "Open editor",
+							"show_help":   true,
+						},
+						"s": map[string]interface{}{
+							"command":     "zsh",
+							"description": "Open shell",
+							"show_help":   false,
+						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"e": {
-					Command:     "nvim",
-					Description: "Open editor",
-					ShowHelp:    true,
-					Wait:        false,
-				},
-				"s": {
-					Command:     "zsh",
-					Description: "Open shell",
-					ShowHelp:    false,
-					Wait:        false,
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"e": {
+						Command:     "nvim",
+						Description: "Open editor",
+						ShowHelp:    true,
+						Wait:        false,
+					},
+					"s": {
+						Command:     "zsh",
+						Description: "Open shell",
+						ShowHelp:    false,
+						Wait:        false,
+					},
 				},
 			},
 		},
@@ -1501,18 +1509,22 @@ func TestParseCustomCommands(t *testing.T) {
 			name: "command with spaces trimmed",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"t": map[string]interface{}{
-						"command":     "  make test  ",
-						"description": "  Run tests  ",
+					PaneUniversal: map[string]interface{}{
+						"t": map[string]interface{}{
+							"command":     "  make test  ",
+							"description": "  Run tests  ",
+						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"t": {
-					Command:     "make test",
-					Description: "Run tests",
-					ShowHelp:    false,
-					Wait:        false,
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"t": {
+						Command:     "make test",
+						Description: "Run tests",
+						ShowHelp:    false,
+						Wait:        false,
+					},
 				},
 			},
 		},
@@ -1520,65 +1532,73 @@ func TestParseCustomCommands(t *testing.T) {
 			name: "empty command is skipped",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"e": map[string]interface{}{
-						"command":     "",
-						"description": "Empty command",
+					PaneUniversal: map[string]interface{}{
+						"e": map[string]interface{}{
+							"command":     "",
+							"description": "Empty command",
+						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{},
+			expected: CustomCommandsConfig{},
 		},
 		{
 			name: "command with only whitespace is skipped",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"e": map[string]interface{}{
-						"command":     "   ",
-						"description": "Whitespace command",
+					PaneUniversal: map[string]interface{}{
+						"e": map[string]interface{}{
+							"command":     "   ",
+							"description": "Whitespace command",
+						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{},
+			expected: CustomCommandsConfig{},
 		},
 		{
 			name: "tmux command with windows",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"x": map[string]interface{}{
-						"description": "Tmux",
-						"show_help":   true,
-						"tmux": map[string]interface{}{
-							"session_name": "${REPO_NAME}_wt_$WORKTREE_NAME",
-							"attach":       false,
-							"on_exists":    "kill",
-							"windows": []interface{}{
-								map[string]interface{}{
-									"name":    "shell",
-									"command": "zsh",
-									"cwd":     "$WORKTREE_PATH",
-								},
-								map[string]interface{}{
-									"name":    "git",
-									"command": "lazygit",
+					PaneUniversal: map[string]interface{}{
+						"x": map[string]interface{}{
+							"description": "Tmux",
+							"show_help":   true,
+							"tmux": map[string]interface{}{
+								"session_name": "${REPO_NAME}_wt_$WORKTREE_NAME",
+								"attach":       false,
+								"on_exists":    "kill",
+								"windows": []interface{}{
+									map[string]interface{}{
+										"name":    "shell",
+										"command": "zsh",
+										"cwd":     "$WORKTREE_PATH",
+									},
+									map[string]interface{}{
+										"name":    "git",
+										"command": "lazygit",
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"x": {
-					Command:     "",
-					Description: "Tmux",
-					ShowHelp:    true,
-					Wait:        false,
-					Tmux: &TmuxCommand{
-						SessionName: "${REPO_NAME}_wt_$WORKTREE_NAME",
-						Attach:      false,
-						OnExists:    "kill",
-						Windows: []TmuxWindow{
-							{Name: "shell", Command: "zsh", Cwd: "$WORKTREE_PATH"},
-							{Name: "git", Command: "lazygit", Cwd: ""},
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"x": {
+						Command:     "",
+						Description: "Tmux",
+						ShowHelp:    true,
+						Wait:        false,
+						Tmux: &TmuxCommand{
+							SessionName: "${REPO_NAME}_wt_$WORKTREE_NAME",
+							Attach:      false,
+							OnExists:    "kill",
+							Windows: []TmuxWindow{
+								{Name: "shell", Command: "zsh", Cwd: "$WORKTREE_PATH"},
+								{Name: "git", Command: "lazygit", Cwd: ""},
+							},
 						},
 					},
 				},
@@ -1588,41 +1608,45 @@ func TestParseCustomCommands(t *testing.T) {
 			name: "zellij command with windows",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"z": map[string]interface{}{
-						"description": "Zellij",
-						"show_help":   true,
-						"zellij": map[string]interface{}{
-							"session_name": "${REPO_NAME}_wt_$WORKTREE_NAME",
-							"attach":       false,
-							"on_exists":    "kill",
-							"windows": []interface{}{
-								map[string]interface{}{
-									"name":    "shell",
-									"command": "zsh",
-									"cwd":     "$WORKTREE_PATH",
-								},
-								map[string]interface{}{
-									"name":    "git",
-									"command": "lazygit",
+					PaneUniversal: map[string]interface{}{
+						"z": map[string]interface{}{
+							"description": "Zellij",
+							"show_help":   true,
+							"zellij": map[string]interface{}{
+								"session_name": "${REPO_NAME}_wt_$WORKTREE_NAME",
+								"attach":       false,
+								"on_exists":    "kill",
+								"windows": []interface{}{
+									map[string]interface{}{
+										"name":    "shell",
+										"command": "zsh",
+										"cwd":     "$WORKTREE_PATH",
+									},
+									map[string]interface{}{
+										"name":    "git",
+										"command": "lazygit",
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"z": {
-					Command:     "",
-					Description: "Zellij",
-					ShowHelp:    true,
-					Wait:        false,
-					Zellij: &TmuxCommand{
-						SessionName: "${REPO_NAME}_wt_$WORKTREE_NAME",
-						Attach:      false,
-						OnExists:    "kill",
-						Windows: []TmuxWindow{
-							{Name: "shell", Command: "zsh", Cwd: "$WORKTREE_PATH"},
-							{Name: "git", Command: "lazygit", Cwd: ""},
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"z": {
+						Command:     "",
+						Description: "Zellij",
+						ShowHelp:    true,
+						Wait:        false,
+						Zellij: &TmuxCommand{
+							SessionName: "${REPO_NAME}_wt_$WORKTREE_NAME",
+							Attach:      false,
+							OnExists:    "kill",
+							Windows: []TmuxWindow{
+								{Name: "shell", Command: "zsh", Cwd: "$WORKTREE_PATH"},
+								{Name: "git", Command: "lazygit", Cwd: ""},
+							},
 						},
 					},
 				},
@@ -1632,25 +1656,29 @@ func TestParseCustomCommands(t *testing.T) {
 			name: "tmux without windows defaults to shell window",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"x": map[string]interface{}{
-						"tmux": map[string]interface{}{
-							"session_name": "${REPO_NAME}_wt_$WORKTREE_NAME",
+					PaneUniversal: map[string]interface{}{
+						"x": map[string]interface{}{
+							"tmux": map[string]interface{}{
+								"session_name": "${REPO_NAME}_wt_$WORKTREE_NAME",
+							},
 						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"x": {
-					Command:     "",
-					Description: "",
-					ShowHelp:    false,
-					Wait:        false,
-					Tmux: &TmuxCommand{
-						SessionName: "${REPO_NAME}_wt_$WORKTREE_NAME",
-						Attach:      true,
-						OnExists:    "switch",
-						Windows: []TmuxWindow{
-							{Name: "shell", Command: "", Cwd: ""},
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"x": {
+						Command:     "",
+						Description: "",
+						ShowHelp:    false,
+						Wait:        false,
+						Tmux: &TmuxCommand{
+							SessionName: "${REPO_NAME}_wt_$WORKTREE_NAME",
+							Attach:      true,
+							OnExists:    "switch",
+							Windows: []TmuxWindow{
+								{Name: "shell", Command: "", Cwd: ""},
+							},
 						},
 					},
 				},
@@ -1661,24 +1689,28 @@ func TestParseCustomCommands(t *testing.T) {
 			input: map[string]interface{}{
 				"custom_commands": "not a map",
 			},
-			expected: map[string]*CustomCommand{},
+			expected: CustomCommandsConfig{},
 		},
 		{
 			name: "invalid type for command entry is skipped",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"e": "not a map",
-					"s": map[string]interface{}{
-						"command": "zsh",
+					PaneUniversal: map[string]interface{}{
+						"e": "not a map",
+						"s": map[string]interface{}{
+							"command": "zsh",
+						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"s": {
-					Command:     "zsh",
-					Description: "",
-					ShowHelp:    false,
-					Wait:        false,
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"s": {
+						Command:     "zsh",
+						Description: "",
+						ShowHelp:    false,
+						Wait:        false,
+					},
 				},
 			},
 		},
@@ -1686,94 +1718,110 @@ func TestParseCustomCommands(t *testing.T) {
 			name: "boolean coercion for show_help",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"a": map[string]interface{}{
-						"command":   "cmd1",
-						"show_help": "yes",
-					},
-					"b": map[string]interface{}{
-						"command":   "cmd2",
-						"show_help": "no",
-					},
-					"c": map[string]interface{}{
-						"command":   "cmd3",
-						"show_help": 1,
-					},
-					"d": map[string]interface{}{
-						"command":   "cmd4",
-						"show_help": 0,
+					PaneUniversal: map[string]interface{}{
+						"a": map[string]interface{}{
+							"command":   "cmd1",
+							"show_help": "yes",
+						},
+						"b": map[string]interface{}{
+							"command":   "cmd2",
+							"show_help": "no",
+						},
+						"c": map[string]interface{}{
+							"command":   "cmd3",
+							"show_help": 1,
+						},
+						"d": map[string]interface{}{
+							"command":   "cmd4",
+							"show_help": 0,
+						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"a": {Command: "cmd1", ShowHelp: true, Wait: false},
-				"b": {Command: "cmd2", ShowHelp: false, Wait: false},
-				"c": {Command: "cmd3", ShowHelp: true, Wait: false},
-				"d": {Command: "cmd4", ShowHelp: false, Wait: false},
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"a": {Command: "cmd1", ShowHelp: true, Wait: false},
+					"b": {Command: "cmd2", ShowHelp: false, Wait: false},
+					"c": {Command: "cmd3", ShowHelp: true, Wait: false},
+					"d": {Command: "cmd4", ShowHelp: false, Wait: false},
+				},
 			},
 		},
 		{
 			name: "boolean coercion for wait",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"a": map[string]interface{}{
-						"command": "cmd1",
-						"wait":    "true",
-					},
-					"b": map[string]interface{}{
-						"command": "cmd2",
-						"wait":    "false",
-					},
-					"c": map[string]interface{}{
-						"command": "cmd3",
-						"wait":    1,
+					PaneUniversal: map[string]interface{}{
+						"a": map[string]interface{}{
+							"command": "cmd1",
+							"wait":    "true",
+						},
+						"b": map[string]interface{}{
+							"command": "cmd2",
+							"wait":    "false",
+						},
+						"c": map[string]interface{}{
+							"command": "cmd3",
+							"wait":    1,
+						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"a": {Command: "cmd1", Wait: true},
-				"b": {Command: "cmd2", Wait: false},
-				"c": {Command: "cmd3", Wait: true},
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"a": {Command: "cmd1", Wait: true},
+					"b": {Command: "cmd2", Wait: false},
+					"c": {Command: "cmd3", Wait: true},
+				},
 			},
 		},
 		{
 			name: "boolean coercion for show_output",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"a": map[string]interface{}{
-						"command":     "cmd1",
-						"show_output": "true",
-					},
-					"b": map[string]interface{}{
-						"command":     "cmd2",
-						"show_output": "false",
-					},
-					"c": map[string]interface{}{
-						"command":     "cmd3",
-						"show_output": 1,
+					PaneUniversal: map[string]interface{}{
+						"a": map[string]interface{}{
+							"command":     "cmd1",
+							"show_output": "true",
+						},
+						"b": map[string]interface{}{
+							"command":     "cmd2",
+							"show_output": "false",
+						},
+						"c": map[string]interface{}{
+							"command":     "cmd3",
+							"show_output": 1,
+						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"a": {Command: "cmd1", ShowOutput: true},
-				"b": {Command: "cmd2", ShowOutput: false},
-				"c": {Command: "cmd3", ShowOutput: true},
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"a": {Command: "cmd1", ShowOutput: true},
+					"b": {Command: "cmd2", ShowOutput: false},
+					"c": {Command: "cmd3", ShowOutput: true},
+				},
 			},
 		},
 		{
 			name: "missing fields use defaults",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"e": map[string]interface{}{
-						"command": "nvim",
+					PaneUniversal: map[string]interface{}{
+						"e": map[string]interface{}{
+							"command": "nvim",
+						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"e": {
-					Command:     "nvim",
-					Description: "",
-					ShowHelp:    false,
-					Wait:        false,
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"e": {
+						Command:     "nvim",
+						Description: "",
+						ShowHelp:    false,
+						Wait:        false,
+					},
 				},
 			},
 		},
@@ -1781,37 +1829,41 @@ func TestParseCustomCommands(t *testing.T) {
 			name: "modifier keys (ctrl, alt, etc.)",
 			input: map[string]interface{}{
 				"custom_commands": map[string]interface{}{
-					"ctrl+e": map[string]interface{}{
-						"command":     "nvim",
-						"description": "Open with Ctrl+E",
-					},
-					"alt+t": map[string]interface{}{
-						"command":     "make test",
-						"description": "Test with Alt+T",
-					},
-					"ctrl+shift+s": map[string]interface{}{
-						"command": "git status",
+					PaneUniversal: map[string]interface{}{
+						"ctrl+e": map[string]interface{}{
+							"command":     "nvim",
+							"description": "Open with Ctrl+E",
+						},
+						"alt+t": map[string]interface{}{
+							"command":     "make test",
+							"description": "Test with Alt+T",
+						},
+						"ctrl+shift+s": map[string]interface{}{
+							"command": "git status",
+						},
 					},
 				},
 			},
-			expected: map[string]*CustomCommand{
-				"ctrl+e": {
-					Command:     "nvim",
-					Description: "Open with Ctrl+E",
-					ShowHelp:    false,
-					Wait:        false,
-				},
-				"alt+t": {
-					Command:     "make test",
-					Description: "Test with Alt+T",
-					ShowHelp:    false,
-					Wait:        false,
-				},
-				"ctrl+shift+s": {
-					Command:     "git status",
-					Description: "",
-					ShowHelp:    false,
-					Wait:        false,
+			expected: CustomCommandsConfig{
+				PaneUniversal: {
+					"ctrl+e": {
+						Command:     "nvim",
+						Description: "Open with Ctrl+E",
+						ShowHelp:    false,
+						Wait:        false,
+					},
+					"alt+t": {
+						Command:     "make test",
+						Description: "Test with Alt+T",
+						ShowHelp:    false,
+						Wait:        false,
+					},
+					"ctrl+shift+s": {
+						Command:     "git status",
+						Description: "",
+						ShowHelp:    false,
+						Wait:        false,
+					},
 				},
 			},
 		},
@@ -1819,7 +1871,7 @@ func TestParseCustomCommands(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := parseCustomCommands(tt.input)
+			result, _ := parseCustomCommands(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -1837,24 +1889,26 @@ func TestParseConfig_CustomCommands(t *testing.T) {
 				"worktree_dir": "/tmp/worktrees",
 				"sort_mode":    "switched",
 				"custom_commands": map[string]interface{}{
-					"e": map[string]interface{}{
-						"command":     "nvim",
-						"description": "Open editor",
-						"show_help":   true,
-						"wait":        false,
+					PaneUniversal: map[string]interface{}{
+						"e": map[string]interface{}{
+							"command":     "nvim",
+							"description": "Open editor",
+							"show_help":   true,
+							"wait":        false,
+						},
 					},
 				},
 			},
 			validate: func(t *testing.T, cfg *AppConfig) {
 				assert.Equal(t, "/tmp/worktrees", cfg.WorktreeDir)
 				assert.Equal(t, "switched", cfg.SortMode)
-				require.Len(t, cfg.CustomCommands, 3)
-				assert.Equal(t, "nvim", cfg.CustomCommands["e"].Command)
-				assert.Equal(t, "Open editor", cfg.CustomCommands["e"].Description)
-				assert.True(t, cfg.CustomCommands["e"].ShowHelp)
-				assert.False(t, cfg.CustomCommands["e"].Wait)
-				require.Contains(t, cfg.CustomCommands, "t")
-				require.Contains(t, cfg.CustomCommands, "Z")
+				require.Len(t, cfg.CustomCommands[PaneUniversal], 3)
+				assert.Equal(t, "nvim", cfg.CustomCommands[PaneUniversal]["e"].Command)
+				assert.Equal(t, "Open editor", cfg.CustomCommands[PaneUniversal]["e"].Description)
+				assert.True(t, cfg.CustomCommands[PaneUniversal]["e"].ShowHelp)
+				assert.False(t, cfg.CustomCommands[PaneUniversal]["e"].Wait)
+				require.Contains(t, cfg.CustomCommands[PaneUniversal], "t")
+				require.Contains(t, cfg.CustomCommands[PaneUniversal], "Z")
 			},
 		},
 		{
@@ -1863,10 +1917,10 @@ func TestParseConfig_CustomCommands(t *testing.T) {
 				"worktree_dir": "/tmp/worktrees",
 			},
 			validate: func(t *testing.T, cfg *AppConfig) {
-				require.Contains(t, cfg.CustomCommands, "t")
-				assert.Equal(t, "Tmux", cfg.CustomCommands["t"].Description)
-				require.Contains(t, cfg.CustomCommands, "Z")
-				assert.Equal(t, "Zellij", cfg.CustomCommands["Z"].Description)
+				require.Contains(t, cfg.CustomCommands[PaneUniversal], "t")
+				assert.Equal(t, "Tmux", cfg.CustomCommands[PaneUniversal]["t"].Description)
+				require.Contains(t, cfg.CustomCommands[PaneUniversal], "Z")
+				assert.Equal(t, "Zellij", cfg.CustomCommands[PaneUniversal]["Z"].Description)
 			},
 		},
 	}
@@ -2535,21 +2589,23 @@ func TestParseCustomCommandsWithContainer(t *testing.T) {
 	t.Parallel()
 	input := map[string]any{
 		"custom_commands": map[string]any{
-			"C": map[string]any{
-				"command":     "go test ./...",
-				"description": "Run tests in container",
-				"show_output": true,
-				"container": map[string]any{
-					"image": "golang:1.22",
+			PaneUniversal: map[string]any{
+				"C": map[string]any{
+					"command":     "go test ./...",
+					"description": "Run tests in container",
+					"show_output": true,
+					"container": map[string]any{
+						"image": "golang:1.22",
+					},
 				},
 			},
 		},
 	}
-	cmds := parseCustomCommands(input)
-	require.Contains(t, cmds, "C")
-	require.NotNil(t, cmds["C"].Container)
-	assert.Equal(t, "golang:1.22", cmds["C"].Container.Image)
-	assert.Equal(t, "go test ./...", cmds["C"].Command)
+	cmds, _ := parseCustomCommands(input)
+	require.Contains(t, cmds[PaneUniversal], "C")
+	require.NotNil(t, cmds[PaneUniversal]["C"].Container)
+	assert.Equal(t, "golang:1.22", cmds[PaneUniversal]["C"].Container.Image)
+	assert.Equal(t, "go test ./...", cmds[PaneUniversal]["C"].Command)
 }
 
 func TestParseCustomCommandsContainerOnly(t *testing.T) {
@@ -2558,16 +2614,54 @@ func TestParseCustomCommandsContainerOnly(t *testing.T) {
 	// when container has an image
 	input := map[string]any{
 		"custom_commands": map[string]any{
-			"D": map[string]any{
-				"description": "Container shell",
-				"container": map[string]any{
-					"image": "alpine",
+			PaneUniversal: map[string]any{
+				"D": map[string]any{
+					"description": "Container shell",
+					"container": map[string]any{
+						"image": "alpine",
+					},
 				},
 			},
 		},
 	}
-	cmds := parseCustomCommands(input)
-	require.Contains(t, cmds, "D")
-	require.NotNil(t, cmds["D"].Container)
-	assert.Equal(t, "alpine", cmds["D"].Container.Image)
+	cmds, _ := parseCustomCommands(input)
+	require.Contains(t, cmds[PaneUniversal], "D")
+	require.NotNil(t, cmds[PaneUniversal]["D"].Container)
+	assert.Equal(t, "alpine", cmds[PaneUniversal]["D"].Container.Image)
+}
+
+func TestParseCustomCommandsOldFlatFormatMigration(t *testing.T) {
+	t.Parallel()
+	// Old flat format: key is bound directly to a command map (no pane wrapper).
+	// Expect auto-migration to PaneUniversal and a deprecation warning.
+	input := map[string]any{
+		"custom_commands": map[string]any{
+			"x": map[string]any{
+				"command": "make test",
+			},
+		},
+	}
+	cmds, warnings := parseCustomCommands(input)
+	require.Len(t, warnings, 1)
+	assert.Contains(t, warnings[0], "old flat format")
+	require.Contains(t, cmds[PaneUniversal], "x")
+	assert.Equal(t, "make test", cmds[PaneUniversal]["x"].Command)
+}
+
+func TestParseCustomCommandsNewFormatNoWarning(t *testing.T) {
+	t.Parallel()
+	// New nested format: no deprecation warning should be emitted.
+	input := map[string]any{
+		"custom_commands": map[string]any{
+			PaneUniversal: map[string]any{
+				"x": map[string]any{
+					"command": "make test",
+				},
+			},
+		},
+	}
+	cmds, warnings := parseCustomCommands(input)
+	assert.Empty(t, warnings)
+	require.Contains(t, cmds[PaneUniversal], "x")
+	assert.Equal(t, "make test", cmds[PaneUniversal]["x"].Command)
 }

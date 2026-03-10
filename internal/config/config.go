@@ -21,6 +21,16 @@ const (
 	NoteTypeOneJSON  = "onejson"
 )
 
+// Pane name constants used for keybinding and command dispatch.
+const (
+	PaneWorktrees = "worktrees"
+	PaneInfo      = "info"
+	PaneStatus    = "status"
+	PaneLog       = "log"
+	PaneNotes     = "notes"
+	PaneUniversal = "universal"
+)
+
 // CustomCommand represents a user-defined command binding.
 type CustomCommand struct {
 	Command     string
@@ -32,6 +42,67 @@ type CustomCommand struct {
 	Tmux        *TmuxCommand
 	Zellij      *TmuxCommand
 	Container   *ContainerCommand
+}
+
+// KeybindingsConfig maps pane names to key→actionID maps. "universal" applies to all panes.
+type KeybindingsConfig map[string]map[string]string
+
+// Lookup returns the action ID for the given pane and key,
+// checking pane-specific first, then universal.
+func (k KeybindingsConfig) Lookup(paneName, key string) (string, bool) {
+	if m, ok := k[paneName]; ok {
+		if id, ok := m[key]; ok {
+			return id, true
+		}
+	}
+	if m, ok := k[PaneUniversal]; ok {
+		if id, ok := m[key]; ok {
+			return id, true
+		}
+	}
+	return "", false
+}
+
+// CustomCommandsConfig maps pane names to key→*CustomCommand maps. "universal" applies to all panes.
+type CustomCommandsConfig map[string]map[string]*CustomCommand
+
+// Lookup returns the custom command for the given pane and key,
+// checking pane-specific first, then universal.
+func (c CustomCommandsConfig) Lookup(paneName, key string) (*CustomCommand, bool) {
+	if m, ok := c[paneName]; ok {
+		if cmd, ok := m[key]; ok && cmd != nil {
+			return cmd, true
+		}
+	}
+	if m, ok := c[PaneUniversal]; ok {
+		if cmd, ok := m[key]; ok && cmd != nil {
+			return cmd, true
+		}
+	}
+	return nil, false
+}
+
+// AllForPane returns a merged map of universal + pane-specific commands (pane wins on conflict).
+func (c CustomCommandsConfig) AllForPane(paneName string) map[string]*CustomCommand {
+	result := make(map[string]*CustomCommand)
+	for key, cmd := range c[PaneUniversal] {
+		if cmd != nil {
+			result[key] = cmd
+		}
+	}
+	if paneName != PaneUniversal {
+		for key, cmd := range c[paneName] {
+			if cmd != nil {
+				result[key] = cmd
+			}
+		}
+	}
+	return result
+}
+
+// AllUniversal returns only the universal commands.
+func (c CustomCommandsConfig) AllUniversal() map[string]*CustomCommand {
+	return c[PaneUniversal]
 }
 
 const paletteOnlyCommandPrefix = "_"
@@ -161,7 +232,8 @@ type AppConfig struct {
 	AutoRefresh             bool
 	CIAutoRefresh           bool // Periodically refresh CI status (GitHub only, uses API rate limits)
 	RefreshIntervalSeconds  int
-	CustomCommands          map[string]*CustomCommand
+	CustomCommands          CustomCommandsConfig
+	Keybindings             KeybindingsConfig
 	BranchNameScript        string // Script to generate branch name suggestions from diff
 	WorktreeNoteScript      string // Script to generate worktree notes from PR/issue content
 	WorktreeNotesPath       string // Optional path to a single shared JSON file for worktree notes
@@ -180,6 +252,7 @@ type AppConfig struct {
 	CustomThemes            map[string]*CustomTheme // User-defined custom themes
 	LayoutSizes             *LayoutSizes            // Configurable pane size weights (nil = use defaults)
 	ConfigPath              string                  `yaml:"-"` // Path to the configuration file
+	DeprecationWarnings     []string                `yaml:"-"` // Warnings about deprecated config keys detected at load time
 	Commit                  CommitConfig            `yaml:"commit"`
 }
 
@@ -215,27 +288,30 @@ func DefaultConfig() *AppConfig {
 		PaletteMRULimit:         5,
 		IconSet:                 "nerd-font-v3",
 		CustomThemes:            make(map[string]*CustomTheme),
-		CustomCommands: map[string]*CustomCommand{
-			"t": {
-				Description: "Tmux",
-				ShowHelp:    true,
-				Tmux: &TmuxCommand{
-					SessionName: "wt:$WORKTREE_NAME",
-					Attach:      true,
-					OnExists:    "switch",
-					Windows: []TmuxWindow{
-						{Name: "shell"},
+		Keybindings:             make(KeybindingsConfig),
+		CustomCommands: CustomCommandsConfig{
+			PaneUniversal: {
+				"t": {
+					Description: "Tmux",
+					ShowHelp:    true,
+					Tmux: &TmuxCommand{
+						SessionName: "wt:$WORKTREE_NAME",
+						Attach:      true,
+						OnExists:    "switch",
+						Windows: []TmuxWindow{
+							{Name: "shell"},
+						},
 					},
 				},
-			},
-			"Z": {
-				Description: "Zellij",
-				Zellij: &TmuxCommand{
-					SessionName: "wt:$WORKTREE_NAME",
-					Attach:      true,
-					OnExists:    "switch",
-					Windows: []TmuxWindow{
-						{Name: "shell"},
+				"Z": {
+					Description: "Zellij",
+					Zellij: &TmuxCommand{
+						SessionName: "wt:$WORKTREE_NAME",
+						Attach:      true,
+						OnExists:    "switch",
+						Windows: []TmuxWindow{
+							{Name: "shell"},
+						},
 					},
 				},
 			},
@@ -484,10 +560,20 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 	}
 
 	if _, ok := data["custom_commands"]; ok {
-		customCommands := parseCustomCommands(data)
-		for key, cmd := range customCommands {
-			cfg.CustomCommands[key] = cmd
+		parsed, deprecations := parseCustomCommands(data)
+		cfg.DeprecationWarnings = append(cfg.DeprecationWarnings, deprecations...)
+		for pane, cmds := range parsed {
+			if cfg.CustomCommands[pane] == nil {
+				cfg.CustomCommands[pane] = make(map[string]*CustomCommand)
+			}
+			for key, cmd := range cmds {
+				cfg.CustomCommands[pane][key] = cmd
+			}
 		}
+	}
+
+	if _, ok := data["keybindings"]; ok {
+		cfg.Keybindings = parseKeybindings(data)
 	}
 
 	if _, ok := data["custom_create_menus"]; ok {
@@ -505,43 +591,106 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 	return cfg, nil
 }
 
-func parseCustomCommands(data map[string]any) map[string]*CustomCommand {
+// commandSpecificFields are YAML keys that appear directly inside a custom command
+// definition (as opposed to a pane name). Used to detect the old flat format.
+var commandSpecificFields = map[string]bool{
+	"command": true, "description": true, "show_help": true,
+	"wait": true, "show_output": true, "new_tab": true,
+	"tmux": true, "zellij": true, "container": true,
+}
+
+// isOldFlatCommandEntry reports whether val looks like an old-style flat
+// custom_command entry (i.e. a map whose keys are command fields, not key→cmd maps).
+func isOldFlatCommandEntry(val any) bool {
+	m, ok := val.(map[string]any)
+	if !ok {
+		return false
+	}
+	for k := range m {
+		if commandSpecificFields[k] {
+			return true
+		}
+	}
+	return false
+}
+
+func parseCustomCommands(data map[string]any) (CustomCommandsConfig, []string) {
 	raw, ok := data["custom_commands"].(map[string]any)
 	if !ok {
-		return make(map[string]*CustomCommand)
+		return make(CustomCommandsConfig), nil
 	}
 
-	cmds := make(map[string]*CustomCommand)
-	for key, val := range raw {
-		cmdData, ok := val.(map[string]any)
-		if !ok {
+	var warnings []string
+	migrated := false
+	result := make(CustomCommandsConfig)
+
+	for pane, val := range raw {
+		if isOldFlatCommandEntry(val) {
+			// Old flat format: the key is bound directly to a command map instead
+			// of a pane name. Auto-migrate into "universal".
+			migrated = true
+			cmdData, _ := val.(map[string]any)
+			if cmd := parseOneCustomCommand(cmdData); cmd != nil {
+				if result[PaneUniversal] == nil {
+					result[PaneUniversal] = make(map[string]*CustomCommand)
+				}
+				result[PaneUniversal][pane] = cmd
+			}
 			continue
 		}
 
-		cmd := &CustomCommand{
-			Command:     getString(cmdData, "command"),
-			Description: getString(cmdData, "description"),
-			ShowHelp:    coerceBool(cmdData["show_help"], false),
-			Wait:        coerceBool(cmdData["wait"], false),
-			ShowOutput:  coerceBool(cmdData["show_output"], false),
-			NewTab:      coerceBool(cmdData["new_tab"], false),
+		paneMap, ok := val.(map[string]any)
+		if !ok {
+			continue
 		}
-
-		if tmux, ok := cmdData["tmux"].(map[string]any); ok {
-			cmd.Tmux = parseTmuxCommand(tmux)
+		cmds := make(map[string]*CustomCommand)
+		for key, cmdVal := range paneMap {
+			cmdData, ok := cmdVal.(map[string]any)
+			if !ok {
+				continue
+			}
+			if cmd := parseOneCustomCommand(cmdData); cmd != nil {
+				cmds[key] = cmd
+			}
 		}
-		if zellij, ok := cmdData["zellij"].(map[string]any); ok {
-			cmd.Zellij = parseTmuxCommand(zellij)
-		}
-		if container, ok := cmdData["container"].(map[string]any); ok {
-			cmd.Container = parseContainerCommand(container)
-		}
-
-		if cmd.Command != "" || cmd.Tmux != nil || cmd.Zellij != nil || cmd.Container != nil {
-			cmds[key] = cmd
+		if len(cmds) > 0 {
+			result[pane] = cmds
 		}
 	}
-	return cmds
+
+	if migrated {
+		warnings = append(warnings, "`custom_commands` uses the old flat format. "+
+			"Wrap your commands under a pane key (e.g. `universal:`). "+
+			"Old entries have been migrated automatically — please update your config file.")
+	}
+
+	return result, warnings
+}
+
+func parseOneCustomCommand(cmdData map[string]any) *CustomCommand {
+	cmd := &CustomCommand{
+		Command:     getString(cmdData, "command"),
+		Description: getString(cmdData, "description"),
+		ShowHelp:    coerceBool(cmdData["show_help"], false),
+		Wait:        coerceBool(cmdData["wait"], false),
+		ShowOutput:  coerceBool(cmdData["show_output"], false),
+		NewTab:      coerceBool(cmdData["new_tab"], false),
+	}
+
+	if tmux, ok := cmdData["tmux"].(map[string]any); ok {
+		cmd.Tmux = parseTmuxCommand(tmux)
+	}
+	if zellij, ok := cmdData["zellij"].(map[string]any); ok {
+		cmd.Zellij = parseTmuxCommand(zellij)
+	}
+	if container, ok := cmdData["container"].(map[string]any); ok {
+		cmd.Container = parseContainerCommand(container)
+	}
+
+	if cmd.Command != "" || cmd.Tmux != nil || cmd.Zellij != nil || cmd.Container != nil {
+		return cmd
+	}
+	return nil
 }
 
 func parseTmuxCommand(data map[string]any) *TmuxCommand {
@@ -616,6 +765,33 @@ func parseContainerCommand(data map[string]any) *ContainerCommand {
 		return nil
 	}
 	return cmd
+}
+
+func parseKeybindings(data map[string]any) KeybindingsConfig {
+	raw, ok := data["keybindings"].(map[string]any)
+	if !ok {
+		return make(KeybindingsConfig)
+	}
+	result := make(KeybindingsConfig)
+	for pane, val := range raw {
+		paneMap, ok := val.(map[string]any)
+		if !ok {
+			continue
+		}
+		bindings := make(map[string]string)
+		for key, actionVal := range paneMap {
+			if actionID, ok := actionVal.(string); ok {
+				actionID = strings.TrimSpace(actionID)
+				if actionID != "" {
+					bindings[strings.TrimSpace(key)] = actionID
+				}
+			}
+		}
+		if len(bindings) > 0 {
+			result[pane] = bindings
+		}
+	}
+	return result
 }
 
 func parseCustomCreateMenus(data map[string]any) []*CustomCreateMenu {

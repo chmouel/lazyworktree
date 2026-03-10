@@ -323,9 +323,14 @@ terminate_commands:
 # CUSTOM COMMANDS
 # ============================================================================
 
-# Custom keybindings to run commands in the selected worktree
-# Commands are executed interactively (TUI suspends, similar to lazygit)
-# Note: Custom commands take precedence over built-in keys (e.g., 's' will override the sort toggle)
+# Custom commands are organised by pane context. Use "universal" for commands
+# available in all panes, or a pane name for context-specific bindings.
+#
+# Pane names: universal, worktrees, info, status, log, notes
+#
+# Commands are executed interactively (TUI suspends, similar to lazygit).
+# Pane-specific bindings take precedence over universal ones when the same
+# key is defined in both.
 #
 # Environment variables: Same as lifecycle hooks (see above)
 #
@@ -340,6 +345,11 @@ terminate_commands:
 #   show_help: Show in help screen and footer hints (default: false)
 #   wait: Wait for keypress after command completes (default: false, useful for quick commands)
 #   show_output: Display command output in the pager instead of running interactively (default: false)
+#
+# Prefix a key with "_" to make it command-palette only (no direct keybinding):
+#   _review:
+#     command: "make review"
+#     description: "Review current worktree"
 #
 # Container execution: run commands inside OCI containers (docker/podman).
 # The container runtime is auto-detected (podman preferred, then docker).
@@ -359,103 +369,98 @@ terminate_commands:
 #   args: Arguments passed after the image as CMD (optional)
 #   interactive: Allocate TTY for interactive use (default: false).
 #
-# Container examples:
+# Container example:
 #
-#   # Run tests in a Go container
-#   # ctrl+g:
-#   #   command: "go test ./..."
-#   #   description: "Run tests in container"
-#   #   show_output: true
-#   #   container:
-#   #     image: "golang:1.22"
+#   custom_commands:
+#     universal:
+#       ctrl+g:
+#         command: "go test ./..."
+#         description: "Run tests in container"
+#         show_output: true
+#         container:
+#           image: "golang:1.22"
 #
-#   # Container + tmux: each window runs inside the container
-#   # ctrl+l:
-#   #   description: "Dev environment in container"
-#   #   tmux:
-#   #     session_name: "dev:$WORKTREE_NAME"
-#   #     windows:
-#   #       - name: test
-#   #         command: "go test -v ./..."
-#   #       - name: shell
-#   #   container:
-#   #     image: "golang:1.22"
-#   #     extra_args:
-#   #       - "--network=host"
-#
-#   # Claude Code in a container
-#   # ctrl+c:
-#   #   description: "Claude Code in container"
-#   #   command: "claude"
-#   #   container:
-#   #     image: "ghcr.io/chmouel/agents-image"
-#   #     interactive: true
-#   #     args:
-#   #       - "--dangerously-skip-permissions"
-#   #     env:
-#   #       CLAUDE_CONFIG_DIR: "/claude"
-#   #     mounts:
-#   #       - source: "~/.claude"
-#   #         target: "/claude"
-#   #         options: "z"   # SELinux: relabel for shared container access
-#   #     extra_args:
-#   #       - "--user=1000:1000"
-#   #
-#   # Prefix a key with "_" to make it command-palette only (no direct keybinding)
-#   # _review:
-#   #   command: "make review"
-#   #   description: "Review current worktree"
 custom_commands:
-  s:
-    command: zsh
-    description: Open shell
-    show_help: true
-  t:
-    command: make test
-    description: Run tests
-    show_help: false
-    wait: true
-  l:
-    command: ls -la
-    description: List files
-    show_help: true
-    wait: true
-  "ctrl+t":
-    command: "git status -sb"
-    description: Status
-    show_help: true
-    show_output: true
-  "T":
-    description: Tmux session
-    show_help: true
-    tmux:
-      session_name: "wt:$WORKTREE_NAME"
-      attach: true
-      on_exists: "switch"
-      windows:
-        - name: claude
-          command: claude
-        - name: shell
-          command: zsh
-        - name: lazygit
-          command: lazygit
-  "Z":
-    description: Zellij session
-    show_help: true
-    zellij:
-      session_name: "wt:$WORKTREE_NAME"
-      attach: true
-      on_exists: "switch"
-      windows:
-        - name: claude
-          command: claude
-        - name: shell
-          command: zsh
-        - name: lazygit
-          command: lazygit
-  _review:
-    command: "make review"
-    description: "Review current worktree"
+  universal:
+    s:
+      command: zsh
+      description: Open shell
+      show_help: true
+    "ctrl+t":
+      command: "git status -sb"
+      description: Status
+      show_help: true
+      show_output: true
+    "T":
+      description: Tmux session
+      show_help: true
+      tmux:
+        session_name: "wt:$WORKTREE_NAME"
+        attach: true
+        on_exists: "switch"
+        windows:
+          - name: claude
+            command: claude
+          - name: shell
+            command: zsh
+          - name: lazygit
+            command: lazygit
+    "Z":
+      description: Zellij session
+      show_help: true
+      zellij:
+        session_name: "wt:$WORKTREE_NAME"
+        attach: true
+        on_exists: "switch"
+        windows:
+          - name: claude
+            command: claude
+          - name: shell
+            command: zsh
+          - name: lazygit
+            command: lazygit
+    _review:
+      command: "make review"
+      description: "Review current worktree"
+  worktrees:
+    t:
+      command: make test
+      description: Run tests
+      show_help: false
+      wait: true
+    l:
+      command: ls -la
+      description: List files
+      show_help: true
+      wait: true
+  status:
+    e:
+      command: "${EDITOR:-nvim} $FILE_PATH"
+      description: Edit file in editor
+      show_help: true
+
+# ============================================================================
+# KEYBINDINGS
+# ============================================================================
+
+# Bind any key to a built-in palette action, organised by pane context.
+# Use "universal" for bindings active in all panes, or a pane name for
+# context-specific bindings. Pane-specific bindings take precedence over universal.
+#
+# Pane names: universal, worktrees, info, status, log, notes
+#
+# Use any action ID listed in docs/action-ids.md (e.g. lazygit, delete, diff).
+# Supported key formats: same as custom_commands (e.g. "G", "ctrl+d", "alt+l")
+#
+# Examples:
+# keybindings:
+#   universal:
+#     G: lazygit
+#     F: fetch
+#   worktrees:
+#     x: delete
+#   log:
+#     d: diff
 
 # ============================================================================
 # CUSTOM MENUS

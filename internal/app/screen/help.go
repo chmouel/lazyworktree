@@ -40,17 +40,17 @@ func helpDimensions(maxWidth, maxHeight int) (int, int) {
 	height := helpDefaultHeight
 
 	if maxWidth > 0 {
-		width = maxInt(helpMinWidth, maxWidth-helpMarginX)
+		width = max(helpMinWidth, maxWidth-helpMarginX)
 	}
 	if maxHeight > 0 {
-		height = maxInt(helpMinHeight, maxHeight-helpMarginY)
+		height = max(helpMinHeight, maxHeight-helpMarginY)
 	}
 
 	return width, height
 }
 
 // NewHelpScreen initializes help content with the available screen size.
-func NewHelpScreen(maxWidth, maxHeight int, customCommands map[string]*config.CustomCommand, thm *theme.Theme, showIcons bool) *HelpScreen {
+func NewHelpScreen(maxWidth, maxHeight int, customCommands config.CustomCommandsConfig, keybindings config.KeybindingsConfig, thm *theme.Theme, showIcons bool) *HelpScreen {
 	helpTextTemplate := `{{HELP_TITLE}}LazyWorktree Help Guide
 
 **{{HELP_NAV}}Navigation**
@@ -271,26 +271,57 @@ Commit Log Indicators:
 
 	helpText := replacer.Replace(helpTextTemplate)
 
-	// Append custom commands section if any exist with show_help=true
+	// Append custom commands section — universal first, then per-pane
 	if len(customCommands) > 0 {
-		var customKeys []string
-		for key, cmd := range customCommands {
+		universal := customCommands.AllUniversal()
+		var universalKeys []string
+		for key, cmd := range universal {
 			if cmd == nil || !cmd.ShowHelp {
 				continue
 			}
-			customKeys = append(customKeys, helpCustomCommandEntry(key, cmd))
+			universalKeys = append(universalKeys, helpCustomCommandEntry(key, cmd))
+		}
+		if len(universalKeys) > 0 {
+			sort.Strings(universalKeys)
+			customTitle := labelWithIcon(UIIconConfiguration, "Custom Commands", showIcons)
+			helpText += "\n\n**" + customTitle + "**\n" + strings.Join(universalKeys, "\n")
 		}
 
-		if len(customKeys) > 0 {
-			sort.Strings(customKeys)
-			customTitle := labelWithIcon(UIIconConfiguration, "Custom Commands", showIcons)
-			helpText += "\n\n**" + customTitle + "**\n" + strings.Join(customKeys, "\n")
+		paneOrder := []string{config.PaneWorktrees, config.PaneInfo, config.PaneStatus, config.PaneLog, config.PaneNotes}
+		for _, pane := range paneOrder {
+			paneCmds := customCommands[pane]
+			if len(paneCmds) == 0 {
+				continue
+			}
+			var paneKeys []string
+			for key, cmd := range paneCmds {
+				if cmd == nil || !cmd.ShowHelp {
+					continue
+				}
+				paneKeys = append(paneKeys, helpCustomCommandEntry(key, cmd))
+			}
+			if len(paneKeys) > 0 {
+				sort.Strings(paneKeys)
+				paneTitle := labelWithIcon(UIIconConfiguration, fmt.Sprintf("Custom Commands (%s pane)", pane), showIcons)
+				helpText += "\n\n**" + paneTitle + "**\n" + strings.Join(paneKeys, "\n")
+			}
 		}
+	}
+
+	// Append universal keybindings section if any exist
+	if universal := keybindings[config.PaneUniversal]; len(universal) > 0 {
+		var kbLines []string
+		for key, actionID := range universal {
+			kbLines = append(kbLines, fmt.Sprintf("- %s: %s", key, actionID))
+		}
+		sort.Strings(kbLines)
+		kbTitle := labelWithIcon(UIIconConfiguration, "Custom Keybindings", showIcons)
+		helpText += "\n\n**" + kbTitle + "**\n" + strings.Join(kbLines, "\n")
 	}
 
 	width, height := helpDimensions(maxWidth, maxHeight)
 
-	vp := viewport.New(viewport.WithWidth(width), viewport.WithHeight(maxInt(5, height-3)))
+	vp := viewport.New(viewport.WithWidth(width), viewport.WithHeight(max(5, height-3)))
 	fullLines := strings.Split(helpText, "\n")
 
 	ti := textinput.New()
@@ -299,7 +330,7 @@ Commit Log Indicators:
 	ti.Prompt = "/ "
 	ti.SetValue("")
 	ti.Blur()
-	ti.SetWidth(maxInt(20, width-6))
+	ti.SetWidth(max(20, width-6))
 
 	hs := &HelpScreen{
 		Viewport:    vp,
@@ -426,7 +457,7 @@ func (s *HelpScreen) SetSize(maxWidth, maxHeight int) {
 	// Update viewport size
 	// height - 4 for borders/header/footer
 	s.Viewport.SetWidth(s.Width - 2)
-	s.Viewport.SetHeight(maxInt(5, s.Height-4))
+	s.Viewport.SetHeight(max(5, s.Height-4))
 }
 
 // renderContent applies styling and search filtering to help text.
@@ -515,7 +546,7 @@ func (s *HelpScreen) View() string {
 	content := s.renderContent()
 
 	// Keep viewport sized to available area (minus header/search lines)
-	vHeight := maxInt(5, s.Height-4) // -4 for borders/header/footer
+	vHeight := max(5, s.Height-4)    // -4 for borders/header/footer
 	s.Viewport.SetWidth(s.Width - 2) // -2 for borders
 	s.Viewport.SetHeight(vHeight)
 	s.Viewport.SetContent(content)
@@ -575,19 +606,4 @@ func (s *HelpScreen) View() string {
 	)
 
 	return boxStyle.Render(contentBlock)
-}
-
-// Helper functions for min/max
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

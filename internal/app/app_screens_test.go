@@ -166,13 +166,13 @@ func TestShowBranchNameInputUsesDefaultName(t *testing.T) {
 func TestShowCommandPaletteIncludesCustomCommands(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
-		CustomCommands: map[string]*config.CustomCommand{
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
 			"x": {
 				Command:     "make test",
 				Description: "Run tests",
 				ShowHelp:    true,
 			},
-		},
+		}},
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
@@ -208,12 +208,12 @@ func TestShowCommandPaletteIncludesCustomCommands(t *testing.T) {
 func TestShowCommandPaletteIncludesPaletteOnlyCustomCommands(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
-		CustomCommands: map[string]*config.CustomCommand{
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
 			"_review": {
 				Command:  "make review",
 				ShowHelp: true,
 			},
-		},
+		}},
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
@@ -251,7 +251,7 @@ func TestShowCommandPaletteIncludesTmuxCommands(t *testing.T) {
 
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
-		CustomCommands: map[string]*config.CustomCommand{
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
 			"t": {
 				Description: "Tmux",
 				ShowHelp:    true,
@@ -264,7 +264,7 @@ func TestShowCommandPaletteIncludesTmuxCommands(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
@@ -305,7 +305,7 @@ func TestShowCommandPaletteIncludesZellijCommands(t *testing.T) {
 
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
-		CustomCommands: map[string]*config.CustomCommand{
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
 			"Z": {
 				Description: "Zellij",
 				ShowHelp:    true,
@@ -318,7 +318,7 @@ func TestShowCommandPaletteIncludesZellijCommands(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
@@ -642,13 +642,13 @@ func TestCtrlGOpensCommitScreenOverActiveModal(t *testing.T) {
 func TestRenderFooterIncludesCustomHelpHints(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
-		CustomCommands: map[string]*config.CustomCommand{
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
 			"x": {
 				Command:     "make test",
 				Description: "Run tests",
 				ShowHelp:    true,
 			},
-		},
+		}},
 	}
 	m := NewModel(cfg, "")
 	m.state.view.WindowWidth = 200
@@ -665,13 +665,13 @@ func TestRenderFooterIncludesCustomHelpHints(t *testing.T) {
 func TestRenderFooterSkipsPaletteOnlyCustomHelpHints(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
-		CustomCommands: map[string]*config.CustomCommand{
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
 			"_review": {
 				Command:     "make review",
 				Description: "Review",
 				ShowHelp:    true,
 			},
-		},
+		}},
 	}
 	m := NewModel(cfg, "")
 	m.state.view.WindowWidth = 200

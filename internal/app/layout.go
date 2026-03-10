@@ -127,7 +127,7 @@ func (m *Model) computeLayout() layoutDims {
 	gapX := 1
 	gapY := 1
 
-	bodyHeight := maxInt(height-headerHeight-footerHeight-filterHeight, 8)
+	bodyHeight := max(height-headerHeight-footerHeight-filterHeight, 8)
 
 	hasNotes := m.hasNoteForSelectedWorktree()
 	hasGitStatus := m.hasGitStatus()
@@ -137,8 +137,8 @@ func (m *Model) computeLayout() layoutDims {
 		paneFrameX := m.basePaneStyle().GetHorizontalFrameSize()
 		paneFrameY := m.basePaneStyle().GetVerticalFrameSize()
 		fullWidth := width
-		fullInnerWidth := maxInt(1, fullWidth-paneFrameX)
-		fullInnerHeight := maxInt(1, bodyHeight-paneFrameY)
+		fullInnerWidth := max(1, fullWidth-paneFrameX)
+		fullInnerHeight := max(1, bodyHeight-paneFrameY)
 
 		return layoutDims{
 			width:                  width,
@@ -215,7 +215,7 @@ func (m *Model) computeLayout() layoutDims {
 		if m.state.view.FocusedPane == 4 {
 			notesRatio = min(notesRatio+0.20, 0.60)
 		}
-		leftBottomHeight = maxInt(4, int(float64(bodyHeight-gapY)*notesRatio))
+		leftBottomHeight = max(4, int(float64(bodyHeight-gapY)*notesRatio))
 		leftTopHeight = bodyHeight - leftBottomHeight - gapY
 		if leftTopHeight < 4 {
 			leftTopHeight = 4
@@ -251,8 +251,8 @@ func (m *Model) computeLayout() layoutDims {
 		}
 
 		availableHeight := bodyHeight - gapY*2
-		rightTopHeight = maxInt(4, int(float64(availableHeight)*topRatio))
-		rightMiddleHeight = maxInt(4, int(float64(availableHeight)*midRatio))
+		rightTopHeight = max(4, int(float64(availableHeight)*topRatio))
+		rightMiddleHeight = max(4, int(float64(availableHeight)*midRatio))
 		rightBottomHeight = availableHeight - rightTopHeight - rightMiddleHeight
 		if rightBottomHeight > commitCap {
 			rightBottomHeight = commitCap
@@ -281,7 +281,7 @@ func (m *Model) computeLayout() layoutDims {
 		}
 
 		availableHeight := bodyHeight - gapY
-		rightTopHeight = maxInt(4, int(float64(availableHeight)*topRatio))
+		rightTopHeight = max(4, int(float64(availableHeight)*topRatio))
 		rightBottomHeight = availableHeight - rightTopHeight
 		if rightBottomHeight > commitCap {
 			rightBottomHeight = commitCap
@@ -292,17 +292,17 @@ func (m *Model) computeLayout() layoutDims {
 		}
 	}
 
-	leftInnerWidth := maxInt(1, leftWidth-paneFrameX)
-	rightInnerWidth := maxInt(1, rightWidth-paneFrameX)
-	leftInnerHeight := maxInt(1, bodyHeight-paneFrameY)
-	rightTopInnerHeight := maxInt(1, rightTopHeight-paneFrameY)
-	rightMiddleInnerHeight := maxInt(1, rightMiddleHeight-paneFrameY)
-	rightBottomInnerHeight := maxInt(1, rightBottomHeight-paneFrameY)
+	leftInnerWidth := max(1, leftWidth-paneFrameX)
+	rightInnerWidth := max(1, rightWidth-paneFrameX)
+	leftInnerHeight := max(1, bodyHeight-paneFrameY)
+	rightTopInnerHeight := max(1, rightTopHeight-paneFrameY)
+	rightMiddleInnerHeight := max(1, rightMiddleHeight-paneFrameY)
+	rightBottomInnerHeight := max(1, rightBottomHeight-paneFrameY)
 
 	// Finish notes inner dimensions
 	if hasNotes {
-		leftTopInnerHeight = maxInt(1, leftTopHeight-paneFrameY)
-		leftBottomInnerHeight = maxInt(1, leftBottomHeight-paneFrameY)
+		leftTopInnerHeight = max(1, leftTopHeight-paneFrameY)
+		leftBottomInnerHeight = max(1, leftBottomHeight-paneFrameY)
 	} else {
 		leftTopHeight = bodyHeight
 		leftTopInnerHeight = leftInnerHeight
@@ -358,7 +358,7 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		topRatio = max(0.20, baseTopRatio*0.45)
 	}
 
-	topHeight := maxInt(4, int(float64(bodyHeight-gapY)*topRatio)) + m.state.view.ResizeOffset
+	topHeight := max(4, int(float64(bodyHeight-gapY)*topRatio)) + m.state.view.ResizeOffset
 	bottomHeight := bodyHeight - topHeight - gapY
 	if bottomHeight < 6 {
 		bottomHeight = 6
@@ -390,8 +390,8 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		}
 
 		availableWidth := width - gapX*2
-		bottomLeftWidth = maxInt(minLeftPaneWidth, int(float64(availableWidth)*leftRatio))
-		bottomMiddleWidth = maxInt(minRightPaneWidth, int(float64(availableWidth)*midRatio))
+		bottomLeftWidth = max(minLeftPaneWidth, int(float64(availableWidth)*leftRatio))
+		bottomMiddleWidth = max(minRightPaneWidth, int(float64(availableWidth)*midRatio))
 		bottomRightWidth = availableWidth - bottomLeftWidth - bottomMiddleWidth
 		if bottomRightWidth < minRightPaneWidth {
 			bottomRightWidth = minRightPaneWidth
@@ -438,7 +438,7 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		}
 
 		availableWidth := width - gapX
-		bottomLeftWidth = maxInt(minLeftPaneWidth, int(float64(availableWidth)*leftRatio))
+		bottomLeftWidth = max(minLeftPaneWidth, int(float64(availableWidth)*leftRatio))
 		bottomRightWidth = availableWidth - bottomLeftWidth
 		if bottomRightWidth < minRightPaneWidth {
 			bottomRightWidth = minRightPaneWidth
@@ -456,10 +456,10 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		if m.state.view.FocusedPane == 4 {
 			notesRatio = min(notesRatio+0.10, 0.35)
 		}
-		notesRowHeight = maxInt(4, int(float64(bodyHeight)*notesRatio))
+		notesRowHeight = max(4, int(float64(bodyHeight)*notesRatio))
 		// Re-budget: top + gap + notes + gap + bottom = bodyHeight
 		remaining := bodyHeight - notesRowHeight - gapY*2
-		topHeight = maxInt(4, int(float64(remaining)*topRatio/(topRatio+(1.0-topRatio))))
+		topHeight = max(4, int(float64(remaining)*topRatio/(topRatio+(1.0-topRatio))))
 		bottomHeight = remaining - topHeight
 		if bottomHeight < 6 {
 			bottomHeight = 6
@@ -468,18 +468,18 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		if topHeight < 4 {
 			topHeight = 4
 		}
-		notesRowInnerHeight = maxInt(1, notesRowHeight-paneFrameY)
-		notesRowInnerWidth = maxInt(1, width-paneFrameX)
+		notesRowInnerHeight = max(1, notesRowHeight-paneFrameY)
+		notesRowInnerWidth = max(1, width-paneFrameX)
 	}
 
-	topInnerWidth := maxInt(1, width-paneFrameX)
-	topInnerHeight := maxInt(1, topHeight-paneFrameY)
-	bottomLeftInnerWidth := maxInt(1, bottomLeftWidth-paneFrameX)
-	bottomMiddleInnerWidth := maxInt(1, bottomMiddleWidth-paneFrameX)
-	bottomRightInnerWidth := maxInt(1, bottomRightWidth-paneFrameX)
-	bottomLeftInnerHeight := maxInt(1, bottomHeight-paneFrameY)
-	bottomMiddleInnerHeight := maxInt(1, bottomHeight-paneFrameY)
-	bottomRightInnerHeight := maxInt(1, bottomHeight-paneFrameY)
+	topInnerWidth := max(1, width-paneFrameX)
+	topInnerHeight := max(1, topHeight-paneFrameY)
+	bottomLeftInnerWidth := max(1, bottomLeftWidth-paneFrameX)
+	bottomMiddleInnerWidth := max(1, bottomMiddleWidth-paneFrameX)
+	bottomRightInnerWidth := max(1, bottomRightWidth-paneFrameX)
+	bottomLeftInnerHeight := max(1, bottomHeight-paneFrameY)
+	bottomMiddleInnerHeight := max(1, bottomHeight-paneFrameY)
+	bottomRightInnerHeight := max(1, bottomHeight-paneFrameY)
 
 	return layoutDims{
 		width:        width,
@@ -540,14 +540,14 @@ func (m *Model) applyLayout(layout layoutDims) {
 
 	if layout.layoutMode == state.LayoutTop && m.state.view.ZoomedPane < 0 {
 		// Top layout: worktree uses full width at top, commit uses bottom right
-		tableHeight := maxInt(3, layout.topInnerHeight-titleHeight-tableHeaderHeight-2)
+		tableHeight := max(3, layout.topInnerHeight-titleHeight-tableHeaderHeight-2)
 		m.state.ui.worktreeTable.SetWidth(layout.topInnerWidth)
 		m.state.ui.worktreeTable.SetHeight(tableHeight)
 		m.updateTableColumns(layout.topInnerWidth)
 
 		// Pane title is the top border, already accounted for in paneFrameY.
 		// Safety margin of 2 prevents overflow at small sizes.
-		logHeight := maxInt(3, layout.bottomRightInnerHeight-2)
+		logHeight := max(3, layout.bottomRightInnerHeight-2)
 		m.state.ui.logTable.SetWidth(layout.bottomRightInnerWidth)
 		m.state.ui.logTable.SetHeight(logHeight)
 		m.updateLogColumns(layout.bottomRightInnerWidth)
@@ -559,20 +559,20 @@ func (m *Model) applyLayout(layout layoutDims) {
 		if layout.hasNotes && m.state.view.ZoomedPane < 0 {
 			wtInnerHeight = layout.leftTopInnerHeight
 		}
-		tableHeight := maxInt(3, wtInnerHeight-titleHeight-tableHeaderHeight-2)
+		tableHeight := max(3, wtInnerHeight-titleHeight-tableHeaderHeight-2)
 		m.state.ui.worktreeTable.SetWidth(layout.leftInnerWidth)
 		m.state.ui.worktreeTable.SetHeight(tableHeight)
 		m.updateTableColumns(layout.leftInnerWidth)
 
 		// Pane title is the top border, already accounted for in paneFrameY.
 		// Safety margin of 2 prevents overflow at small sizes.
-		logHeight := maxInt(3, layout.rightBottomInnerHeight-2)
+		logHeight := max(3, layout.rightBottomInnerHeight-2)
 		m.state.ui.logTable.SetWidth(layout.rightInnerWidth)
 		m.state.ui.logTable.SetHeight(logHeight)
 		m.updateLogColumns(layout.rightInnerWidth)
 	}
 
-	m.state.ui.filterInput.SetWidth(maxInt(20, layout.width-18))
+	m.state.ui.filterInput.SetWidth(max(20, layout.width-18))
 }
 
 // updateTableColumns updates the worktree table column widths based on available space.
@@ -595,7 +595,7 @@ func (m *Model) updateTableColumns(totalWidth int) {
 	}
 	separatorSpace := (numColumns - 1) * 3
 
-	worktree := maxInt(12, totalWidth-status-last-pr-separatorSpace)
+	worktree := max(12, totalWidth-status-last-pr-separatorSpace)
 	excess := worktree + status + pr + last + separatorSpace - totalWidth
 	for excess > 0 && last > 10 {
 		last--
@@ -616,7 +616,7 @@ func (m *Model) updateTableColumns(totalWidth int) {
 		excess--
 	}
 	if excess > 0 {
-		worktree = maxInt(6, worktree-excess)
+		worktree = max(6, worktree-excess)
 	}
 
 	// Final adjustment: ensure column widths + separators sum exactly to totalWidth
@@ -626,7 +626,7 @@ func (m *Model) updateTableColumns(totalWidth int) {
 		worktree += (totalWidth - actualTotal)
 	} else if actualTotal > totalWidth {
 		// Remove excess from worktree column
-		worktree = maxInt(6, worktree-(actualTotal-totalWidth))
+		worktree = max(6, worktree-(actualTotal-totalWidth))
 	}
 
 	columns := []table.Column{
@@ -651,14 +651,14 @@ func (m *Model) updateLogColumns(totalWidth int) {
 	// 3 columns = 2 separators = 6 spaces
 	separatorSpace := 6
 
-	message := maxInt(10, totalWidth-sha-author-separatorSpace)
+	message := max(10, totalWidth-sha-author-separatorSpace)
 
 	// Final adjustment: ensure column widths + separator space sum exactly to totalWidth
 	actualTotal := sha + author + message + separatorSpace
 	if actualTotal < totalWidth {
 		message += (totalWidth - actualTotal)
 	} else if actualTotal > totalWidth {
-		message = maxInt(10, message-(actualTotal-totalWidth))
+		message = max(10, message-(actualTotal-totalWidth))
 	}
 
 	m.state.ui.logTable.SetColumns([]table.Column{
