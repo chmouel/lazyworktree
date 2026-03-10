@@ -89,12 +89,12 @@ func TestOpenLazyGitUsesCommandRunner(t *testing.T) {
 func TestExecuteCustomCommandUsesCommandRunner(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
-		CustomCommands: map[string]*config.CustomCommand{
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
 			"x": {
 				Command: "echo hello",
 				Wait:    true,
 			},
-		},
+		}},
 	}
 	m := NewModel(cfg, "")
 	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: testWorktreePath, Branch: "feat"}}
@@ -104,7 +104,7 @@ func TestExecuteCustomCommandUsesCommandRunner(t *testing.T) {
 	m.commandRunner = capture.runner
 	m.execProcess = capture.exec
 
-	cmd := m.executeCustomCommand("x")
+	cmd := m.executeCustomCommandDirect(cfg.CustomCommands[config.PaneUniversal]["x"])
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
@@ -133,13 +133,13 @@ func TestExecuteCustomCommandShowsOutput(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
 		Pager:       "less --use-color --wordwrap -qcR -P 'Press q to exit..'",
-		CustomCommands: map[string]*config.CustomCommand{
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
 			"x": {
 				Command:    "echo hello",
 				ShowOutput: true,
 				Wait:       true,
 			},
-		},
+		}},
 	}
 	m := NewModel(cfg, "")
 	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: testWorktreePath, Branch: "feat"}}
@@ -149,7 +149,7 @@ func TestExecuteCustomCommandShowsOutput(t *testing.T) {
 	m.commandRunner = capture.runner
 	m.execProcess = capture.exec
 
-	cmd := m.executeCustomCommand("x")
+	cmd := m.executeCustomCommandDirect(cfg.CustomCommands[config.PaneUniversal]["x"])
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}

@@ -136,9 +136,8 @@ func (m *Model) openStatusFileInEditor(sf StatusFile) tea.Cmd {
 	})
 }
 
-func (m *Model) executeCustomCommand(key string) tea.Cmd {
-	customCmd, ok := m.config.CustomCommands[key]
-	if !ok || customCmd == nil {
+func (m *Model) executeCustomCommandDirect(customCmd *config.CustomCommand) tea.Cmd {
+	if customCmd == nil {
 		return nil
 	}
 
@@ -296,12 +295,13 @@ func (m *Model) executeArbitraryCommand(cmdStr string) tea.Cmd {
 }
 
 func (m *Model) customCommandKeys() []string {
-	if len(m.config.CustomCommands) == 0 {
+	allCmds := m.config.CustomCommands.AllForPane(paneIndexToName(m.state.view.FocusedPane))
+	if len(allCmds) == 0 {
 		return nil
 	}
 
-	keys := make([]string, 0, len(m.config.CustomCommands))
-	for key, cmd := range m.config.CustomCommands {
+	keys := make([]string, 0, len(allCmds))
+	for key, cmd := range allCmds {
 		if cmd == nil {
 			continue
 		}

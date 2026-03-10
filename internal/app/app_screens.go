@@ -46,11 +46,19 @@ func (m *Model) handleScreenKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// executeRegistryAction builds a fresh registry and executes the named action ID.
+func (m *Model) executeRegistryAction(actionID string) tea.Cmd {
+	registry := commands.NewRegistry()
+	m.registerPaletteActions(registry)
+	return registry.Execute(actionID)
+}
+
 func (m *Model) showCommandPalette() tea.Cmd {
 	m.debugf("open palette")
 	customItems := m.customPaletteItems()
 	registry := commands.NewRegistry()
 	m.registerPaletteActions(registry)
+	registry.UpdateShortcuts(m.config.Keybindings[config.PaneUniversal])
 
 	m.debugf("palette MRU: enabled=%v, history_len=%d", m.config.PaletteMRU, len(m.paletteHistory))
 	paletteItems := commands.BuildPaletteItems(commands.PaletteOptions{
@@ -114,8 +122,9 @@ func (m *Model) showCommandPalette() tea.Cmd {
 		}
 
 		// Handle custom commands
-		if _, ok := m.config.CustomCommands[action]; ok {
-			return m.executeCustomCommand(action)
+		paneName := paneIndexToName(m.state.view.FocusedPane)
+		if cmd, ok := m.config.CustomCommands.Lookup(paneName, action); ok {
+			return m.executeCustomCommandDirect(cmd)
 		}
 
 		// Handle registry actions
@@ -289,7 +298,7 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 			return m.showTaskboard()
 		},
 		Help: func() tea.Cmd {
-			helpScreen := appscreen.NewHelpScreen(m.state.view.WindowWidth, m.state.view.WindowHeight, m.config.CustomCommands, m.theme, m.config.IconsEnabled())
+			helpScreen := appscreen.NewHelpScreen(m.state.view.WindowWidth, m.state.view.WindowHeight, m.config.CustomCommands, m.config.Keybindings, m.theme, m.config.IconsEnabled())
 			m.state.ui.screenManager.Push(helpScreen)
 			return nil
 		},
@@ -469,9 +478,11 @@ func (m *Model) customFooterHints() []string {
 		return nil
 	}
 
+	paneName := paneIndexToName(m.state.view.FocusedPane)
+	allCmds := m.config.CustomCommands.AllForPane(paneName)
 	hints := make([]string, 0, len(keys))
 	for _, key := range keys {
-		cmd := m.config.CustomCommands[key]
+		cmd := allCmds[key]
 		if cmd == nil || !cmd.ShowHelp {
 			continue
 		}
@@ -668,10 +679,13 @@ func (m *Model) customPaletteItems() []commands.PaletteItem {
 		return nil
 	}
 
+	paneName := paneIndexToName(m.state.view.FocusedPane)
+	allCmds := m.config.CustomCommands.AllForPane(paneName)
+
 	// Separate commands into categories
 	var regularItems, tmuxItems, zellijItems []commands.PaletteItem
 	for _, key := range keys {
-		cmd := m.config.CustomCommands[key]
+		cmd := allCmds[key]
 		if cmd == nil {
 			continue
 		}

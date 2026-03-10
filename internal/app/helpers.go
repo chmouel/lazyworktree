@@ -119,20 +119,6 @@ func fuzzyScoreLower(query, target string) (int, bool) {
 	return score, true
 }
 
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func (m *Model) branchExistsInWorktrees(branch string) bool {
 	for _, wt := range m.state.data.worktrees {
 		if wt.Branch == branch {

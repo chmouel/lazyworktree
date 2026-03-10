@@ -93,6 +93,7 @@ nav:
           - AI Integration: guides/ai-integration.md
           - Container Execution: guides/container-execution.md
       - Reference:
+          - Action IDs: action-ids.md
           - Keybindings: keybindings.md
           - Configuration: configuration.md
           - Custom Commands: custom-commands.md

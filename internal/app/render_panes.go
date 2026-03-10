@@ -502,8 +502,8 @@ func (m *Model) renderNotesBox(width, height int) string {
 
 	innerBoxStyle := m.baseInnerBoxStyle()
 
-	vpWidth := maxInt(1, width-innerBoxStyle.GetHorizontalFrameSize())
-	vpHeight := maxInt(1, height-innerBoxStyle.GetVerticalFrameSize())
+	vpWidth := max(1, width-innerBoxStyle.GetHorizontalFrameSize())
+	vpHeight := max(1, height-innerBoxStyle.GetVerticalFrameSize())
 
 	m.state.ui.notesViewport.SetWidth(vpWidth)
 	m.state.ui.notesViewport.SetHeight(vpHeight)
@@ -598,8 +598,8 @@ func (m *Model) renderInfoBox(width, height int) string {
 	innerBoxStyle := m.baseInnerBoxStyle()
 
 	// Title takes 1 line
-	vpWidth := maxInt(1, width-innerBoxStyle.GetHorizontalFrameSize())
-	vpHeight := maxInt(1, height-innerBoxStyle.GetVerticalFrameSize()-1)
+	vpWidth := max(1, width-innerBoxStyle.GetHorizontalFrameSize())
+	vpHeight := max(1, height-innerBoxStyle.GetVerticalFrameSize()-1)
 
 	m.state.ui.infoViewport.SetWidth(vpWidth)
 	m.state.ui.infoViewport.SetHeight(vpHeight)
@@ -618,8 +618,8 @@ func (m *Model) renderRightMiddlePane(layout layoutDims) string {
 	focused := m.state.view.FocusedPane == 2
 
 	innerBoxStyle := m.baseInnerBoxStyle()
-	statusViewportWidth := maxInt(1, layout.rightInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
-	statusViewportHeight := maxInt(1, layout.rightMiddleInnerHeight-innerBoxStyle.GetVerticalFrameSize())
+	statusViewportWidth := max(1, layout.rightInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
+	statusViewportHeight := max(1, layout.rightMiddleInnerHeight-innerBoxStyle.GetVerticalFrameSize())
 	m.state.ui.statusViewport.SetWidth(statusViewportWidth)
 	m.state.ui.statusViewport.SetHeight(statusViewportHeight)
 	m.state.ui.statusViewport.SetContent(m.statusContent)
@@ -684,8 +684,8 @@ func (m *Model) renderBottomMiddlePane(layout layoutDims) string {
 	focused := m.state.view.FocusedPane == 2
 
 	innerBoxStyle := m.baseInnerBoxStyle()
-	statusViewportWidth := maxInt(1, layout.bottomMiddleInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
-	statusViewportHeight := maxInt(1, layout.bottomMiddleInnerHeight-innerBoxStyle.GetVerticalFrameSize())
+	statusViewportWidth := max(1, layout.bottomMiddleInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
+	statusViewportHeight := max(1, layout.bottomMiddleInnerHeight-innerBoxStyle.GetVerticalFrameSize())
 	m.state.ui.statusViewport.SetWidth(statusViewportWidth)
 	m.state.ui.statusViewport.SetHeight(statusViewportHeight)
 	m.state.ui.statusViewport.SetContent(m.statusContent)
@@ -717,8 +717,8 @@ func (m *Model) renderZoomedRightTopPane(layout layoutDims) string {
 // renderZoomedRightMiddlePane renders the zoomed right middle pane (git status file tree).
 func (m *Model) renderZoomedRightMiddlePane(layout layoutDims) string {
 	innerBoxStyle := m.baseInnerBoxStyle()
-	statusViewportWidth := maxInt(1, layout.rightInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
-	statusViewportHeight := maxInt(1, layout.rightMiddleInnerHeight-innerBoxStyle.GetVerticalFrameSize())
+	statusViewportWidth := max(1, layout.rightInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
+	statusViewportHeight := max(1, layout.rightMiddleInnerHeight-innerBoxStyle.GetVerticalFrameSize())
 	m.state.ui.statusViewport.SetWidth(statusViewportWidth)
 	m.state.ui.statusViewport.SetHeight(statusViewportHeight)
 	m.state.ui.statusViewport.SetContent(m.statusContent)

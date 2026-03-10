@@ -9,16 +9,18 @@ import (
 )
 
 func TestHelpScreenCustomCommandsShowPaletteOnlyEntries(t *testing.T) {
-	help := NewHelpScreen(120, 40, map[string]*config.CustomCommand{
-		"x": {
-			Description: "Run tests",
-			ShowHelp:    true,
+	help := NewHelpScreen(120, 40, config.CustomCommandsConfig{
+		config.PaneUniversal: {
+			"x": {
+				Description: "Run tests",
+				ShowHelp:    true,
+			},
+			"_review": {
+				Description: "Review",
+				ShowHelp:    true,
+			},
 		},
-		"_review": {
-			Description: "Review",
-			ShowHelp:    true,
-		},
-	}, theme.Dracula(), false)
+	}, nil, theme.Dracula(), false)
 
 	text := strings.Join(help.FullText, "\n")
 	if !strings.Contains(text, "- x: Run tests") {

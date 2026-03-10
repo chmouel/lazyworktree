@@ -1229,7 +1229,7 @@ func executeShellCommand(ctx context.Context, command, cwd string, env map[strin
 }
 
 func executeKeyAction(ctx context.Context, key string, cfg *config.AppConfig, wt *models.WorktreeInfo, env map[string]string) error {
-	customCmd, exists := cfg.CustomCommands[key]
+	customCmd, exists := cfg.CustomCommands.Lookup(config.PaneUniversal, key)
 	if !exists {
 		fmt.Fprintf(os.Stderr, "Error: custom command key %q not found in config\n", key)
 		return fmt.Errorf("custom command key %q not found", key)

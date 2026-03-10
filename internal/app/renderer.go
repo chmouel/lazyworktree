@@ -125,7 +125,7 @@ func (m *Model) overlayPopup(base, popup string, marginTop int) string {
 	baseWidth := lipgloss.Width(baseLines[0])
 	popupWidth := lipgloss.Width(popupLines[0])
 
-	leftPad := maxInt((baseWidth-popupWidth)/2, 0)
+	leftPad := max((baseWidth-popupWidth)/2, 0)
 	leftStyle := m.renderStyles.overlayLeftStyle.Width(leftPad)
 	lineStyle := m.renderStyles.overlayLineStyle.Width(baseWidth)
 

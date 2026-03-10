@@ -340,7 +340,8 @@ func parseConfigKeys(path string) ([]configKeySpec, error) {
 		"palette_mru":                  "bool",
 		"palette_mru_limit":            "int",
 		"layout":                       "enum(default|top)",
-		"custom_commands":              "map[string]object",
+		"custom_commands":              "map[string]map[string]object",
+		"keybindings":                  "map[string]map[string]string",
 		"custom_create_menus":          "[]object",
 		"custom_themes":                "map[string]object",
 	}
@@ -385,7 +386,8 @@ func parseConfigKeys(path string) ([]configKeySpec, error) {
 		"palette_mru":                  "Enable MRU sorting in command palette.",
 		"palette_mru_limit":            "Maximum MRU items in command palette.",
 		"layout":                       "Pane layout strategy.",
-		"custom_commands":              "Custom key bindings and command actions.",
+		"custom_commands":              "Pane-scoped custom key bindings. Use `universal` for all panes or a pane name (`worktrees`, `info`, `status`, `log`, `notes`) for context-specific commands.",
+		"keybindings":                  "Pane-scoped bindings to built-in palette action IDs. Use `universal` for all panes or a pane name for context-specific bindings (see docs/action-ids.md).",
 		"custom_create_menus":          "Custom create menu entries.",
 		"custom_themes":                "Custom theme definitions.",
 	}
@@ -415,7 +417,7 @@ func parseConfigKeys(path string) ([]configKeySpec, error) {
 		"layout":                     defaults["Layout"],
 		"palette_mru":                defaults["PaletteMRU"],
 		"palette_mru_limit":          defaults["PaletteMRULimit"],
-		"custom_commands":            "built-in keys: t, Z",
+		"custom_commands":            "universal: t, Z",
 		"git_pager_args":             "auto-matched delta syntax theme",
 	}
 
@@ -689,6 +691,7 @@ func orderedConfigKeys(keys []string) []string {
 		"init_commands",
 		"terminate_commands",
 		"custom_commands",
+		"keybindings",
 		"custom_create_menus",
 		"custom_themes",
 		"debug_log",

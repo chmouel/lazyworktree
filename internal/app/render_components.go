@@ -151,7 +151,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 	}
 	spinnerView := m.state.ui.spinner.View()
 	gap := "  "
-	available := maxInt(layout.width-lipgloss.Width(spinnerView)-lipgloss.Width(gap), 0)
+	available := max(layout.width-lipgloss.Width(spinnerView)-lipgloss.Width(gap), 0)
 	footer := footerStyle.Width(available).Render(footerContent)
 	return lipgloss.JoinHorizontal(lipgloss.Left, footer, gap, spinnerView)
 }

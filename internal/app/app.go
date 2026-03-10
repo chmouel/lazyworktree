@@ -91,6 +91,7 @@ type (
 	fetchRemotesCompleteMsg struct{}
 	autoRefreshTickMsg      struct{}
 	gitDirChangedMsg        struct{}
+	deprecationWarningMsg   struct{}
 	debouncedDetailsMsg     struct {
 		selectedIndex int
 	}
@@ -594,6 +595,9 @@ func (m *Model) Init() tea.Cmd {
 	if m.state.view.ShowingFilter {
 		cmds = append(cmds, textinput.Blink)
 	}
+	if len(m.config.DeprecationWarnings) > 0 {
+		cmds = append(cmds, func() tea.Msg { return deprecationWarningMsg{} })
+	}
 	return tea.Batch(cmds...)
 }
 
@@ -1043,6 +1047,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.showInfo("CI job restarted successfully", nil)
+		return m, nil
+
+	case deprecationWarningMsg:
+		warning := "Configuration update required:\n\n" +
+			strings.Join(m.config.DeprecationWarnings, "\n") +
+			"\n\nSee config.example.yaml or documentation for the new format."
+		m.showInfo(warning, nil)
 		return m, nil
 
 	}

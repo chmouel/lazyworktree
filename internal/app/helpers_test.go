@@ -504,56 +504,6 @@ func TestFuzzyScoreLower(t *testing.T) {
 	}
 }
 
-func TestMinInt(t *testing.T) {
-	tests := []struct {
-		name string
-		a    int
-		b    int
-		want int
-	}{
-		{"a less than b", 1, 2, 1},
-		{"b less than a", 5, 3, 3},
-		{"equal values", 4, 4, 4},
-		{"negative values", -5, -3, -5},
-		{"mixed signs", -2, 5, -2},
-		{"zero and positive", 0, 10, 0},
-		{"zero and negative", 0, -10, -10},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := minInt(tt.a, tt.b); got != tt.want {
-				t.Errorf("minInt(%d, %d) = %d, want %d", tt.a, tt.b, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMaxInt(t *testing.T) {
-	tests := []struct {
-		name string
-		a    int
-		b    int
-		want int
-	}{
-		{"a greater than b", 5, 2, 5},
-		{"b greater than a", 1, 3, 3},
-		{"equal values", 4, 4, 4},
-		{"negative values", -5, -3, -3},
-		{"mixed signs", -2, 5, 5},
-		{"zero and positive", 0, 10, 10},
-		{"zero and negative", 0, -10, 0},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := maxInt(tt.a, tt.b); got != tt.want {
-				t.Errorf("maxInt(%d, %d) = %d, want %d", tt.a, tt.b, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestRunBranchNameScript(t *testing.T) {
 	ctx := t.Context()
 

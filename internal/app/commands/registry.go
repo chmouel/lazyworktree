@@ -50,6 +50,33 @@ func (r *Registry) Actions() []CommandAction {
 	return r.actions
 }
 
+// UpdateShortcuts overwrites action Shortcut fields with user-configured keys.
+func (r *Registry) UpdateShortcuts(keybindings map[string]string) {
+	for key, actionID := range keybindings {
+		action, ok := r.byID[actionID]
+		if !ok {
+			continue
+		}
+		action.Shortcut = key
+		r.byID[actionID] = action
+		for i := range r.actions {
+			if r.actions[i].ID == actionID {
+				r.actions[i].Shortcut = key
+				break
+			}
+		}
+	}
+}
+
+// KnownActionIDs returns all registered action IDs.
+func (r *Registry) KnownActionIDs() []string {
+	ids := make([]string, 0, len(r.byID))
+	for id := range r.byID {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
 // Execute runs the handler for an action ID.
 func (r *Registry) Execute(id string) tea.Cmd {
 	action, ok := r.byID[id]
