@@ -9,7 +9,7 @@ mkdir:
 build: mkdir
 	go build -o bin/$(NAME) ./cmd/$(NAME)
 
-sanity: lint format test
+sanity: lint format test docs-sync
 
 lint:
 	golangci-lint run --fix ./...

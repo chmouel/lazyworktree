@@ -43,10 +43,19 @@ type configKeySpec struct {
 	Description string
 }
 
+type actionSpec struct {
+	ID          string
+	Label       string
+	Shortcut    string
+	Description string
+	Section     string
+}
+
 type docsSyncData struct {
 	GlobalFlags []flagSpec
 	Commands    []commandSpec
 	ConfigKeys  []configKeySpec
+	Actions     []actionSpec
 }
 
 func main() {
@@ -65,6 +74,7 @@ func main() {
 		filepath.Join(*root, "docs", "cli", "commands.md"):            renderCLICommandsPage(data.Commands),
 		filepath.Join(*root, "docs", "cli", "flags.md"):               renderCLIFlagsPage(data.GlobalFlags, data.Commands),
 		filepath.Join(*root, "docs", "configuration", "reference.md"): renderConfigReferencePage(data.ConfigKeys),
+		filepath.Join(*root, "docs", "action-ids.md"):                 renderActionIDsPage(data.Actions),
 	}
 
 	var stale []string
@@ -101,6 +111,7 @@ func collectDocsSyncData(root string) (*docsSyncData, error) {
 	flagsPath := filepath.Join(root, "internal", "bootstrap", "flags.go")
 	commandsPath := filepath.Join(root, "internal", "bootstrap", "commands.go")
 	configPath := filepath.Join(root, "internal", "config", "config.go")
+	registryPath := filepath.Join(root, "internal", "app", "commands", "registry.go")
 
 	globalFlags, err := parseGlobalFlags(flagsPath)
 	if err != nil {
@@ -117,10 +128,16 @@ func collectDocsSyncData(root string) (*docsSyncData, error) {
 		return nil, err
 	}
 
+	actions, err := parseActionIDs(registryPath)
+	if err != nil {
+		return nil, err
+	}
+
 	return &docsSyncData{
 		GlobalFlags: globalFlags,
 		Commands:    commands,
 		ConfigKeys:  configKeys,
+		Actions:     actions,
 	}, nil
 }
 
@@ -432,6 +449,102 @@ func parseConfigKeys(path string) ([]configKeySpec, error) {
 	}
 
 	return specs, nil
+}
+
+func parseActionIDs(path string) ([]actionSpec, error) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+	if err != nil {
+		return nil, fmt.Errorf("parse registry file: %w", err)
+	}
+
+	consts := collectStringConsts(file)
+
+	var actions []actionSpec
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || !strings.HasPrefix(fn.Name.Name, "Register") {
+			continue
+		}
+		ast.Inspect(fn.Body, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || sel.Sel.Name != "Register" {
+				return true
+			}
+			for _, arg := range call.Args {
+				lit, ok := arg.(*ast.CompositeLit)
+				if !ok {
+					continue
+				}
+				spec := parseActionLiteral(lit, consts)
+				if spec.ID != "" {
+					actions = append(actions, spec)
+				}
+			}
+			return true
+		})
+	}
+
+	if len(actions) == 0 {
+		return nil, errors.New("no action registrations found in registry")
+	}
+
+	return actions, nil
+}
+
+func collectStringConsts(file *ast.File) map[string]string {
+	consts := make(map[string]string)
+	for _, decl := range file.Decls {
+		gd, ok := decl.(*ast.GenDecl)
+		if !ok || gd.Tok != token.CONST {
+			continue
+		}
+		for _, spec := range gd.Specs {
+			vs, ok := spec.(*ast.ValueSpec)
+			if !ok || len(vs.Names) == 0 || len(vs.Values) == 0 {
+				continue
+			}
+			if val, ok := stringLiteral(vs.Values[0]); ok {
+				consts[vs.Names[0].Name] = val
+			}
+		}
+	}
+	return consts
+}
+
+func parseActionLiteral(lit *ast.CompositeLit, consts map[string]string) actionSpec {
+	var spec actionSpec
+	for _, elt := range lit.Elts {
+		kv, ok := elt.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		keyIdent, ok := kv.Key.(*ast.Ident)
+		if !ok {
+			continue
+		}
+		switch keyIdent.Name {
+		case "ID":
+			spec.ID, _ = stringLiteral(kv.Value)
+		case "Label":
+			spec.Label, _ = stringLiteral(kv.Value)
+		case "Description":
+			spec.Description, _ = stringLiteral(kv.Value)
+		case "Section":
+			if ident, ok := kv.Value.(*ast.Ident); ok {
+				spec.Section = consts[ident.Name]
+			} else {
+				spec.Section, _ = stringLiteral(kv.Value)
+			}
+		case "Shortcut":
+			spec.Shortcut, _ = stringLiteral(kv.Value)
+		}
+	}
+	return spec
 }
 
 func parseConfigDataKeys(file *ast.File) ([]string, error) {
@@ -821,6 +934,49 @@ func renderConfigReferencePage(keys []configKeySpec) string {
 	b.WriteString("- [Lifecycle Hooks](lifecycle-hooks.md)\n")
 	b.WriteString("- [Branch Naming](branch-naming.md)\n")
 	b.WriteString("- [Custom Themes](custom-themes.md)\n")
+	return b.String()
+}
+
+func renderActionIDsPage(actions []actionSpec) string {
+	var b strings.Builder
+	b.WriteString("# Action IDs Reference\n\n")
+	b.WriteString("Use these IDs in the `keybindings:` section of your configuration file to bind any key to a built-in palette action.\n\n")
+	b.WriteString("```yaml\nkeybindings:\n  G: lazygit\n  ctrl+d: delete\n  F: fetch\n```\n\n")
+	b.WriteString("Keys defined in `keybindings:` take priority over `custom_commands` and built-in keys. The bound key is also displayed as the shortcut in the command palette.\n\n")
+	b.WriteString("---\n")
+
+	type sectionGroup struct {
+		name    string
+		actions []actionSpec
+	}
+	var sections []sectionGroup
+	sectionIdx := make(map[string]int)
+	for _, a := range actions {
+		if idx, ok := sectionIdx[a.Section]; ok {
+			sections[idx].actions = append(sections[idx].actions, a)
+		} else {
+			sectionIdx[a.Section] = len(sections)
+			sections = append(sections, sectionGroup{name: a.Section, actions: []actionSpec{a}})
+		}
+	}
+
+	for _, sec := range sections {
+		fmt.Fprintf(&b, "\n## %s\n\n", sec.name)
+		b.WriteString("| ID | Label | Default Key | Description |\n")
+		b.WriteString("|----|-------|-------------|-------------|\n")
+		for _, a := range sec.actions {
+			shortcut := "—"
+			if a.Shortcut != "" {
+				shortcut = "`" + a.Shortcut + "`"
+			}
+			desc := a.Description
+			if desc == "" {
+				desc = a.Label
+			}
+			fmt.Fprintf(&b, "| `%s` | %s | %s | %s |\n", a.ID, a.Label, shortcut, desc)
+		}
+	}
+
 	return b.String()
 }
 

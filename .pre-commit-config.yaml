@@ -1,4 +1,4 @@
-default_install_hook_types: ["pre-push"]
+default_install_hook_types: ["pre-push", "pre-commit"]
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -28,6 +28,12 @@ repos:
         types: [go]
         entry: gofumpt -l -w
         pass_filenames: true
+      - id: docs-sync
+        name: docs-sync check
+        entry: go run ./hack/docsync --check
+        language: system
+        pass_filenames: false
+        types: [go]
       - id: testing
         name: go test
         language: system
