@@ -60,7 +60,7 @@ Keys defined in `keybindings:` take priority over `custom_commands` and built-in
 | ID | Label | Default Key | Description |
 |----|-------|-------------|-------------|
 | `stage-file` | Stage/unstage file | `s` | Stage or unstage selected file |
-| `commit-staged` | Open commit screen | `c` | Open the commit screen for staged changes |
+| `commit-staged` | Open commit screen | `c` | Open the commit screen for staged changes (or prompt to stage all) |
 | `commit-all` | Commit changes using git editor | `C` | Commit using git editor |
 | `edit-file` | Edit file | `e` | Open selected file in editor |
 | `delete-file` | Delete selected file or directory | — | Delete selected file or directory |
@@ -84,7 +84,7 @@ Keys defined in `keybindings:` take priority over `custom_commands` and built-in
 | `focus-status` | Focus status | `2` | Focus status pane |
 | `focus-log` | Focus log | `3` | Focus log pane |
 | `sort-cycle` | Cycle sort | `s` | Cycle sort mode (path/active/switched) |
-| `copy-path` | Copy path / file / SHA | `y` | Copy context-aware content to clipboard |
+| `copy-path` | Copy path / file / SHA | `y` | Copy context-aware content (path, file, or commit SHA) |
 | `copy-branch` | Copy branch name | `Y` | Copy selected worktree branch name |
 | `copy-pr-url` | Copy PR/MR URL | — | Copy selected worktree PR/MR URL |
 
