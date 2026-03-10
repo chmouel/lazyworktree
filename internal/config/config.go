@@ -47,6 +47,21 @@ type CustomCommand struct {
 // KeybindingsConfig maps pane names to key→actionID maps. "universal" applies to all panes.
 type KeybindingsConfig map[string]map[string]string
 
+// AllForPane returns a merged key→actionID map: universal bindings first,
+// then pane-specific bindings override. Mirrors CustomCommandsConfig.AllForPane.
+func (k KeybindingsConfig) AllForPane(paneName string) map[string]string {
+	result := make(map[string]string)
+	for key, id := range k[PaneUniversal] {
+		result[key] = id
+	}
+	if paneName != PaneUniversal {
+		for key, id := range k[paneName] {
+			result[key] = id
+		}
+	}
+	return result
+}
+
 // Lookup returns the action ID for the given pane and key,
 // checking pane-specific first, then universal.
 func (k KeybindingsConfig) Lookup(paneName, key string) (string, bool) {

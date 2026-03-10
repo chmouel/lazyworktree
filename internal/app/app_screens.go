@@ -58,7 +58,7 @@ func (m *Model) showCommandPalette() tea.Cmd {
 	customItems := m.customPaletteItems()
 	registry := commands.NewRegistry()
 	m.registerPaletteActions(registry)
-	registry.UpdateShortcuts(m.config.Keybindings[config.PaneUniversal])
+	registry.UpdateShortcuts(m.config.Keybindings.AllForPane(paneIndexToName(m.state.view.FocusedPane)))
 
 	m.debugf("palette MRU: enabled=%v, history_len=%d", m.config.PaletteMRU, len(m.paletteHistory))
 	paletteItems := commands.BuildPaletteItems(commands.PaletteOptions{

@@ -940,9 +940,9 @@ func renderConfigReferencePage(keys []configKeySpec) string {
 func renderActionIDsPage(actions []actionSpec) string {
 	var b strings.Builder
 	b.WriteString("# Action IDs Reference\n\n")
-	b.WriteString("Use these IDs in the `keybindings:` section of your configuration file to bind any key to a built-in palette action.\n\n")
-	b.WriteString("```yaml\nkeybindings:\n  G: lazygit\n  ctrl+d: delete\n  F: fetch\n```\n\n")
-	b.WriteString("Keys defined in `keybindings:` take priority over `custom_commands` and built-in keys. The bound key is also displayed as the shortcut in the command palette.\n\n")
+	b.WriteString("Use these IDs in the `keybindings:` section of your configuration file to bind any key to a built-in palette action. Keybindings use a pane-scoped structure where `universal` bindings apply everywhere and pane-specific sections (e.g. `worktrees`, `status`) override them when that pane is focused.\n\n")
+	b.WriteString("```yaml\nkeybindings:\n  universal:\n    G: lazygit\n    ctrl+d: delete\n    F: fetch\n```\n\n")
+	b.WriteString("Keys defined in `keybindings:` take priority over `custom_commands` and built-in keys. The bound key is also displayed as the shortcut in the command palette. Pane-specific bindings override universal ones for the same key.\n\n")
 	b.WriteString("---\n")
 
 	type sectionGroup struct {

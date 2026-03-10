@@ -1,15 +1,16 @@
 # Action IDs Reference
 
-Use these IDs in the `keybindings:` section of your configuration file to bind any key to a built-in palette action.
+Use these IDs in the `keybindings:` section of your configuration file to bind any key to a built-in palette action. Keybindings use a pane-scoped structure where `universal` bindings apply everywhere and pane-specific sections (e.g. `worktrees`, `status`) override them when that pane is focused.
 
 ```yaml
 keybindings:
-  G: lazygit
-  ctrl+d: delete
-  F: fetch
+  universal:
+    G: lazygit
+    ctrl+d: delete
+    F: fetch
 ```
 
-Keys defined in `keybindings:` take priority over `custom_commands` and built-in keys. The bound key is also displayed as the shortcut in the command palette.
+Keys defined in `keybindings:` take priority over `custom_commands` and built-in keys. The bound key is also displayed as the shortcut in the command palette. Pane-specific bindings override universal ones for the same key.
 
 ---
 

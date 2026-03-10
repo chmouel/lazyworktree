@@ -51,17 +51,35 @@ func (r *Registry) Actions() []CommandAction {
 }
 
 // UpdateShortcuts overwrites action Shortcut fields with user-configured keys.
+// It first clears any existing action that held the same shortcut key to
+// prevent duplicate display in the palette.
 func (r *Registry) UpdateShortcuts(keybindings map[string]string) {
+	// Build reverse map: shortcut → action index for clearing stale owners.
+	shortcutOwner := make(map[string]int) // key → index in r.actions
+	for i, a := range r.actions {
+		if a.Shortcut != "" {
+			shortcutOwner[a.Shortcut] = i
+		}
+	}
+
 	for key, actionID := range keybindings {
 		action, ok := r.byID[actionID]
 		if !ok {
 			continue
 		}
+
+		// Clear old owner of this shortcut key (if any and different action).
+		if oldIdx, exists := shortcutOwner[key]; exists && r.actions[oldIdx].ID != actionID {
+			r.actions[oldIdx].Shortcut = ""
+			r.byID[r.actions[oldIdx].ID] = r.actions[oldIdx]
+		}
+
 		action.Shortcut = key
 		r.byID[actionID] = action
 		for i := range r.actions {
 			if r.actions[i].ID == actionID {
 				r.actions[i].Shortcut = key
+				shortcutOwner[key] = i
 				break
 			}
 		}

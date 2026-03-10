@@ -319,6 +319,22 @@ Commit Log Indicators:
 		helpText += "\n\n**" + kbTitle + "**\n" + strings.Join(kbLines, "\n")
 	}
 
+	// Append pane-specific keybindings sections
+	paneKBOrder := []string{config.PaneWorktrees, config.PaneInfo, config.PaneStatus, config.PaneLog, config.PaneNotes}
+	for _, pane := range paneKBOrder {
+		paneBindings := keybindings[pane]
+		if len(paneBindings) == 0 {
+			continue
+		}
+		var kbLines []string
+		for key, actionID := range paneBindings {
+			kbLines = append(kbLines, fmt.Sprintf("- %s: %s", key, actionID))
+		}
+		sort.Strings(kbLines)
+		kbTitle := labelWithIcon(UIIconConfiguration, fmt.Sprintf("Custom Keybindings (%s pane)", pane), showIcons)
+		helpText += "\n\n**" + kbTitle + "**\n" + strings.Join(kbLines, "\n")
+	}
+
 	width, height := helpDimensions(maxWidth, maxHeight)
 
 	vp := viewport.New(viewport.WithWidth(width), viewport.WithHeight(max(5, height-3)))
