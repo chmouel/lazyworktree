@@ -253,7 +253,7 @@ func validateHex(s string) bool {
 
 func isHexDigits(s string) bool {
 	for _, c := range s {
-		if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+		if !strings.ContainsRune("0123456789ABCDEFabcdef", c) {
 			return false
 		}
 	}
