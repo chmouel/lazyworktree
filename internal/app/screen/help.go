@@ -32,7 +32,7 @@ const (
 	helpMinWidth      = 60
 	helpMinHeight     = 20
 	helpMarginX       = 4
-	helpMarginY       = 2
+	helpMarginY       = 6
 )
 
 func helpDimensions(maxWidth, maxHeight int) (int, int) {
@@ -346,7 +346,7 @@ Commit Log Indicators:
 
 	width, height := helpDimensions(maxWidth, maxHeight)
 
-	vp := viewport.New(viewport.WithWidth(width), viewport.WithHeight(max(5, height-3)))
+	vp := viewport.New(viewport.WithWidth(width), viewport.WithHeight(max(5, height-6)))
 	fullLines := strings.Split(helpText, "\n")
 
 	ti := textinput.New()
@@ -480,9 +480,9 @@ func (s *HelpScreen) SetSize(maxWidth, maxHeight int) {
 	s.Height = height
 
 	// Update viewport size
-	// height - 4 for borders/header/footer
+	// height - 6 for borders/header/footer chrome
 	s.Viewport.SetWidth(s.Width - 2)
-	s.Viewport.SetHeight(max(5, s.Height-4))
+	s.Viewport.SetHeight(max(5, s.Height-6))
 }
 
 // renderContent applies styling and search filtering to help text.
@@ -570,8 +570,11 @@ func highlightMatches(line, lowerLine, lowerQuery string, style lipgloss.Style) 
 func (s *HelpScreen) View() string {
 	content := s.renderContent()
 
-	// Keep viewport sized to available area (minus header/search lines)
-	vHeight := max(5, s.Height-4)    // -4 for borders/header/footer
+	// Keep viewport sized to available area (minus chrome lines)
+	vHeight := max(5, s.Height-6) // -6 for borders/header/footer chrome
+	if s.Searching || s.SearchQuery != "" {
+		vHeight = max(5, s.Height-8) // -8 when search bar + separator visible
+	}
 	s.Viewport.SetWidth(s.Width - 2) // -2 for borders
 	s.Viewport.SetHeight(vHeight)
 	s.Viewport.SetContent(content)
@@ -623,12 +626,12 @@ func (s *HelpScreen) View() string {
 
 	body := vpStyle.Render(s.Viewport.View())
 
-	contentBlock := lipgloss.JoinVertical(lipgloss.Left,
-		titleStyle,
-		searchView,
-		body,
-		footer,
-	)
+	parts := []string{titleStyle}
+	if searchView != "" {
+		parts = append(parts, searchView)
+	}
+	parts = append(parts, body, footer)
+	contentBlock := lipgloss.JoinVertical(lipgloss.Left, parts...)
 
 	return boxStyle.Render(contentBlock)
 }
