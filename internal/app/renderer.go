@@ -89,6 +89,12 @@ func (m *Model) View() tea.View {
 			}
 			v.SetContent(m.overlayPopup(baseView, scr.View(), 2))
 			return v
+		case screen.TypeHelp:
+			if hs, ok := scr.(*screen.HelpScreen); ok {
+				hs.SetSize(m.state.view.WindowWidth, m.state.view.WindowHeight)
+			}
+			v.SetContent(m.overlayPopup(baseView, scr.View(), 3))
+			return v
 		case screen.TypePRSelect:
 			// PR selection screen with 2-margin popup
 			v.SetContent(m.overlayPopup(baseView, scr.View(), 2))
