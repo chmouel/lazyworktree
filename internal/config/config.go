@@ -265,6 +265,8 @@ type AppConfig struct {
 	Layout                  string // Pane arrangement: "default" or "top" (default: "default")
 	PaletteMRU              bool   // Enable MRU sorting for command palette (default: false)
 	PaletteMRULimit         int    // Number of MRU items to show (default: 5)
+	AgentSessionClaudeRoot  string // Custom root for Claude transcript discovery (default: ~/.claude/projects)
+	AgentSessionPiRoot      string // Custom root for pi transcript discovery (default: ~/.pi/agent/sessions)
 	CustomCreateMenus       []*CustomCreateMenu
 	CustomThemes            map[string]*CustomTheme // User-defined custom themes
 	LayoutSizes             *LayoutSizes            // Configurable pane size weights (nil = use defaults)
@@ -393,6 +395,27 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 			autoGenerateCommand = strings.TrimSpace(autoGenerateCommand)
 			if autoGenerateCommand != "" {
 				cfg.Commit.AutoGenerateCommand = autoGenerateCommand
+			}
+		}
+	}
+
+	if agentData, ok := data["agent_sessions"].(map[string]any); ok {
+		if claudeRoot, ok := agentData["claude_root"].(string); ok {
+			claudeRoot = strings.TrimSpace(claudeRoot)
+			if claudeRoot != "" {
+				expanded, err := utils.ExpandPath(claudeRoot)
+				if err == nil {
+					cfg.AgentSessionClaudeRoot = expanded
+				}
+			}
+		}
+		if piRoot, ok := agentData["pi_root"].(string); ok {
+			piRoot = strings.TrimSpace(piRoot)
+			if piRoot != "" {
+				expanded, err := utils.ExpandPath(piRoot)
+				if err == nil {
+					cfg.AgentSessionPiRoot = expanded
+				}
 			}
 		}
 	}
@@ -1237,6 +1260,12 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	}
 	if overrideCfg.SessionPrefix != "" {
 		cfg.SessionPrefix = overrideCfg.SessionPrefix
+	}
+	if overrideCfg.AgentSessionClaudeRoot != "" {
+		cfg.AgentSessionClaudeRoot = overrideCfg.AgentSessionClaudeRoot
+	}
+	if overrideCfg.AgentSessionPiRoot != "" {
+		cfg.AgentSessionPiRoot = overrideCfg.AgentSessionPiRoot
 	}
 
 	// Arrays - check if they exist in override data

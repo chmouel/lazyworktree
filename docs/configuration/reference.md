@@ -48,6 +48,7 @@ This page is generated from `internal/config/config.go`. Run `make docs-sync` af
 | `custom_create_menus` | `[]object` | `none` | Custom create menu entries. |
 | `custom_themes` | `map[string]object` | `none` | Custom theme definitions. |
 | `debug_log` | `string` | `none` | Debug log file path. |
+| `agent_sessions` | `string` | `none` | See config.example.yaml for usage details. |
 | `layout_sizes` | `string` | `none` | See config.example.yaml for usage details. |
 | `worktree_note_type` | `string` | `none` | See config.example.yaml for usage details. |
 <!-- END GENERATED:config-reference -->

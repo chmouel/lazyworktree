@@ -582,7 +582,9 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	m.state.services.worktree = services.NewWorktreeService(gitService)
 	m.state.services.statusTree = services.NewStatusService()
 	m.state.services.watch = services.NewGitWatchService(gitService, m.debugf)
-	m.state.services.agentSessions = services.NewAgentSessionService(m.debugf)
+	m.state.services.agentSessions = services.NewAgentSessionServiceFromConfig(
+		cfg.AgentSessionClaudeRoot, cfg.AgentSessionPiRoot, m.debugf,
+	)
 	m.state.services.agentProcesses = services.NewAgentProcessService(m.debugf)
 	m.state.services.agentWatch = services.NewAgentWatchService(m.state.services.agentSessions.WatchRoots(), m.debugf)
 	m.state.services.filter = services.NewFilterService(initialFilter)

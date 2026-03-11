@@ -38,6 +38,18 @@ func NewAgentSessionService(logf func(string, ...any)) *AgentSessionService {
 	return NewAgentSessionServiceWithRoots(claudeProjectsDir(), piSessionsDir(), logf)
 }
 
+// NewAgentSessionServiceFromConfig builds a service using config values when non-empty,
+// falling back to the default agent transcript locations.
+func NewAgentSessionServiceFromConfig(claudeRoot, piRoot string, logf func(string, ...any)) *AgentSessionService {
+	if claudeRoot == "" {
+		claudeRoot = claudeProjectsDir()
+	}
+	if piRoot == "" {
+		piRoot = piSessionsDir()
+	}
+	return NewAgentSessionServiceWithRoots(claudeRoot, piRoot, logf)
+}
+
 // NewAgentSessionServiceWithRoots builds a service with explicit roots for tests.
 func NewAgentSessionServiceWithRoots(claudeRoot, piRoot string, logf func(string, ...any)) *AgentSessionService {
 	return &AgentSessionService{

@@ -1258,6 +1258,37 @@ func TestParseConfig(t *testing.T) {
 				assert.Equal(t, "top", cfg.Layout)
 			},
 		},
+		{
+			name: "agent_sessions claude_root and pi_root parsed",
+			data: map[string]interface{}{
+				"agent_sessions": map[string]any{
+					"claude_root": "/custom/claude",
+					"pi_root":     "/custom/pi",
+				},
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Equal(t, "/custom/claude", cfg.AgentSessionClaudeRoot)
+				assert.Equal(t, "/custom/pi", cfg.AgentSessionPiRoot)
+			},
+		},
+		{
+			name: "agent_sessions missing keys default to empty",
+			data: map[string]interface{}{
+				"agent_sessions": map[string]any{},
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Empty(t, cfg.AgentSessionClaudeRoot)
+				assert.Empty(t, cfg.AgentSessionPiRoot)
+			},
+		},
+		{
+			name: "agent_sessions absent defaults to empty",
+			data: map[string]interface{}{},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.Empty(t, cfg.AgentSessionClaudeRoot)
+				assert.Empty(t, cfg.AgentSessionPiRoot)
+			},
+		},
 	}
 
 	for _, tt := range tests {
