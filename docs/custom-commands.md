@@ -12,147 +12,176 @@ Custom commands let you bind shell commands, tmux sessions, zellij sessions, OCI
 
     ```yaml
     custom_commands:
-      e:
-        command: nvim
-        description: Editor
-        show_help: true
+      universal:
+        e:
+          command: nvim
+          description: Editor
+          show_help: true
     ```
 
 === "Show command output"
 
     ```yaml
     custom_commands:
-      o:
-        command: git status -sb
-        description: Status
-        show_output: true
+      universal:
+        o:
+          command: git status -sb
+          description: Status
+          show_output: true
     ```
 
 === "Tmux session"
 
     ```yaml
     custom_commands:
-      t:
-        description: Tmux
-        tmux:
-          session_name: "wt:$WORKTREE_NAME"
-          attach: true
-          on_exists: switch
-          windows:
-            - name: shell
-              command: zsh
-            - name: lazygit
-              command: lazygit
+      universal:
+        t:
+          description: Tmux
+          tmux:
+            session_name: "wt:$WORKTREE_NAME"
+            attach: true
+            on_exists: switch
+            windows:
+              - name: shell
+                command: zsh
+              - name: lazygit
+                command: lazygit
     ```
 
 === "Container command"
 
     ```yaml
     custom_commands:
-      C:
-        command: "go test ./..."
-        description: Tests in container
-        show_output: true
-        container:
-          image: "golang:1.22"
+      universal:
+        C:
+          command: "go test ./..."
+          description: Tests in container
+          show_output: true
+          container:
+            image: "golang:1.22"
     ```
 
 === "Container + tmux"
 
     ```yaml
     custom_commands:
-      ctrl+l:
-        description: Dev container
-        tmux:
-          session_name: "dev:$WORKTREE_NAME"
-          windows:
-            - name: test
-              command: "go test -v ./..."
-            - name: shell
-        container:
-          image: "golang:1.22"
-          extra_args:
-            - "--network=host"
+      universal:
+        ctrl+l:
+          description: Dev container
+          tmux:
+            session_name: "dev:$WORKTREE_NAME"
+            windows:
+              - name: test
+                command: "go test -v ./..."
+              - name: shell
+          container:
+            image: "golang:1.22"
+            extra_args:
+              - "--network=host"
     ```
 
 === "Container (image only)"
 
     ```yaml
     custom_commands:
-      ctrl+d:
-        description: Default shell in container
-        container:
-          image: "ubuntu:24.04"
-          interactive: true
+      universal:
+        ctrl+d:
+          description: Default shell in container
+          container:
+            image: "ubuntu:24.04"
+            interactive: true
     ```
 
 === "Container + entrypoint"
 
     ```yaml
     custom_commands:
-      ctrl+s:
-        description: Shell in Python container
-        container:
-          image: "python:3.12"
-          entrypoint: "/bin/sh"
-          interactive: true
+      universal:
+        ctrl+s:
+          description: Shell in Python container
+          container:
+            image: "python:3.12"
+            entrypoint: "/bin/sh"
+            interactive: true
     ```
 
 === "Palette-only action"
 
     ```yaml
     custom_commands:
-      _review:
-        command: make review
-        description: Review current worktree
+      universal:
+        _review:
+          command: make review
+          description: Review current worktree
     ```
 
 ## Complete Configuration Example
 
 ```yaml
 custom_commands:
-  e:
-    command: nvim
-    description: Editor
-    show_help: true
-  s:
-    command: zsh
-    description: Shell
-    show_help: true
-  T: # Run tests and wait for keypress
-    command: make test
-    description: Run tests
-    show_help: false
-    wait: true
-  o: # Show output in the pager
-    command: git status -sb
-    description: Status
-    show_help: true
-    show_output: true
-  c: # Open Claude CLI in a new terminal tab (Kitty, WezTerm, or iTerm)
-    command: claude
-    description: Claude Code
-    new_tab: true
-    show_help: true
-  t: # Open a tmux session with multiple windows
-    description: Tmux
-    show_help: true
-    tmux: # If you specify zellij instead of tmux this would manage zellij sessions
-      session_name: "wt:$WORKTREE_NAME"
-      attach: true
-      on_exists: switch
-      windows:
-        - name: claude
-          command: claude
-        - name: shell
-          command: zsh
-        - name: lazygit
-          command: lazygit
+  universal:
+    e:
+      command: nvim
+      description: Editor
+      show_help: true
+    s:
+      command: zsh
+      description: Shell
+      show_help: true
+    T: # Run tests and wait for keypress
+      command: make test
+      description: Run tests
+      show_help: false
+      wait: true
+    o: # Show output in the pager
+      command: git status -sb
+      description: Status
+      show_help: true
+      show_output: true
+    c: # Open Claude CLI in a new terminal tab (Kitty, WezTerm, or iTerm)
+      command: claude
+      description: Claude Code
+      new_tab: true
+      show_help: true
+    t: # Open a tmux session with multiple windows
+      description: Tmux
+      show_help: true
+      tmux: # If you specify zellij instead of tmux this would manage zellij sessions
+        session_name: "wt:$WORKTREE_NAME"
+        attach: true
+        on_exists: switch
+        windows:
+          - name: claude
+            command: claude
+          - name: shell
+            command: zsh
+          - name: lazygit
+            command: lazygit
 ```
 
 Palette lists sessions matching `session_prefix` (default: `wt-`).
 
 Palette-only commands keep their `_name` identifier for configuration and CLI use, but they do not consume a direct TUI keybinding or appear in footer key hints.
+
+## Pane Scoping
+
+Custom commands are nested under a pane scope. `universal` commands are available in every pane. Use a pane name to restrict a command to that pane only — pane-specific bindings override `universal` bindings for the same key.
+
+**Available pane names:** `universal`, `worktrees`, `info`, `status`, `log`, `notes`, `agent_sessions`
+
+```yaml
+custom_commands:
+  universal:
+    e:
+      command: nvim
+      description: Editor
+      show_help: true
+  status:
+    e:
+      command: nvim --diff
+      description: Editor (diff mode)
+      show_help: true
+```
 
 ## Field Reference
 
@@ -256,15 +285,16 @@ Example:
 
 ```yaml
 custom_commands:
-  "ctrl+e":
-    command: nvim
-    description: Open editor with Ctrl+E
-  "alt+t":
-    command: make test
-    description: Run tests with Alt+T
-    wait: true
+  universal:
+    "ctrl+e":
+      command: nvim
+      description: Open editor with Ctrl+E
+    "alt+t":
+      command: make test
+      description: Run tests with Alt+T
+      wait: true
 ```
 
 ## Key Precedence
 
-Custom command keys override built-in keys.
+`keybindings:` entries take priority over custom commands, which in turn override built-in keys. Pane-specific bindings (in both `keybindings:` and `custom_commands:`) override `universal` bindings for the same key when that pane is focused.

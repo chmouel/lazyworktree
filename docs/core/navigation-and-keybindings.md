@@ -119,6 +119,29 @@ Each commit displays a status indicator: `↑` (red) for unpushed commits, `★`
 | `y` | Copy context-aware value (path/file/SHA) |
 | `Y` | Copy selected worktree branch name |
 
+## Customising Keybindings
+
+The `keybindings:` block in your configuration file uses the same pane-scoped structure as `custom_commands:`. `universal` bindings apply in every pane; pane-specific sections scope bindings to that pane only and override any `universal` binding for the same key.
+
+**Available pane names:** `universal`, `worktrees`, `info`, `status`, `log`, `notes`, `agent_sessions`
+
+**Key formats:** single keys (`e`), modifiers (`ctrl+e`, `alt+t`), special keys (`enter`, `tab`, `esc`, `space`)
+
+Keys defined in `keybindings:` take priority over `custom_commands` and built-in keys. The bound key is also displayed as the shortcut in the command palette.
+
+```yaml
+keybindings:
+  universal:
+    G: lazygit
+    F: fetch
+  worktrees:
+    x: delete
+  log:
+    d: diff
+```
+
+See [Action IDs Reference](../action-ids.md) for the full list of valid action IDs that can be bound.
+
 ## Full Reference
 
 For complete pane-by-pane key coverage, see [Key Bindings Reference](../keybindings.md).
