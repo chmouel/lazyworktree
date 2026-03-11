@@ -56,7 +56,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands config.CustomCommands
 **{{HELP_NAV}}Navigation**
 - j / {{ARROW_DOWN}}: Move cursor down in lists and menus
 - k / {{ARROW_UP}}: Move cursor up in lists and menus
-- 1 / 2 / 3 / 4 / 5: Switch to pane (or toggle zoom if already focused)
+- 1 / 2 / 3 / 4 / 5 / 6: Switch to pane (or toggle zoom if already focused)
 - h / l: Shrink / Grow worktree pane
 - [ / ]: Previous / Next pane
 - Tab: Cycle to next pane
@@ -77,7 +77,16 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands config.CustomCommands
 - g / G: Jump to top / bottom
 - i: Edit note
 - 5: Focus notes pane (or toggle zoom if already focused)
-- Tab includes pane 5 in the cycle when a note exists
+- Tab reaches pane 5 before the final agent sessions pane when both are visible
+
+**Agent Sessions Pane (pane 6, visible when sessions exist)**
+- j / k: Move between matching Claude / pi sessions
+- Ctrl+D / Ctrl+U: Half page down / up
+- g / G: Jump to top / bottom
+- A: Toggle between open sessions only and all matching sessions
+- 6: Focus agent sessions pane (or toggle zoom if already focused)
+- When no live session is open, pressing 6 reveals historical matching sessions
+- Tab includes pane 6 at the end of the cycle when visible
 
 **{{HELP_CI_CHECKS}}Git Status Pane (when focused)**
 - j / k: Navigate files and directories
@@ -184,7 +193,7 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 - Configured via auto_refresh and refresh_interval in the configuration file
 
 **Pane Sizes**
-- layout_sizes: adjust pane proportions (worktrees, info, git_status, commit, notes)
+- layout_sizes: adjust pane proportions (worktrees, info, git_status, commit, agent_sessions, notes)
 - Values are relative weights (1–100), normalised at computation time
 - Focus-based dynamic resizing applies on top of the configured baseline
 
@@ -287,7 +296,7 @@ Commit Log Indicators:
 			helpText += "\n\n**" + customTitle + "**\n" + strings.Join(universalKeys, "\n")
 		}
 
-		paneOrder := []string{config.PaneWorktrees, config.PaneInfo, config.PaneStatus, config.PaneLog, config.PaneNotes}
+		paneOrder := []string{config.PaneWorktrees, config.PaneInfo, config.PaneStatus, config.PaneLog, config.PaneNotes, config.PaneAgentSessions}
 		for _, pane := range paneOrder {
 			paneCmds := customCommands[pane]
 			if len(paneCmds) == 0 {
@@ -320,7 +329,7 @@ Commit Log Indicators:
 	}
 
 	// Append pane-specific keybindings sections
-	paneKBOrder := []string{config.PaneWorktrees, config.PaneInfo, config.PaneStatus, config.PaneLog, config.PaneNotes}
+	paneKBOrder := []string{config.PaneWorktrees, config.PaneInfo, config.PaneStatus, config.PaneLog, config.PaneNotes, config.PaneAgentSessions}
 	for _, pane := range paneKBOrder {
 		paneBindings := keybindings[pane]
 		if len(paneBindings) == 0 {

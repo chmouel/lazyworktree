@@ -61,6 +61,7 @@
 | `3` | Focus Git Status pane (toggle zoom if already focused) |
 | `4` | Focus Commit pane (toggle zoom if already focused) |
 | `5` | Focus Notes pane (toggle zoom if already focused; only when note exists) |
+| `6` | Focus Agent Sessions pane (toggle zoom if already focused; reveals historical matches when nothing is open) |
 | `h`, `l` | Shrink / Grow worktree pane |
 | `Tab`, `]` | Cycle to next pane |
 | `[` | Cycle to previous pane |
@@ -87,7 +88,18 @@ The Info pane renders Markdown and highlights uppercase tags such as `TODO`, `FI
 Press `T` to open Taskboard (Kanban-lite grouped by worktree notes).
 
 - Collects markdown checkboxes, e.g. `- [ ] draft release notes`.
-- Use `j`/`k` to move, `Enter` or `Space` to toggle, `a` to add, `f` to filter, `q`/`Esc` to close.
+
+## Agent Sessions Pane
+
+Shows Claude and pi sessions whose working directory is inside the selected worktree. By default it shows only sessions with a live Claude/pi process match.
+
+| Key | Action |
+| --- | --- |
+| `j`, `k` | Move between matching sessions |
+| `Ctrl+d`, `Ctrl+u` | Page down / up |
+| `g`, `G` | Jump to top / bottom |
+| `A` | Toggle between open sessions only and all matching sessions |
+| `6` | Focus Agent Sessions pane (or toggle zoom if already focused) |
 
 ## Commit Pane
 

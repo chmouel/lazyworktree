@@ -2383,11 +2383,12 @@ func TestParseLayoutSizes(t *testing.T) {
 	t.Parallel()
 	data := map[string]any{
 		"layout_sizes": map[string]any{
-			"worktrees":  45,
-			"info":       30,
-			"git_status": 40,
-			"commit":     30,
-			"notes":      25,
+			"worktrees":      45,
+			"info":           30,
+			"git_status":     40,
+			"commit":         30,
+			"notes":          25,
+			"agent_sessions": 20,
 		},
 	}
 	cfg, err := parseConfig(data)
@@ -2398,6 +2399,7 @@ func TestParseLayoutSizes(t *testing.T) {
 	assert.Equal(t, 40, cfg.LayoutSizes.GitStatus)
 	assert.Equal(t, 30, cfg.LayoutSizes.Commit)
 	assert.Equal(t, 25, cfg.LayoutSizes.Notes)
+	assert.Equal(t, 20, cfg.LayoutSizes.AgentSessions)
 }
 
 func TestParseLayoutSizesPartial(t *testing.T) {
@@ -2416,6 +2418,7 @@ func TestParseLayoutSizesPartial(t *testing.T) {
 	assert.Equal(t, 0, cfg.LayoutSizes.GitStatus)
 	assert.Equal(t, 0, cfg.LayoutSizes.Commit)
 	assert.Equal(t, 0, cfg.LayoutSizes.Notes)
+	assert.Equal(t, 0, cfg.LayoutSizes.AgentSessions)
 }
 
 func TestParseLayoutSizesValidation(t *testing.T) {

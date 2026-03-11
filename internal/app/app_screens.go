@@ -247,9 +247,9 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 		Filter: func() tea.Cmd {
 			target := filterTargetWorktrees
 			switch m.state.view.FocusedPane {
-			case 2:
+			case paneGitStatus:
 				target = filterTargetGitStatus
-			case 3:
+			case paneCommit:
 				target = filterTargetLog
 			}
 			return m.startFilter(target)
@@ -257,26 +257,26 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 		Search: func() tea.Cmd {
 			target := searchTargetWorktrees
 			switch m.state.view.FocusedPane {
-			case 2:
+			case paneGitStatus:
 				target = searchTargetGitStatus
-			case 3:
+			case paneCommit:
 				target = searchTargetLog
 			}
 			return m.startSearch(target)
 		},
 		FocusWorktree: func() tea.Cmd {
 			m.state.view.ZoomedPane = -1
-			m.switchPane(0)
+			m.switchPane(paneWorktrees)
 			return nil
 		},
 		FocusStatus: func() tea.Cmd {
 			m.state.view.ZoomedPane = -1
-			m.switchPane(1)
+			m.switchPane(paneInfo)
 			return nil
 		},
 		FocusLog: func() tea.Cmd {
 			m.state.view.ZoomedPane = -1
-			m.switchPane(3)
+			m.switchPane(paneCommit)
 			return nil
 		},
 		SortCycle: func() tea.Cmd {

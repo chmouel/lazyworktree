@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -4608,16 +4609,16 @@ func TestNextPaneWithNotes(t *testing.T) {
 	// Add status files so git status pane is included
 	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
 
-	// With notes, cycle is 0 -> 4 -> 1 -> 2 -> 3 -> 0
-	assert.Equal(t, 4, m.nextPane(0, 1))
-	assert.Equal(t, 1, m.nextPane(4, 1))
+	// With notes, cycle is 0 -> 1 -> 2 -> 3 -> 4 -> 0
+	assert.Equal(t, 1, m.nextPane(0, 1))
 	assert.Equal(t, 2, m.nextPane(1, 1))
 	assert.Equal(t, 3, m.nextPane(2, 1))
-	assert.Equal(t, 0, m.nextPane(3, 1))
+	assert.Equal(t, 4, m.nextPane(3, 1))
+	assert.Equal(t, 0, m.nextPane(4, 1))
 
 	// Reverse
-	assert.Equal(t, 3, m.nextPane(0, -1))
-	assert.Equal(t, 0, m.nextPane(4, -1))
+	assert.Equal(t, 4, m.nextPane(0, -1))
+	assert.Equal(t, 3, m.nextPane(4, -1))
 }
 
 func TestPaneKey5FocusNotesPane(t *testing.T) {
@@ -4723,15 +4724,207 @@ func TestTabCycleIncludesNotesPaneWhenNoteExists(t *testing.T) {
 	m.state.view.FocusedPane = 0
 	m.state.view.ZoomedPane = -1
 
-	// Tab from pane 0 should go to pane 4 (notes)
+	// Tab from pane 0 should go to pane 1 first; notes are last in the cycle.
 	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyTab})
 	m = updated.(*Model)
-	assert.Equal(t, 4, m.state.view.FocusedPane)
+	assert.Equal(t, 1, m.state.view.FocusedPane)
 
-	// Tab from pane 4 should go to pane 1
+	// Continue through info -> git status -> commit -> notes.
 	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyTab})
 	m = updated.(*Model)
-	assert.Equal(t, 1, m.state.view.FocusedPane)
+	assert.Equal(t, 2, m.state.view.FocusedPane)
+	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = updated.(*Model)
+	assert.Equal(t, 3, m.state.view.FocusedPane)
+	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = updated.(*Model)
+	assert.Equal(t, 4, m.state.view.FocusedPane)
+}
+
+func TestNextPaneWithNotesAndAgentSessions(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-agent-notes", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.worktreeNotes[worktreeNoteKey(wt.Path)] = models.WorktreeNote{Note: "hello"}
+	m.state.data.statusFilesAll = []StatusFile{{Filename: "file.go", Status: ".M"}}
+	seedClaudeAgentSession(t, m, wt.Path, true)
+
+	assert.Equal(t, 1, m.nextPane(0, 1))
+	assert.Equal(t, 2, m.nextPane(1, 1))
+	assert.Equal(t, 3, m.nextPane(2, 1))
+	assert.Equal(t, 4, m.nextPane(3, 1))
+	assert.Equal(t, 5, m.nextPane(4, 1))
+	assert.Equal(t, 0, m.nextPane(5, 1))
+}
+
+func TestPaneKey6FocusAgentSessionsPane(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-agent-pane", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	seedClaudeAgentSession(t, m, wt.Path, true)
+
+	m.state.view.FocusedPane = paneWorktrees
+	m.state.view.ZoomedPane = -1
+
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '6', Text: "6"})
+	m = updated.(*Model)
+	assert.Equal(t, paneAgentSessions, m.state.view.FocusedPane)
+	assert.Equal(t, -1, m.state.view.ZoomedPane)
+
+	updated, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: '6', Text: "6"})
+	m = updated.(*Model)
+	assert.Equal(t, paneAgentSessions, m.state.view.FocusedPane)
+	assert.Equal(t, paneAgentSessions, m.state.view.ZoomedPane)
+}
+
+func TestPaneKey6RevealsOfflineAgentSessions(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-agent-offline", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	seedClaudeAgentSession(t, m, wt.Path, false)
+
+	assert.False(t, m.hasAgentSessionsForSelectedWorktree())
+	assert.True(t, m.hasAnyAgentSessionsForSelectedWorktree())
+
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: '6', Text: "6"})
+	m = updated.(*Model)
+	assert.True(t, m.state.view.ShowAllAgentSessions)
+	assert.Equal(t, paneAgentSessions, m.state.view.FocusedPane)
+	assert.Len(t, m.state.data.agentSessions, 1)
+	assert.False(t, m.state.data.agentSessions[0].IsOpen)
+}
+
+func TestAgentSessionsPaneToggleShowAll(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-agent-toggle", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	seedClaudeAgentSession(t, m, wt.Path, false)
+	m.state.view.ShowAllAgentSessions = true
+	m.refreshSelectedWorktreeAgentSessionsPane()
+	m.state.view.FocusedPane = paneAgentSessions
+
+	updated, _ := m.handleBuiltInKey(tea.KeyPressMsg{Code: 'A', Text: "A"})
+	m = updated.(*Model)
+	assert.False(t, m.state.view.ShowAllAgentSessions)
+	assert.Equal(t, paneWorktrees, m.state.view.FocusedPane)
+	assert.Empty(t, m.state.data.agentSessions)
+}
+
+func TestAgentSessionsPaneNavigationKeepsSelectionVisible(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-agent-scroll", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.state.view.FocusedPane = paneAgentSessions
+	m.state.ui.agentSessionsViewport.SetWidth(80)
+	m.state.ui.agentSessionsViewport.SetHeight(2)
+	seedClaudeAgentSessions(t, m, wt.Path, []bool{true, true, true, true})
+
+	assert.Equal(t, 0, m.state.ui.agentSessionsViewport.YOffset())
+
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: tea.KeyDown})
+	assert.Equal(t, 1, m.state.data.agentSessionIndex)
+	assert.Equal(t, 1, m.state.ui.agentSessionsViewport.YOffset())
+
+	_, _ = m.handleNavigationDown(tea.KeyPressMsg{Code: tea.KeyDown})
+	assert.Equal(t, 2, m.state.data.agentSessionIndex)
+	assert.Equal(t, 3, m.state.ui.agentSessionsViewport.YOffset())
+
+	_, _ = m.handleNavigationUp(tea.KeyPressMsg{Code: tea.KeyUp})
+	assert.Equal(t, 1, m.state.data.agentSessionIndex)
+	assert.Equal(t, 2, m.state.ui.agentSessionsViewport.YOffset())
+}
+
+func TestAgentSessionsPanePageAndGotoAdjustViewport(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-agent-page", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.state.view.FocusedPane = paneAgentSessions
+	m.state.ui.agentSessionsViewport.SetWidth(80)
+	m.state.ui.agentSessionsViewport.SetHeight(3)
+	seedClaudeAgentSessions(t, m, wt.Path, []bool{true, true, true, true, true})
+
+	_, _ = m.handlePageDown(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	assert.Equal(t, 3, m.state.data.agentSessionIndex)
+	assert.Equal(t, 4, m.state.ui.agentSessionsViewport.YOffset())
+
+	_, _ = m.handlePageUp(tea.KeyPressMsg{Code: tea.KeyPgUp})
+	assert.Equal(t, 0, m.state.data.agentSessionIndex)
+	assert.Equal(t, 0, m.state.ui.agentSessionsViewport.YOffset())
+
+	_, _ = m.handleGotoBottom()
+	assert.Equal(t, 4, m.state.data.agentSessionIndex)
+	assert.Equal(t, 6, m.state.ui.agentSessionsViewport.YOffset())
+
+	_, _ = m.handleGotoTop()
+	assert.Equal(t, 0, m.state.data.agentSessionIndex)
+	assert.Equal(t, 0, m.state.ui.agentSessionsViewport.YOffset())
+}
+
+func TestAgentSessionsPaneRefreshClampsViewportAfterShrink(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{Path: "/tmp/wt-agent-shrink", Branch: "feat"}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.state.view.FocusedPane = paneAgentSessions
+	m.state.ui.agentSessionsViewport.SetWidth(80)
+	m.state.ui.agentSessionsViewport.SetHeight(2)
+	seedClaudeAgentSessions(t, m, wt.Path, []bool{true, true, true, true})
+
+	_, _ = m.handleGotoBottom()
+	assert.Equal(t, 5, m.state.ui.agentSessionsViewport.YOffset())
+
+	seedClaudeAgentSessions(t, m, wt.Path, []bool{true})
+	assert.Equal(t, 0, m.state.data.agentSessionIndex)
+	assert.Equal(t, 0, m.state.ui.agentSessionsViewport.YOffset())
+}
+
+func seedClaudeAgentSession(t *testing.T, m *Model, worktreePath string, open bool) {
+	t.Helper()
+	seedClaudeAgentSessions(t, m, worktreePath, []bool{open})
+}
+
+func seedClaudeAgentSessions(t *testing.T, m *Model, worktreePath string, openStates []bool) {
+	t.Helper()
+	root := t.TempDir()
+	m.state.services.agentSessions = services.NewAgentSessionServiceWithRoots(root, "", nil)
+
+	processes := make([]*services.AgentProcess, 0, len(openStates))
+	for i, open := range openStates {
+		projectDir := filepath.Join(root, "tmp-wt-agent-"+strconv.Itoa(i))
+		if err := os.MkdirAll(projectDir, 0o750); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		jsonlPath := filepath.Join(projectDir, "session.jsonl")
+		content := `{"type":"assistant","timestamp":"2026-03-11T10:00:00Z","cwd":"` + worktreePath + `","gitBranch":"feat","message":{"role":"assistant","model":"claude-sonnet","content":[{"type":"text","text":"Done ` + strconv.Itoa(i) + `"}]}}`
+		if err := os.WriteFile(jsonlPath, []byte(content+"\n"), 0o644); err != nil {
+			t.Fatalf("write jsonl: %v", err)
+		}
+		if open {
+			processes = append(processes, &services.AgentProcess{
+				PID:       42 + i,
+				Agent:     models.AgentKindClaude,
+				OpenFiles: []string{jsonlPath},
+				CWD:       worktreePath,
+			})
+		}
+	}
+	if _, err := m.state.services.agentSessions.RefreshWithProcesses(processes); err != nil {
+		t.Fatalf("refresh agent sessions: %v", err)
+	}
+	m.refreshSelectedWorktreeAgentSessionsPane()
 }
 
 func TestHasNoteForSelectedWorktree(t *testing.T) {

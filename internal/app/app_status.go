@@ -124,11 +124,11 @@ func (m *Model) setStatusFiles(files []StatusFile) {
 
 	// If status became clean and the git status pane is focused, reset focus
 	if !m.hasGitStatus() {
-		if m.state.view.FocusedPane == 2 {
-			m.state.view.FocusedPane = 0
+		if m.state.view.FocusedPane == paneGitStatus {
+			m.state.view.FocusedPane = paneWorktrees
 			m.state.ui.worktreeTable.Focus()
 		}
-		if m.state.view.ZoomedPane == 2 {
+		if m.state.view.ZoomedPane == paneGitStatus {
 			m.state.view.ZoomedPane = -1
 		}
 	}
@@ -309,7 +309,7 @@ func (m *Model) applyLogFilter(reset bool) {
 	// Determine the target cursor so the cursor row can be left unstyled.
 	// When the log pane is not focused, all rows keep their styling.
 	targetCursor := -1
-	if m.state.view.FocusedPane == 3 {
+	if m.state.view.FocusedPane == paneCommit {
 		targetCursor = 0
 		if selectedSHA != "" {
 			for i, entry := range filtered {

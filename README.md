@@ -47,6 +47,7 @@ _[You can see more screenshots here](https://chmouel.github.io/lazyworktree/#scr
 - Worktree management — Create worktrees from branches, PRs/MRs, or issues; delete, list, and switch between them
 - CI & PR/MR status — See GitHub Actions and GitLab CI results, check PR/MR details, view logs
 - Notes & taskboard — Write markdown notes per worktree or tasks to track what you're working on; set a short description to replace the directory name in the list
+- Agent sessions pane — See open Claude and pi sessions attached to the selected worktree by default, with a toggle for historical idle sessions
 - Command palette — Quick access to all actions and custom commands with `?`, including an explicit **Open commit screen** action; use `_` prefix for palette-only commands
 - Tmux and Zellij support — Automatically open worktrees in new tmux windows/panes or zellij tabs
 - Docker/Podman support — Run commands in Docker or Podman containers tied to the worktree

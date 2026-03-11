@@ -364,6 +364,8 @@ func (m *Model) updateDetailsView() tea.Cmd {
 	m.ciCheckIndex = -1
 
 	wt := m.state.data.filteredWts[m.state.data.selectedIndex]
+	m.refreshSelectedWorktreeNotesPane()
+	m.refreshSelectedWorktreeAgentSessionsPane()
 	if !m.worktreesLoaded {
 		m.infoContent = m.buildInfoContent(wt)
 		if m.statusContent == "" || m.statusContent == "Loading..." {

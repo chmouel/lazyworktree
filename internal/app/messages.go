@@ -94,6 +94,7 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 
 	// Now update table with the new timestamp
 	m.updateTable()
+	m.refreshSelectedWorktreeAgentSessionsPane()
 
 	if m.pendingSelectWorktreePath != "" {
 		// Find and select the worktree in the filtered list
@@ -116,6 +117,7 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 		ws.OnQuit = func() tea.Cmd {
 			m.quitting = true
 			m.stopGitWatcher()
+			m.stopAgentWatcher()
 			return tea.Quit
 		}
 		m.state.ui.screenManager.Push(ws)
@@ -180,6 +182,7 @@ func (m *Model) handleCachedWorktrees(msg cachedWorktreesMsg) (tea.Model, tea.Cm
 	if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
 		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
 	}
+	m.refreshSelectedWorktreeAgentSessionsPane()
 	m.statusContent = loadingRefreshWorktrees
 	return m, nil
 }
@@ -198,6 +201,7 @@ func (m *Model) handlePruneResult(msg pruneResultMsg) (tea.Model, tea.Cmd) {
 			m.updateTableColumns(m.state.ui.worktreeTable.Width())
 		}
 		m.updateTable()
+		m.refreshSelectedWorktreeAgentSessionsPane()
 		m.saveCache()
 	}
 	var parts []string

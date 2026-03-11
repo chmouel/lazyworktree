@@ -229,10 +229,10 @@ func (m *Model) hasNoteForSelectedWorktree() bool {
 func (m *Model) refreshSelectedWorktreeNotesPane() {
 	m.notesContent = m.buildNotesContent(m.selectedWorktree())
 
-	if m.state.view.FocusedPane == 4 && !m.hasNoteForSelectedWorktree() {
-		m.state.view.FocusedPane = 0
+	if m.state.view.FocusedPane == paneNotes && !m.hasNoteForSelectedWorktree() {
+		m.state.view.FocusedPane = paneWorktrees
 		m.state.ui.worktreeTable.Focus()
-		if m.state.view.ZoomedPane == 4 {
+		if m.state.view.ZoomedPane == paneNotes {
 			m.state.view.ZoomedPane = -1
 		}
 	}

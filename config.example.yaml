@@ -26,6 +26,7 @@ layout: default
 #   info: 30         # Info pane share of secondary area
 #   git_status: 40   # Git status pane share (when visible)
 #   commit: 30       # Commit log pane share
+#   agent_sessions: 20 # Agent sessions pane share (when visible)
 #   notes: 30        # Notes pane share (when visible)
 
 # Refresh git metadata and working tree status in the background
@@ -326,7 +327,7 @@ terminate_commands:
 # Custom commands are organised by pane context. Use "universal" for commands
 # available in all panes, or a pane name for context-specific bindings.
 #
-# Pane names: universal, worktrees, info, status, log, notes
+# Pane names: universal, worktrees, info, status, log, notes, agent_sessions
 #
 # Commands are executed interactively (TUI suspends, similar to lazygit).
 # Pane-specific bindings take precedence over universal ones when the same
@@ -447,7 +448,7 @@ custom_commands:
 # Use "universal" for bindings active in all panes, or a pane name for
 # context-specific bindings. Pane-specific bindings take precedence over universal.
 #
-# Pane names: universal, worktrees, info, status, log, notes
+# Pane names: universal, worktrees, info, status, log, notes, agent_sessions
 #
 # Use any action ID listed in docs/action-ids.md (e.g. lazygit, delete, diff).
 # Supported key formats: same as custom_commands (e.g. "G", "ctrl+d", "alt+l")

@@ -51,27 +51,41 @@ func (m *Model) renderFooter(layout layoutDims) string {
 	// Context-aware hints based on focused pane
 	var groups [][]string
 
+	hasGitStatus := m.hasGitStatus()
+	hasNotes := m.hasNoteForSelectedWorktree()
+	hasAgentSessions := m.hasAgentSessionsForSelectedWorktree()
 	paneHint := "1-4"
-	if !m.hasGitStatus() {
+	switch {
+	case hasAgentSessions && hasNotes:
+		paneHint = "1-6"
+	case hasAgentSessions && hasGitStatus:
+		paneHint = "1-4,6"
+	case hasAgentSessions:
+		paneHint = "1-2,4,6"
+	case hasNotes && hasGitStatus:
+		paneHint = "1-5"
+	case hasNotes:
+		paneHint = "1-2,4-5"
+	case !hasGitStatus:
 		paneHint = "1-2,4"
-	}
-	if m.hasNoteForSelectedWorktree() {
-		if m.hasGitStatus() {
-			paneHint = "1-5"
-		} else {
-			paneHint = "1-2,4-5"
-		}
 	}
 
 	switch m.state.view.FocusedPane {
-	case 4: // Notes pane
+	case paneNotes: // Notes pane
 		groups = [][]string{
 			{m.renderKeyHint("j/k", "Scroll"), m.renderKeyHint("i", "Edit Note")},
 			{m.renderKeyHint("Tab", "Switch Pane")},
 			{m.renderKeyHint("q", "Quit"), m.renderKeyHint("?", "Help")},
 		}
 
-	case 3: // Commit pane
+	case paneAgentSessions:
+		groups = [][]string{
+			{m.renderKeyHint("j/k", "Navigate"), m.renderKeyHint("Ctrl+D/U", "Page"), m.renderKeyHint("A", "Show All")},
+			{m.renderKeyHint("Tab", "Switch Pane"), m.renderKeyHint("6", "Focus Pane")},
+			{m.renderKeyHint("q", "Quit"), m.renderKeyHint("?", "Help")},
+		}
+
+	case paneCommit: // Commit pane
 		if len(m.state.data.logEntries) > 0 {
 			groups = [][]string{
 				{m.renderKeyHint("Enter", "View Commit"), m.renderKeyHint("C", "Cherry-pick"), m.renderKeyHint("j/k", "Navigate")},
@@ -85,7 +99,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 			}
 		}
 
-	case 2: // Git Status pane
+	case paneGitStatus: // Git Status pane
 		actionGroup := []string{m.renderKeyHint("j/k", "Scroll")}
 		if len(m.state.data.statusFiles) > 0 {
 			actionGroup = append(actionGroup,
@@ -100,7 +114,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 			{m.renderKeyHint("Tab", "Switch Pane"), m.renderKeyHint("q", "Quit"), m.renderKeyHint("?", "Help")},
 		}
 
-	case 1: // Info pane (info + CI)
+	case paneInfo: // Info pane (info + CI)
 		groups = [][]string{
 			{m.renderKeyHint("j/k", "Scroll"), m.renderKeyHint("n/p", "CI Checks"), m.renderKeyHint("Enter", "Open URL"), m.renderKeyHint("Ctrl+v", "CI Logs")},
 			{m.renderKeyHint("Tab", "Switch Pane"), m.renderKeyHint("r", "Refresh")},

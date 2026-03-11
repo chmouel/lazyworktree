@@ -10,13 +10,13 @@ import (
 // yankContextual copies context-aware content based on the focused pane.
 func (m *Model) yankContextual() tea.Cmd {
 	switch m.state.view.FocusedPane {
-	case 0: // Worktrees: copy worktree path
+	case paneWorktrees: // Worktrees: copy worktree path
 		if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
 			wt := m.state.data.filteredWts[m.state.data.selectedIndex]
 			m.showInfo(fmt.Sprintf("Copied path: %s", wt.Path), nil)
 			return tea.SetClipboard(wt.Path)
 		}
-	case 2: // Git Status: copy selected file path
+	case paneGitStatus: // Git Status: copy selected file path
 		if len(m.state.services.statusTree.TreeFlat) > 0 &&
 			m.state.services.statusTree.Index >= 0 &&
 			m.state.services.statusTree.Index < len(m.state.services.statusTree.TreeFlat) {
@@ -33,7 +33,7 @@ func (m *Model) yankContextual() tea.Cmd {
 				return tea.SetClipboard(absPath)
 			}
 		}
-	case 3: // Commit: copy selected commit SHA
+	case paneCommit: // Commit: copy selected commit SHA
 		cursor := m.state.ui.logTable.Cursor()
 		if len(m.state.data.logEntries) > 0 && cursor >= 0 && cursor < len(m.state.data.logEntries) {
 			sha := m.state.data.logEntries[cursor].sha

@@ -32,12 +32,18 @@ type layoutDims struct {
 
 	// Notes pane (default layout: left column split)
 	hasNotes              bool
+	hasAgentSessions      bool
 	leftTopHeight         int
+	leftMiddleHeight      int
 	leftBottomHeight      int
 	leftTopInnerHeight    int
+	leftMiddleInnerHeight int
 	leftBottomInnerHeight int
 
 	// Notes pane (top layout: dedicated row)
+	agentRowHeight      int
+	agentRowInnerHeight int
+	agentRowInnerWidth  int
 	notesRowHeight      int
 	notesRowInnerHeight int
 	notesRowInnerWidth  int
@@ -79,6 +85,8 @@ func (m *Model) layoutRatio(pane string, defaultVal float64) float64 {
 		v = ls.Commit
 	case "notes":
 		v = ls.Notes
+	case "agent_sessions":
+		v = ls.AgentSessions
 	}
 	if v <= 0 {
 		return defaultVal
@@ -130,6 +138,7 @@ func (m *Model) computeLayout() layoutDims {
 	bodyHeight := max(height-headerHeight-footerHeight-filterHeight, 8)
 
 	hasNotes := m.hasNoteForSelectedWorktree()
+	hasAgentSessions := m.hasAgentSessionsForSelectedWorktree()
 	hasGitStatus := m.hasGitStatus()
 
 	// Handle zoom mode: zoomed pane gets full body area
@@ -151,6 +160,7 @@ func (m *Model) computeLayout() layoutDims {
 			gapY:                   0,
 			hasGitStatus:           hasGitStatus,
 			hasNotes:               hasNotes,
+			hasAgentSessions:       hasAgentSessions,
 			leftWidth:              fullWidth,
 			rightWidth:             fullWidth,
 			leftInnerWidth:         fullInnerWidth,
@@ -158,6 +168,8 @@ func (m *Model) computeLayout() layoutDims {
 			leftInnerHeight:        fullInnerHeight,
 			leftTopHeight:          bodyHeight,
 			leftTopInnerHeight:     fullInnerHeight,
+			leftMiddleHeight:       bodyHeight,
+			leftMiddleInnerHeight:  fullInnerHeight,
 			leftBottomHeight:       bodyHeight,
 			leftBottomInnerHeight:  fullInnerHeight,
 			rightTopHeight:         bodyHeight,
@@ -176,9 +188,9 @@ func (m *Model) computeLayout() layoutDims {
 	baseLeftRatio := m.layoutRatio("worktrees", 0.55)
 	leftRatio := baseLeftRatio
 	switch m.state.view.FocusedPane {
-	case 0, 4:
+	case paneWorktrees, paneNotes, paneAgentSessions:
 		leftRatio = baseLeftRatio * 0.82 // slightly tighter than unfocused
-	case 1, 2, 3:
+	case paneInfo, paneGitStatus, paneCommit:
 		leftRatio = max(0.20, baseLeftRatio*0.45)
 	}
 
@@ -208,25 +220,62 @@ func (m *Model) computeLayout() layoutDims {
 	paneFrameX := m.basePaneStyle().GetHorizontalFrameSize()
 	paneFrameY := m.basePaneStyle().GetVerticalFrameSize()
 
-	// Compute notes pane height first so the commit pane can match it
-	var leftTopHeight, leftBottomHeight, leftTopInnerHeight, leftBottomInnerHeight int
+	var leftTopHeight, leftMiddleHeight, leftBottomHeight int
+	var leftTopInnerHeight, leftMiddleInnerHeight, leftBottomInnerHeight int
+	stackedPanes := 0
+	if hasAgentSessions {
+		stackedPanes++
+	}
 	if hasNotes {
-		notesRatio := m.layoutRatio("notes", 0.30)
-		if m.state.view.FocusedPane == 4 {
-			notesRatio = min(notesRatio+0.20, 0.60)
+		stackedPanes++
+	}
+	if stackedPanes == 0 {
+		leftTopHeight = bodyHeight
+	} else {
+		availableHeight := bodyHeight - gapY*stackedPanes
+		agentRatio := 0.0
+		notesRatio := 0.0
+		if hasAgentSessions {
+			agentRatio = m.layoutRatio("agent_sessions", 0.20)
+			if m.state.view.FocusedPane == paneAgentSessions {
+				agentRatio = min(agentRatio+0.10, 0.35)
+			}
 		}
-		leftBottomHeight = max(4, int(float64(bodyHeight-gapY)*notesRatio))
-		leftTopHeight = bodyHeight - leftBottomHeight - gapY
+		if hasNotes {
+			notesRatio = m.layoutRatio("notes", 0.30)
+			if m.state.view.FocusedPane == paneNotes {
+				notesRatio = min(notesRatio+0.10, 0.45)
+			}
+		}
+		switch {
+		case hasAgentSessions && hasNotes:
+			leftMiddleHeight = max(4, int(float64(availableHeight)*agentRatio))
+			leftBottomHeight = max(4, int(float64(availableHeight)*notesRatio))
+			leftTopHeight = availableHeight - leftMiddleHeight - leftBottomHeight
+		case hasAgentSessions:
+			leftMiddleHeight = max(4, int(float64(availableHeight)*agentRatio))
+			leftTopHeight = availableHeight - leftMiddleHeight
+		default:
+			leftBottomHeight = max(4, int(float64(availableHeight)*notesRatio))
+			leftTopHeight = availableHeight - leftBottomHeight
+		}
 		if leftTopHeight < 4 {
+			deficit := 4 - leftTopHeight
 			leftTopHeight = 4
-			leftBottomHeight = bodyHeight - leftTopHeight - gapY
+			if leftBottomHeight > 0 {
+				leftBottomHeight = max(4, leftBottomHeight-deficit)
+			} else if leftMiddleHeight > 0 {
+				leftMiddleHeight = max(4, leftMiddleHeight-deficit)
+			}
 		}
 	}
 
 	// Cap commit pane to notes pane height when notes exist, otherwise use a fixed cap
 	commitCap := 11
-	if hasNotes {
+	if hasNotes && leftBottomHeight > 0 {
 		commitCap = leftBottomHeight
+	} else if hasAgentSessions && leftMiddleHeight > 0 {
+		commitCap = leftMiddleHeight
 	}
 
 	// Right column split: 3-way (Info / Git Status / Commit) or 2-way (Info / Commit) when clean
@@ -236,13 +285,13 @@ func (m *Model) computeLayout() layoutDims {
 		baseInfo, baseGS, baseCommit := m.normaliseRightRatios(0.30, 0.40, 0.30)
 		var topRatio, midRatio float64
 		switch m.state.view.FocusedPane {
-		case 1: // Status focused — boost info
+		case paneInfo: // Status focused — boost info
 			topRatio = min(baseInfo+0.20, 0.60)
 			midRatio = (1.0 - topRatio) * baseGS / (baseGS + baseCommit)
-		case 2: // Git Status focused — boost git_status
+		case paneGitStatus: // Git Status focused — boost git_status
 			midRatio = min(baseGS+0.20, 0.60)
 			topRatio = (1.0 - midRatio) * baseInfo / (baseInfo + baseCommit)
-		case 3: // Commit focused — boost commit
+		case paneCommit: // Commit focused — boost commit
 			botShare := min(baseCommit+0.20, 0.60)
 			topRatio = (1.0 - botShare) * baseInfo / (baseInfo + baseGS)
 			midRatio = (1.0 - botShare) * baseGS / (baseInfo + baseGS)
@@ -272,9 +321,9 @@ func (m *Model) computeLayout() layoutDims {
 		baseTop := infoR / (infoR + commitR)
 		var topRatio float64
 		switch m.state.view.FocusedPane {
-		case 1:
+		case paneInfo:
 			topRatio = min(baseTop+0.20, 0.70)
-		case 3:
+		case paneCommit:
 			topRatio = max(baseTop-0.10, 0.25)
 		default:
 			topRatio = baseTop
@@ -300,8 +349,9 @@ func (m *Model) computeLayout() layoutDims {
 	rightBottomInnerHeight := max(1, rightBottomHeight-paneFrameY)
 
 	// Finish notes inner dimensions
-	if hasNotes {
+	if hasNotes || hasAgentSessions {
 		leftTopInnerHeight = max(1, leftTopHeight-paneFrameY)
+		leftMiddleInnerHeight = max(1, leftMiddleHeight-paneFrameY)
 		leftBottomInnerHeight = max(1, leftBottomHeight-paneFrameY)
 	} else {
 		leftTopHeight = bodyHeight
@@ -319,14 +369,17 @@ func (m *Model) computeLayout() layoutDims {
 		gapY:                   gapY,
 		hasGitStatus:           hasGitStatus,
 		hasNotes:               hasNotes,
+		hasAgentSessions:       hasAgentSessions,
 		leftWidth:              leftWidth,
 		rightWidth:             rightWidth,
 		leftInnerWidth:         leftInnerWidth,
 		rightInnerWidth:        rightInnerWidth,
 		leftInnerHeight:        leftInnerHeight,
 		leftTopHeight:          leftTopHeight,
+		leftMiddleHeight:       leftMiddleHeight,
 		leftBottomHeight:       leftBottomHeight,
 		leftTopInnerHeight:     leftTopInnerHeight,
+		leftMiddleInnerHeight:  leftMiddleInnerHeight,
 		leftBottomInnerHeight:  leftBottomInnerHeight,
 		rightTopHeight:         rightTopHeight,
 		rightMiddleHeight:      rightMiddleHeight,
@@ -347,14 +400,15 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 	paneFrameY := m.basePaneStyle().GetVerticalFrameSize()
 
 	hasNotes := m.hasNoteForSelectedWorktree()
+	hasAgentSessions := m.hasAgentSessionsForSelectedWorktree()
 
 	// Vertical split: top / bottom with focus adjustments.
 	baseTopRatio := m.layoutRatio("worktrees", 0.30)
 	topRatio := baseTopRatio
 	switch m.state.view.FocusedPane {
-	case 0, 4:
+	case paneWorktrees, paneNotes, paneAgentSessions:
 		topRatio = min(baseTopRatio+0.15, 0.60)
-	case 1, 2, 3:
+	case paneInfo, paneGitStatus, paneCommit:
 		topRatio = max(0.20, baseTopRatio*0.45)
 	}
 
@@ -375,13 +429,13 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		baseInfo, baseGS, baseCommit := m.normaliseRightRatios(0.30, 0.40, 0.30)
 		var leftRatio, midRatio float64
 		switch m.state.view.FocusedPane {
-		case 1: // Status focused — boost info
+		case paneInfo: // Status focused — boost info
 			leftRatio = min(baseInfo+0.20, 0.60)
 			midRatio = (1.0 - leftRatio) * baseGS / (baseGS + baseCommit)
-		case 2: // Git Status focused — boost git_status
+		case paneGitStatus: // Git Status focused — boost git_status
 			midRatio = min(baseGS+0.20, 0.60)
 			leftRatio = (1.0 - midRatio) * baseInfo / (baseInfo + baseCommit)
-		case 3: // Commit focused — boost commit
+		case paneCommit: // Commit focused — boost commit
 			botShare := min(baseCommit+0.20, 0.60)
 			leftRatio = (1.0 - botShare) * baseInfo / (baseInfo + baseGS)
 			midRatio = (1.0 - botShare) * baseGS / (baseInfo + baseGS)
@@ -429,9 +483,9 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		baseLeft := infoR / (infoR + commitR)
 		var leftRatio float64
 		switch m.state.view.FocusedPane {
-		case 1:
+		case paneInfo:
 			leftRatio = min(baseLeft+0.10, 0.65)
-		case 3:
+		case paneCommit:
 			leftRatio = max(baseLeft-0.10, 0.30)
 		default:
 			leftRatio = baseLeft
@@ -449,16 +503,37 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		}
 	}
 
-	// Notes row in top layout: insert between worktrees and bottom panes
+	var agentRowHeight, agentRowInnerHeight, agentRowInnerWidth int
 	var notesRowHeight, notesRowInnerHeight, notesRowInnerWidth int
+	extraRows := 0
+	if hasAgentSessions {
+		extraRows++
+	}
 	if hasNotes {
-		notesRatio := m.layoutRatio("notes", 0.30) * 0.5
-		if m.state.view.FocusedPane == 4 {
-			notesRatio = min(notesRatio+0.10, 0.35)
+		extraRows++
+	}
+	if extraRows > 0 {
+		remaining := bodyHeight - gapY*(extraRows+1)
+		if hasAgentSessions {
+			agentRatio := m.layoutRatio("agent_sessions", 0.20) * 0.5
+			if m.state.view.FocusedPane == paneAgentSessions {
+				agentRatio = min(agentRatio+0.05, 0.25)
+			}
+			agentRowHeight = max(4, int(float64(bodyHeight)*agentRatio))
+			remaining -= agentRowHeight
+			agentRowInnerHeight = max(1, agentRowHeight-paneFrameY)
+			agentRowInnerWidth = max(1, width-paneFrameX)
 		}
-		notesRowHeight = max(4, int(float64(bodyHeight)*notesRatio))
-		// Re-budget: top + gap + notes + gap + bottom = bodyHeight
-		remaining := bodyHeight - notesRowHeight - gapY*2
+		if hasNotes {
+			notesRatio := m.layoutRatio("notes", 0.30) * 0.5
+			if m.state.view.FocusedPane == paneNotes {
+				notesRatio = min(notesRatio+0.05, 0.25)
+			}
+			notesRowHeight = max(4, int(float64(bodyHeight)*notesRatio))
+			remaining -= notesRowHeight
+			notesRowInnerHeight = max(1, notesRowHeight-paneFrameY)
+			notesRowInnerWidth = max(1, width-paneFrameX)
+		}
 		topHeight = max(4, int(float64(remaining)*topRatio/(topRatio+(1.0-topRatio))))
 		bottomHeight = remaining - topHeight
 		if bottomHeight < 6 {
@@ -468,8 +543,6 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		if topHeight < 4 {
 			topHeight = 4
 		}
-		notesRowInnerHeight = max(1, notesRowHeight-paneFrameY)
-		notesRowInnerWidth = max(1, width-paneFrameX)
 	}
 
 	topInnerWidth := max(1, width-paneFrameX)
@@ -482,18 +555,22 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 	bottomRightInnerHeight := max(1, bottomHeight-paneFrameY)
 
 	return layoutDims{
-		width:        width,
-		height:       height,
-		headerHeight: headerHeight,
-		footerHeight: footerHeight,
-		filterHeight: filterHeight,
-		bodyHeight:   bodyHeight,
-		gapX:         gapX,
-		gapY:         gapY,
-		layoutMode:   state.LayoutTop,
-		hasGitStatus: hasGitStatus,
-		hasNotes:     hasNotes,
+		width:            width,
+		height:           height,
+		headerHeight:     headerHeight,
+		footerHeight:     footerHeight,
+		filterHeight:     filterHeight,
+		bodyHeight:       bodyHeight,
+		gapX:             gapX,
+		gapY:             gapY,
+		layoutMode:       state.LayoutTop,
+		hasGitStatus:     hasGitStatus,
+		hasNotes:         hasNotes,
+		hasAgentSessions: hasAgentSessions,
 
+		agentRowHeight:      agentRowHeight,
+		agentRowInnerHeight: agentRowInnerHeight,
+		agentRowInnerWidth:  agentRowInnerWidth,
 		// Notes row
 		notesRowHeight:      notesRowHeight,
 		notesRowInnerHeight: notesRowInnerHeight,
@@ -522,6 +599,8 @@ func (m *Model) computeTopLayoutDims(width, height, headerHeight, footerHeight, 
 		leftInnerHeight:        topInnerHeight,
 		leftTopHeight:          topHeight,
 		leftTopInnerHeight:     topInnerHeight,
+		leftMiddleHeight:       agentRowHeight,
+		leftMiddleInnerHeight:  agentRowInnerHeight,
 		leftBottomHeight:       notesRowHeight,
 		leftBottomInnerHeight:  notesRowInnerHeight,
 		rightTopHeight:         bottomHeight,
@@ -556,7 +635,7 @@ func (m *Model) applyLayout(layout layoutDims) {
 		// Subtract 2 extra lines for safety margin
 		// Minimum height of 3 is required to prevent viewport slice bounds panic
 		wtInnerHeight := layout.leftInnerHeight
-		if layout.hasNotes && m.state.view.ZoomedPane < 0 {
+		if (layout.hasNotes || layout.hasAgentSessions) && m.state.view.ZoomedPane < 0 {
 			wtInnerHeight = layout.leftTopInnerHeight
 		}
 		tableHeight := max(3, wtInnerHeight-titleHeight-tableHeaderHeight-2)

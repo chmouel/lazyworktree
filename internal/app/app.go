@@ -91,8 +91,13 @@ type (
 	fetchRemotesCompleteMsg struct{}
 	autoRefreshTickMsg      struct{}
 	gitDirChangedMsg        struct{}
-	deprecationWarningMsg   struct{}
-	debouncedDetailsMsg     struct {
+	agentSessionsUpdatedMsg struct {
+		sessions []*models.AgentSession
+		err      error
+	}
+	agentWatchChangedMsg  struct{}
+	deprecationWarningMsg struct{}
+	debouncedDetailsMsg   struct {
 		selectedIndex int
 	}
 	cachedWorktreesMsg struct {
@@ -257,6 +262,13 @@ const (
 	resizeStep        = 4
 	mainWorktreeName  = "main"
 
+	paneWorktrees     = 0
+	paneInfo          = 1
+	paneGitStatus     = 2
+	paneCommit        = 3
+	paneNotes         = 4
+	paneAgentSessions = 5
+
 	// Merge methods for absorb worktree
 	mergeMethodRebase = "rebase"
 	pullRebaseFlag    = "--rebase=true"
@@ -268,35 +280,41 @@ const (
 )
 
 type uiState struct {
-	worktreeTable  table.Model
-	infoViewport   viewport.Model
-	statusViewport viewport.Model
-	notesViewport  viewport.Model
-	logTable       table.Model
-	filterInput    textinput.Model
-	spinner        spinner.Model
-	screenManager  *screen.Manager
+	worktreeTable         table.Model
+	infoViewport          viewport.Model
+	statusViewport        viewport.Model
+	notesViewport         viewport.Model
+	agentSessionsViewport viewport.Model
+	logTable              table.Model
+	filterInput           textinput.Model
+	spinner               spinner.Model
+	screenManager         *screen.Manager
 }
 
 type dataState struct {
-	worktrees       []*models.WorktreeInfo
-	filteredWts     []*models.WorktreeInfo
-	selectedIndex   int
-	accessHistory   map[string]int64 // worktree path -> last access timestamp
-	statusFiles     []StatusFile     // parsed list of files from git status (kept for compatibility)
-	statusFilesAll  []StatusFile     // full list of files from git status
-	statusFileIndex int              // currently selected file index in status pane
-	logEntries      []commitLogEntry
-	logEntriesAll   []commitLogEntry
+	worktrees         []*models.WorktreeInfo
+	filteredWts       []*models.WorktreeInfo
+	selectedIndex     int
+	accessHistory     map[string]int64 // worktree path -> last access timestamp
+	statusFiles       []StatusFile     // parsed list of files from git status (kept for compatibility)
+	statusFilesAll    []StatusFile     // full list of files from git status
+	statusFileIndex   int              // currently selected file index in status pane
+	agentSessions     []*models.AgentSession
+	agentSessionIndex int
+	logEntries        []commitLogEntry
+	logEntriesAll     []commitLogEntry
 }
 
 type servicesState struct {
-	git          *git.Service
-	worktree     services.WorktreeService
-	trustManager *security.TrustManager
-	statusTree   *services.StatusService
-	watch        *services.GitWatchService
-	filter       *services.FilterService
+	git            *git.Service
+	worktree       services.WorktreeService
+	trustManager   *security.TrustManager
+	statusTree     *services.StatusService
+	watch          *services.GitWatchService
+	agentSessions  *services.AgentSessionService
+	agentProcesses *services.AgentProcessService
+	agentWatch     *services.AgentWatchService
+	filter         *services.FilterService
 }
 
 type modelState struct {
@@ -325,6 +343,7 @@ type Model struct {
 	infoContent               string
 	statusContent             string
 	notesContent              string
+	agentSessionsContent      string
 
 	// Status tree view
 	ciCheckIndex int // Current selection in CI checks (-1 = none, 0+ = index)
@@ -462,6 +481,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	statusVp.SetContent("Loading...")
 
 	notesVp := viewport.New(viewport.WithWidth(40), viewport.WithHeight(5))
+	agentSessionsVp := viewport.New(viewport.WithWidth(40), viewport.WithHeight(5))
 
 	logColumns := []table.Column{
 		{Title: "SHA", Width: 8},
@@ -515,7 +535,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 			view: &state.ViewState{
 				FilterTarget:    state.FilterTargetWorktrees,
 				SearchTarget:    state.SearchTargetWorktrees,
-				FocusedPane:     0,
+				FocusedPane:     paneWorktrees,
 				ZoomedPane:      -1,
 				WindowWidth:     80,
 				WindowHeight:    24,
@@ -551,6 +571,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	m.state.ui.infoViewport = infoVp
 	m.state.ui.statusViewport = statusVp
 	m.state.ui.notesViewport = notesVp
+	m.state.ui.agentSessionsViewport = agentSessionsVp
 	m.state.ui.logTable = logT
 	m.state.ui.filterInput = filterInput
 	m.state.ui.spinner = sp
@@ -561,6 +582,9 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	m.state.services.worktree = services.NewWorktreeService(gitService)
 	m.state.services.statusTree = services.NewStatusService()
 	m.state.services.watch = services.NewGitWatchService(gitService, m.debugf)
+	m.state.services.agentSessions = services.NewAgentSessionService(m.debugf)
+	m.state.services.agentProcesses = services.NewAgentProcessService(m.debugf)
+	m.state.services.agentWatch = services.NewAgentWatchService(m.state.services.agentSessions.WatchRoots(), m.debugf)
 	m.state.services.filter = services.NewFilterService(initialFilter)
 
 	gitService.SetCommandRunner(func(ctx context.Context, name string, args ...string) *exec.Cmd {
@@ -590,6 +614,8 @@ func (m *Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		m.loadCache(),
 		m.refreshWorktrees(),
+		m.refreshAgentSessions(),
+		m.startAgentWatcher(),
 		m.state.ui.spinner.Tick,
 	}
 	if m.state.view.ShowingFilter {
@@ -651,6 +677,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case worktreesLoadedMsg, cachedWorktreesMsg, pruneResultMsg, absorbMergeResultMsg:
 		return m.handleWorktreeMessages(msg)
+
+	case agentSessionsUpdatedMsg:
+		if msg.err == nil {
+			m.state.data.agentSessions = msg.sessions
+			m.refreshSelectedWorktreeAgentSessionsPane()
+		}
+		return m, nil
+
+	case agentWatchChangedMsg:
+		if m.state.services.agentWatch != nil {
+			m.state.services.agentWatch.ResetWaiting()
+		}
+		cmds = append(cmds, m.waitForAgentWatchEvent(), m.refreshAgentSessions())
+		return m, tea.Batch(cmds...)
 
 	case openPRsLoadedMsg:
 		return m, m.handleOpenPRsLoaded(msg)
@@ -859,6 +899,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setLogEntries(msg.log, reset)
 		}
 		m.refreshSelectedWorktreeNotesPane()
+		m.refreshSelectedWorktreeAgentSessionsPane()
 		// Trigger CI fetch if worktree has a PR and cache is stale
 		return m, m.maybeFetchCIStatus()
 
@@ -969,6 +1010,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmds...)
 		}
 		if cmd := m.refreshDetails(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		if cmd := m.refreshAgentSessions(); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 		// Periodically refresh CI status (GitHub only, requires ci_auto_refresh)

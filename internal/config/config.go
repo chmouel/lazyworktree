@@ -23,12 +23,13 @@ const (
 
 // Pane name constants used for keybinding and command dispatch.
 const (
-	PaneWorktrees = "worktrees"
-	PaneInfo      = "info"
-	PaneStatus    = "status"
-	PaneLog       = "log"
-	PaneNotes     = "notes"
-	PaneUniversal = "universal"
+	PaneWorktrees     = "worktrees"
+	PaneInfo          = "info"
+	PaneStatus        = "status"
+	PaneLog           = "log"
+	PaneNotes         = "notes"
+	PaneAgentSessions = "agent_sessions"
+	PaneUniversal     = "universal"
 )
 
 // CustomCommand represents a user-defined command binding.
@@ -194,11 +195,12 @@ type CustomCreateMenu struct {
 // Values are relative weights (1–100) that get normalised at computation time.
 // A nil LayoutSizes means the hardcoded defaults are used.
 type LayoutSizes struct {
-	Worktrees int // Main pane width (default layout) or height (top layout)
-	Info      int // Info pane share of secondary area
-	GitStatus int // Git status pane share (when visible)
-	Commit    int // Commit log pane share
-	Notes     int // Notes pane share (when visible)
+	Worktrees     int // Main pane width (default layout) or height (top layout)
+	Info          int // Info pane share of secondary area
+	GitStatus     int // Git status pane share (when visible)
+	Commit        int // Commit log pane share
+	Notes         int // Notes pane share (when visible)
+	AgentSessions int // Agent sessions pane share (when visible)
 }
 
 // CustomTheme represents a user-defined theme that can inherit from built-in or other custom themes.
@@ -1042,11 +1044,12 @@ func parseLayoutSizes(data map[string]any) *LayoutSizes {
 	}
 
 	ls := &LayoutSizes{
-		Worktrees: 0,
-		Info:      0,
-		GitStatus: 0,
-		Commit:    0,
-		Notes:     0,
+		Worktrees:     0,
+		Info:          0,
+		GitStatus:     0,
+		Commit:        0,
+		Notes:         0,
+		AgentSessions: 0,
 	}
 
 	if v, exists := raw["worktrees"]; exists {
@@ -1063,6 +1066,9 @@ func parseLayoutSizes(data map[string]any) *LayoutSizes {
 	}
 	if v, exists := raw["notes"]; exists {
 		ls.Notes = clampLayoutSize(coerceInt(v, 0), 0)
+	}
+	if v, exists := raw["agent_sessions"]; exists {
+		ls.AgentSessions = clampLayoutSize(coerceInt(v, 0), 0)
 	}
 
 	return ls

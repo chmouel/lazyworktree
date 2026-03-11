@@ -127,7 +127,8 @@ git config --local --get-regexp "^lw\."
 ### Worktree list and refresh
 
 - `sort_mode`: `"switched"` (last accessed, default), `"active"` (commit date), or `"path"` (alphabetical).
-- `layout`: pane arrangement - `"default"` (worktrees left, status/git status/commit stacked right; notes pane splits the left column when a note exists) or `"top"` (worktrees full-width top, notes row below when a note exists, status/git status/commit side-by-side bottom). Toggle at runtime with `L`.
+- `layout`: pane arrangement - `"default"` (worktrees left, agent sessions and notes stacked below when present, status/git status/commit stacked right) or `"top"` (worktrees full-width top, optional agent sessions and notes rows below, status/git status/commit side-by-side bottom). Toggle at runtime with `L`.
+- `layout_sizes`: adjust pane size weights for `worktrees`, `info`, `git_status`, `commit`, `agent_sessions`, and `notes`.
 - `auto_refresh`: background refresh of git metadata (default: true).
 - `ci_auto_refresh`: periodically refresh CI status for GitHub repositories (default: false).
 - `refresh_interval`: refresh frequency in seconds (default: 10).

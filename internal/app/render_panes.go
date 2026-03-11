@@ -515,25 +515,49 @@ func (m *Model) renderNotesBox(width, height int) string {
 		Render(m.state.ui.notesViewport.View())
 }
 
+func (m *Model) renderAgentSessionsBox(width, height int) string {
+	content := m.agentSessionsContent
+	if content == "" {
+		content = "No agent sessions."
+	}
+
+	innerBoxStyle := m.baseInnerBoxStyle()
+
+	vpWidth := max(1, width-innerBoxStyle.GetHorizontalFrameSize())
+	vpHeight := max(1, height-innerBoxStyle.GetVerticalFrameSize())
+
+	m.state.ui.agentSessionsViewport.SetWidth(vpWidth)
+	m.state.ui.agentSessionsViewport.SetHeight(vpHeight)
+	m.state.ui.agentSessionsViewport.SetContent(utils.WrapANSIContent(content, vpWidth))
+	m.syncAgentSessionsViewport()
+
+	return innerBoxStyle.
+		Width(width).
+		Height(height).
+		Render(m.state.ui.agentSessionsViewport.View())
+}
+
 // renderBody renders the main body area with panes.
 func (m *Model) renderBody(layout layoutDims) string {
 	// Handle zoom mode: only render the zoomed pane (layout agnostic)
 	if m.state.view.ZoomedPane >= 0 {
 		// If zoomed on git status pane but it's hidden, reset zoom
-		if m.state.view.ZoomedPane == 2 && !layout.hasGitStatus {
+		if m.state.view.ZoomedPane == paneGitStatus && !layout.hasGitStatus {
 			m.state.view.ZoomedPane = -1
 		} else {
 			switch m.state.view.ZoomedPane {
-			case 0:
+			case paneWorktrees:
 				return m.renderZoomedLeftPane(layout)
-			case 1:
+			case paneInfo:
 				return m.renderZoomedRightTopPane(layout)
-			case 2:
+			case paneGitStatus:
 				return m.renderZoomedRightMiddlePane(layout)
-			case 3:
+			case paneCommit:
 				return m.renderZoomedRightBottomPane(layout)
-			case 4:
+			case paneNotes:
 				return m.renderZoomedNotesPane(layout)
+			case paneAgentSessions:
+				return m.renderZoomedAgentSessionsPane(layout)
 			}
 		}
 	}
@@ -550,20 +574,26 @@ func (m *Model) renderBody(layout layoutDims) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, gap, right)
 }
 
-// renderLeftPane renders the left pane (worktree table), optionally split with notes below.
+// renderLeftPane renders the left pane, stacking worktrees with optional agent sessions and notes.
 func (m *Model) renderLeftPane(layout layoutDims) string {
-	if layout.hasNotes {
-		wtFocused := m.state.view.FocusedPane == 0
-		wtPane := m.renderPaneBlock(1, "Worktrees", wtFocused, layout.leftWidth, layout.leftTopHeight, m.state.ui.worktreeTable.View())
-
-		notesFocused := m.state.view.FocusedPane == 4
-		notesBox := m.renderNotesBox(layout.leftInnerWidth, layout.leftBottomInnerHeight)
-		notesPane := m.renderPaneBlock(5, "Notes", notesFocused, layout.leftWidth, layout.leftBottomHeight, notesBox)
-
+	if layout.hasAgentSessions || layout.hasNotes {
+		parts := make([]string, 0, 3)
+		wtFocused := m.state.view.FocusedPane == paneWorktrees
+		parts = append(parts, m.renderPaneBlock(1, "Worktrees", wtFocused, layout.leftWidth, layout.leftTopHeight, m.state.ui.worktreeTable.View()))
+		if layout.hasAgentSessions {
+			agentFocused := m.state.view.FocusedPane == paneAgentSessions
+			agentBox := m.renderAgentSessionsBox(layout.leftInnerWidth, layout.leftMiddleInnerHeight)
+			parts = append(parts, m.renderPaneBlock(6, "Agent Sessions", agentFocused, layout.leftWidth, layout.leftMiddleHeight, agentBox))
+		}
+		if layout.hasNotes {
+			notesFocused := m.state.view.FocusedPane == paneNotes
+			notesBox := m.renderNotesBox(layout.leftInnerWidth, layout.leftBottomInnerHeight)
+			parts = append(parts, m.renderPaneBlock(5, "Notes", notesFocused, layout.leftWidth, layout.leftBottomHeight, notesBox))
+		}
 		gap := strings.Repeat("\n", layout.gapY)
-		return lipgloss.JoinVertical(lipgloss.Left, wtPane, gap, notesPane)
+		return strings.Join(parts, gap)
 	}
-	focused := m.state.view.FocusedPane == 0
+	focused := m.state.view.FocusedPane == paneWorktrees
 	return m.renderPaneBlock(1, "Worktrees", focused, layout.leftWidth, layout.bodyHeight, m.state.ui.worktreeTable.View())
 }
 
@@ -581,7 +611,7 @@ func (m *Model) renderRightPane(layout layoutDims) string {
 
 // renderRightTopPane renders the right top pane (info box only).
 func (m *Model) renderRightTopPane(layout layoutDims) string {
-	focused := m.state.view.FocusedPane == 1
+	focused := m.state.view.FocusedPane == paneInfo
 
 	infoBox := m.renderInfoBox(layout.rightInnerWidth, layout.rightTopInnerHeight)
 	return m.renderPaneBlock(2, "Info", focused, layout.rightWidth, layout.rightTopHeight, infoBox)
@@ -615,7 +645,7 @@ func (m *Model) renderInfoBox(width, height int) string {
 
 // renderRightMiddlePane renders the right middle pane (git status file tree).
 func (m *Model) renderRightMiddlePane(layout layoutDims) string {
-	focused := m.state.view.FocusedPane == 2
+	focused := m.state.view.FocusedPane == paneGitStatus
 
 	innerBoxStyle := m.baseInnerBoxStyle()
 	statusViewportWidth := max(1, layout.rightInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
@@ -633,7 +663,7 @@ func (m *Model) renderRightMiddlePane(layout layoutDims) string {
 
 // renderRightBottomPane renders the right bottom pane (commit log table).
 func (m *Model) renderRightBottomPane(layout layoutDims) string {
-	focused := m.state.view.FocusedPane == 3
+	focused := m.state.view.FocusedPane == paneCommit
 	return m.renderPaneBlock(4, "Commit", focused, layout.rightWidth, layout.rightBottomHeight, m.state.ui.logTable.View())
 }
 
@@ -642,18 +672,27 @@ func (m *Model) renderTopLayoutBody(layout layoutDims) string {
 	top := m.renderTopPane(layout)
 	bottom := m.renderBottomPane(layout)
 	gap := strings.Repeat("\n", layout.gapY)
-	if layout.hasNotes {
-		notesFocused := m.state.view.FocusedPane == 4
-		notesBox := m.renderNotesBox(layout.notesRowInnerWidth, layout.notesRowInnerHeight)
-		notesRow := m.renderPaneBlock(5, "Notes", notesFocused, layout.width, layout.notesRowHeight, notesBox)
-		return lipgloss.JoinVertical(lipgloss.Left, top, gap, notesRow, gap, bottom)
+	if layout.hasAgentSessions || layout.hasNotes {
+		parts := []string{top}
+		if layout.hasAgentSessions {
+			agentFocused := m.state.view.FocusedPane == paneAgentSessions
+			agentBox := m.renderAgentSessionsBox(layout.agentRowInnerWidth, layout.agentRowInnerHeight)
+			parts = append(parts, m.renderPaneBlock(6, "Agent Sessions", agentFocused, layout.width, layout.agentRowHeight, agentBox))
+		}
+		if layout.hasNotes {
+			notesFocused := m.state.view.FocusedPane == paneNotes
+			notesBox := m.renderNotesBox(layout.notesRowInnerWidth, layout.notesRowInnerHeight)
+			parts = append(parts, m.renderPaneBlock(5, "Notes", notesFocused, layout.width, layout.notesRowHeight, notesBox))
+		}
+		parts = append(parts, bottom)
+		return strings.Join(parts, gap)
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, top, gap, bottom)
 }
 
 // renderTopPane renders the full-width worktree pane at the top.
 func (m *Model) renderTopPane(layout layoutDims) string {
-	focused := m.state.view.FocusedPane == 0
+	focused := m.state.view.FocusedPane == paneWorktrees
 	return m.renderPaneBlock(1, "Worktrees", focused, layout.width, layout.topHeight, m.state.ui.worktreeTable.View())
 }
 
@@ -673,7 +712,7 @@ func (m *Model) renderBottomPane(layout layoutDims) string {
 
 // renderBottomLeftPane renders the status (info) pane in the bottom left of the top layout.
 func (m *Model) renderBottomLeftPane(layout layoutDims) string {
-	focused := m.state.view.FocusedPane == 1
+	focused := m.state.view.FocusedPane == paneInfo
 
 	infoBox := m.renderInfoBox(layout.bottomLeftInnerWidth, layout.bottomLeftInnerHeight)
 	return m.renderPaneBlock(2, "Info", focused, layout.bottomLeftWidth, layout.bottomHeight, infoBox)
@@ -681,7 +720,7 @@ func (m *Model) renderBottomLeftPane(layout layoutDims) string {
 
 // renderBottomMiddlePane renders the git status pane in the bottom middle of the top layout.
 func (m *Model) renderBottomMiddlePane(layout layoutDims) string {
-	focused := m.state.view.FocusedPane == 2
+	focused := m.state.view.FocusedPane == paneGitStatus
 
 	innerBoxStyle := m.baseInnerBoxStyle()
 	statusViewportWidth := max(1, layout.bottomMiddleInnerWidth-innerBoxStyle.GetHorizontalFrameSize())
@@ -699,7 +738,7 @@ func (m *Model) renderBottomMiddlePane(layout layoutDims) string {
 
 // renderBottomRightPane renders the commit pane in the bottom right of the top layout.
 func (m *Model) renderBottomRightPane(layout layoutDims) string {
-	focused := m.state.view.FocusedPane == 3
+	focused := m.state.view.FocusedPane == paneCommit
 	return m.renderPaneBlock(4, "Commit", focused, layout.bottomRightWidth, layout.bottomHeight, m.state.ui.logTable.View())
 }
 
@@ -739,6 +778,12 @@ func (m *Model) renderZoomedRightBottomPane(layout layoutDims) string {
 func (m *Model) renderZoomedNotesPane(layout layoutDims) string {
 	notesBox := m.renderNotesBox(layout.leftInnerWidth, layout.leftTopInnerHeight)
 	return m.renderPaneBlock(5, "Notes", true, layout.leftWidth, layout.bodyHeight, notesBox)
+}
+
+// renderZoomedAgentSessionsPane renders the zoomed agent sessions pane.
+func (m *Model) renderZoomedAgentSessionsPane(layout layoutDims) string {
+	agentBox := m.renderAgentSessionsBox(layout.leftInnerWidth, layout.leftTopInnerHeight)
+	return m.renderPaneBlock(6, "Agent Sessions", true, layout.leftWidth, layout.bodyHeight, agentBox)
 }
 
 // infoSectionDivider returns a thin horizontal rule for separating info pane sections.
@@ -904,7 +949,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 
 			checks := sortCIChecks(cachedChecks)
 			for i, check := range checks {
-				isSelected := m.state.view.FocusedPane == 1 && m.ciCheckIndex >= 0 && i == m.ciCheckIndex
+				isSelected := m.state.view.FocusedPane == paneInfo && m.ciCheckIndex >= 0 && i == m.ciCheckIndex
 
 				symbol := getCIStatusIcon(check.Conclusion, false, m.config.IconsEnabled())
 				var line string
@@ -1001,7 +1046,7 @@ func (m *Model) renderStatusFiles() string {
 
 		// Apply styling based on selection and node type
 		switch {
-		case m.state.view.FocusedPane == 2 && m.ciCheckIndex < 0 && i == m.state.services.statusTree.Index:
+		case m.state.view.FocusedPane == paneGitStatus && m.ciCheckIndex < 0 && i == m.state.services.statusTree.Index:
 			if viewportWidth > 0 && len(lineContent) < viewportWidth {
 				lineContent += strings.Repeat(" ", viewportWidth-len(lineContent))
 			}
