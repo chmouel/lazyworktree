@@ -42,12 +42,10 @@ release:
 
 optimize:
 	for i in .github/screenshots/*.png; do \
-		pngquant --ext .new.png --skip-if-larger --quality 75 -f $$i; \
-		t=$${i/.png/.new.png}; [[ -e $$t ]] && mv -vf $$t $$i || true; \
-	done
+		pngquant -f --skip-if-larger --verbose --quality 75 $$i --ext .png ;\
+	done || true
 	find docs/assets -name '*.png' | while read i; do \
-		pngquant --ext .new.png --skip-if-larger --quality 75 -f $$i; \
-		t=$${i/.png/.new.png}; [[ -e $$t ]] && mv -vf $$t $$i || true; \
-	done
+		pngquant -f --skip-if-larger --verbose --quality 75 $$i --ext .png ;\
+	done || true
 	find docs/assets \( -name '*.jpg' -o -name '*.jpeg' \) -exec jpegoptim --max=85 --strip-all {} \;
 .PHONY: all build lint format test coverage sanity mkdir release docs-build docs-serve docs-sync docs-check optimize
