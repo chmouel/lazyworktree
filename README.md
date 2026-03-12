@@ -44,17 +44,17 @@ _[You can see more screenshots here](https://chmouel.github.io/lazyworktree/#scr
 
 ## Main Features
 
-- Worktree management — Create worktrees from branches, PRs/MRs, or issues; delete, list, and switch between them
-- CI & PR/MR status — See GitHub Actions and GitLab CI results, check PR/MR details, view logs
-- Notes & taskboard — Write markdown notes per worktree or tasks to track what you're working on; set a short description to replace the directory name in the list
-- Agent sessions pane — See open Claude and pi sessions attached to the selected worktree by default, with a toggle for historical idle sessions
-- Command palette — Quick access to all actions and custom commands with `?`, including an explicit **Open commit screen** action; use `_` prefix for palette-only commands
-- Tmux and Zellij support — Automatically open worktrees in new tmux windows/panes or zellij tabs
-- Docker/Podman support — Run commands in Docker or Podman containers tied to the worktree
-- Custom commands — Set up shell commands in config, bind them to keys, show them in the palette
-- Shell helpers — `cd "$(lazyworktree)"` shortcut and shell completion for bash, zsh, and fish (making it easy to jump to worktrees from the terminal)
-- Hooks — `.wt` files per worktree to automate setup and cleanup tasks
-- Customize Worktree display — Show branch names, PR/MR status, CI status, descriptions, and more in the list; configure colors, tags and icons.
+- Worktree management - Create worktrees from branches, PRs/MRs, or issues; delete, list, and switch between them
+- CI & PR/MR status - See GitHub Actions and GitLab CI results, check PR/MR details, view logs
+- Agent sessions pane - See open Claude and pi sessions attached to the selected worktree by default, with a toggle for historical idle sessions
+- Command palette - Quick access to all actions and custom commands with `?`.
+- Tmux and Zellij support - Automatically open worktrees in new tmux windows/panes or zellij tabs
+- Docker/Podman support - Run commands in Docker or Podman containers tied to the worktree
+- Custom commands - Set up custom shell commands in config, bind them to keys, show them in the palette.
+- Notes - Write markdown notes per worktree or tasks to track what you're working on
+- Hooks - `.wt` files per worktree to automate setup and cleanup tasks
+- Customize Worktree display - Customize name or categorize with colors, tags and icons.
+- Shell helpers - `cd "$(lazyworktree)"` shortcut and shell completion for bash, zsh, and fish (making it easy to jump to worktrees from the terminal)
 
 ## Installation
 
@@ -104,45 +104,6 @@ For shell integration helpers, see:
 Optional tools are documented here:
 
 - <https://chmouel.github.io/lazyworktree/docs/getting-started/#requirements>
-
-## Development
-
-Build the binary:
-
-```bash
-make build
-```
-
-Run full checks:
-
-```bash
-make sanity
-```
-
-Preview docs locally:
-
-```bash
-brew install uv # if not already installed
-make docs-serve
-```
-
-Build docs locally:
-
-```bash
-make docs-build
-```
-
-Synchronise generated docs references:
-
-```bash
-make docs-sync
-```
-
-Run docs synchronisation and strict docs checks:
-
-```bash
-make docs-check
-```
 
 ## Licence
 
