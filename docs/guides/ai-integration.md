@@ -2,6 +2,65 @@
 
 LazyWorktree can integrate with AI tools to automatically generate branch names and worktree notes. AI features are completely optional.
 
+## For Coding Agents
+
+If you are a coding agent (Claude Code, Copilot, etc.) or writing automation that shells out to `lazyworktree`, follow this hierarchy:
+
+### 1. Introspect with `describe`
+
+Use `describe` to discover flags and subcommands without parsing `--help`:
+
+```bash
+# Full CLI structure
+lazyworktree describe | jq '.subcommands[].name'
+
+# Flags for a specific command
+lazyworktree describe create | jq '.flags[].name'
+
+# Check a nested subcommand
+lazyworktree describe note show | jq '.'
+```
+
+`describe` always emits valid JSON and exits 0 on success. The output is stable and safe to parse programmatically.
+
+### 2. Use `--json` for machine-readable output
+
+Every mutating command (`create`, `delete`, `rename`) and `note show` accept `--json`. In this mode:
+
+- Structured JSON is written to **stdout**
+- Human-readable progress messages go to **stderr**
+- Exit code reflects success/failure, not the JSON content
+
+```bash
+# Create a worktree and capture its path
+path=$(lazyworktree create my-feature --json | jq -r '.path')
+
+# Delete and confirm what was removed
+lazyworktree delete my-feature --json | jq '{name, path, branch_deleted}'
+
+# List worktrees with agent session data
+lazyworktree list --json | jq '.[].agent_count'
+
+# Show note metadata
+lazyworktree note show --json | jq '{note, description, tags}'
+```
+
+### 3. Use `exec --json` for command automation
+
+```bash
+# Run a command in a worktree and capture the exit code
+result=$(lazyworktree exec --workspace my-feature --json "make test")
+echo "$result" | jq '.exit_code'
+```
+
+### Introspection hierarchy
+
+| Method | When to use |
+|---|---|
+| `describe` | Discover available flags and subcommands |
+| `--json` flags | Parse command results programmatically |
+| `--help` | Human-readable reference only — do not parse |
+
 <div class="mint-callout">
   <p><strong>Use this page when:</strong> you want to automate branch naming from PR/issue titles or generate implementation notes from descriptions.</p>
 </div>

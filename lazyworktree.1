@@ -112,6 +112,27 @@ Examples: \fB--config=lw.theme=nord\fR, \fB--config=lw.sort_mode=active\fR
 This has the highest precedence and overrides all other configuration sources.
 .
 .SH SUBCOMMANDS
+.SS list
+List all worktrees in tabular form without launching the TUI.
+.
+.PP
+.B Options:
+.TP
+.B \-\-json
+Output worktrees as a JSON array. Each entry includes path, name, branch, head, is_main, is_current, has_changes, linked_pr, pr_status, description, tags, note_present, note_updated_at, agent_sessions, agent_open, agent_activity, and agent_count fields. Mutually exclusive with \-\-pristine.
+.
+.TP
+.B \-\-pristine
+Show only worktrees with no uncommitted changes. Mutually exclusive with \-\-json.
+.
+.TP
+.B \-\-main
+Include the main worktree in the output (excluded by default).
+.
+.TP
+.B \-\-no\-agent
+Skip agent session loading. Omits agent_sessions, agent_open, agent_activity, and agent_count from JSON output. Use for faster scripting when agent state is not needed.
+.
 .SS create
 Create a new worktree without launching the TUI.
 .
@@ -167,6 +188,30 @@ Run a post\-create command through the current shell environment. The command ru
 .B \-\-output\-selection \fIFILE\fR
 Write the created worktree path to FILE. When set, stdout output is suppressed.
 .
+.TP
+.B \-\-note \fITEXT\fR
+Set an initial note body on the created worktree. The note is stored in the configured notes file.
+.
+.TP
+.B \-\-note\-file \fIFILE\fR
+Read the initial note body from FILE. Use \fB\-\fR to read from stdin. Mutually exclusive with \-\-note.
+.
+.TP
+.B \-\-description \fITEXT\fR
+Set a short description for the worktree. The description replaces the directory name in the worktree list for display purposes; filtering also matches against it.
+.
+.TP
+.B \-\-tags \fILIST\fR
+Comma-separated list of tags to attach to the worktree (e.g., \fBbug,frontend\fR). Tags are stored in the note frontmatter and displayed as coloured badges in the TUI.
+.
+.TP
+.B \-\-json
+Output the created worktree details as JSON to stdout. Progress messages are written to stderr. The JSON object contains path, name, branch, description, and tags fields.
+.
+.TP
+.B \-\-exec\-mode \fIMODE\fR
+Controls how the \-\-exec command is invoked. Valid values: \fBlogin\-shell\fR (default, uses interactive login flags), \fBshell\fR (non-interactive \fB$SHELL \-c\fR), \fBdirect\fR (splits the command string and execs without a shell wrapper).
+.
 .SS rename
 Rename a worktree without launching the TUI.
 .
@@ -188,6 +233,10 @@ When two arguments are given, \fIWORKTREE\fR is the worktree path, branch name, 
 .B \-\-silent
 Suppress all progress messages to stderr. Useful for scripting and automation.
 .
+.TP
+.B \-\-json
+Output the rename result as JSON to stdout. The JSON object contains old_name, old_path, new_name, and new_path fields. Progress messages are written to stderr.
+.
 .SS delete
 Delete a worktree without launching the TUI.
 .
@@ -204,6 +253,10 @@ Skip branch deletion entirely (even if worktree name matches branch name).
 .TP
 .B \-\-silent
 Suppress all progress messages to stderr. Useful for scripting and automation.
+.
+.TP
+.B \-\-json
+Output the delete result as JSON to stdout. The JSON object contains name, path, and branch_deleted fields. Progress messages are written to stderr.
 .
 .SS exec
 Run a command or trigger a custom command key action in a worktree from the CLI.
@@ -224,6 +277,10 @@ Target worktree by name, path, or branch name. If not provided, lazyworktree aut
 .TP
 .B \-\-key \fIKEY\fR, \-k \fIKEY\fR
 Custom command key to trigger (e.g., 't' for tmux, 'z' for zellij, or '_review' for a palette-only action). Mutually exclusive with the positional command argument. The key must exist in your configuration's \fBcustom_commands\fR. Supports shell, tmux, zellij, and show-output command types. Note: new-tab commands are not supported in CLI mode.
+.
+.TP
+.B \-\-json
+Capture the command output and emit a JSON object containing name, path, command, and exit_code fields. In JSON mode, child stdout is redirected to stderr. Mutually exclusive with \-\-key.
 .
 .PP
 .B Environment:
@@ -259,10 +316,32 @@ Print the raw note text for a worktree to stdout. Defaults to the worktree detec
 Open the note in \fB$EDITOR\fR (falls back to \fB$VISUAL\fR, then \fBvi\fR). The file uses YAML frontmatter for metadata (icon, color, updated_at) followed by markdown body text.
 .
 .PP
+.B Options (show):
+.TP
+.B \-\-json
+Output the note as a JSON object containing worktree_name, path, note, description, icon, tags, and updated_at fields. Progress messages are written to stderr.
+.
+.PP
 .B Options (edit):
 .TP
 .B \-\-input \fIFILE\fR, \-i \fIFILE\fR
 Read the note from a file instead of opening an editor. Use \fB\-\fR to read from stdin. The input format is the same frontmatter+markdown used by the editor.
+.
+.SS describe
+Emit the CLI command structure as machine-readable JSON. Designed for coding agents and scripts that need to discover flags and subcommands without parsing \-\-help output.
+.
+.PP
+.B Synopsis:
+.PP
+.B lazyworktree describe \fR[\fIcommand\fR] [\fIsubcommand\fR]
+.br
+.B lazyworktree describe \-\-all
+.
+.PP
+.B Options:
+.TP
+.B \-\-all
+Describe all commands and their flags (equivalent to no arguments).
 .
 .SH EXAMPLES
 .SS Worktree Management

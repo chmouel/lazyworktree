@@ -124,6 +124,7 @@ nav:
       - rename: cli/rename.md
       - exec: cli/exec.md
       - note: cli/note.md
+      - describe: cli/describe.md
 extra:
   generator: false
   social:

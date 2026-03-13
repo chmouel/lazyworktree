@@ -1,5 +1,23 @@
 package bootstrap
 
+// flagDescJSON describes a single CLI flag for machine-readable introspection.
+type flagDescJSON struct {
+	Name    string   `json:"name"`
+	Aliases []string `json:"aliases,omitempty"`
+	Usage   string   `json:"usage,omitempty"`
+	Type    string   `json:"type"`
+	Default string   `json:"default,omitempty"`
+}
+
+// commandDescJSON describes a CLI command for machine-readable introspection.
+type commandDescJSON struct {
+	Name        string            `json:"name"`
+	Usage       string            `json:"usage,omitempty"`
+	ArgsUsage   string            `json:"args_usage,omitempty"`
+	Flags       []flagDescJSON    `json:"flags,omitempty"`
+	Subcommands []commandDescJSON `json:"subcommands,omitempty"`
+}
+
 // JSON response types for CLI output.
 // All mutating commands support a --json flag that emits one of these types to stdout.
 // Progress and diagnostic messages continue to go to stderr.
