@@ -1163,7 +1163,7 @@ func TestOutputListJSON(t *testing.T) {
 		_ = r.Close()
 	})
 
-	err = outputListJSON(worktrees, false)
+	err = outputListJSON(context.Background(), nil, nil, worktrees, false, false)
 	require.NoError(t, err)
 
 	_ = w.Close()
@@ -1171,7 +1171,7 @@ func TestOutputListJSON(t *testing.T) {
 	var buf bytes.Buffer
 	_, _ = io.Copy(&buf, r)
 
-	var result []worktreeJSON
+	var result []worktreeJSONExtended
 	err = json.Unmarshal(buf.Bytes(), &result)
 	require.NoError(t, err)
 
@@ -1217,7 +1217,7 @@ func TestOutputListJSONMainOnly(t *testing.T) {
 		_ = r.Close()
 	})
 
-	err = outputListJSON(mainWorktree, true)
+	err = outputListJSON(context.Background(), nil, nil, mainWorktree, true, false)
 	require.NoError(t, err)
 
 	_ = w.Close()
@@ -1226,7 +1226,7 @@ func TestOutputListJSONMainOnly(t *testing.T) {
 	_, _ = io.Copy(&buf, r)
 
 	// Parse as single object
-	var result worktreeJSON
+	var result worktreeJSONExtended
 	err = json.Unmarshal(buf.Bytes(), &result)
 	require.NoError(t, err)
 

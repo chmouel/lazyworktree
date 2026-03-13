@@ -1107,3 +1107,55 @@ func editNoteInEditor(cfg *config.AppConfig, existing models.WorktreeNote) (mode
 
 	return parsed, nil
 }
+
+// NoteGet retrieves the note for a worktree without printing it.
+// Returns the note (empty if none exists), the worktree path, and any error.
+func NoteGet(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, worktreePathOrName string) (*models.WorktreeNote, string, error) {
+	nc, err := resolveNoteContext(ctx, gitSvc, cfg, worktreePathOrName)
+	if err != nil {
+		return nil, "", err
+	}
+
+	_, note, ok := nc.note()
+	if !ok {
+		empty := models.WorktreeNote{}
+		return &empty, nc.worktree.Path, nil
+	}
+	return &note, nc.worktree.Path, nil
+}
+
+// NoteSet writes note metadata for a worktree without opening an editor.
+// Only non-zero fields in note are applied; existing fields not mentioned are preserved.
+func NoteSet(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, worktreePathOrName string, note models.WorktreeNote) error {
+	nc, err := resolveNoteContext(ctx, gitSvc, cfg, worktreePathOrName)
+	if err != nil {
+		return err
+	}
+
+	_, existing, _ := nc.note()
+
+	// Merge: only override provided (non-zero) fields.
+	merged := existing
+	if note.Note != "" {
+		merged.Note = strings.TrimSpace(note.Note)
+	}
+	if note.Description != "" {
+		merged.Description = note.Description
+	}
+	if len(note.Tags) > 0 {
+		merged.Tags = note.Tags
+	}
+	if note.Icon != "" {
+		merged.Icon = note.Icon
+	}
+	if merged.UpdatedAt == 0 {
+		merged.UpdatedAt = time.Now().Unix()
+	}
+
+	if nc.legacyKey != "" && nc.legacyKey != nc.key {
+		delete(nc.notes, nc.legacyKey)
+	}
+	nc.notes[nc.key] = merged
+
+	return appservices.SaveWorktreeNotes(nc.repoKey, cfg.WorktreeDir, cfg.WorktreeNotesPath, cfg.WorktreeNoteType, nc.notes, nc.env)
+}
