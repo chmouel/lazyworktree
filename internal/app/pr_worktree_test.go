@@ -162,6 +162,66 @@ func TestCreateFromIssueResultMsgSuccessSavesGeneratedNote(t *testing.T) {
 	}
 }
 
+// TestHandleOpenIssuesLoaded_BranchNameScriptErrorUsesIssueAwareInput verifies that
+// when branch_name_script fails, the fallback input screen is the issue-specific one
+// (with worktree_note_script wired up) rather than the generic showBranchNameInput screen.
+func TestHandleOpenIssuesLoaded_BranchNameScriptErrorUsesIssueAwareInput(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir:      t.TempDir(),
+		BranchNameScript: "exit 1", // always fails
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	issue := &models.IssueInfo{Number: 42, Title: "Test issue", Body: "body", URL: "https://example.com/42"}
+	msg := openIssuesLoadedMsg{issues: []*models.IssueInfo{issue}}
+	_ = m.handleOpenIssuesLoaded(msg)
+
+	// A list-selection screen (issue picker) should be pushed.
+	if m.state.ui.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected list-select screen after handleOpenIssuesLoaded, got %v", m.state.ui.screenManager.Type())
+	}
+	issueScr := m.state.ui.screenManager.Current().(*appscreen.ListSelectionScreen)
+
+	// Simulate selecting the issue; this triggers showBranchSelection (branch picker).
+	_ = issueScr.OnSelect(appscreen.SelectionItem{ID: "42", Label: "#42    Test issue"})
+
+	// A second list-select screen (branch picker) should now be on top.
+	if m.state.ui.screenManager.Type() != appscreen.TypeListSelect {
+		t.Fatalf("expected branch list-select screen, got %v", m.state.ui.screenManager.Type())
+	}
+	branchScr := m.state.ui.screenManager.Current().(*appscreen.ListSelectionScreen)
+
+	// Simulate selecting a base branch; BranchNameScript ("exit 1") will fail,
+	// so an info screen should be pushed for the error.
+	_ = branchScr.OnSelect(appscreen.SelectionItem{ID: "main"})
+
+	if m.state.ui.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen for branch_name_script error, got %v", m.state.ui.screenManager.Type())
+	}
+	infoScr := m.state.ui.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "Branch name script error") {
+		t.Errorf("expected branch name script error in info message, got %q", infoScr.Message)
+	}
+
+	// Dismiss the info screen; the OnClose action should push the issue-specific InputScreen.
+	if closeCmd := infoScr.OnClose(); closeCmd != nil {
+		closeCmd()
+	}
+
+	if m.state.ui.screenManager.Type() != appscreen.TypeInput {
+		t.Fatalf("expected input screen after dismissing script error, got %v", m.state.ui.screenManager.Type())
+	}
+	inputScr := m.state.ui.screenManager.Current().(*appscreen.InputScreen)
+
+	// The issue-aware InputScreen has the issue number in its prompt;
+	// the generic showBranchNameInput uses "Create worktree: branch name".
+	wantPromptSubstr := "issue #42"
+	if !strings.Contains(inputScr.Prompt, wantPromptSubstr) {
+		t.Errorf("expected input screen prompt to contain %q (issue-aware path), got %q", wantPromptSubstr, inputScr.Prompt)
+	}
+}
+
 // TestHandleWorktreesLoadedSelectsPendingPath tests that worktrees are selected after creation.
 func TestHandleWorktreesLoadedSelectsPendingPath(t *testing.T) {
 	cfg := &config.AppConfig{

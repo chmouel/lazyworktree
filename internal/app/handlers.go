@@ -721,6 +721,14 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openLazyGit()
 
 	case "o":
+		if m.state.view.FocusedPane == paneCommit {
+			cursor := m.state.ui.logTable.Cursor()
+			if len(m.state.data.logEntries) > 0 && cursor >= 0 && cursor < len(m.state.data.logEntries) {
+				sha := m.state.data.logEntries[cursor].sha
+				return m, m.openCommitInBrowser(sha)
+			}
+			return m, nil
+		}
 		return m, m.openPR()
 
 	case "m":

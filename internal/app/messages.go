@@ -577,17 +577,9 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 					suggested = m.suggestBranchName(suggested)
 				}
 
-				if scriptErr != "" {
-					m.showInfo(scriptErr, func() tea.Msg {
-						cmd := m.showBranchNameInput(baseBranch, suggested)
-						if cmd != nil {
-							return cmd()
-						}
-						return nil
-					})
-					return nil
-				}
-
+				// Build the note-aware inputScr first so both the happy path and
+				// the branch_name_script error fallback use the same screen and
+				// the worktree_note_script is always called on submit.
 				inputScr := screen.NewInputScreen(
 					fmt.Sprintf("Create worktree from issue #%d", issue.Number),
 					"Worktree name",
@@ -636,20 +628,30 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 								err:         fmt.Errorf("create worktree from issue #%d", issue.Number),
 							}
 						}
-						noteText, err := m.generateWorktreeNote("issue", issue.Number, issue.Title, issue.Body, issue.URL)
-						if err != nil {
-							m.debugf("worktree note script error for issue #%d: %v", issue.Number, err)
+						noteText, noteScriptErr := m.generateWorktreeNote("issue", issue.Number, issue.Title, issue.Body, issue.URL)
+						noteErr := ""
+						if noteScriptErr != nil {
+							noteErr = fmt.Sprintf("Note script error for issue #%d: %v", issue.Number, noteScriptErr)
 						}
 						return createFromIssueResultMsg{
 							issueNumber: issue.Number,
 							branch:      newBranch,
 							targetPath:  targetPath,
 							note:        noteText,
+							noteErr:     noteErr,
 						}
 					}
 				}
 
 				inputScr.OnCancel = func() tea.Cmd {
+					return nil
+				}
+
+				if scriptErr != "" {
+					m.showInfo(scriptErr, func() tea.Msg {
+						m.state.ui.screenManager.Push(inputScr)
+						return textinput.Blink()
+					})
 					return nil
 				}
 

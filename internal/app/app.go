@@ -167,6 +167,7 @@ type (
 		branch      string
 		targetPath  string
 		note        string
+		noteErr     string
 		err         error
 	}
 	renameWorktreeResultMsg struct {
@@ -772,6 +773,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if strings.TrimSpace(msg.note) != "" {
 			m.setWorktreeNote(msg.targetPath, msg.note)
+		}
+		if msg.noteErr != "" {
+			m.statusContent = msg.noteErr
 		}
 		env := m.buildCommandEnv(msg.branch, msg.targetPath)
 		initCmds := m.collectInitCommands()

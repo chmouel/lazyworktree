@@ -107,6 +107,32 @@ func (m *Model) openBranchInBrowser(branch string) tea.Cmd {
 	return m.openURLInBrowser(webURL)
 }
 
+func (m *Model) openCommitInBrowser(sha string) tea.Cmd {
+	remoteURL := strings.TrimSpace(m.state.services.git.RunGit(m.ctx, []string{"git", "remote", "get-url", "origin"}, "", []int{0}, true, false))
+	if remoteURL == "" {
+		return func() tea.Msg {
+			return errMsg{err: fmt.Errorf("could not determine repository remote URL")}
+		}
+	}
+
+	webURL := m.gitURLToWebURL(remoteURL)
+	if webURL == "" {
+		return func() tea.Msg {
+			return errMsg{err: fmt.Errorf("could not convert git URL to web URL")}
+		}
+	}
+
+	host := m.state.services.git.DetectHost(m.ctx)
+	switch host {
+	case "gitlab":
+		webURL += "/-/commit/" + sha
+	default:
+		webURL += "/commit/" + sha
+	}
+
+	return m.openURLInBrowser(webURL)
+}
+
 func (m *Model) openLazyGit() tea.Cmd {
 	if m.state.data.selectedIndex < 0 || m.state.data.selectedIndex >= len(m.state.data.filteredWts) {
 		return nil
