@@ -54,13 +54,13 @@ func TestUIIconUsesProvider(t *testing.T) {
 	assert.Equal(t, "/", uiIcon(UIIconSearch))
 
 	SetIconProvider(&NerdFontV3Provider{})
-	assert.Equal(t, nerdFontUIIconSearch, uiIcon(UIIconSearch))
+	assert.Equal(t, nerdFontGlyphs[UIIconSearch], uiIcon(UIIconSearch))
 }
 
 func TestLabelWithIconToggle(t *testing.T) {
 	SetIconProvider(&NerdFontV3Provider{})
 	label := labelWithIcon(UIIconSearch, "Search", true)
-	assert.Equal(t, nerdFontUIIconSearch+" Search", label)
+	assert.Equal(t, nerdFontGlyphs[UIIconSearch]+" Search", label)
 
 	label = labelWithIcon(UIIconSearch, "Search", false)
 	assert.Equal(t, "Search", label)
@@ -205,7 +205,7 @@ func TestCombinedStatusIndicator(t *testing.T) {
 		{"clean_synced_icons", false, true, 0, 0, 0, true, "  -", "nerdFont"},
 		// Dirty only
 		{"dirty_only_text", true, true, 0, 0, 0, false, "~ -", "text"},
-		{"dirty_only_icons", true, true, 0, 0, 0, true, nerdFontUIIconStatusDirty + " -", "nerdFont"},
+		{"dirty_only_icons", true, true, 0, 0, 0, true, nerdFontGlyphs[UIIconStatusDirty] + " -", "nerdFont"},
 		// Ahead only
 		{"ahead_only_text", false, true, 3, 0, 0, false, "  ↑3", "text"},
 		{"ahead_only_icons", false, true, 3, 0, 0, true, "  ↑3", "nerdFont"},
@@ -217,13 +217,13 @@ func TestCombinedStatusIndicator(t *testing.T) {
 		{"ahead_behind_icons", false, true, 3, 2, 0, true, "  ↓2↑3", "nerdFont"},
 		// Dirty + ahead (space between dirty and sync)
 		{"dirty_ahead_text", true, true, 5, 0, 0, false, "~ ↑5", "text"},
-		{"dirty_ahead_icons", true, true, 5, 0, 0, true, nerdFontUIIconStatusDirty + " ↑5", "nerdFont"},
+		{"dirty_ahead_icons", true, true, 5, 0, 0, true, nerdFontGlyphs[UIIconStatusDirty] + " ↑5", "nerdFont"},
 		// Dirty + behind (space between dirty and sync)
 		{"dirty_behind_text", true, true, 0, 4, 0, false, "~ ↓4", "text"},
-		{"dirty_behind_icons", true, true, 0, 4, 0, true, nerdFontUIIconStatusDirty + " ↓4", "nerdFont"},
+		{"dirty_behind_icons", true, true, 0, 4, 0, true, nerdFontGlyphs[UIIconStatusDirty] + " ↓4", "nerdFont"},
 		// Dirty + ahead + behind (space between dirty and sync)
 		{"dirty_ahead_behind_text", true, true, 3, 2, 0, false, "~ ↓2↑3", "text"},
-		{"dirty_ahead_behind_icons", true, true, 3, 2, 0, true, nerdFontUIIconStatusDirty + " ↓2↑3", "nerdFont"},
+		{"dirty_ahead_behind_icons", true, true, 3, 2, 0, true, nerdFontGlyphs[UIIconStatusDirty] + " ↓2↑3", "nerdFont"},
 		// No upstream with unpushed commits
 		{"no_upstream_unpushed_text", false, false, 0, 0, 5, false, "  ↑5", "text"},
 		{"no_upstream_unpushed_icons", false, false, 0, 0, 5, true, "  ↑5", "nerdFont"},
@@ -232,7 +232,7 @@ func TestCombinedStatusIndicator(t *testing.T) {
 		{"no_upstream_clean_icons", false, false, 0, 0, 0, true, "  -", "nerdFont"},
 		// Dirty + no upstream with unpushed (space between dirty and sync)
 		{"dirty_no_upstream_unpushed_text", true, false, 0, 0, 3, false, "~ ↑3", "text"},
-		{"dirty_no_upstream_unpushed_icons", true, false, 0, 0, 3, true, nerdFontUIIconStatusDirty + " ↑3", "nerdFont"},
+		{"dirty_no_upstream_unpushed_icons", true, false, 0, 0, 3, true, nerdFontGlyphs[UIIconStatusDirty] + " ↑3", "nerdFont"},
 	}
 
 	for _, tt := range tests {

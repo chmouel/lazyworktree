@@ -24,16 +24,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		keyStr := msg.String()
 		switch m.state.view.FilterTarget {
 		case filterTargetWorktrees:
-			if keyStr == keyEnter {
-				m.state.view.ShowingFilter = false
-				m.state.ui.filterInput.Blur()
-				m.restoreFocusAfterFilter()
-				return m, nil
-			}
-			if isEscKey(keyStr) || keyStr == keyCtrlC {
-				m.state.view.ShowingFilter = false
-				m.state.ui.filterInput.Blur()
-				m.state.ui.worktreeTable.Focus()
+			if keyStr == keyEnter || isEscKey(keyStr) || keyStr == keyCtrlC {
+				m.exitFilter()
 				return m, nil
 			}
 			if keyStr == "alt+n" || keyStr == "alt+p" {
@@ -47,16 +39,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.updateTable()
 			return m, cmd
 		case filterTargetStatus, filterTargetGitStatus:
-			if keyStr == keyEnter {
-				m.state.view.ShowingFilter = false
-				m.state.ui.filterInput.Blur()
-				m.restoreFocusAfterFilter()
-				return m, nil
-			}
-			if isEscKey(keyStr) || keyStr == keyCtrlC {
-				m.state.view.ShowingFilter = false
-				m.state.ui.filterInput.Blur()
-				m.restoreFocusAfterFilter()
+			if keyStr == keyEnter || isEscKey(keyStr) || keyStr == keyCtrlC {
+				m.exitFilter()
 				return m, nil
 			}
 			m.state.ui.filterInput, cmd = m.state.ui.filterInput.Update(msg)
@@ -64,16 +48,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.applyStatusFilter()
 			return m, cmd
 		case filterTargetLog:
-			if keyStr == keyEnter {
-				m.state.view.ShowingFilter = false
-				m.state.ui.filterInput.Blur()
-				m.restoreFocusAfterFilter()
-				return m, nil
-			}
-			if isEscKey(keyStr) || keyStr == keyCtrlC {
-				m.state.view.ShowingFilter = false
-				m.state.ui.filterInput.Blur()
-				m.restoreFocusAfterFilter()
+			if keyStr == keyEnter || isEscKey(keyStr) || keyStr == keyCtrlC {
+				m.exitFilter()
 				return m, nil
 			}
 			m.state.ui.filterInput, cmd = m.state.ui.filterInput.Update(msg)
@@ -100,7 +76,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) handleGlobalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	switch msg.String() {
-	case "ctrl+g":
+	case keyCtrlG:
 		if m.state.ui.screenManager.Type() == appscreen.TypeCommitMessage {
 			return m, nil, true
 		}
@@ -146,6 +122,12 @@ func (m *Model) restoreFocusAfterSearch() {
 	case searchTargetLog:
 		m.state.ui.logTable.Focus()
 	}
+}
+
+func (m *Model) exitFilter() {
+	m.state.view.ShowingFilter = false
+	m.state.ui.filterInput.Blur()
+	m.restoreFocusAfterFilter()
 }
 
 func (m *Model) restoreFocusAfterFilter() {
@@ -601,7 +583,7 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.showCreateWorktree()
 
-	case "ctrl+g":
+	case keyCtrlG:
 		return m, m.commitStagedChanges()
 
 	case "D":
@@ -627,6 +609,9 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.showDiff()
 
 	case "e":
+		if m.state.view.FocusedPane == paneWorktrees {
+			return m, m.showEditWorktreeMetadataMenu()
+		}
 		if m.state.view.FocusedPane == paneGitStatus && len(m.state.services.statusTree.TreeFlat) > 0 && m.state.services.statusTree.Index >= 0 && m.state.services.statusTree.Index < len(m.state.services.statusTree.TreeFlat) {
 			node := m.state.services.statusTree.TreeFlat[m.state.services.statusTree.Index]
 			if !node.IsDir() {
@@ -735,10 +720,10 @@ func (m *Model) handleBuiltInKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.showRenameWorktree()
 
 	case "i":
-		return m, m.showAnnotateWorktree()
-
-	case "I":
-		return m, m.showSetWorktreeIcon()
+		if m.state.view.FocusedPane == paneNotes {
+			return m, m.showAnnotateWorktree()
+		}
+		return m, nil
 
 	case "T":
 		return m, m.showTaskboard()

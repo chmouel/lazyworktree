@@ -20,33 +20,6 @@ Keys defined in `keybindings:` take priority over `custom_commands` and built-in
 
 ---
 
-## Worktree Actions
-
-| ID | Label | Default Key | Description |
-|----|-------|-------------|-------------|
-| `create` | Create worktree | `c` | Add a new worktree from base branch or PR/MR |
-| `delete` | Delete worktree | `D` | Remove worktree and branch |
-| `rename` | Rename worktree | `m` | Rename worktree (and branch when names match) |
-| `annotate` | Worktree notes | `i` | View or edit notes for the selected worktree |
-| `set-icon` | Set worktree icon | `I` | Choose a custom icon for the selected worktree |
-| `set-color` | Set worktree colour | — | Choose a colour for the selected worktree name |
-| `set-description` | Set worktree description | — | Set a short label replacing the directory name in the list |
-| `set-tags` | Set worktree tags | — | Type tags or toggle existing labels in one editor |
-| `browse-tags` | Browse by worktree tags | — | Browse worktrees by existing tags and apply an exact tag filter |
-| `absorb` | Absorb worktree | `A` | Merge branch into main and remove worktree |
-| `prune` | Prune merged | `X` | Remove merged PR worktrees |
-
-## Create Menu
-
-| ID | Label | Default Key | Description |
-|----|-------|-------------|-------------|
-| `create-from-current` | Create from current branch | — | Create from current branch with or without changes |
-| `create-from-branch` | Create from branch/tag | — | Select a branch, tag, or remote as base |
-| `create-from-commit` | Create from commit | — | Choose a branch, then select a specific commit |
-| `create-from-pr` | Create from PR/MR | — | Create from a pull/merge request |
-| `create-from-issue` | Create from issue | — | Create from a GitHub/GitLab issue |
-| `create-freeform` | Create from ref | — | Enter a branch, tag, or commit manually |
-
 ## Git Operations
 
 | ID | Label | Default Key | Description |

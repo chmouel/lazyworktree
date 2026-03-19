@@ -75,7 +75,7 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands config.CustomCommands
 - j / k: Scroll notes content
 - Ctrl+D / Ctrl+U: Half page down / up
 - g / G: Jump to top / bottom
-- i: Edit note
+- i: Edit current note
 - 5: Focus notes pane (or toggle zoom if already focused)
 - Tab reaches pane 5 before the final agent sessions pane when both are visible
 
@@ -136,9 +136,9 @@ Commit Status Indicators:
 - Existing local branch: choose to checkout the branch or create a new one based on it
 - Tab / Shift+Tab: Move focus to the "Include current file changes" checkbox
 - Space: Toggle "Include current file changes"
-- i: Open selected worktree notes (viewer if present, editor if empty)
-- I: Set custom worktree icon (for task types such as feature, bug, TODO, review, or release)
+- e: Edit worktree metadata (description, colour, notes, icon, tags)
 - Command palette: Set worktree colour (picker plus Custom for hex, supported named colours, or 256 indices; stored in notes/frontmatter)
+- Command palette: Worktree notes and Set worktree icon remain available without default direct shortcuts
 - Note viewer: j/k scroll, Ctrl+D/Ctrl+U half-page, g/G top/bottom, e edit, E edit in external editor, q/Esc close
 - Note editor: Ctrl+S saves, Ctrl+X opens in external editor, Enter adds a new line, Esc cancels
 - Command palette: Set worktree description — a short label that replaces the directory name in the worktree list for display

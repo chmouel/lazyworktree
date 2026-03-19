@@ -28,7 +28,7 @@ prefixing the config key with `_`.
 - Custom commands - Set up custom shell commands in config, bind them to keys, show them in the palette.
 - Notes - Write markdown notes per worktree or tasks to track what you're working on
 - Hooks - `.wt` files per worktree to automate setup and cleanup tasks
-- Customize Worktree display - Customize name or categorize with colors, tags and icons.
+- Customise worktree metadata - Press `e` in the worktree pane to edit the description, colour, notes, icon, and tags for the selected worktree.
 - Shell helpers - `cd "$(lazyworktree)"` shortcut and shell completion for bash, zsh, and fish (making it easy to jump to worktrees from the terminal)
 
 ## Documentation

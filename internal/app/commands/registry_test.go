@@ -28,3 +28,19 @@ func TestUpdateShortcutsClearsStaleOwner(t *testing.T) {
 		}
 	}
 }
+
+func TestRegisterWorktreeActionsUsesMetadataMenuShortcut(t *testing.T) {
+	t.Parallel()
+
+	r := NewRegistry()
+	RegisterWorktreeActions(r, WorktreeHandlers{})
+
+	shortcuts := map[string]string{}
+	for _, action := range r.Actions() {
+		shortcuts[action.ID] = action.Shortcut
+	}
+
+	assert.Equal(t, "e", shortcuts["edit-metadata"])
+	assert.Empty(t, shortcuts["annotate"])
+	assert.Empty(t, shortcuts["set-icon"])
+}

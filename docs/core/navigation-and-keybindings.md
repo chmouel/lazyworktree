@@ -63,8 +63,9 @@ By default the pane shows only sessions with a live Claude/pi process match; pre
 
 - `Enter` — jump to selected worktree (exits LazyWorktree and outputs the path)
 - `s` — cycle sort mode: Path, Last Active (commit date), Last Switched (access time)
-- `I` — set a custom icon for the selected worktree
+- `e` — edit worktree metadata for the selected worktree (description, colour, notes, icon, tags)
 - Command palette only: **Set worktree colour** (picker plus `Custom…` for hex, supported named colours, or 256 indices)
+- Command palette only: **Worktree notes** and **Set worktree icon** remain available without default direct shortcuts
 - Command palette only: **Set worktree tags** (type labels separated by commas, e.g. "bug,frontend,urgent", and toggle existing tags in the same editor; displayed as coloured badges after the worktree name, shown in the Info pane when present, and included in filter/search)
 - Command palette only: **Browse by worktree tags** (lists all existing tags with counts and applies an exact `tag:<name>` worktree filter)
 

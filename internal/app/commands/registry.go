@@ -115,6 +115,7 @@ type WorktreeHandlers struct {
 	Create            func() tea.Cmd
 	Delete            func() tea.Cmd
 	Rename            func() tea.Cmd
+	EditMetadata      func() tea.Cmd
 	Annotate          func() tea.Cmd
 	SetIcon           func() tea.Cmd
 	SetColor          func() tea.Cmd
@@ -145,29 +146,53 @@ const (
 	IconRecent     = "" // Nerd Font: clock
 )
 
+func wtAction(id, label, desc, shortcut string, handler func() tea.Cmd) CommandAction {
+	return CommandAction{
+		ID:          id,
+		Label:       label,
+		Description: desc,
+		Section:     sectionWorktreeActions,
+		Shortcut:    shortcut,
+		Icon:        IconWorktree,
+		Handler:     handler,
+	}
+}
+
+func createAction(id, label, desc string, handler func() tea.Cmd) CommandAction {
+	return CommandAction{
+		ID:          id,
+		Label:       label,
+		Description: desc,
+		Section:     sectionCreateShortcuts,
+		Icon:        IconCreate,
+		Handler:     handler,
+	}
+}
+
 // RegisterWorktreeActions registers worktree-related actions.
 func RegisterWorktreeActions(r *Registry, h WorktreeHandlers) {
 	r.Register(
-		CommandAction{ID: "create", Label: "Create worktree", Description: "Add a new worktree from base branch or PR/MR", Section: sectionWorktreeActions, Shortcut: "c", Icon: IconWorktree, Handler: h.Create},
-		CommandAction{ID: "delete", Label: "Delete worktree", Description: "Remove worktree and branch", Section: sectionWorktreeActions, Shortcut: "D", Icon: IconWorktree, Handler: h.Delete},
-		CommandAction{ID: "rename", Label: "Rename worktree", Description: "Rename worktree (and branch when names match)", Section: sectionWorktreeActions, Shortcut: "m", Icon: IconWorktree, Handler: h.Rename},
-		CommandAction{ID: "annotate", Label: "Worktree notes", Description: "View or edit notes for the selected worktree", Section: sectionWorktreeActions, Shortcut: "i", Icon: IconWorktree, Handler: h.Annotate},
-		CommandAction{ID: "set-icon", Label: "Set worktree icon", Description: "Choose a custom icon for the selected worktree", Section: sectionWorktreeActions, Shortcut: "I", Icon: IconWorktree, Handler: h.SetIcon},
-		CommandAction{ID: "set-color", Label: "Set worktree colour", Description: "Choose a colour for the selected worktree name", Section: sectionWorktreeActions, Icon: IconWorktree, Handler: h.SetColor},
-		CommandAction{ID: "set-description", Label: "Set worktree description", Description: "Set a short label replacing the directory name in the list", Section: sectionWorktreeActions, Icon: IconWorktree, Handler: h.SetDescription},
-		CommandAction{ID: "set-tags", Label: "Set worktree tags", Description: "Type tags or toggle existing labels in one editor", Section: sectionWorktreeActions, Icon: IconWorktree, Handler: h.SetTags},
-		CommandAction{ID: "browse-tags", Label: "Browse by worktree tags", Description: "Browse worktrees by existing tags and apply an exact tag filter", Section: sectionWorktreeActions, Icon: IconWorktree, Handler: h.BrowseTags},
-		CommandAction{ID: "absorb", Label: "Absorb worktree", Description: "Merge branch into main and remove worktree", Section: sectionWorktreeActions, Shortcut: "A", Icon: IconWorktree, Handler: h.Absorb},
-		CommandAction{ID: "prune", Label: "Prune merged", Description: "Remove merged PR worktrees", Section: sectionWorktreeActions, Shortcut: "X", Icon: IconWorktree, Handler: h.Prune},
+		wtAction("create", "Create worktree", "Add a new worktree from base branch or PR/MR", "c", h.Create),
+		wtAction("delete", "Delete worktree", "Remove worktree and branch", "D", h.Delete),
+		wtAction("rename", "Rename worktree", "Rename worktree (and branch when names match)", "m", h.Rename),
+		wtAction("edit-metadata", "Edit worktree metadata", "Choose description, colour, notes, icon, or tags for the selected worktree", "e", h.EditMetadata),
+		wtAction("annotate", "Worktree notes", "View or edit notes for the selected worktree", "", h.Annotate),
+		wtAction("set-icon", "Set worktree icon", "Choose a custom icon for the selected worktree", "", h.SetIcon),
+		wtAction("set-color", "Set worktree colour", "Choose a colour for the selected worktree name", "", h.SetColor),
+		wtAction("set-description", "Set worktree description", "Set a short label replacing the directory name in the list", "", h.SetDescription),
+		wtAction("set-tags", "Set worktree tags", "Type tags or toggle existing labels in one editor", "", h.SetTags),
+		wtAction("browse-tags", "Browse by worktree tags", "Browse worktrees by existing tags and apply an exact tag filter", "", h.BrowseTags),
+		wtAction("absorb", "Absorb worktree", "Merge branch into main and remove worktree", "A", h.Absorb),
+		wtAction("prune", "Prune merged", "Remove merged PR worktrees", "X", h.Prune),
 	)
 
 	r.Register(
-		CommandAction{ID: "create-from-current", Label: "Create from current branch", Description: "Create from current branch with or without changes", Section: sectionCreateShortcuts, Icon: IconCreate, Handler: h.CreateFromCurrent},
-		CommandAction{ID: "create-from-branch", Label: "Create from branch/tag", Description: "Select a branch, tag, or remote as base", Section: sectionCreateShortcuts, Icon: IconCreate, Handler: h.CreateFromBranch},
-		CommandAction{ID: "create-from-commit", Label: "Create from commit", Description: "Choose a branch, then select a specific commit", Section: sectionCreateShortcuts, Icon: IconCreate, Handler: h.CreateFromCommit},
-		CommandAction{ID: "create-from-pr", Label: "Create from PR/MR", Description: "Create from a pull/merge request", Section: sectionCreateShortcuts, Icon: IconCreate, Handler: h.CreateFromPR},
-		CommandAction{ID: "create-from-issue", Label: "Create from issue", Description: "Create from a GitHub/GitLab issue", Section: sectionCreateShortcuts, Icon: IconCreate, Handler: h.CreateFromIssue},
-		CommandAction{ID: "create-freeform", Label: "Create from ref", Description: "Enter a branch, tag, or commit manually", Section: sectionCreateShortcuts, Icon: IconCreate, Handler: h.CreateFreeform},
+		createAction("create-from-current", "Create from current branch", "Create from current branch with or without changes", h.CreateFromCurrent),
+		createAction("create-from-branch", "Create from branch/tag", "Select a branch, tag, or remote as base", h.CreateFromBranch),
+		createAction("create-from-commit", "Create from commit", "Choose a branch, then select a specific commit", h.CreateFromCommit),
+		createAction("create-from-pr", "Create from PR/MR", "Create from a pull/merge request", h.CreateFromPR),
+		createAction("create-from-issue", "Create from issue", "Create from a GitHub/GitLab issue", h.CreateFromIssue),
+		createAction("create-freeform", "Create from ref", "Enter a branch, tag, or commit manually", h.CreateFreeform),
 	)
 }
 

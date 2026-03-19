@@ -145,6 +145,7 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 		Create:            m.showCreateWorktree,
 		Delete:            m.showDeleteWorktree,
 		Rename:            m.showRenameWorktree,
+		EditMetadata:      m.showEditWorktreeMetadataMenu,
 		Annotate:          m.showAnnotateWorktree,
 		SetIcon:           m.showSetWorktreeIcon,
 		SetColor:          m.showSetWorktreeColor,

@@ -257,13 +257,19 @@ func TestHandleBuiltInKeyAnnotate(t *testing.T) {
 	m.state.data.filteredWts = []*models.WorktreeInfo{{Path: path, Branch: "feat"}}
 	m.state.data.selectedIndex = 0
 
-	m.state.view.FocusedPane = 1
+	m.state.view.FocusedPane = paneInfo
 	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'i', Text: string('i')})
 	if m.state.ui.screenManager.IsActive() {
 		t.Fatal("did not expect screen when pane is not worktree pane")
 	}
 
-	m.state.view.FocusedPane = 0
+	m.state.view.FocusedPane = paneWorktrees
+	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'i', Text: string('i')})
+	if m.state.ui.screenManager.IsActive() {
+		t.Fatal("did not expect worktree pane i to open note screen")
+	}
+
+	m.state.view.FocusedPane = paneNotes
 	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'i', Text: string('i')})
 	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeTextarea {
 		t.Fatalf("expected textarea screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
@@ -272,8 +278,8 @@ func TestHandleBuiltInKeyAnnotate(t *testing.T) {
 	m.state.ui.screenManager.Pop()
 	m.setWorktreeNote(path, "existing note")
 	_, _ = m.handleBuiltInKey(tea.KeyPressMsg{Code: 'i', Text: string('i')})
-	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeNoteView {
-		t.Fatalf("expected note viewer screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeTextarea {
+		t.Fatalf("expected textarea screen from notes pane, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
 	}
 }
 

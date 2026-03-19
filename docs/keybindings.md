@@ -24,7 +24,7 @@
 | `Enter` | Jump to worktree (exit and `cd`) |
 | `j`, `k` | Move selection up/down in lists and menus |
 | `c` | Create new worktree (from branch, commit, PR/MR, or issue) |
-| `i` | Open selected worktree notes (viewer if present, editor if empty) |
+| `e` | Open the worktree metadata menu (description, colour, notes, icon, tags) |
 | `T` | Open Taskboard (grouped markdown checkbox tasks across worktrees) |
 | `m` | Rename selected worktree |
 | `D` | Delete selected worktree |
@@ -72,10 +72,11 @@
 
 ### Notes Viewer and Editor
 
-Press `i` to open notes for the selected worktree.
+Open notes from the worktree metadata menu with `e` in the Worktree pane.
 
 - If a note exists, lazyworktree opens the viewer first.
 - If no note exists, lazyworktree opens the editor.
+- With the Notes pane focused, `i` opens the editor for the current note.
 
 Viewer controls: `j`/`k`, arrows, `Ctrl+D`, `Ctrl+U`, `g`, `G`, `e`, `q`, `Esc`.
 

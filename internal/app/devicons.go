@@ -50,6 +50,11 @@ const (
 	UIIconCICheck
 	UIIconWorktreeMain
 	UIIconWorktree
+	UIIconWorktreeDescription
+	UIIconWorktreeColour
+	UIIconWorktreeNotes
+	UIIconWorktreeIcon
+	UIIconWorktreeTags
 	UIIconStatusClean
 	UIIconStatusDirty
 	UIIconSyncClean
@@ -68,89 +73,103 @@ const (
 	UIIconPRStateUnknown
 )
 
-const (
-	nerdFontUIIconHelpTitle         = ""
-	nerdFontUIIconNavigation        = ""
-	nerdFontUIIconStatusPane        = ""
-	nerdFontUIIconLogPane           = ""
-	nerdFontUIIconCommitTree        = ""
-	nerdFontUIIconWorktreeActions   = ""
-	nerdFontUIIconBranchNaming      = ""
-	nerdFontUIIconViewingTools      = ""
-	nerdFontUIIconRepoOps           = ""
-	nerdFontUIIconBackgroundRefresh = ""
-	nerdFontUIIconFilterSearch      = ""
-	nerdFontUIIconStatusIndicators  = ""
-	nerdFontUIIconHelpNavigation    = ""
-	nerdFontUIIconShellCompletion   = ""
-	nerdFontUIIconConfiguration     = ""
-	nerdFontUIIconIconConfiguration = ""
-	nerdFontUIIconTip               = ""
-	nerdFontUIIconSearch            = ""
-	nerdFontUIIconFilter            = ""
-	nerdFontUIIconZoom              = ""
-	nerdFontUIIconBot               = ""
-	nerdFontUIIconThemeSelect       = ""
-	nerdFontUIIconWorktreeMain      = ""
-	nerdFontUIIconWorktree          = ""
-	nerdFontUIIconStatusClean       = "-"
-	nerdFontUIIconStatusDirty       = ""
-	nerdFontUIIconAhead             = "↑"
-	nerdFontUIIconUnmerged          = "★"
-	nerdFontUIIconBehind            = "↓"
-	nerdFontUIIconArrowLeft         = "←"
-	nerdFontUIIconArrowRight        = "→"
-	nerdFontUIIconDisclosureOpen    = "▼"
-	nerdFontUIIconDisclosureClosed  = "▶"
-	nerdFontUIIconSpinnerFilled     = "●"
-	nerdFontUIIconSpinnerEmpty      = "◌"
-	nerdFontUIIconPRStateOpen       = nerdFontUIIconSpinnerFilled
-	nerdFontUIIconPRStateMerged     = "◆"
-	nerdFontUIIconPRStateClosed     = "✕"
-	nerdFontUIIconPRStateUnknown    = "?"
-)
+var nerdFontGlyphs = map[UIIcon]string{
+	UIIconHelpTitle:           "",
+	UIIconNavigation:          "",
+	UIIconStatusPane:          "",
+	UIIconLogPane:             "",
+	UIIconCommitTree:          "",
+	UIIconWorktreeActions:     "",
+	UIIconBranchNaming:        "",
+	UIIconViewingTools:        "",
+	UIIconRepoOps:             "",
+	UIIconBackgroundRefresh:   "",
+	UIIconFilterSearch:        "",
+	UIIconStatusIndicators:    "",
+	UIIconHelpNavigation:      "",
+	UIIconShellCompletion:     "",
+	UIIconConfiguration:       "",
+	UIIconIconConfiguration:   "",
+	UIIconTip:                 "",
+	UIIconSearch:              "",
+	UIIconFilter:              "",
+	UIIconZoom:                "",
+	UIIconBot:                 "",
+	UIIconThemeSelect:         "",
+	UIIconCICheck:             "",
+	UIIconWorktreeMain:        "",
+	UIIconWorktree:            "",
+	UIIconWorktreeDescription: "󰀬",
+	UIIconWorktreeColour:      "󰸌",
+	UIIconWorktreeNotes:       "󱞁",
+	UIIconWorktreeIcon:        "󰥶",
+	UIIconWorktreeTags:        "󰓹",
+	UIIconStatusClean:         "-",
+	UIIconSyncClean:           "-",
+	UIIconStatusDirty:         "",
+	UIIconAhead:               "↑",
+	UIIconUnmerged:            "★",
+	UIIconBehind:              "↓",
+	UIIconArrowLeft:           "←",
+	UIIconArrowRight:          "→",
+	UIIconDisclosureOpen:      "▼",
+	UIIconDisclosureClosed:    "▶",
+	UIIconSpinnerFilled:       "●",
+	UIIconSpinnerEmpty:        "◌",
+	UIIconPRStateOpen:         "●",
+	UIIconPRStateMerged:       "◆",
+	UIIconPRStateClosed:       "✕",
+	UIIconPRStateUnknown:      "?",
+}
 
-const (
-	textUIIconHelpTitle         = "*"
-	textUIIconNavigation        = ">"
-	textUIIconStatusPane        = "S"
-	textUIIconLogPane           = "L"
-	textUIIconCommitTree        = "T"
-	textUIIconWorktreeActions   = "W"
-	textUIIconBranchNaming      = "B"
-	textUIIconSearch            = "/"
-	textUIIconViewingTools      = textUIIconSearch
-	textUIIconRepoOps           = "R"
-	textUIIconBackgroundRefresh = "H"
-	textUIIconFilterSearch      = textUIIconSearch
-	textUIIconStatusIndicators  = "I"
-	textUIIconHelpNavigation    = "?"
-	textUIIconShellCompletion   = "C"
-	textUIIconConfiguration     = textUIIconShellCompletion
-	textUIIconIconConfiguration = textUIIconStatusIndicators
-	textUIIconTip               = "!"
-	textUIIconFilter            = "F"
-	textUIIconZoom              = "Z"
-	textUIIconBot               = textUIIconBranchNaming
-	textUIIconThemeSelect       = "T"
-	textUIIconWorktreeMain      = "M"
-	textUIIconWorktree          = textUIIconWorktreeActions
-	textUIIconStatusClean       = textUIIconShellCompletion
-	textUIIconStatusDirty       = "D"
-	textUIIconAhead             = "↑"
-	textUIIconUnmerged          = "★"
-	textUIIconBehind            = "↓"
-	textUIIconArrowLeft         = "←"
-	textUIIconArrowRight        = "→"
-	textUIIconDisclosureOpen    = "▼"
-	textUIIconDisclosureClosed  = "▶"
-	textUIIconSpinnerFilled     = "●"
-	textUIIconSpinnerEmpty      = "◌"
-	textUIIconPRStateOpen       = textUIIconSpinnerFilled
-	textUIIconPRStateMerged     = "◆"
-	textUIIconPRStateClosed     = "✕"
-	textUIIconPRStateUnknown    = "?"
-)
+var textGlyphs = map[UIIcon]string{
+	UIIconHelpTitle:           "*",
+	UIIconNavigation:          ">",
+	UIIconStatusPane:          "S",
+	UIIconLogPane:             "L",
+	UIIconCommitTree:          "T",
+	UIIconWorktreeActions:     "W",
+	UIIconBranchNaming:        "B",
+	UIIconSearch:              "/",
+	UIIconViewingTools:        "/",
+	UIIconRepoOps:             "R",
+	UIIconBackgroundRefresh:   "H",
+	UIIconFilterSearch:        "/",
+	UIIconStatusIndicators:    "I",
+	UIIconHelpNavigation:      "?",
+	UIIconShellCompletion:     "C",
+	UIIconConfiguration:       "C",
+	UIIconIconConfiguration:   "I",
+	UIIconTip:                 "!",
+	UIIconFilter:              "F",
+	UIIconZoom:                "Z",
+	UIIconBot:                 "B",
+	UIIconThemeSelect:         "T",
+	UIIconCICheck:             "C",
+	UIIconWorktreeMain:        "M",
+	UIIconWorktree:            "W",
+	UIIconWorktreeDescription: "D",
+	UIIconWorktreeColour:      "C",
+	UIIconWorktreeNotes:       "N",
+	UIIconWorktreeIcon:        "I",
+	UIIconWorktreeTags:        "T",
+	UIIconStatusClean:         "C",
+	UIIconSyncClean:           "C",
+	UIIconStatusDirty:         "D",
+	UIIconAhead:               "↑",
+	UIIconUnmerged:            "★",
+	UIIconBehind:              "↓",
+	UIIconArrowLeft:           "←",
+	UIIconArrowRight:          "→",
+	UIIconDisclosureOpen:      "▼",
+	UIIconDisclosureClosed:    "▶",
+	UIIconSpinnerFilled:       "●",
+	UIIconSpinnerEmpty:        "◌",
+	UIIconPRStateOpen:         "●",
+	UIIconPRStateMerged:       "◆",
+	UIIconPRStateClosed:       "✕",
+	UIIconPRStateUnknown:      "?",
+}
 
 // NerdFontV3Provider implements IconProvider for Nerd Font v3.
 type NerdFontV3Provider struct{}
@@ -285,92 +304,12 @@ func (p *TextProvider) GetUIIcon(icon UIIcon) string {
 
 func nerdFontUIIcon(icon UIIcon, prIcon, issueIcon string) string {
 	switch icon {
-	case UIIconHelpTitle:
-		return nerdFontUIIconHelpTitle
-	case UIIconNavigation:
-		return nerdFontUIIconNavigation
-	case UIIconStatusPane:
-		return nerdFontUIIconStatusPane
-	case UIIconLogPane:
-		return nerdFontUIIconLogPane
-	case UIIconCommitTree:
-		return nerdFontUIIconCommitTree
-	case UIIconWorktreeActions:
-		return nerdFontUIIconWorktreeActions
-	case UIIconBranchNaming:
-		return nerdFontUIIconBranchNaming
-	case UIIconViewingTools:
-		return nerdFontUIIconViewingTools
-	case UIIconRepoOps:
-		return nerdFontUIIconRepoOps
-	case UIIconBackgroundRefresh:
-		return nerdFontUIIconBackgroundRefresh
-	case UIIconFilterSearch:
-		return nerdFontUIIconFilterSearch
-	case UIIconStatusIndicators:
-		return nerdFontUIIconStatusIndicators
-	case UIIconHelpNavigation:
-		return nerdFontUIIconHelpNavigation
-	case UIIconShellCompletion:
-		return nerdFontUIIconShellCompletion
-	case UIIconConfiguration:
-		return nerdFontUIIconConfiguration
-	case UIIconIconConfiguration:
-		return nerdFontUIIconIconConfiguration
-	case UIIconTip:
-		return nerdFontUIIconTip
-	case UIIconSearch:
-		return nerdFontUIIconSearch
-	case UIIconFilter:
-		return nerdFontUIIconFilter
-	case UIIconZoom:
-		return nerdFontUIIconZoom
-	case UIIconBot:
-		return nerdFontUIIconBot
-	case UIIconThemeSelect:
-		return nerdFontUIIconThemeSelect
 	case UIIconPRSelect:
 		return prIcon
 	case UIIconIssueSelect:
 		return issueIcon
-	case UIIconCICheck:
-		return "" // CI/workflow icon
-	case UIIconWorktreeMain:
-		return nerdFontUIIconWorktreeMain
-	case UIIconWorktree:
-		return nerdFontUIIconWorktree
-	case UIIconStatusClean, UIIconSyncClean:
-		return nerdFontUIIconStatusClean
-	case UIIconStatusDirty:
-		return nerdFontUIIconStatusDirty
-	case UIIconAhead:
-		return nerdFontUIIconAhead
-	case UIIconUnmerged:
-		return nerdFontUIIconUnmerged
-	case UIIconBehind:
-		return nerdFontUIIconBehind
-	case UIIconArrowLeft:
-		return nerdFontUIIconArrowLeft
-	case UIIconArrowRight:
-		return nerdFontUIIconArrowRight
-	case UIIconDisclosureOpen:
-		return nerdFontUIIconDisclosureOpen
-	case UIIconDisclosureClosed:
-		return nerdFontUIIconDisclosureClosed
-	case UIIconSpinnerFilled:
-		return nerdFontUIIconSpinnerFilled
-	case UIIconSpinnerEmpty:
-		return nerdFontUIIconSpinnerEmpty
-	case UIIconPRStateOpen:
-		return nerdFontUIIconPRStateOpen
-	case UIIconPRStateMerged:
-		return nerdFontUIIconPRStateMerged
-	case UIIconPRStateClosed:
-		return nerdFontUIIconPRStateClosed
-	case UIIconPRStateUnknown:
-		return nerdFontUIIconPRStateUnknown
 	default:
-		return ""
+		return nerdFontGlyphs[icon]
 	}
 }
 
@@ -430,6 +369,16 @@ func emojiUIIcon(icon UIIcon, prIcon, issueIcon string) string {
 		return "🌳"
 	case UIIconWorktree:
 		return "📁"
+	case UIIconWorktreeDescription:
+		return "🏷️"
+	case UIIconWorktreeColour:
+		return "🎨"
+	case UIIconWorktreeNotes:
+		return "📝"
+	case UIIconWorktreeIcon:
+		return "✨"
+	case UIIconWorktreeTags:
+		return "🏷️"
 	case UIIconStatusClean, UIIconSyncClean:
 		return "✅"
 	case UIIconStatusDirty:
@@ -467,92 +416,12 @@ func emojiUIIcon(icon UIIcon, prIcon, issueIcon string) string {
 
 func textUIIcon(icon UIIcon, prIcon, issueIcon string) string {
 	switch icon {
-	case UIIconHelpTitle:
-		return textUIIconHelpTitle
-	case UIIconNavigation:
-		return textUIIconNavigation
-	case UIIconStatusPane:
-		return textUIIconStatusPane
-	case UIIconLogPane:
-		return textUIIconLogPane
-	case UIIconCommitTree:
-		return textUIIconCommitTree
-	case UIIconWorktreeActions:
-		return textUIIconWorktreeActions
-	case UIIconBranchNaming:
-		return textUIIconBranchNaming
-	case UIIconViewingTools:
-		return textUIIconViewingTools
-	case UIIconRepoOps:
-		return textUIIconRepoOps
-	case UIIconBackgroundRefresh:
-		return textUIIconBackgroundRefresh
-	case UIIconFilterSearch:
-		return textUIIconFilterSearch
-	case UIIconStatusIndicators:
-		return textUIIconStatusIndicators
-	case UIIconHelpNavigation:
-		return textUIIconHelpNavigation
-	case UIIconShellCompletion:
-		return textUIIconShellCompletion
-	case UIIconConfiguration:
-		return textUIIconConfiguration
-	case UIIconIconConfiguration:
-		return textUIIconIconConfiguration
-	case UIIconTip:
-		return textUIIconTip
-	case UIIconSearch:
-		return textUIIconSearch
-	case UIIconFilter:
-		return textUIIconFilter
-	case UIIconZoom:
-		return textUIIconZoom
-	case UIIconBot:
-		return textUIIconBot
-	case UIIconThemeSelect:
-		return textUIIconThemeSelect
 	case UIIconPRSelect:
 		return prIcon
 	case UIIconIssueSelect:
 		return issueIcon
-	case UIIconCICheck:
-		return "C" // CI/workflow icon
-	case UIIconWorktreeMain:
-		return textUIIconWorktreeMain
-	case UIIconWorktree:
-		return textUIIconWorktree
-	case UIIconStatusClean, UIIconSyncClean:
-		return textUIIconStatusClean
-	case UIIconStatusDirty:
-		return textUIIconStatusDirty
-	case UIIconAhead:
-		return textUIIconAhead
-	case UIIconUnmerged:
-		return textUIIconUnmerged
-	case UIIconBehind:
-		return textUIIconBehind
-	case UIIconArrowLeft:
-		return textUIIconArrowLeft
-	case UIIconArrowRight:
-		return textUIIconArrowRight
-	case UIIconDisclosureOpen:
-		return textUIIconDisclosureOpen
-	case UIIconDisclosureClosed:
-		return textUIIconDisclosureClosed
-	case UIIconSpinnerFilled:
-		return textUIIconSpinnerFilled
-	case UIIconSpinnerEmpty:
-		return textUIIconSpinnerEmpty
-	case UIIconPRStateOpen:
-		return textUIIconPRStateOpen
-	case UIIconPRStateMerged:
-		return textUIIconPRStateMerged
-	case UIIconPRStateClosed:
-		return textUIIconPRStateClosed
-	case UIIconPRStateUnknown:
-		return textUIIconPRStateUnknown
 	default:
-		return ""
+		return textGlyphs[icon]
 	}
 }
 

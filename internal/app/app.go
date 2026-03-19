@@ -32,6 +32,7 @@ const (
 	keyEsc    = "esc"
 	keyEscRaw = "\x1b" // Raw escape byte for terminals that send ESC as a rune
 	keyCtrlC  = "ctrl+c"
+	keyCtrlG  = "ctrl+g"
 	keyCtrlJ  = "ctrl+j"
 	keyCtrlK  = "ctrl+k"
 	keyDown   = "down"
