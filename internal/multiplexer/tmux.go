@@ -86,19 +86,20 @@ func BuildTmuxScript(sessionName string, tmuxCfg *config.TmuxCommand, windows []
 	b.WriteString("set -e\n")
 	fmt.Fprintf(&b, "session=%s\n", ShellQuote(sessionName))
 	b.WriteString("base_session=$session\n")
-	b.WriteString("if tmux has-session -t \"$session\" 2>/dev/null; then\n")
+	b.WriteString("tmux_exact_target() { printf '=%s' \"$1\"; }\n")
+	b.WriteString("if tmux has-session -t \"$(tmux_exact_target \"$session\")\" 2>/dev/null; then\n")
 	switch onExists {
 	case OnExistsKill:
-		b.WriteString("  tmux kill-session -t \"$session\"\n")
+		b.WriteString("  tmux kill-session -t \"$(tmux_exact_target \"$session\")\"\n")
 	case OnExistsNew:
 		b.WriteString("  i=2\n")
-		b.WriteString("  while tmux has-session -t \"${base_session}-$i\" 2>/dev/null; do i=$((i+1)); done\n")
+		b.WriteString("  while tmux has-session -t \"$(tmux_exact_target \"${base_session}-$i\")\" 2>/dev/null; do i=$((i+1)); done\n")
 		b.WriteString("  session=\"${base_session}-$i\"\n")
 	default:
 		b.WriteString("  :\n")
 	}
 	b.WriteString("fi\n")
-	b.WriteString("if ! tmux has-session -t \"$session\" 2>/dev/null; then\n")
+	b.WriteString("if ! tmux has-session -t \"$(tmux_exact_target \"$session\")\" 2>/dev/null; then\n")
 	if len(windows) == 0 {
 		return ""
 	}
@@ -124,9 +125,9 @@ func BuildTmuxScript(sessionName string, tmuxCfg *config.TmuxCommand, windows []
 
 	if tmuxCfg.Attach {
 		if onExists == OnExistsAttach {
-			b.WriteString("tmux attach -t \"$session\" || true\n")
+			b.WriteString("tmux attach -t \"$(tmux_exact_target \"$session\")\" || true\n")
 		} else {
-			b.WriteString("if [ -n \"$TMUX\" ]; then tmux switch-client -t \"$session\" || true; else tmux attach -t \"$session\" || true; fi\n")
+			b.WriteString("if [ -n \"$TMUX\" ]; then tmux switch-client -t \"$(tmux_exact_target \"$session\")\" || true; else tmux attach -t \"$(tmux_exact_target \"$session\")\" || true; fi\n")
 		}
 	}
 	return b.String()

@@ -337,8 +337,14 @@ func TestBuildTmuxScript(t *testing.T) {
 				if !strings.Contains(script, "session='myrepo_wt_feature'") {
 					t.Error("script should contain session name")
 				}
+				if !strings.Contains(script, "tmux has-session -t \"$(tmux_exact_target \"$session\")\"") {
+					t.Error("script should use exact tmux target for session lookups")
+				}
 				if !strings.Contains(script, "tmux new-session") {
 					t.Error("script should create new session")
+				}
+				if !strings.Contains(script, "tmux new-session -d -s \"$session\"") {
+					t.Error("script should keep plain session name for creation")
 				}
 				if !strings.Contains(script, "-n 'shell'") {
 					t.Error("script should create window named 'shell'")
@@ -357,7 +363,7 @@ func TestBuildTmuxScript(t *testing.T) {
 			},
 			env: map[string]string{},
 			checkScript: func(t *testing.T, script string) {
-				if !strings.Contains(script, "tmux kill-session") {
+				if !strings.Contains(script, "tmux kill-session -t \"$(tmux_exact_target \"$session\")\"") {
 					t.Error("script should kill existing session in kill mode")
 				}
 			},
@@ -374,7 +380,7 @@ func TestBuildTmuxScript(t *testing.T) {
 			},
 			env: map[string]string{},
 			checkScript: func(t *testing.T, script string) {
-				if !strings.Contains(script, "while tmux has-session") {
+				if !strings.Contains(script, "while tmux has-session -t \"$(tmux_exact_target \"${base_session}-$i\")\"") {
 					t.Error("script should check for incremented session names in new mode")
 				}
 			},
@@ -412,8 +418,31 @@ func TestBuildTmuxScript(t *testing.T) {
 			},
 			env: map[string]string{},
 			checkScript: func(t *testing.T, script string) {
-				if !strings.Contains(script, "tmux switch-client") {
+				if !strings.Contains(script, "tmux switch-client -t \"$(tmux_exact_target \"$session\")\"") {
 					t.Error("script should switch client when inside tmux")
+				}
+			},
+		},
+		{
+			name:        "prefixed session names use exact lookup targets",
+			sessionName: "wt-feature-foo-bar",
+			tmuxCfg: &config.TmuxCommand{
+				OnExists: "switch",
+				Attach:   true,
+			},
+			windows: []multiplexer.ResolvedWindow{
+				{Name: "shell", Command: "exec ${SHELL:-bash}", Cwd: "/path"},
+			},
+			env: map[string]string{},
+			checkScript: func(t *testing.T, script string) {
+				if !strings.Contains(script, "session='wt-feature-foo-bar'") {
+					t.Error("script should contain the full session name")
+				}
+				if !strings.Contains(script, "\"$(tmux_exact_target \"$session\")\"") {
+					t.Error("script should use exact tmux targets for lookups and switching")
+				}
+				if strings.Contains(script, "switch-client -t \"$session\"") {
+					t.Error("script should not use bare tmux target for switching")
 				}
 			},
 		},

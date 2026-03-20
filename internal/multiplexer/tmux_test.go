@@ -190,7 +190,10 @@ func TestBuildTmuxScript(t *testing.T) {
 		}
 		script := BuildTmuxScript("test-session", cfg, windows, map[string]string{})
 		assert.Contains(t, script, "test-session")
+		assert.Contains(t, script, "tmux_exact_target() { printf '=%s' \"$1\"; }")
+		assert.Contains(t, script, "tmux has-session -t \"$(tmux_exact_target \"$session\")\"")
 		assert.Contains(t, script, "tmux new-session")
+		assert.Contains(t, script, "tmux new-session -d -s \"$session\"")
 		assert.Contains(t, script, "main")
 		assert.Contains(t, script, "vim")
 		assert.NotContains(t, script, "tmux attach")
@@ -202,7 +205,8 @@ func TestBuildTmuxScript(t *testing.T) {
 			{Name: "main", Command: "vim", Cwd: "/path"},
 		}
 		script := BuildTmuxScript("test-session", cfg, windows, map[string]string{})
-		assert.Contains(t, script, "tmux attach")
+		assert.Contains(t, script, "tmux attach -t \"$(tmux_exact_target \"$session\")\" || true")
+		assert.Contains(t, script, "tmux switch-client -t \"$(tmux_exact_target \"$session\")\" || true")
 	})
 
 	t.Run("script with multiple windows", func(t *testing.T) {
@@ -235,7 +239,7 @@ func TestBuildTmuxScript(t *testing.T) {
 			{Name: "main", Command: "vim", Cwd: "/path"},
 		}
 		script := BuildTmuxScript("test-session", cfg, windows, map[string]string{})
-		assert.Contains(t, script, "tmux kill-session")
+		assert.Contains(t, script, "tmux kill-session -t \"$(tmux_exact_target \"$session\")\"")
 	})
 
 	t.Run("script with onExists new", func(t *testing.T) {
@@ -245,7 +249,7 @@ func TestBuildTmuxScript(t *testing.T) {
 		}
 		script := BuildTmuxScript("test-session", cfg, windows, map[string]string{})
 		assert.Contains(t, script, "base_session")
-		assert.Contains(t, script, "while tmux has-session")
+		assert.Contains(t, script, "while tmux has-session -t \"$(tmux_exact_target \"${base_session}-$i\")\"")
 	})
 
 	t.Run("script with session file", func(t *testing.T) {
@@ -255,5 +259,16 @@ func TestBuildTmuxScript(t *testing.T) {
 		}
 		script := BuildTmuxScript("test-session", cfg, windows, map[string]string{})
 		assert.Contains(t, script, "LW_TMUX_SESSION_FILE")
+	})
+
+	t.Run("script uses exact match for prefixed session names", func(t *testing.T) {
+		cfg := &config.TmuxCommand{OnExists: "switch", Attach: true}
+		windows := []ResolvedWindow{
+			{Name: "main", Command: "vim", Cwd: "/path"},
+		}
+		script := BuildTmuxScript("wt-feature-foo-bar", cfg, windows, map[string]string{})
+		assert.Contains(t, script, "session='wt-feature-foo-bar'")
+		assert.Contains(t, script, "\"$(tmux_exact_target \"$session\")\"")
+		assert.NotContains(t, script, "switch-client -t \"$session\"")
 	})
 }
