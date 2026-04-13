@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "**.go"
+      - "go.mod"
+      - "go.sum"
       - "docs/**"
       - "mkdocs.yml"
       - "README.md"
@@ -12,6 +14,8 @@ on:
   pull_request:
     paths:
       - "**.go"
+      - "go.mod"
+      - "go.sum"
       - "docs/**"
       - "mkdocs.yml"
       - "README.md"
