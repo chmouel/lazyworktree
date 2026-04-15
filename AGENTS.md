@@ -46,6 +46,17 @@ ownership across subsystems.
   - Remove any overly casual Americanisms
   - Keep technical precision whilst maintaining readability
 
+## Documentation review rules
+
+When reviewing docs:
+
+- Compare documentation to code, tests, schemas, and CLI help.
+- Prefer exact evidence over intuition.
+- Separate confirmed drift from likely drift.
+- Treat setup, migration, config, and API inaccuracies as high severity.
+- Suggest minimal, reviewable doc patches.
+- Preserve existing terminology unless the implementation clearly changed.
+
 ### Website documentation (`docs/`)
 
 The website is built with MkDocs Material and configured in `mkdocs.yml`.
