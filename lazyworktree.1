@@ -666,7 +666,7 @@ Absorb worktree into main (merge or rebase based on configuration).
 .
 .TP
 .B X
-Prune merged worktrees. Automatically refreshes PR/MR data from GitHub or GitLab (if connected), then detects worktrees whose associated PR has been merged or whose branch has been merged into the main branch. For repositories without GitHub/GitLab remotes, uses git-based merge detection only. Displays a checklist allowing selection of which worktrees to remove.
+Prune merged worktrees and stale branches. Automatically refreshes PR/MR data from GitHub or GitLab (if connected), then detects worktrees whose associated PR has been merged or whose branch has been merged into the main branch. For repositories without GitHub/GitLab remotes, uses git-based merge detection only. When \fBprune_stale_branches\fR is enabled, also includes local branches that are merged but have no associated worktree. Displays a checklist allowing selection of which items to remove.
 .
 .TP
 .B !

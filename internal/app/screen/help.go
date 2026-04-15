@@ -155,7 +155,7 @@ Commit Status Indicators:
 - m: Rename selected worktree
 - D: Delete selected worktree
 - A: Absorb worktree into main (merge or rebase based on configuration, then delete)
-- X: Prune merged worktrees (auto-refreshes PR data, then checks PR/branch merge status)
+- X: Prune merged worktrees and stale branches (auto-refreshes PR data; enable prune_stale_branches to include merged branches without worktrees)
 - !: Run arbitrary command in selected worktree
 
 **{{HELP_BRANCH_NAMING}}Branch Naming**

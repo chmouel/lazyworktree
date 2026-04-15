@@ -112,11 +112,12 @@ type (
 		fetchedAt    time.Time
 	}
 	pruneResultMsg struct {
-		worktrees      []*models.WorktreeInfo
-		err            error
-		pruned         int
-		failed         int
-		orphansDeleted int
+		worktrees       []*models.WorktreeInfo
+		err             error
+		pruned          int
+		failed          int
+		orphansDeleted  int
+		branchesDeleted int
 	}
 	absorbMergeResultMsg struct {
 		path   string

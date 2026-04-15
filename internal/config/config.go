@@ -65,6 +65,7 @@ type AppConfig struct {
 	PRBranchNameTemplate    string // Template for PR branch names with placeholders: {number}, {title}, {generated}, {pr_author} (default: "pr-{number}-{title}")
 	SessionPrefix           string // Prefix for tmux/zellij session names (default: "wt-")
 	Layout                  string // Pane arrangement: "default" or "top" (default: "default")
+	PruneStaleBranches      bool   // Include merged branches without worktrees in prune (default: false)
 	PaletteMRU              bool   // Enable MRU sorting for command palette (default: false)
 	PaletteMRULimit         int    // Number of MRU items to show (default: 5)
 	AgentSessionClaudeRoot  string // Custom root for Claude transcript discovery (default: ~/.claude/projects)
@@ -236,6 +237,7 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 	cfg.RefreshIntervalSeconds = coerceInt(data["refresh_interval"], cfg.RefreshIntervalSeconds)
 	cfg.SearchAutoSelect = coerceBool(data["search_auto_select"], false)
 	cfg.FuzzyFinderInput = coerceBool(data["fuzzy_finder_input"], false)
+	cfg.PruneStaleBranches = coerceBool(data["prune_stale_branches"], false)
 
 	if iconSet, ok := data["icon_set"].(string); ok {
 		iconSet = strings.ToLower(strings.TrimSpace(iconSet))
@@ -628,6 +630,9 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	}
 	if _, ok := overrideData["fuzzy_finder_input"]; ok {
 		cfg.FuzzyFinderInput = overrideCfg.FuzzyFinderInput
+	}
+	if _, ok := overrideData["prune_stale_branches"]; ok {
+		cfg.PruneStaleBranches = overrideCfg.PruneStaleBranches
 	}
 	if _, ok := overrideData["icon_set"]; ok {
 		cfg.IconSet = overrideCfg.IconSet

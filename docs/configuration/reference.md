@@ -16,6 +16,7 @@ This page is generated from `internal/config/config.go`. Run `make docs-sync` af
 | `ci_auto_refresh` | `bool` | `false` | Enable periodic CI refresh for GitHub repositories. |
 | `auto_fetch_prs` | `bool` | `false` | Automatically fetch PR/MR data. |
 | `disable_pr` | `bool` | `false` | Disable PR/MR integration. |
+| `prune_stale_branches` | `bool` | `false` | Include merged branches without worktrees in prune. |
 | `search_auto_select` | `bool` | `false` | Focus filter and auto-select first match. |
 | `fuzzy_finder_input` | `bool` | `false` | Enable fuzzy helper input in selection dialogues. |
 | `max_name_length` | `int` | `95` | Maximum displayed worktree name length. |

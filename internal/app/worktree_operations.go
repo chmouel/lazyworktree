@@ -714,7 +714,11 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 	mainBranch := m.state.services.git.GetMainBranch(m.ctx)
 
 	wtBranches := make(map[string]*models.WorktreeInfo)
+	checkedOutBranches := make(map[string]struct{})
 	for _, wt := range m.state.data.worktrees {
+		if wt.Branch != "" {
+			checkedOutBranches[wt.Branch] = struct{}{}
+		}
 		if !wt.IsMain {
 			wtBranches[wt.Branch] = wt
 		}
@@ -750,7 +754,21 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 		}
 	}
 
-	// 3. Detect orphaned directories (exist on disk but not in git worktree list)
+	// 3. Branch-only detection: merged branches with no worktree (config-gated)
+	if m.config.PruneStaleBranches {
+		for _, branch := range mergedBranches {
+			if _, checkedOut := checkedOutBranches[branch]; checkedOut {
+				continue
+			}
+			if _, exists := wtBranches[branch]; !exists {
+				if _, found := candidateMap[branch]; !found {
+					candidateMap[branch] = candidate{wt: nil, source: "git"}
+				}
+			}
+		}
+	}
+
+	// 4. Detect orphaned directories (exist on disk but not in git worktree list)
 	orphanedDirs := m.findOrphanedWorktreeDirs()
 
 	if len(candidateMap) == 0 && len(orphanedDirs) == 0 {
@@ -761,8 +779,19 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 	// Build checklist items (pre-check clean worktrees, uncheck dirty ones)
 	items := make([]appscreen.ChecklistItem, 0, len(candidateMap)+len(orphanedDirs))
 
-	// Add merged worktrees
+	// Add merged worktrees and stale branches
 	for branch, info := range candidateMap {
+		if info.wt == nil {
+			// Branch-only candidate (merged, no worktree)
+			items = append(items, appscreen.ChecklistItem{
+				ID:          "branch:" + branch,
+				Label:       branch,
+				Description: fmt.Sprintf("Branch: %s (merged, no worktree)", branch),
+				Checked:     false, // Require explicit selection
+			})
+			continue
+		}
+
 		// Get worktree name from path
 		wtName := filepath.Base(info.wt.Path)
 
@@ -823,12 +852,15 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 			return nil
 		}
 
-		// Separate worktrees from orphaned directories
+		// Separate worktrees, stale branches, and orphaned directories
 		toPrune := make([]*models.WorktreeInfo, 0, len(selected))
 		orphansToDelete := make([]string, 0)
+		branchesToDelete := make([]string, 0)
 		for _, item := range selected {
 			if orphanPath, isOrphan := strings.CutPrefix(item.ID, "orphan:"); isOrphan {
 				orphansToDelete = append(orphansToDelete, orphanPath)
+			} else if branchName, isBranch := strings.CutPrefix(item.ID, "branch:"); isBranch {
+				branchesToDelete = append(branchesToDelete, branchName)
 			} else if wt, exists := wtBranches[item.ID]; exists {
 				toPrune = append(toPrune, wt)
 			}
@@ -858,6 +890,16 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 				ok2 := m.state.services.git.RunCommandChecked(m.ctx, []string{"git", "branch", "-D", wt.Branch}, "", fmt.Sprintf("Failed to delete branch %s", wt.Branch))
 				if ok1 && ok2 {
 					pruned++
+				} else {
+					failed++
+				}
+			}
+
+			// Delete stale branches (merged, no worktree)
+			branchesDeleted := 0
+			for _, branch := range branchesToDelete {
+				if m.state.services.git.RunCommandChecked(m.ctx, []string{"git", "branch", "-D", branch}, "", fmt.Sprintf("Failed to delete branch %s", branch)) {
+					branchesDeleted++
 				} else {
 					failed++
 				}
@@ -893,11 +935,12 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 
 			worktrees, err := m.state.services.git.GetWorktrees(m.ctx)
 			return pruneResultMsg{
-				worktrees:      worktrees,
-				err:            err,
-				pruned:         pruned,
-				failed:         failed,
-				orphansDeleted: orphansDeleted,
+				worktrees:       worktrees,
+				err:             err,
+				pruned:          pruned,
+				failed:          failed,
+				orphansDeleted:  orphansDeleted,
+				branchesDeleted: branchesDeleted,
 			}
 		}
 

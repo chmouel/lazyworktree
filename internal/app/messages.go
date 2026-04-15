@@ -211,6 +211,9 @@ func (m *Model) handlePruneResult(msg pruneResultMsg) (tea.Model, tea.Cmd) {
 	if msg.orphansDeleted > 0 {
 		parts = append(parts, fmt.Sprintf("deleted %d orphaned directories", msg.orphansDeleted))
 	}
+	if msg.branchesDeleted > 0 {
+		parts = append(parts, fmt.Sprintf("deleted %d stale branches", msg.branchesDeleted))
+	}
 	if msg.failed > 0 {
 		parts = append(parts, fmt.Sprintf("%d failed", msg.failed))
 	}

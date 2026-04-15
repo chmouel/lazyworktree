@@ -647,6 +647,54 @@ func TestShowPruneMerged(t *testing.T) {
 	}
 }
 
+func TestPerformMergedWorktreeCheckExcludesCheckedOutMainWorktreeBranch(t *testing.T) {
+	repo := t.TempDir()
+	runGit(t, repo, "init", "-b", "main")
+	runGit(t, repo, "config", "user.email", "test@example.com")
+	runGit(t, repo, "config", "user.name", "Test User")
+	runGit(t, repo, "config", "commit.gpgsign", "false")
+
+	filePath := filepath.Join(repo, "file.txt")
+	if err := os.WriteFile(filePath, []byte("base\n"), 0o600); err != nil {
+		t.Fatalf("write initial file: %v", err)
+	}
+	runGit(t, repo, "add", "file.txt")
+	runGit(t, repo, "commit", "-m", "Initial commit")
+
+	runGit(t, repo, "checkout", "-b", "feature-root")
+	if err := os.WriteFile(filePath, []byte("feature\n"), 0o600); err != nil {
+		t.Fatalf("write feature file: %v", err)
+	}
+	runGit(t, repo, "commit", "-am", "Feature commit")
+	runGit(t, repo, "checkout", "main")
+	runGit(t, repo, "merge", "--no-ff", "--no-edit", "feature-root")
+	runGit(t, repo, "checkout", "feature-root")
+
+	withCwd(t, repo)
+
+	cfg := &config.AppConfig{
+		WorktreeDir:        t.TempDir(),
+		PruneStaleBranches: true,
+	}
+	m := NewModel(cfg, "")
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{Path: repo, Branch: "feature-root", IsMain: true},
+	}
+
+	cmd := m.performMergedWorktreeCheck()
+	if cmd != nil {
+		t.Fatal("expected no checklist command when only the checked-out main worktree branch is merged")
+	}
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+
+	infoScr := m.state.ui.screenManager.Current().(*appscreen.InfoScreen)
+	if infoScr.Message != "No merged worktrees or orphaned directories to prune." {
+		t.Fatalf("unexpected info modal: %q", infoScr.Message)
+	}
+}
+
 func TestShowPruneMergedUnknownHost(t *testing.T) {
 	// Test that showPruneMerged skips PR fetch for unknown hosts
 	cfg := &config.AppConfig{

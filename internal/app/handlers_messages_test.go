@@ -417,6 +417,38 @@ func TestHandlePruneResultOnlyOrphans(t *testing.T) {
 	}
 }
 
+func TestHandlePruneResultStaleBranches(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	msg := pruneResultMsg{worktrees: []*models.WorktreeInfo{}, pruned: 1, branchesDeleted: 3, failed: 0, err: nil}
+	updated, _ := m.handlePruneResult(msg)
+	updatedModel := updated.(*Model)
+
+	if !strings.Contains(updatedModel.statusContent, "Pruned 1") {
+		t.Errorf("expected status to include pruned count, got %q", updatedModel.statusContent)
+	}
+	if !strings.Contains(updatedModel.statusContent, "deleted 3 stale branches") {
+		t.Errorf("expected status to include stale branches count, got %q", updatedModel.statusContent)
+	}
+}
+
+func TestHandlePruneResultOnlyStaleBranches(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	msg := pruneResultMsg{worktrees: []*models.WorktreeInfo{}, pruned: 0, branchesDeleted: 2, failed: 0, err: nil}
+	updated, _ := m.handlePruneResult(msg)
+	updatedModel := updated.(*Model)
+
+	if strings.Contains(updatedModel.statusContent, "Pruned 0") {
+		t.Errorf("should not show 'Pruned 0' when no worktrees pruned, got %q", updatedModel.statusContent)
+	}
+	if !strings.Contains(updatedModel.statusContent, "deleted 2 stale branches") {
+		t.Errorf("expected status to include stale branches count, got %q", updatedModel.statusContent)
+	}
+}
+
 func TestHandleAbsorbResultError(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")

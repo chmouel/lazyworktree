@@ -36,8 +36,8 @@ type WorktreeService interface {
 	// Absorb merges or rebases a worktree into the main branch.
 	Absorb(ctx context.Context, wt *models.WorktreeInfo, mainWorktree *models.WorktreeInfo, mergeMethod string) error
 
-	// GetPruneCandidates identifies worktrees that have been merged and are candidates for pruning.
-	GetPruneCandidates(ctx context.Context, worktrees []*models.WorktreeInfo) ([]PruneCandidate, error)
+	// GetPruneCandidates identifies worktrees and stale branches that have been merged and are candidates for pruning.
+	GetPruneCandidates(ctx context.Context, worktrees []*models.WorktreeInfo, includeStaleBranches bool) ([]PruneCandidate, error)
 
 	// ExecuteCommands runs a list of shell commands in the specified directory.
 	ExecuteCommands(ctx context.Context, commands []string, cwd string, env map[string]string) error
@@ -60,10 +60,11 @@ type CreateFromChangesOptions struct {
 	Env           map[string]string
 }
 
-// PruneCandidate represents a worktree that is a candidate for pruning.
+// PruneCandidate represents a worktree or stale branch that is a candidate for pruning.
 type PruneCandidate struct {
-	Worktree *models.WorktreeInfo
-	Source   string // "pr", "git", or "both"
+	Worktree *models.WorktreeInfo // nil for branch-only candidates
+	Branch   string               // branch name (always set)
+	Source   string               // "pr", "git", or "both"
 }
 
 // GitService defines the subset of git operations needed by WorktreeService.
@@ -232,11 +233,15 @@ func (s *worktreeService) Absorb(ctx context.Context, wt, mainWorktree *models.W
 	return nil
 }
 
-func (s *worktreeService) GetPruneCandidates(ctx context.Context, worktrees []*models.WorktreeInfo) ([]PruneCandidate, error) {
+func (s *worktreeService) GetPruneCandidates(ctx context.Context, worktrees []*models.WorktreeInfo, includeStaleBranches bool) ([]PruneCandidate, error) {
 	mainBranch := s.git.GetMainBranch(ctx)
 
 	wtBranches := make(map[string]*models.WorktreeInfo)
+	checkedOutBranches := make(map[string]struct{})
 	for _, wt := range worktrees {
+		if wt.Branch != "" {
+			checkedOutBranches[wt.Branch] = struct{}{}
+		}
 		if !wt.IsMain {
 			wtBranches[wt.Branch] = wt
 		}
@@ -250,7 +255,7 @@ func (s *worktreeService) GetPruneCandidates(ctx context.Context, worktrees []*m
 			continue
 		}
 		if wt.PR != nil && strings.EqualFold(wt.PR.State, "MERGED") {
-			candidateMap[wt.Branch] = PruneCandidate{Worktree: wt, Source: "pr"}
+			candidateMap[wt.Branch] = PruneCandidate{Worktree: wt, Branch: wt.Branch, Source: "pr"}
 		}
 	}
 
@@ -262,7 +267,21 @@ func (s *worktreeService) GetPruneCandidates(ctx context.Context, worktrees []*m
 				existing.Source = "both"
 				candidateMap[branch] = existing
 			} else {
-				candidateMap[branch] = PruneCandidate{Worktree: wt, Source: "git"}
+				candidateMap[branch] = PruneCandidate{Worktree: wt, Branch: branch, Source: "git"}
+			}
+		}
+	}
+
+	// 3. Branch-only detection: merged branches with no worktree
+	if includeStaleBranches {
+		for _, branch := range mergedBranches {
+			if _, checkedOut := checkedOutBranches[branch]; checkedOut {
+				continue
+			}
+			if _, exists := wtBranches[branch]; !exists {
+				if _, found := candidateMap[branch]; !found {
+					candidateMap[branch] = PruneCandidate{Worktree: nil, Branch: branch, Source: "git"}
+				}
 			}
 		}
 	}

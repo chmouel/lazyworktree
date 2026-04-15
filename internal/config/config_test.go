@@ -462,6 +462,22 @@ func TestParseConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "prune_stale_branches true",
+			data: map[string]interface{}{
+				"prune_stale_branches": true,
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.True(t, cfg.PruneStaleBranches)
+			},
+		},
+		{
+			name: "prune_stale_branches false by default",
+			data: map[string]interface{}{},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.False(t, cfg.PruneStaleBranches)
+			},
+		},
+		{
 			name: "search_auto_select true",
 			data: map[string]interface{}{
 				"search_auto_select": true,
