@@ -20,6 +20,9 @@ ownership across subsystems.
   - internal help text/template in `internal/app/screen/help.go`
   - generated CLI docs via `make docs-sync`
   - relevant website docs
+- If you change shell integration helpers or completion behaviour, update:
+  - `shell/README.md`
+  - the relevant helper in `shell/functions.bash`, `shell/functions.zsh`, or `shell/functions.fish`
 - Do not add to README.md unless important to ask the human to approve.
 - Don't ever do commit unless you are being explicitly asked for it.
 - If you get asked to commit then use this rules:
@@ -73,6 +76,7 @@ Navigation structure and page ordering are defined in `mkdocs.yml` under `nav:`.
 - `make docs-sync` — regenerates `docs/cli/commands.md` and `docs/cli/flags.md` from source code.
 - `make docs-check` — runs sync + strict MkDocs build to catch broken links or missing pages.
 - `make docs-build` / `make docs-serve` — build or preview the site locally.
+- `make coverage` — writes `coverage.out` with per-function coverage details for coverage-sensitive changes.
 - When adding a new page, also add it to `mkdocs.yml` under the appropriate `nav:` section.
 
 ## UI
