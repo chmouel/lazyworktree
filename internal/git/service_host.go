@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -104,7 +105,11 @@ func (s *Service) ResolveRepoName(ctx context.Context) string {
 		return "unknown"
 	}
 
-	return strings.TrimSuffix(repoName, ".git")
+	repoName = strings.TrimSuffix(repoName, ".git")
+	if decoded, err := url.PathUnescape(repoName); err == nil {
+		repoName = decoded
+	}
+	return repoName
 }
 
 // localRepoKey builds a stable, compact cache key when no remote name is available.

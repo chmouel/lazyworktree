@@ -127,6 +127,29 @@ func TestResolveRepoName(t *testing.T) {
 		assert.Equal(t, "owner/repo", service.ResolveRepoName(context.Background()))
 	})
 
+	t.Run("url-encoded remote segments are decoded", func(t *testing.T) {
+		cases := []struct {
+			name   string
+			remote string
+			want   string
+		}{
+			{name: "space in org", remote: "https://gitea.example.com/Company%20A/myrepo.git", want: "Company A/myrepo"},
+			{name: "encoded slash in github org", remote: "https://github.com/org%2Fname/repo.git", want: "org/name/repo"},
+			{name: "no encoding", remote: "git@github.com:owner/repo.git", want: "owner/repo"},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				repo := t.TempDir()
+				runGit(t, repo, "init")
+				runGit(t, repo, "remote", "add", "origin", tc.remote)
+				withCwd(t, repo)
+
+				service := NewService(func(string, string) {}, func(string, string, string) {})
+				assert.Equal(t, tc.want, service.ResolveRepoName(context.Background()))
+			})
+		}
+	})
+
 	t.Run("resolve local key when no remote is configured", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
