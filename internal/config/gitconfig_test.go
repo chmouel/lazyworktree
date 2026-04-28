@@ -59,6 +59,17 @@ lw.editor code --wait`,
 			expected: map[string][]string{},
 		},
 		{
+			name: "hyphens normalised to underscores",
+			output: `lw.worktree-dir /path/to/dir
+lw.auto-fetch-prs true
+lw.init-commands npm install`,
+			expected: map[string][]string{
+				"worktree_dir":   {"/path/to/dir"},
+				"auto_fetch_prs": {"true"},
+				"init_commands":  {"npm install"},
+			},
+		},
+		{
 			name: "mixed valid and empty lines",
 			output: `lw.theme nord
 
@@ -238,6 +249,14 @@ func TestParseCLIConfigOverrides(t *testing.T) {
 			overrides: []string{"lw.=value"},
 			wantErr:   true,
 			errMsg:    "empty config key",
+		},
+		{
+			name:      "hyphenated keys normalised",
+			overrides: []string{"lw.worktree-dir=/path", "lw.auto-fetch-prs=true"},
+			expected: map[string]any{
+				"worktree_dir":   "/path",
+				"auto_fetch_prs": "true",
+			},
 		},
 		{
 			name:      "empty value is allowed",

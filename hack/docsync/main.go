@@ -365,7 +365,7 @@ func parseConfigKeys(path string) ([]configKeySpec, error) {
 	}
 
 	descByKey := map[string]string{
-		"worktree_dir":                 "Root directory for managed worktrees.",
+		"worktree_dir":                 "Root directory for managed worktrees. Supports `$LWT_REPO_PATH` (auto-set to the git repository root) for repo-local placement, e.g. `$LWT_REPO_PATH/.worktrees`. When the directory is inside the repository, the `<repoName>` path segment is omitted automatically.",
 		"debug_log":                    "Debug log file path.",
 		"pager":                        "Pager for command output views.",
 		"ci_script_pager":              "Dedicated pager for CI logs.",

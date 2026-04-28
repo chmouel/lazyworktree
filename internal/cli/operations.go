@@ -61,6 +61,27 @@ type gitService interface {
 
 var _ gitService = (*git.Service)(nil)
 
+// IsRepoLocal reports whether worktreeDir is inside mainWorktreePath,
+// indicating that worktrees are stored within the repository itself.
+func IsRepoLocal(worktreeDir, mainWorktreePath string) bool {
+	if mainWorktreePath == "" || worktreeDir == "" {
+		return false
+	}
+	return strings.HasPrefix(filepath.Clean(worktreeDir)+string(filepath.Separator),
+		filepath.Clean(mainWorktreePath)+string(filepath.Separator))
+}
+
+// resolveWorktreeBaseDir returns the parent directory for a new worktree.
+// When worktreeDir is already inside mainWorktreePath (repo-local mode), the
+// repoName segment is omitted — the dir is already scoped to one repo.
+// Otherwise the classic <worktreeDir>/<repoName> structure is used.
+func resolveWorktreeBaseDir(worktreeDir, mainWorktreePath, repoName string) string {
+	if IsRepoLocal(worktreeDir, mainWorktreePath) {
+		return worktreeDir
+	}
+	return filepath.Join(worktreeDir, repoName)
+}
+
 // CreateFromBranch creates a worktree from a branch name.
 func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) (string, error) {
 	return CreateFromBranchWithFS(ctx, gitSvc, cfg, branchName, worktreeName, withChange, silent, DefaultFS)
@@ -92,13 +113,14 @@ func CreateFromBranchWithFS(ctx context.Context, gitSvc gitService, cfg *config.
 	}
 
 	// Construct target path based on worktree name
+	mainWorktreePath := gitSvc.GetMainWorktreePath(ctx)
 	repoName := gitSvc.ResolveRepoName(ctx)
 
 	// Generate random name if not provided, or validate user-provided name
 	if worktreeName == "" {
 		// Generate random name with retry for uniqueness
 		sanitizedBranch := utils.SanitizeBranchName(branchName, 50)
-		worktreeName = generateUniqueWorktreeNameFS(cfg, repoName, sanitizedBranch, fs)
+		worktreeName = generateUniqueWorktreeNameFS(cfg, mainWorktreePath, repoName, sanitizedBranch, fs)
 	} else {
 		// Validate and sanitise user-provided name
 		sanitised := utils.SanitizeBranchName(worktreeName, 100)
@@ -108,7 +130,8 @@ func CreateFromBranchWithFS(ctx context.Context, gitSvc gitService, cfg *config.
 		worktreeName = sanitised
 	}
 
-	targetPath := filepath.Join(cfg.WorktreeDir, repoName, worktreeName)
+	base := resolveWorktreeBaseDir(cfg.WorktreeDir, mainWorktreePath, repoName)
+	targetPath := filepath.Join(base, worktreeName)
 
 	// Check for path conflicts
 	if _, err := fs.Stat(targetPath); err == nil {
@@ -190,13 +213,14 @@ func createWorktreeFromBranch(ctx context.Context, gitSvc gitService, cfg *confi
 // generateUniqueWorktreeNameFS generates a unique worktree name with retries.
 // Format: <branch>-<random-adjective>-<random-noun>
 // Retries up to 10 times if path already exists.
-func generateUniqueWorktreeNameFS(cfg *config.AppConfig, repoName, branchName string, fs OSFilesystem) string {
+func generateUniqueWorktreeNameFS(cfg *config.AppConfig, mainWorktreePath, repoName, branchName string, fs OSFilesystem) string {
 	const maxRetries = 10
 
+	base := resolveWorktreeBaseDir(cfg.WorktreeDir, mainWorktreePath, repoName)
 	for range maxRetries {
 		randomPart := utils.RandomBranchName()
 		candidate := fmt.Sprintf("%s-%s", branchName, randomPart)
-		targetPath := filepath.Join(cfg.WorktreeDir, repoName, candidate)
+		targetPath := filepath.Join(base, candidate)
 
 		// Check if path exists
 		if _, err := fs.Stat(targetPath); os.IsNotExist(err) {
@@ -261,6 +285,7 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 		return "", fmt.Errorf("branch %q is already checked out in worktree %q", localBranch, worktreePath)
 	}
 
+	mainWorktreePath := gitSvc.GetMainWorktreePath(ctx)
 	repoName := gitSvc.ResolveRepoName(ctx)
 
 	if noWorkspace {
@@ -271,7 +296,8 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 	}
 
 	// Construct target path
-	targetPath := filepath.Join(cfg.WorktreeDir, repoName, worktreeName)
+	base := resolveWorktreeBaseDir(cfg.WorktreeDir, mainWorktreePath, repoName)
+	targetPath := filepath.Join(base, worktreeName)
 
 	// Check for path conflicts
 	if _, err := fs.Stat(targetPath); err == nil {
@@ -390,8 +416,10 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 	}
 
 	// Construct target path
+	mainWorktreePath := gitSvc.GetMainWorktreePath(ctx)
 	repoName := gitSvc.ResolveRepoName(ctx)
-	targetPath := filepath.Join(cfg.WorktreeDir, repoName, branchName)
+	base := resolveWorktreeBaseDir(cfg.WorktreeDir, mainWorktreePath, repoName)
+	targetPath := filepath.Join(base, branchName)
 
 	// Check for path conflicts
 	if _, err := fs.Stat(targetPath); err == nil {
@@ -456,7 +484,7 @@ func DeleteWorktree(ctx context.Context, gitSvc gitService, cfg *config.AppConfi
 	}
 
 	// Find the worktree to delete
-	selectedWorktree, err := FindWorktreeByPathOrName(worktreePath, nonMainWorktrees, cfg.WorktreeDir, gitSvc.ResolveRepoName(ctx))
+	selectedWorktree, err := FindWorktreeByPathOrName(worktreePath, nonMainWorktrees, cfg.WorktreeDir, gitSvc.ResolveRepoName(ctx), gitSvc.GetMainWorktreePath(ctx))
 	if err != nil {
 		return err
 	}
@@ -538,7 +566,7 @@ func RenameWorktree(ctx context.Context, gitSvc gitService, cfg *config.AppConfi
 		return fmt.Errorf("invalid new name: must contain at least one alphanumeric character")
 	}
 
-	selectedWorktree, err := FindWorktreeByPathOrName(worktreePath, nonMainWorktrees, cfg.WorktreeDir, gitSvc.ResolveRepoName(ctx))
+	selectedWorktree, err := FindWorktreeByPathOrName(worktreePath, nonMainWorktrees, cfg.WorktreeDir, gitSvc.ResolveRepoName(ctx), gitSvc.GetMainWorktreePath(ctx))
 	if err != nil {
 		return err
 	}
@@ -567,7 +595,7 @@ func RenameWorktree(ctx context.Context, gitSvc gitService, cfg *config.AppConfi
 }
 
 // FindWorktreeByPathOrName finds a worktree by its path or name.
-func FindWorktreeByPathOrName(pathOrName string, worktrees []*models.WorktreeInfo, worktreeDir, repoName string) (*models.WorktreeInfo, error) {
+func FindWorktreeByPathOrName(pathOrName string, worktrees []*models.WorktreeInfo, worktreeDir, repoName, mainWorktreePath string) (*models.WorktreeInfo, error) {
 	// Try to match by exact path
 	for _, wt := range worktrees {
 		if wt.Path == pathOrName {
@@ -589,8 +617,8 @@ func FindWorktreeByPathOrName(pathOrName string, worktrees []*models.WorktreeInf
 		}
 	}
 
-	// Try to construct the path from worktree name and match
-	constructedPath := filepath.Join(worktreeDir, repoName, pathOrName)
+	// Try to construct the path from worktree name and match (handles both global and repo-local modes)
+	constructedPath := filepath.Join(resolveWorktreeBaseDir(worktreeDir, mainWorktreePath, repoName), pathOrName)
 	for _, wt := range worktrees {
 		if wt.Path == constructedPath {
 			return wt, nil
@@ -922,7 +950,7 @@ func resolveNoteContext(ctx context.Context, gitSvc gitService, cfg *config.AppC
 		}
 	} else {
 		repoName := gitSvc.ResolveRepoName(ctx)
-		target, err = FindWorktreeByPathOrName(worktreePathOrName, worktrees, cfg.WorktreeDir, repoName)
+		target, err = FindWorktreeByPathOrName(worktreePathOrName, worktrees, cfg.WorktreeDir, repoName, gitSvc.GetMainWorktreePath(ctx))
 		if err != nil {
 			return nil, err
 		}

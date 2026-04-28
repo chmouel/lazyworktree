@@ -66,6 +66,12 @@ Metadata Menu: Press \fBe\fR in the worktree pane to edit the selected worktree'
 Override the default worktree root directory.
 .br
 Default: ~/.local/share/worktrees
+.br
+\fB$LWT_REPO_PATH\fR is automatically set to the git repository root, enabling
+repo-local placement: \fI$LWT_REPO_PATH/.worktrees\fR. When the directory is
+inside the repository, the \fI<repoName>\fR segment is omitted so worktrees
+land directly under the configured directory. Add the directory to
+\fI.gitignore\fR so it does not appear in \fBgit status\fR.
 .
 .TP
 .B \-\-theme \fINAME\fR
@@ -1010,12 +1016,13 @@ Settings can be stored in Git's configuration system with the \fBlw.\fR prefix:
 .nf
 # Set globally
 git config --global lw.theme nord
-git config --global lw.worktree_dir ~/.local/share/worktrees
+git config --global lw.worktree-dir ~/.local/share/worktrees
 
 # Set per-repository (overrides global)
 git config --local lw.theme dracula
-git config --local lw.init_commands "link_topsymlinks"
-git config --local lw.init_commands "npm install"  # Multi-values supported
+git config --local lw.worktree-dir '$LWT_REPO_PATH/.worktrees'  # Repo-local worktrees
+git config --local lw.init-commands "link_topsymlinks"
+git config --local lw.init-commands "npm install"  # Multi-values supported
 
 # View all lazyworktree settings
 git config --global --get-regexp "^lw\."

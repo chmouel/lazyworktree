@@ -54,7 +54,7 @@ func parseGitConfigOutput(output string) (map[string][]string, error) {
 			continue
 		}
 
-		key := strings.TrimPrefix(parts[0], "lw.")
+		key := strings.ReplaceAll(strings.TrimPrefix(parts[0], "lw."), "-", "_")
 		value := parts[1]
 
 		// Git config can have multi-values for same key
@@ -111,13 +111,11 @@ func convertGitConfigToParseConfig(gitCfg map[string][]string) map[string]any {
 
 // loadGitConfig reads git config values and returns map for parseConfig.
 func loadGitConfig(globalOnly bool, repoPath string) (map[string]any, error) {
-	args := []string{"config", "--get-regexp", "^lw\\."}
-
+	scope := "--local"
 	if globalOnly {
-		args = append(args, "--global")
-	} else {
-		args = append(args, "--local")
+		scope = "--global"
 	}
+	args := []string{"config", scope, "--get-regexp", "^lw\\."}
 
 	output, err := runGitConfig(args, repoPath)
 	if err != nil {
@@ -182,7 +180,7 @@ func parseCLIConfigOverrides(overrides []string) (map[string]any, error) {
 			return nil, fmt.Errorf("config override key must start with 'lw.': %q", fullKey)
 		}
 
-		key := strings.TrimPrefix(fullKey, "lw.")
+		key := strings.ReplaceAll(strings.TrimPrefix(fullKey, "lw."), "-", "_")
 		if key == "" {
 			return nil, fmt.Errorf("empty config key in override: %q", override)
 		}

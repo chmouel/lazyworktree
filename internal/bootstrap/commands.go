@@ -1174,7 +1174,7 @@ func handleDeleteAction(ctx context.Context, cmd *appiCli.Command) error {
 					nonMain = append(nonMain, wt)
 				}
 			}
-			if target, fErr := cli.FindWorktreeByPathOrName(worktreePath, nonMain, cfg.WorktreeDir, repoKey); fErr == nil {
+			if target, fErr := cli.FindWorktreeByPathOrName(worktreePath, nonMain, cfg.WorktreeDir, repoKey, gitSvc.GetMainWorktreePath(ctx)); fErr == nil {
 				preDeleteName = filepath.Base(target.Path)
 				preDeletePath = target.Path
 				willDeleteBranch = deleteBranch && preDeleteName == target.Branch
@@ -1260,7 +1260,7 @@ func handleRenameAction(ctx context.Context, cmd *appiCli.Command) error {
 					nonMain = append(nonMain, wt)
 				}
 			}
-			if target, fErr := cli.FindWorktreeByPathOrName(worktreePath, nonMain, cfg.WorktreeDir, repoKey); fErr == nil {
+			if target, fErr := cli.FindWorktreeByPathOrName(worktreePath, nonMain, cfg.WorktreeDir, repoKey, gitSvc.GetMainWorktreePath(ctx)); fErr == nil {
 				oldName = filepath.Base(target.Path)
 				oldPath = target.Path
 				sanitizedNewName = utils.SanitizeBranchName(newName, 100)
@@ -1521,7 +1521,7 @@ func handleExecAction(ctx context.Context, cmd *appiCli.Command) error {
 	var targetWorktree *models.WorktreeInfo
 	if workspace != "" {
 		// User provided workspace flag
-		targetWorktree, err = cli.FindWorktreeByPathOrName(workspace, worktrees, cfg.WorktreeDir, gitSvc.ResolveRepoName(ctx))
+		targetWorktree, err = cli.FindWorktreeByPathOrName(workspace, worktrees, cfg.WorktreeDir, gitSvc.ResolveRepoName(ctx), gitSvc.GetMainWorktreePath(ctx))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			return err

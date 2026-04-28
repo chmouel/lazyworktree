@@ -32,7 +32,7 @@ Use `lw.` keys:
 
 ```bash
 git config --global lw.theme nord
-git config --local lw.sort_mode switched
+git config --local lw.sort-mode switched
 ```
 
 List configured keys:

@@ -10,6 +10,8 @@ import (
 
 // loadCLIConfig loads and configures the application configuration for CLI mode.
 func loadCLIConfig(configFileFlag, worktreeDirFlag string, configOverrides []string) (*config.AppConfig, error) {
+	ensureRepoPath()
+
 	cfg, err := config.LoadConfig(configFileFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)

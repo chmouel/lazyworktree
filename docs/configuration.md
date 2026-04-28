@@ -2,6 +2,20 @@
 
 Default worktree location: `~/.local/share/worktrees/<organization>-<repo_name>`.
 
+To keep worktrees inside the repository itself, set `worktree_dir` to use `$LWT_REPO_PATH` — lazyworktree automatically exports this variable to the git repository root before loading config:
+
+```bash
+git config --local lw.worktree-dir '$LWT_REPO_PATH/.worktrees'
+```
+
+Worktrees are then created at `<repoRoot>/.worktrees/<worktreeName>` (the `<repoName>` segment is omitted when the directory is already inside the repository).
+
+Add the directory to `.gitignore` so it does not appear in `git status`:
+
+```bash
+echo '.worktrees' >> .gitignore
+```
+
 <div class="lw-callout">
   <p><strong>Find settings quickly:</strong> use the map below, then jump to the relevant settings group.</p>
 </div>
@@ -101,12 +115,13 @@ Use the `lw.` prefix:
 ```bash
 # Set globally
 git config --global lw.theme nord
-git config --global lw.worktree_dir ~/.local/share/worktrees
+git config --global lw.worktree-dir ~/.local/share/worktrees
 
 # Set per-repository
 git config --local lw.theme dracula
-git config --local lw.init_commands "link_topsymlinks"
-git config --local lw.init_commands "npm install"  # Multi-values supported
+git config --local lw.worktree-dir '$LWT_REPO_PATH/.worktrees'  # Repo-local worktrees
+git config --local lw.init-commands "link_topsymlinks"
+git config --local lw.init-commands "npm install"  # Multi-values supported
 ```
 
 To view configured values:

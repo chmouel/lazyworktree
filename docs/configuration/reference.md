@@ -5,7 +5,7 @@ This page is generated from `internal/config/config.go`. Run `make docs-sync` af
 <!-- BEGIN GENERATED:config-reference -->
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `worktree_dir` | `string` | `none` | Root directory for managed worktrees. |
+| `worktree_dir` | `string` | `none` | Root directory for managed worktrees. Supports `$LWT_REPO_PATH` (auto-set to the git repository root) for repo-local placement, e.g. `$LWT_REPO_PATH/.worktrees`. When the directory is inside the repository, the `<repoName>` path segment is omitted automatically. |
 | `theme` | `string` | `auto-detect` | UI theme selection. |
 | `icon_set` | `enum(nerd-font-v3\|text)` | `nerd-font-v3` | Icon rendering mode for terminal compatibility. |
 | `layout` | `enum(default\|top)` | `default` | Pane layout strategy. |

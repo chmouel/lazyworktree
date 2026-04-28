@@ -2,7 +2,13 @@
 # CORE SETTINGS
 # ============================================================================
 
-# Directory where your worktrees will be created
+# Directory where your worktrees will be created.
+# lazyworktree automatically sets $LWT_REPO_PATH to the git repository root,
+# so you can place worktrees inside the repository itself:
+#   worktree_dir: $LWT_REPO_PATH/.worktrees
+# In repo-local mode the <repoName> path segment is omitted, giving:
+#   <repoRoot>/.worktrees/<worktreeName>
+# Remember to add the directory to .gitignore (e.g. echo '.worktrees' >> .gitignore).
 worktree_dir: ~/.local/share/worktrees
 
 # How worktrees are sorted in the list

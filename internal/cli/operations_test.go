@@ -221,7 +221,7 @@ func TestFindWorktreeByPathOrName(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			found, err := FindWorktreeByPathOrName(tt.pathOrName, worktrees, worktreeDir, repoName)
+			found, err := FindWorktreeByPathOrName(tt.pathOrName, worktrees, worktreeDir, repoName, "")
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected error")
@@ -236,6 +236,142 @@ func TestFindWorktreeByPathOrName(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolveWorktreeBaseDir(t *testing.T) {
+	t.Parallel()
+
+	globalWorktreeDir := filepath.Join(string(filepath.Separator), "home", "user", ".local", "share", "worktrees")
+	mainWorktreePath := filepath.Join(string(filepath.Separator), "home", "user", "code", "myrepo")
+	repoLocalWorktreeDir := filepath.Join(mainWorktreePath, ".worktrees")
+	worktreesRootDir := filepath.Join(string(filepath.Separator), "worktrees")
+	similarPrefixWorktreeDir := filepath.Join(string(filepath.Separator), "home", "user", "code", "myrepo-other", ".worktrees")
+
+	tests := []struct {
+		name             string
+		worktreeDir      string
+		mainWorktreePath string
+		repoName         string
+		want             string
+	}{
+		{
+			name:             "global mode: absolute dir outside repo",
+			worktreeDir:      globalWorktreeDir,
+			mainWorktreePath: mainWorktreePath,
+			repoName:         "org-myrepo",
+			want:             filepath.Join(globalWorktreeDir, "org-myrepo"),
+		},
+		{
+			name:             "repo-local mode: dir inside main worktree",
+			worktreeDir:      repoLocalWorktreeDir,
+			mainWorktreePath: mainWorktreePath,
+			repoName:         "org-myrepo",
+			want:             repoLocalWorktreeDir,
+		},
+		{
+			name:             "repo-local mode: dir equals main worktree path",
+			worktreeDir:      mainWorktreePath,
+			mainWorktreePath: mainWorktreePath,
+			repoName:         "org-myrepo",
+			want:             mainWorktreePath,
+		},
+		{
+			name:             "empty mainWorktreePath falls back to global",
+			worktreeDir:      worktreesRootDir,
+			mainWorktreePath: "",
+			repoName:         "myrepo",
+			want:             filepath.Join(worktreesRootDir, "myrepo"),
+		},
+		{
+			name:             "similar prefix does not trigger repo-local",
+			worktreeDir:      similarPrefixWorktreeDir,
+			mainWorktreePath: mainWorktreePath,
+			repoName:         "org-myrepo",
+			want:             filepath.Join(similarPrefixWorktreeDir, "org-myrepo"),
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := resolveWorktreeBaseDir(tt.worktreeDir, tt.mainWorktreePath, tt.repoName)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestIsRepoLocal(t *testing.T) {
+	t.Parallel()
+
+	mainWorktreePath := filepath.Join(string(filepath.Separator), "home", "user", "code", "myrepo")
+
+	tests := []struct {
+		name             string
+		worktreeDir      string
+		mainWorktreePath string
+		want             bool
+	}{
+		{
+			name:             "inside main worktree",
+			worktreeDir:      filepath.Join(mainWorktreePath, ".worktrees"),
+			mainWorktreePath: mainWorktreePath,
+			want:             true,
+		},
+		{
+			name:             "equals main worktree path",
+			worktreeDir:      mainWorktreePath,
+			mainWorktreePath: mainWorktreePath,
+			want:             true,
+		},
+		{
+			name:             "outside main worktree",
+			worktreeDir:      filepath.Join(string(filepath.Separator), "home", "user", ".local", "share", "worktrees"),
+			mainWorktreePath: mainWorktreePath,
+			want:             false,
+		},
+		{
+			name:             "similar prefix is not repo-local",
+			worktreeDir:      filepath.Join(string(filepath.Separator), "home", "user", "code", "myrepo-other", ".worktrees"),
+			mainWorktreePath: mainWorktreePath,
+			want:             false,
+		},
+		{
+			name:             "empty mainWorktreePath",
+			worktreeDir:      filepath.Join(string(filepath.Separator), "worktrees"),
+			mainWorktreePath: "",
+			want:             false,
+		},
+		{
+			name:             "empty worktreeDir",
+			worktreeDir:      "",
+			mainWorktreePath: mainWorktreePath,
+			want:             false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := IsRepoLocal(tt.worktreeDir, tt.mainWorktreePath)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestFindWorktreeByPathOrNameRepoLocal(t *testing.T) {
+	t.Parallel()
+
+	mainPath := filepath.Join(string(filepath.Separator), "home", "user", "code", "myrepo")
+	worktreeDir := filepath.Join(mainPath, ".worktrees")
+	repoName := "org-myrepo"
+
+	wtFeature := &models.WorktreeInfo{Path: filepath.Join(worktreeDir, "feature"), Branch: "feature"}
+	worktrees := []*models.WorktreeInfo{wtFeature}
+
+	found, err := FindWorktreeByPathOrName("feature", worktrees, worktreeDir, repoName, mainPath)
+	require.NoError(t, err)
+	assert.Equal(t, wtFeature, found)
 }
 
 func TestBranchExists(t *testing.T) {

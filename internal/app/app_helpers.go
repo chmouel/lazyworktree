@@ -13,6 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/app/services"
+	"github.com/chmouel/lazyworktree/internal/cli"
 	log "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/utils"
@@ -396,7 +397,14 @@ func (m *Model) getWorktreeDir() string {
 }
 
 func (m *Model) getRepoWorktreeDir() string {
-	return filepath.Join(m.getWorktreeDir(), m.getRepoKey())
+	dir := m.getWorktreeDir()
+	if m.state.services.git != nil {
+		mainPath := m.state.services.git.GetMainWorktreePath(m.ctx)
+		if cli.IsRepoLocal(dir, mainPath) {
+			return dir
+		}
+	}
+	return filepath.Join(dir, m.getRepoKey())
 }
 
 // normalizePath returns a canonical path for comparison.

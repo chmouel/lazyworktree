@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/app"
@@ -19,6 +21,29 @@ import (
 	"github.com/chmouel/lazyworktree/internal/utils"
 	"github.com/urfave/cli/v3"
 )
+
+// gitToplevel returns the root of the current git repository, or "" if not in one.
+func gitToplevel() string {
+	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+var initRepoPathOnce sync.Once
+
+// ensureRepoPath sets $LWT_REPO_PATH lazily so the git probe only runs when
+// config is actually loaded (skipped for --version, shell completion, etc.).
+func ensureRepoPath() {
+	initRepoPathOnce.Do(func() {
+		if root := gitToplevel(); root != "" {
+			_ = os.Setenv("LWT_REPO_PATH", root)
+		} else {
+			_ = os.Unsetenv("LWT_REPO_PATH")
+		}
+	})
+}
 
 // Run constructs the CLI application and executes it.
 // It returns an exit code suitable for os.Exit.
@@ -90,6 +115,8 @@ func Run(args []string) int {
 }
 
 func runTUI(_ context.Context, cmd *cli.Command) error {
+	ensureRepoPath()
+
 	if debugLog := cmd.String("debug-log"); debugLog != "" {
 		expanded, err := utils.ExpandPath(debugLog)
 		if err == nil {
