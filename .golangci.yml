@@ -36,6 +36,7 @@ linters:
       find-duplicates: true
       min-len: 10
       min-occurrences: 10
+      ignore-tests: true
     gocritic:
       enabled-tags:
         - diagnostic

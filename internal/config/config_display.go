@@ -8,6 +8,9 @@ import (
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
+// deltaSyntaxThemeFlag is the delta CLI flag for setting the syntax highlight theme.
+const deltaSyntaxThemeFlag = "--syntax-theme"
+
 // LayoutSizes holds user-configurable pane size weights.
 // Values are relative weights (1–100) that get normalised at computation time.
 // A nil LayoutSizes means the hardcoded defaults are used.
@@ -280,7 +283,7 @@ func parseLayoutSizes(data map[string]any) *LayoutSizes {
 func SyntaxThemeForUITheme(themeName string) string {
 	args := DefaultDeltaArgsForTheme(themeName)
 	for i := 0; i < len(args)-1; i++ {
-		if args[i] == "--syntax-theme" {
+		if args[i] == deltaSyntaxThemeFlag {
 			return args[i+1]
 		}
 	}
@@ -291,49 +294,49 @@ func SyntaxThemeForUITheme(themeName string) string {
 func DefaultDeltaArgsForTheme(themeName string) []string {
 	switch themeName {
 	case theme.DraculaLightName:
-		return []string{"--syntax-theme", "\"Monokai Extended Light\""}
+		return []string{deltaSyntaxThemeFlag, "\"Monokai Extended Light\""}
 	case theme.NarnaName:
-		return []string{"--syntax-theme", "\"OneHalfDark\""}
+		return []string{deltaSyntaxThemeFlag, "\"OneHalfDark\""}
 	case theme.CleanLightName:
-		return []string{"--syntax-theme", "GitHub"}
+		return []string{deltaSyntaxThemeFlag, "GitHub"}
 	case theme.CatppuccinLatteName:
-		return []string{"--syntax-theme", "\"Catppuccin Latte\""}
+		return []string{deltaSyntaxThemeFlag, "\"Catppuccin Latte\""}
 	case theme.RosePineDawnName:
-		return []string{"--syntax-theme", "GitHub"}
+		return []string{deltaSyntaxThemeFlag, "GitHub"}
 	case theme.OneLightName:
-		return []string{"--syntax-theme", "\"OneHalfLight\""}
+		return []string{deltaSyntaxThemeFlag, "\"OneHalfLight\""}
 	case theme.EverforestLightName:
-		return []string{"--syntax-theme", "\"Gruvbox Light\""}
+		return []string{deltaSyntaxThemeFlag, "\"Gruvbox Light\""}
 	case theme.SolarizedDarkName:
-		return []string{"--syntax-theme", "\"Solarized (dark)\""}
+		return []string{deltaSyntaxThemeFlag, "\"Solarized (dark)\""}
 	case theme.SolarizedLightName:
-		return []string{"--syntax-theme", "\"Solarized (light)\""}
+		return []string{deltaSyntaxThemeFlag, "\"Solarized (light)\""}
 	case theme.GruvboxDarkName:
-		return []string{"--syntax-theme", "\"Gruvbox Dark\""}
+		return []string{deltaSyntaxThemeFlag, "\"Gruvbox Dark\""}
 	case theme.GruvboxLightName:
-		return []string{"--syntax-theme", "\"Gruvbox Light\""}
+		return []string{deltaSyntaxThemeFlag, "\"Gruvbox Light\""}
 	case theme.NordName:
-		return []string{"--syntax-theme", "\"Nord\""}
+		return []string{deltaSyntaxThemeFlag, "\"Nord\""}
 	case theme.MonokaiName:
-		return []string{"--syntax-theme", "\"Monokai Extended\""}
+		return []string{deltaSyntaxThemeFlag, "\"Monokai Extended\""}
 	case theme.CatppuccinMochaName:
-		return []string{"--syntax-theme", "\"Catppuccin Mocha\""}
+		return []string{deltaSyntaxThemeFlag, "\"Catppuccin Mocha\""}
 	case theme.ModernName:
-		return []string{"--syntax-theme", "Dracula"}
+		return []string{deltaSyntaxThemeFlag, "Dracula"}
 	case theme.TokyoNightName:
-		return []string{"--syntax-theme", "Dracula"}
+		return []string{deltaSyntaxThemeFlag, "Dracula"}
 	case theme.OneDarkName:
-		return []string{"--syntax-theme", "\"OneHalfDark\""}
+		return []string{deltaSyntaxThemeFlag, "\"OneHalfDark\""}
 	case theme.RosePineName:
-		return []string{"--syntax-theme", "Dracula"}
+		return []string{deltaSyntaxThemeFlag, "Dracula"}
 	case theme.AyuMirageName:
-		return []string{"--syntax-theme", "Dracula"}
+		return []string{deltaSyntaxThemeFlag, "Dracula"}
 	case theme.EverforestDarkName:
-		return []string{"--syntax-theme", "Dracula"}
+		return []string{deltaSyntaxThemeFlag, "Dracula"}
 	case theme.KanagawaName:
-		return []string{"--syntax-theme", "Dracula"}
+		return []string{deltaSyntaxThemeFlag, "Dracula"}
 	default:
-		return []string{"--syntax-theme", "Dracula"}
+		return []string{deltaSyntaxThemeFlag, "Dracula"}
 	}
 }
 
