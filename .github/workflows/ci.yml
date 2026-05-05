@@ -40,13 +40,16 @@ jobs:
           go-version-file: "go.mod"
 
       - uses: alexellis/setup-arkade@v3
-      - uses: alexellis/arkade-get@master
-        with:
-          golangci-lint: latest
+      - name: Install golangci-lint
+        run: |
+          arkade get golangci-lint
+          echo "$HOME/.arkade/bin" >> "$GITHUB_PATH"
       - name: Set up Gofumpt
         uses: luisnquin/setup-gofumpt@v2
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: false
 
       - name: Run docs sync checks
         run: |
