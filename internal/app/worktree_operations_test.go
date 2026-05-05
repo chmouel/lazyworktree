@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +13,183 @@ import (
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
+
+func TestShowRenameWorktreeRenamesBranchWhenWorktreeNameMatches(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	oldPath := filepath.Join(cfg.WorktreeDir, "repo", "feature")
+	newPath := filepath.Join(cfg.WorktreeDir, "repo", "renamed-worktree")
+	porcelain := fmt.Sprintf("worktree %s\nHEAD abc123\nbranch refs/heads/renamed-worktree\n\n", newPath)
+	var commands [][]string
+
+	m.commandRunner = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		command := append([]string{name}, args...)
+		commands = append(commands, command)
+
+		switch strings.Join(command, " ") {
+		case fmt.Sprintf("git worktree move %s %s", oldPath, newPath):
+			if err := os.MkdirAll(newPath, 0o750); err != nil {
+				t.Fatalf("failed to create moved worktree fixture: %v", err)
+			}
+			return exec.CommandContext(ctx, "sh", "-c", "exit 0")
+		case "git branch -m feature renamed-worktree":
+			return exec.CommandContext(ctx, "sh", "-c", "exit 0")
+		case "git worktree list --porcelain":
+			// #nosec G204 -- test uses controlled fixture output for the command runner.
+			return exec.CommandContext(ctx, "printf", "%s", porcelain)
+		default:
+			return exec.CommandContext(ctx, "sh", "-c", "exit 1")
+		}
+	}
+
+	m.state.data.filteredWts = []*models.WorktreeInfo{
+		{Path: oldPath, Branch: "feature"},
+	}
+	m.state.data.selectedIndex = 0
+
+	cmd := m.showRenameWorktree()
+	if cmd == nil {
+		t.Fatal("expected input command")
+	}
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInput {
+		t.Fatalf("expected input screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+
+	inputScr := m.state.ui.screenManager.Current().(*appscreen.InputScreen)
+	if inputScr.Prompt != "Enter new name for 'feature'" {
+		t.Fatalf("unexpected prompt: %q", inputScr.Prompt)
+	}
+	if inputScr.Placeholder != "New worktree name" {
+		t.Fatalf("unexpected placeholder: %q", inputScr.Placeholder)
+	}
+	if inputScr.Input.Value() != "feature" {
+		t.Fatalf("unexpected default input: %q", inputScr.Input.Value())
+	}
+
+	renameCmd := inputScr.OnSubmit("renamed-worktree", false)
+	if renameCmd == nil {
+		t.Fatal("expected rename command")
+	}
+
+	msg := renameCmd()
+	result, ok := msg.(renameWorktreeResultMsg)
+	if !ok {
+		t.Fatalf("expected renameWorktreeResultMsg, got %T", msg)
+	}
+	if result.err != nil {
+		t.Fatalf("unexpected rename error: %v", result.err)
+	}
+
+	sawMove := false
+	sawList := false
+	sawBranchRename := false
+	for _, command := range commands {
+		joined := strings.Join(command, " ")
+		if joined == fmt.Sprintf("git worktree move %s %s", oldPath, newPath) {
+			sawMove = true
+		}
+		if joined == "git worktree list --porcelain" {
+			sawList = true
+		}
+		if joined == "git branch -m feature renamed-worktree" {
+			sawBranchRename = true
+		}
+	}
+	if !sawMove {
+		t.Fatalf("expected worktree move command, got %v", commands)
+	}
+	if !sawList {
+		t.Fatalf("expected worktree refresh command, got %v", commands)
+	}
+	if !sawBranchRename {
+		t.Fatalf("expected branch rename command, got %v", commands)
+	}
+}
+
+func TestShowRenameWorktreeMovesDirectoryWithoutRenamingBranchWhenNamesDiffer(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	oldPath := filepath.Join(cfg.WorktreeDir, "repo", "feature-custom")
+	newPath := filepath.Join(cfg.WorktreeDir, "repo", "renamed-worktree")
+	porcelain := fmt.Sprintf("worktree %s\nHEAD abc123\nbranch refs/heads/feature\n\n", newPath)
+	var commands [][]string
+
+	m.commandRunner = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		command := append([]string{name}, args...)
+		commands = append(commands, command)
+
+		switch strings.Join(command, " ") {
+		case fmt.Sprintf("git worktree move %s %s", oldPath, newPath):
+			return exec.CommandContext(ctx, "sh", "-c", "exit 0")
+		case "git worktree list --porcelain":
+			// #nosec G204 -- test uses controlled fixture output for the command runner.
+			return exec.CommandContext(ctx, "printf", "%s", porcelain)
+		default:
+			return exec.CommandContext(ctx, "sh", "-c", "exit 1")
+		}
+	}
+
+	m.state.data.filteredWts = []*models.WorktreeInfo{
+		{Path: oldPath, Branch: "feature"},
+	}
+	m.state.data.selectedIndex = 0
+
+	cmd := m.showRenameWorktree()
+	if cmd == nil {
+		t.Fatal("expected input command")
+	}
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypeInput {
+		t.Fatalf("expected input screen, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
+	}
+
+	inputScr := m.state.ui.screenManager.Current().(*appscreen.InputScreen)
+	if inputScr.Prompt != "Enter new name for 'feature-custom'" {
+		t.Fatalf("unexpected prompt: %q", inputScr.Prompt)
+	}
+	if inputScr.Placeholder != "New worktree name" {
+		t.Fatalf("unexpected placeholder: %q", inputScr.Placeholder)
+	}
+	if inputScr.Input.Value() != "feature-custom" {
+		t.Fatalf("unexpected default input: %q", inputScr.Input.Value())
+	}
+
+	renameCmd := inputScr.OnSubmit("renamed-worktree", false)
+	if renameCmd == nil {
+		t.Fatal("expected rename command")
+	}
+
+	msg := renameCmd()
+	result, ok := msg.(renameWorktreeResultMsg)
+	if !ok {
+		t.Fatalf("expected renameWorktreeResultMsg, got %T", msg)
+	}
+	if result.err != nil {
+		t.Fatalf("unexpected rename error: %v", result.err)
+	}
+
+	sawMove := false
+	sawList := false
+	for _, command := range commands {
+		joined := strings.Join(command, " ")
+		if joined == fmt.Sprintf("git worktree move %s %s", oldPath, newPath) {
+			sawMove = true
+		}
+		if joined == "git worktree list --porcelain" {
+			sawList = true
+		}
+		if len(command) >= 3 && command[0] == "git" && command[1] == "branch" && command[2] == "-m" {
+			t.Fatalf("unexpected branch rename command: %v", command)
+		}
+	}
+	if !sawMove {
+		t.Fatalf("expected worktree move command, got %v", commands)
+	}
+	if !sawList {
+		t.Fatalf("expected worktree refresh command, got %v", commands)
+	}
+}
 
 func TestShowCreateWorktreeFromChangesNoSelection(t *testing.T) {
 	cfg := &config.AppConfig{

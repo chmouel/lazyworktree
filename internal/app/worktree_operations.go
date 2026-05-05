@@ -521,25 +521,29 @@ func (m *Model) showRenameWorktree() tea.Cmd {
 		return nil
 	}
 
-	prompt := fmt.Sprintf("Enter new name for '%s'", wt.Branch)
-	inputScr := appscreen.NewInputScreen(prompt, "New branch name", wt.Branch, m.theme, m.config.IconsEnabled())
+	currentWorktreeName := filepath.Base(wt.Path)
+	prompt := fmt.Sprintf("Enter new name for '%s'", currentWorktreeName)
+	inputScr := appscreen.NewInputScreen(prompt, "New worktree name", currentWorktreeName, m.theme, m.config.IconsEnabled())
 
 	inputScr.OnSubmit = func(value string, _ bool) tea.Cmd {
-		newBranch := strings.TrimSpace(value)
-		newBranch = sanitizeBranchNameFromTitle(newBranch, "")
-		if newBranch == "" {
+		newWorktreeName := strings.TrimSpace(value)
+		newWorktreeName = sanitizeBranchNameFromTitle(newWorktreeName, "")
+		if newWorktreeName == "" {
 			inputScr.ErrorMsg = "Name cannot be empty."
 			return nil
 		}
-		if newBranch == wt.Branch {
-			inputScr.ErrorMsg = "Name must be different from the current branch."
+		if newWorktreeName == currentWorktreeName {
+			inputScr.ErrorMsg = "Name must be different from the current worktree."
 			return nil
 		}
 
 		parentDir := filepath.Dir(wt.Path)
-		newPath := filepath.Join(parentDir, newBranch)
+		newPath := filepath.Join(parentDir, newWorktreeName)
 		if _, err := os.Stat(newPath); err == nil {
 			inputScr.ErrorMsg = fmt.Sprintf("Destination already exists: %s", newPath)
+			return nil
+		} else if !os.IsNotExist(err) {
+			inputScr.ErrorMsg = fmt.Sprintf("Failed to inspect destination: %v", err)
 			return nil
 		}
 
@@ -548,12 +552,12 @@ func (m *Model) showRenameWorktree() tea.Cmd {
 		oldBranch := wt.Branch
 
 		return func() tea.Msg {
-			ok := m.state.services.git.RenameWorktree(m.ctx, oldPath, newPath, oldBranch, newBranch)
+			ok := m.state.services.git.RenameWorktree(m.ctx, oldPath, newPath, oldBranch, newWorktreeName)
 			if !ok {
 				return renameWorktreeResultMsg{
 					oldPath: oldPath,
 					newPath: newPath,
-					err:     fmt.Errorf("failed to rename %s to %s", oldBranch, newBranch),
+					err:     fmt.Errorf("failed to rename worktree %s to %s", currentWorktreeName, newWorktreeName),
 				}
 			}
 			worktrees, err := m.state.services.git.GetWorktrees(m.ctx)
