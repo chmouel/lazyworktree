@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -261,11 +260,7 @@ func hasLocalChanges(wt *models.WorktreeInfo) bool {
 
 // runPush executes a git push command.
 func (m *Model) runPush(wt *models.WorktreeInfo, args []string) tea.Cmd {
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
-	for k, v := range env {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
+	envVars := m.buildNonInteractiveGitEnv(wt.Branch, wt.Path)
 
 	// Clear cache so status pane refreshes with latest git status
 	m.deleteDetailsCache(wt.Path)
@@ -286,11 +281,7 @@ func (m *Model) runPush(wt *models.WorktreeInfo, args []string) tea.Cmd {
 
 // runSync executes a git pull followed by push.
 func (m *Model) runSync(wt *models.WorktreeInfo, pullArgs, pushArgs []string) tea.Cmd {
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
-	for k, v := range env {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
+	envVars := m.buildNonInteractiveGitEnv(wt.Branch, wt.Path)
 
 	// Clear cache so status pane refreshes with latest git status
 	m.deleteDetailsCache(wt.Path)

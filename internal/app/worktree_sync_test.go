@@ -72,6 +72,58 @@ func TestPushToUpstreamRunsGitPush(t *testing.T) {
 	}
 }
 
+func TestPushToUpstreamDisablesInteractivePrompts(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
+	if err := os.MkdirAll(wtPath, 0o700); err != nil {
+		t.Fatalf("failed to create worktree dir: %v", err)
+	}
+
+	t.Setenv("GIT_TERMINAL_PROMPT", "1")
+	t.Setenv("GIT_SSH_COMMAND", "ssh -F ~/.ssh/config")
+
+	wt := &models.WorktreeInfo{Path: wtPath, Branch: featureBranch}
+
+	var captured *exec.Cmd
+	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
+		if name == "git" && len(args) > 0 && args[0] == "worktree" {
+			return exec.Command("printf", "")
+		}
+		cmd := exec.Command("printf", "")
+		captured = cmd
+		return cmd
+	}
+
+	msg := m.runPush(wt, []string{testRemoteOrigin, "HEAD:" + featureBranch})()
+	pushMsg, ok := msg.(pushResultMsg)
+	if !ok {
+		t.Fatalf("expected pushResultMsg, got %T", msg)
+	}
+	if pushMsg.err != nil {
+		t.Fatalf("unexpected push error: %v", pushMsg.err)
+	}
+	if captured == nil {
+		t.Fatal("expected git command to be captured")
+	}
+
+	env := map[string]string{}
+	for _, entry := range captured.Env {
+		key, value, ok := strings.Cut(entry, "=")
+		if ok {
+			env[key] = value
+		}
+	}
+
+	if got := env["GIT_TERMINAL_PROMPT"]; got != "0" {
+		t.Fatalf("expected GIT_TERMINAL_PROMPT=0, got %q", got)
+	}
+	if got := env["GIT_SSH_COMMAND"]; got != "ssh -F ~/.ssh/config -oBatchMode=yes" {
+		t.Fatalf("expected batch mode ssh command, got %q", got)
+	}
+}
+
 func TestPushToUpstreamPromptsForUpstream(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
@@ -299,6 +351,62 @@ func TestSyncWithUpstreamRunsPullThenPush(t *testing.T) {
 	}
 	if len(calls[1].args) < 3 || calls[1].args[1] != testRemoteOrigin || calls[1].args[2] != "HEAD:"+featureBranch {
 		t.Fatalf("expected git push origin HEAD:%s, got %v", featureBranch, calls[1].args)
+	}
+}
+
+func TestSyncWithUpstreamDisablesInteractivePrompts(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		MergeMethod: "merge",
+	}
+	m := NewModel(cfg, "")
+
+	wtPath := filepath.Join(cfg.WorktreeDir, "wt1")
+	if err := os.MkdirAll(wtPath, 0o700); err != nil {
+		t.Fatalf("failed to create worktree dir: %v", err)
+	}
+
+	t.Setenv("GIT_TERMINAL_PROMPT", "1")
+	t.Setenv("GIT_SSH_COMMAND", "ssh -F ~/.ssh/config")
+
+	wt := &models.WorktreeInfo{Path: wtPath, Branch: featureBranch}
+
+	var captured []*exec.Cmd
+	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
+		if name == "git" && len(args) > 0 && args[0] == "worktree" {
+			return exec.Command("printf", "")
+		}
+		cmd := exec.Command("printf", "")
+		captured = append(captured, cmd)
+		return cmd
+	}
+
+	msg := m.runSync(wt, []string{testRemoteOrigin, featureBranch}, []string{testRemoteOrigin, "HEAD:" + featureBranch})()
+	syncMsg, ok := msg.(syncResultMsg)
+	if !ok {
+		t.Fatalf("expected syncResultMsg, got %T", msg)
+	}
+	if syncMsg.err != nil {
+		t.Fatalf("unexpected sync error: %v", syncMsg.err)
+	}
+	if len(captured) != 2 {
+		t.Fatalf("expected 2 git commands, got %d", len(captured))
+	}
+
+	for i, cmd := range captured {
+		env := map[string]string{}
+		for _, entry := range cmd.Env {
+			key, value, ok := strings.Cut(entry, "=")
+			if ok {
+				env[key] = value
+			}
+		}
+		if got := env["GIT_TERMINAL_PROMPT"]; got != "0" {
+			t.Fatalf("command %d expected GIT_TERMINAL_PROMPT=0, got %q", i, got)
+		}
+		if got := env["GIT_SSH_COMMAND"]; got != "ssh -F ~/.ssh/config -oBatchMode=yes" {
+			t.Fatalf("command %d expected batch mode ssh command, got %q", i, got)
+		}
 	}
 }
 

@@ -76,6 +76,28 @@ func envMapToList(env map[string]string) []string {
 	return services.EnvMapToList(env)
 }
 
+// filterEnvVars filters out environment variables by name.
+func filterEnvVars(environ []string, excluded ...string) []string {
+	if len(excluded) == 0 {
+		return append([]string{}, environ...)
+	}
+
+	excludedSet := make(map[string]struct{}, len(excluded))
+	for _, key := range excluded {
+		excludedSet[key] = struct{}{}
+	}
+
+	filtered := make([]string, 0, len(environ))
+	for _, entry := range environ {
+		parts := strings.SplitN(entry, "=", 2)
+		if _, skip := excludedSet[parts[0]]; skip {
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+	return filtered
+}
+
 // filterWorktreeEnvVars filters out worktree-specific environment variables
 // to prevent duplicates when building command environments.
 func filterWorktreeEnvVars(environ []string) []string {
@@ -95,6 +117,35 @@ func filterWorktreeEnvVars(environ []string) []string {
 		}
 	}
 	return filtered
+}
+
+func nonInteractiveSSHCommand(existing, fallback string) string {
+	const batchModeFlag = "-oBatchMode=yes"
+
+	command := strings.TrimSpace(existing)
+	if command == "" {
+		fallback = strings.TrimSpace(fallback)
+		if fallback != "" {
+			command = shellQuote(fallback)
+		} else {
+			command = "ssh"
+		}
+	}
+	if strings.Contains(command, batchModeFlag) {
+		return command
+	}
+	return command + " " + batchModeFlag
+}
+
+func (m *Model) buildNonInteractiveGitEnv(branch, wtPath string) []string {
+	envVars := filterWorktreeEnvVars(os.Environ())
+	envVars = filterEnvVars(envVars, "GIT_TERMINAL_PROMPT", "GIT_SSH_COMMAND")
+	envVars = append(envVars, envMapToList(m.buildCommandEnv(branch, wtPath))...)
+	envVars = append(envVars,
+		"GIT_TERMINAL_PROMPT=0",
+		fmt.Sprintf("GIT_SSH_COMMAND=%s", nonInteractiveSSHCommand(os.Getenv("GIT_SSH_COMMAND"), os.Getenv("GIT_SSH"))),
+	)
+	return envVars
 }
 
 // isEscKey checks if the key string represents an escape key.

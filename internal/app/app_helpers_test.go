@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/chmouel/lazyworktree/internal/config"
@@ -190,6 +191,118 @@ func TestFilterWorktreeEnvVars(t *testing.T) {
 				t.Errorf("filterWorktreeEnvVars() = %v, want %v", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestFilterEnvVars(t *testing.T) {
+	input := []string{
+		"PATH=/usr/bin",
+		"GIT_TERMINAL_PROMPT=1",
+		"GIT_SSH_COMMAND=ssh -F ~/.ssh/config",
+		"HOME=/home/user",
+	}
+
+	got := filterEnvVars(input, "GIT_TERMINAL_PROMPT", "GIT_SSH_COMMAND")
+	want := []string{
+		"PATH=/usr/bin",
+		"HOME=/home/user",
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("filterEnvVars() = %v, want %v", got, want)
+	}
+}
+
+func TestNonInteractiveSSHCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		existing string
+		fallback string
+		want     string
+	}{
+		{
+			name:     "defaults to batch mode ssh",
+			existing: "",
+			fallback: "",
+			want:     "ssh -oBatchMode=yes",
+		},
+		{
+			name:     "appends batch mode when missing",
+			existing: "ssh -F ~/.ssh/config",
+			fallback: "",
+			want:     "ssh -F ~/.ssh/config -oBatchMode=yes",
+		},
+		{
+			name:     "keeps existing batch mode",
+			existing: "ssh -F ~/.ssh/config -oBatchMode=yes",
+			fallback: "",
+			want:     "ssh -F ~/.ssh/config -oBatchMode=yes",
+		},
+		{
+			name:     "falls back to GIT_SSH binary",
+			existing: "",
+			fallback: "/tmp/custom ssh",
+			want:     "'/tmp/custom ssh' -oBatchMode=yes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := nonInteractiveSSHCommand(tt.existing, tt.fallback); got != tt.want {
+				t.Fatalf("nonInteractiveSSHCommand(%q, %q) = %q, want %q", tt.existing, tt.fallback, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildNonInteractiveGitEnv(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	t.Setenv("GIT_TERMINAL_PROMPT", "1")
+	t.Setenv("GIT_SSH_COMMAND", "ssh -F ~/.ssh/config")
+
+	env := m.buildNonInteractiveGitEnv("feature", "/tmp/wt")
+
+	values := map[string]string{}
+	for _, entry := range env {
+		key, value, ok := strings.Cut(entry, "=")
+		if ok {
+			values[key] = value
+		}
+	}
+
+	if got := values["GIT_TERMINAL_PROMPT"]; got != "0" {
+		t.Fatalf("expected GIT_TERMINAL_PROMPT=0, got %q", got)
+	}
+	if got := values["GIT_SSH_COMMAND"]; got != "ssh -F ~/.ssh/config -oBatchMode=yes" {
+		t.Fatalf("expected batch mode ssh command, got %q", got)
+	}
+	if got := values["WORKTREE_BRANCH"]; got != "feature" {
+		t.Fatalf("expected WORKTREE_BRANCH to be propagated, got %q", got)
+	}
+}
+
+func TestBuildNonInteractiveGitEnvFallsBackToGitSSH(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	t.Setenv("GIT_TERMINAL_PROMPT", "1")
+	t.Setenv("GIT_SSH_COMMAND", "")
+	t.Setenv("GIT_SSH", "/tmp/custom ssh")
+
+	env := m.buildNonInteractiveGitEnv("feature", "/tmp/wt")
+
+	values := map[string]string{}
+	for _, entry := range env {
+		key, value, ok := strings.Cut(entry, "=")
+		if ok {
+			values[key] = value
+		}
+	}
+
+	if got := values["GIT_SSH_COMMAND"]; got != "'/tmp/custom ssh' -oBatchMode=yes" {
+		t.Fatalf("expected fallback GIT_SSH command, got %q", got)
 	}
 }
 
