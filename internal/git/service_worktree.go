@@ -212,10 +212,15 @@ func (s *Service) GetMainWorktreePath(ctx context.Context) string {
 	return s.mainWorktreePath
 }
 
+// MoveWorktree renames a worktree directory without changing its branch.
+func (s *Service) MoveWorktree(ctx context.Context, oldPath, newPath string) bool {
+	return s.RunCommandChecked(ctx, []string{"git", "worktree", "move", oldPath, newPath}, "", fmt.Sprintf("Failed to move worktree from %s to %s", oldPath, newPath))
+}
+
 // RenameWorktree moves a worktree and renames its branch only when the
 // worktree directory name matches the old branch name.
 func (s *Service) RenameWorktree(ctx context.Context, oldPath, newPath, oldBranch, newBranch string) bool {
-	if !s.RunCommandChecked(ctx, []string{"git", "worktree", "move", oldPath, newPath}, "", fmt.Sprintf("Failed to move worktree from %s to %s", oldPath, newPath)) {
+	if !s.MoveWorktree(ctx, oldPath, newPath) {
 		return false
 	}
 

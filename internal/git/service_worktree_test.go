@@ -105,6 +105,30 @@ func TestRenameWorktree(t *testing.T) {
 	})
 }
 
+func TestMoveWorktree(t *testing.T) {
+	t.Parallel()
+	notify := func(_ string, _ string) {}
+	notifyOnce := func(_ string, _ string, _ string) {}
+
+	service := NewService(notify, notifyOnce)
+	ctx := context.Background()
+
+	tmpDir := t.TempDir()
+	oldPath := filepath.Join(tmpDir, "feature")
+	newPath := filepath.Join(tmpDir, "renamed-feature")
+
+	var commands [][]string
+	service.SetCommandRunner(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		commands = append(commands, append([]string{name}, args...))
+		return exec.CommandContext(ctx, "sh", "-c", "exit 0")
+	})
+
+	ok := service.MoveWorktree(ctx, oldPath, newPath)
+	require.True(t, ok)
+	require.Len(t, commands, 1)
+	assert.Equal(t, []string{"git", "worktree", "move", oldPath, newPath}, commands[0])
+}
+
 func TestWorktreeOperations(t *testing.T) {
 	t.Parallel()
 	notify := func(_ string, _ string) {}
