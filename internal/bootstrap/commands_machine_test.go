@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/git"
@@ -72,6 +73,67 @@ func TestWorktreesResolveAndNotesGetJSON(t *testing.T) {
 	assert.Equal(t, normalizePathForTest(t, featurePath), note.Path)
 	assert.Equal(t, "feature", note.WorktreeName)
 	assert.Empty(t, note.Note)
+}
+
+func TestWorktreesContextUsesConfiguredAgentRoots(t *testing.T) {
+	repoRoot, worktreeRoot, featurePath, _ := initMachineTestRepo(t)
+
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+
+	claudeRoot := filepath.Join(tempHome, "custom-claude")
+	sessionDir := filepath.Join(claudeRoot, "project-a")
+	sessionPath := filepath.Join(sessionDir, "session-1.jsonl")
+	require.NoError(t, os.MkdirAll(sessionDir, 0o750))
+
+	ts := time.Now().UTC().Format(time.RFC3339Nano)
+	lines := []map[string]any{
+		{
+			"type":      "user",
+			"cwd":       featurePath,
+			"timestamp": ts,
+			"message": map[string]any{
+				"role":    "user",
+				"content": "Inspect machine output",
+			},
+		},
+		{
+			"type":      "assistant",
+			"cwd":       featurePath,
+			"timestamp": ts,
+			"message": map[string]any{
+				"role":  "assistant",
+				"model": "claude-sonnet-4",
+				"content": []map[string]any{
+					{"type": "tool_use", "name": "Read", "input": map[string]any{"file_path": filepath.Join(featurePath, "README.md")}},
+				},
+			},
+		},
+	}
+	writeJSONLLinesForTest(t, sessionPath, lines...)
+
+	configPath := filepath.Join(tempHome, "lazyworktree.yml")
+	configBody := []byte("agent_sessions:\n  claude_root: " + claudeRoot + "\n")
+	require.NoError(t, os.WriteFile(configPath, configBody, 0o600))
+
+	output, errOutput, err := runMachineCommand(t, repoRoot, []string{
+		"lazyworktree",
+		"--config-file", configPath,
+		"--worktree-dir", worktreeRoot,
+		"worktrees",
+		"context",
+		"feature",
+		"--include", "agents",
+		"--json",
+	})
+	require.NoError(t, err, errOutput)
+
+	var payload machineWorktreeContextJSON
+	require.NoError(t, json.Unmarshal(output, &payload))
+	require.Len(t, payload.AgentSessions, 1)
+	assert.Equal(t, "session-1", payload.AgentSessions[0].ID)
+	assert.Equal(t, "claude", payload.AgentSessions[0].Agent)
+	assert.Equal(t, "feature", payload.Worktree.Name)
 }
 
 func initMachineTestRepo(t *testing.T) (string, string, string, *git.Service) {
@@ -184,6 +246,20 @@ func runMachineCommand(t *testing.T, cwd string, args []string) ([]byte, string,
 	_, _ = io.Copy(&errBuf, errR)
 
 	return outBuf.Bytes(), errBuf.String(), runErr
+}
+
+func writeJSONLLinesForTest(t *testing.T, path string, entries ...map[string]any) {
+	t.Helper()
+
+	var payload bytes.Buffer
+	for _, entry := range entries {
+		line, err := json.Marshal(entry)
+		require.NoError(t, err)
+		payload.Write(line)
+		payload.WriteByte('\n')
+	}
+
+	require.NoError(t, os.WriteFile(path, payload.Bytes(), 0o600))
 }
 
 func TestBuildNoteJSONSupportsLegacySharedKey(t *testing.T) {

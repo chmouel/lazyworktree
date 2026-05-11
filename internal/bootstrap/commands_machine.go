@@ -511,7 +511,11 @@ func loadWorktreeCommandState(ctx context.Context, cmd *appiCli.Command, include
 		deps.notesMap, _ = services.LoadWorktreeNotes(repoKey, cfg.WorktreeDir, cfg.WorktreeNotesPath, cfg.WorktreeNoteType, mainEnv)
 	}
 	if includeAgents {
-		agentSvc := services.NewAgentSessionService(nil)
+		agentSvc := services.NewAgentSessionServiceFromConfig(
+			cfg.AgentSessionClaudeRoot,
+			cfg.AgentSessionPiRoot,
+			nil,
+		)
 		_, _ = agentSvc.Refresh()
 		deps.agentSvc = agentSvc
 	}
