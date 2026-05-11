@@ -18,11 +18,15 @@ func buildTestApp() *appiCli.Command {
 	app := &appiCli.Command{
 		Name:  "lazyworktree",
 		Usage: "A TUI tool to manage git worktrees",
+		Flags: globalFlags(),
 		Commands: []*appiCli.Command{
 			createCommand(),
 			renameCommand(),
 			deleteCommand(),
 			listCommand(),
+			doctorCommand(),
+			worktreesCommand(),
+			notesCommand(),
 			execCommand(),
 			noteCommand(),
 			describeCommand(),
@@ -73,6 +77,9 @@ func TestDescribeRootEmitsAllCommands(t *testing.T) {
 	assert.Contains(t, names, "delete")
 	assert.Contains(t, names, "rename")
 	assert.Contains(t, names, "list")
+	assert.Contains(t, names, "doctor")
+	assert.Contains(t, names, "worktrees")
+	assert.Contains(t, names, "notes")
 	assert.Contains(t, names, "exec")
 	assert.Contains(t, names, "note")
 	assert.Contains(t, names, "describe")

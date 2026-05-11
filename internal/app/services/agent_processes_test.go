@@ -127,6 +127,7 @@ func TestMatchAgentProcessesToSessionsByCWDPrefersNewest(t *testing.T) {
 	}
 	if openSession == nil {
 		t.Fatalf("expected one session to be marked open, got %#v", matched)
+		return
 	}
 	if openSession.ID != "new" {
 		t.Fatalf("expected newest session to win cwd-only match, got %q", openSession.ID)

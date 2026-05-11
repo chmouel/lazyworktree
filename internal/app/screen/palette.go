@@ -749,7 +749,8 @@ func (s *CommandPaletteScreen) View() string {
 		Width((width - 4) / 2).
 		Align(lipgloss.Right)
 
-	footer := lipgloss.JoinHorizontal(lipgloss.Top,
+	footer := lipgloss.JoinHorizontal(
+		lipgloss.Top,
 		leftStyle.Render(countText),
 		rightStyle.Render(hints),
 	)

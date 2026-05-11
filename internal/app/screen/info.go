@@ -69,7 +69,8 @@ func (s *InfoScreen) View() string {
 		Background(s.Thm.Accent).
 		Bold(true)
 
-	content := fmt.Sprintf("%s\n\n%s",
+	content := fmt.Sprintf(
+		"%s\n\n%s",
 		messageStyle.Render(s.Message),
 		okStyle.Render("[OK]"),
 	)

@@ -296,7 +296,8 @@ func (s *LoadingScreen) View() string {
 	}
 	tipBody := formatTipBody(s.Tip, width-8, 2)
 
-	content := lipgloss.JoinVertical(lipgloss.Center,
+	content := lipgloss.JoinVertical(
+		lipgloss.Center,
 		spinnerStyle.Render(spinnerFrame),
 		"",
 		messageStyle.Render(s.Message),

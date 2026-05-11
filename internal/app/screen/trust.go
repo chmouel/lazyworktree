@@ -103,7 +103,8 @@ func (s *TrustScreen) View() string {
 		Foreground(s.Thm.ErrorFg).
 		Render("[Cancel Operation]")
 
-	content := fmt.Sprintf("%s\n\n%s  %s  %s",
+	content := fmt.Sprintf(
+		"%s\n\n%s  %s  %s",
 		s.Viewport.View(),
 		trustButton,
 		blockButton,

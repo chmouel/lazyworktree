@@ -33,7 +33,8 @@ func runBranchNameScript(ctx context.Context, script, content, scriptType, numbe
 	cmd.Stdin = strings.NewReader(content)
 
 	// Set environment variables to provide context to the script
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(
+		os.Environ(),
 		fmt.Sprintf("LAZYWORKTREE_TYPE=%s", scriptType),
 		fmt.Sprintf("LAZYWORKTREE_NUMBER=%s", number),
 		fmt.Sprintf("LAZYWORKTREE_TEMPLATE=%s", template),

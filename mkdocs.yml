@@ -118,6 +118,9 @@ nav:
       - Overview: cli/overview.md
       - Commands Reference: cli/commands.md
       - Flags Reference: cli/flags.md
+      - doctor: cli/doctor.md
+      - worktrees: cli/worktrees.md
+      - notes: cli/notes.md
       - list: cli/list.md
       - create: cli/create.md
       - delete: cli/delete.md

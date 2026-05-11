@@ -335,6 +335,48 @@ Output the note as a JSON object containing worktree_name, path, note, descripti
 .B \-\-input \fIFILE\fR, \-i \fIFILE\fR
 Read the note from a file instead of opening an editor. Use \fB\-\fR to read from stdin. The input format is the same frontmatter+markdown used by the editor.
 .
+.SS doctor
+Report CLI, repository, and helper tool health for automation.
+.
+.PP
+The doctor command is designed for coding agents and scripts. It reports configuration loading, repository detection, worktree visibility, and helper tool availability without requiring the full TUI.
+.
+.PP
+.B Options:
+.TP
+.B \-\-json
+Output the diagnostic result as JSON. Setup gaps are reported in the payload rather than causing a hard failure.
+.
+.SS worktrees
+Discover, resolve, and inspect worktrees with stable machine-readable output.
+.
+.PP
+.B Subcommands:
+.TP
+.B list
+List worktrees for the current repository. Supports \fB\-\-json\fR, \fB\-\-main\fR, \fB\-\-limit\fR, and \fB\-\-no\-agent\fR.
+.
+.TP
+.B resolve
+Resolve a worktree name, branch, path, or cwd into a canonical worktree path. Supports \fB\-\-name\fR, \fB\-\-path\fR, \fB\-\-cwd\fR, and \fB\-\-json\fR.
+.
+.TP
+.B get \fIWORKTREE\fR
+Read one exact worktree by canonical path, branch, or basename. Supports \fB\-\-json\fR.
+.
+.TP
+.B context \fIWORKTREE\fR
+Read note and agent-session context for one worktree. Supports \fB\-\-include\fR and \fB\-\-json\fR.
+.
+.SS notes
+Read worktree notes with machine-readable output.
+.
+.PP
+.B Subcommands:
+.TP
+.B get \fIWORKTREE\fR
+Return note metadata for one exact worktree. Use \fB\-\-json\fR for a stable payload containing worktree_name, path, note, description, icon, tags, and updated_at.
+.
 .SS describe
 Emit the CLI command structure as machine-readable JSON. Designed for coding agents and scripts that need to discover flags and subcommands without parsing \-\-help output.
 .
@@ -376,6 +418,31 @@ List only the main branch worktree:
 List only the main branch worktree as JSON:
 .br
 .B lazyworktree list \-\-main \-\-json
+.
+.PP
+Inspect CLI and repository health for automation:
+.br
+.B lazyworktree doctor \-\-json
+.
+.PP
+Resolve a worktree name to its canonical path:
+.br
+.B lazyworktree worktrees resolve \-\-name my\-feature \-\-json
+.
+.PP
+Read one exact worktree as JSON:
+.br
+.B lazyworktree worktrees get my\-feature \-\-json
+.
+.PP
+Read worktree context as JSON:
+.br
+.B lazyworktree worktrees context my\-feature \-\-json
+.
+.PP
+Read note metadata as JSON:
+.br
+.B lazyworktree notes get my\-feature \-\-json
 .
 .PP
 Create from current branch (auto-generated name):

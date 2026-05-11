@@ -23,7 +23,31 @@ lazyworktree describe note show | jq '.'
 
 `describe` always emits valid JSON and exits 0 on success. The output is stable and safe to parse programmatically.
 
-### 2. Use `--json` for machine-readable output
+### 2. Verify setup with `doctor`
+
+Use `doctor --json` before assuming repository state or helper tools are available:
+
+```bash
+lazyworktree doctor --json | jq '{repo: .repository.repo, worktrees: .repository.worktree_count, git: .tools.git.available}'
+```
+
+`doctor --json` reports config loading, repository detection, worktree visibility, and helper tool availability. It remains usable even when the current directory is not ready for full worktree operations.
+
+### 3. Resolve and read exact worktrees
+
+Prefer resolving once, then reading exact objects:
+
+```bash
+lazyworktree worktrees list --json | jq '.items[].name'
+lazyworktree worktrees resolve --name my-feature --json | jq -r '.worktree.path'
+lazyworktree worktrees get my-feature --json | jq '{path, branch, dirty}'
+lazyworktree worktrees context my-feature --json | jq '{worktree, note}'
+lazyworktree notes get my-feature --json | jq '{note, description, tags}'
+```
+
+These commands keep discovery, resolution, and exact reads separate so follow-up commands do not have to repeat broad searches.
+
+### 4. Use `--json` for existing lifecycle commands
 
 Every mutating command (`create`, `delete`, `rename`) and `note show` accept `--json`. In this mode:
 
@@ -45,7 +69,7 @@ lazyworktree list --json | jq '.[].agent_count'
 lazyworktree note show --json | jq '{note, description, tags}'
 ```
 
-### 3. Use `exec --json` for command automation
+### 5. Use `exec --json` for command automation
 
 ```bash
 # Run a command in a worktree and capture the exit code
@@ -58,6 +82,9 @@ echo "$result" | jq '.exit_code'
 | Method | When to use |
 |---|---|
 | `describe` | Discover available flags and subcommands |
+| `doctor --json` | Verify config, repo visibility, and helper tools |
+| `worktrees ... --json` | Discover, resolve, and read exact worktree state |
+| `notes get --json` | Read exact note metadata for one worktree |
 | `--json` flags | Parse command results programmatically |
 | `--help` | Human-readable reference only — do not parse |
 

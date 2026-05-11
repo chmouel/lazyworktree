@@ -306,12 +306,15 @@ func TestHandleWorktreesLoadedAssignsPendingPR(t *testing.T) {
 	}
 	if found == nil {
 		t.Fatal("Expected to find worktree at pr-42 path")
+		return
 	}
-	if found.PR == nil {
+	prInfo := found.PR
+	if prInfo == nil {
 		t.Fatal("Expected PR to be assigned to worktree")
+		return
 	}
-	if found.PR.Number != 42 {
-		t.Errorf("Expected PR number 42, got %d", found.PR.Number)
+	if prInfo.Number != 42 {
+		t.Errorf("Expected PR number 42, got %d", prInfo.Number)
 	}
 	if found.PRFetchStatus != models.PRFetchStatusLoaded {
 		t.Errorf("Expected PRFetchStatus to be %q, got %q", models.PRFetchStatusLoaded, found.PRFetchStatus)
@@ -363,9 +366,12 @@ func TestHandleWorktreesLoadedAssignsPendingPRToOriginalPath(t *testing.T) {
 	}
 	if prWt == nil || otherWt == nil {
 		t.Fatal("Expected to find both PR and non-PR worktrees")
+		return
 	}
-	if prWt.PR == nil || prWt.PR.Number != 42 {
+	prInfo := prWt.PR
+	if prInfo == nil || prInfo.Number != 42 {
 		t.Fatal("Expected pending PR to be assigned to original PR path")
+		return
 	}
 	if otherWt.PR != nil {
 		t.Fatal("Expected non-PR worktree to remain without PR metadata")

@@ -19,7 +19,8 @@ func TestParseClaudeSession(t *testing.T) {
 	ts := time.Now().UTC().Format(time.RFC3339Nano)
 
 	path := filepath.Join(root, "claude.jsonl")
-	writeJSONLLines(t, path,
+	writeJSONLLines(
+		t, path,
 		mustJSONLine(t, map[string]any{
 			"type":      "user",
 			"cwd":       worktreePath,
@@ -89,7 +90,8 @@ func TestParsePiSession(t *testing.T) {
 	ts := time.Now().UTC().Format(time.RFC3339Nano)
 
 	path := filepath.Join(root, "pi.jsonl")
-	writeJSONLLines(t, path,
+	writeJSONLLines(
+		t, path,
 		mustJSONLine(t, map[string]any{
 			"type":      "session",
 			"timestamp": ts,
@@ -171,7 +173,8 @@ func TestAgentSessionServiceSessionsForWorktree(t *testing.T) {
 	otherWorktree := filepath.Join(root, "worktrees", "other")
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 
-	writeJSONLLines(t, filepath.Join(claudeRoot, "project-a", "session-1.jsonl"),
+	writeJSONLLines(
+		t, filepath.Join(claudeRoot, "project-a", "session-1.jsonl"),
 		mustJSONLine(t, map[string]any{
 			"type":      "assistant",
 			"cwd":       filepath.Join(worktreePath, "subdir"),
@@ -185,7 +188,8 @@ func TestAgentSessionServiceSessionsForWorktree(t *testing.T) {
 			},
 		}),
 	)
-	writeJSONLLines(t, filepath.Join(piRoot, "project-b", "session-2.jsonl"),
+	writeJSONLLines(
+		t, filepath.Join(piRoot, "project-b", "session-2.jsonl"),
 		mustJSONLine(t, map[string]any{
 			"type":      "session",
 			"timestamp": now,
@@ -216,7 +220,8 @@ func TestAgentSessionServiceRefreshInvalidatesCache(t *testing.T) {
 	worktreePath := filepath.Join(root, "worktrees", "feature")
 	now := time.Now().UTC()
 
-	writeJSONLLines(t, sessionPath,
+	writeJSONLLines(
+		t, sessionPath,
 		mustJSONLine(t, map[string]any{
 			"type":      "assistant",
 			"cwd":       worktreePath,
@@ -241,7 +246,8 @@ func TestAgentSessionServiceRefreshInvalidatesCache(t *testing.T) {
 	}
 
 	later := now.Add(2 * time.Second)
-	writeJSONLLines(t, sessionPath,
+	writeJSONLLines(
+		t, sessionPath,
 		mustJSONLine(t, map[string]any{
 			"type":      "assistant",
 			"cwd":       worktreePath,
@@ -274,7 +280,8 @@ func TestParseClaudeSessionDecodesHyphenatedFallbackCWD(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "claude.jsonl")
 	ts := time.Now().UTC().Format(time.RFC3339Nano)
-	writeJSONLLines(t, path,
+	writeJSONLLines(
+		t, path,
 		mustJSONLine(t, map[string]any{
 			"type":      "assistant",
 			"timestamp": ts,
@@ -306,7 +313,8 @@ func TestAgentSessionServiceRefreshFindsNestedClaudeJSONL(t *testing.T) {
 	ts := time.Now().UTC().Format(time.RFC3339Nano)
 	sessionPath := filepath.Join(claudeRoot, "project-a", "session-1", "subagents", "agent-a.jsonl")
 
-	writeJSONLLines(t, sessionPath,
+	writeJSONLLines(
+		t, sessionPath,
 		mustJSONLine(t, map[string]any{
 			"type":      "assistant",
 			"cwd":       worktreePath,
@@ -343,7 +351,8 @@ func TestParseClaudeSessionTracksNestedAgentApproval(t *testing.T) {
 	userTS := time.Now().UTC()
 	toolTS := userTS.Add(time.Second)
 
-	writeJSONLLines(t, path,
+	writeJSONLLines(
+		t, path,
 		mustJSONLine(t, map[string]any{
 			"type":      "user",
 			"cwd":       worktreePath,
@@ -420,7 +429,8 @@ func TestParseClaudeSessionIgnoresChildProgressForParentSummary(t *testing.T) {
 	path := filepath.Join(root, "claude.jsonl")
 	now := time.Now().UTC()
 
-	writeJSONLLines(t, path,
+	writeJSONLLines(
+		t, path,
 		mustJSONLine(t, map[string]any{
 			"type":      "user",
 			"cwd":       worktreePath,
@@ -476,7 +486,8 @@ func TestParseClaudeSessionNestedToolResultClearsApproval(t *testing.T) {
 	path := filepath.Join(root, "claude.jsonl")
 	now := time.Now().UTC()
 
-	writeJSONLLines(t, path,
+	writeJSONLLines(
+		t, path,
 		mustJSONLine(t, map[string]any{
 			"type":      "user",
 			"cwd":       worktreePath,
@@ -553,7 +564,8 @@ func TestParseClaudeSessionChoosesLatestPendingToolDeterministically(t *testing.
 	path := filepath.Join(root, "claude.jsonl")
 	now := time.Now().UTC()
 
-	writeJSONLLines(t, path,
+	writeJSONLLines(
+		t, path,
 		mustJSONLine(t, map[string]any{
 			"type":      "assistant",
 			"cwd":       worktreePath,

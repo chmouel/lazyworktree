@@ -1,6 +1,6 @@
 # CLI Commands Reference
 
-This page is generated from `internal/bootstrap/commands.go`. Run `make docs-sync` after changing command definitions.
+This page is generated from `internal/bootstrap/*.go`. Run `make docs-sync` after changing command definitions.
 
 <!-- BEGIN GENERATED:cli-commands -->
 | Command | Usage | Args | Aliases | Guide |
@@ -9,8 +9,12 @@ This page is generated from `internal/bootstrap/commands.go`. Run `make docs-syn
 | `create` | Create a new worktree | `[worktree-name]` | - | [`create`](create.md) |
 | `delete` | Delete a worktree | `[worktree-path]` | - | [`delete`](delete.md) |
 | `rename` | Rename a worktree | `<new-name> \| <worktree> <new-name>` | - | [`rename`](rename.md) |
+| `doctor` | Report CLI, repository, and tooling health for automation | `-` | - | [`doctor`](doctor.md) |
+| `worktrees` | Discover and inspect worktrees with stable machine-readable output | `-` | - | [`worktrees`](worktrees.md) |
+| `notes` | Read worktree notes with machine-readable output | `-` | - | [`notes`](notes.md) |
 | `exec` | Run a command or trigger a key action in a worktree | `[command]` | - | [`exec`](exec.md) |
 | `note` | Show or edit worktree notes | `-` | - | [`note`](note.md) |
+| `describe` | Describe the CLI structure as JSON for machine-readable introspection | `[command] [subcommand]` | - | [`describe`](describe.md) |
 
 ## `list`
 
@@ -67,6 +71,28 @@ Rename a worktree
 | `--json` | `bool` | Output result as JSON |
 | `--silent` | `bool` | Suppress progress messages |
 
+## `doctor`
+
+Report CLI, repository, and tooling health for automation
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--json` | `bool` | Output result as JSON |
+
+## `worktrees`
+
+Discover and inspect worktrees with stable machine-readable output
+
+No command-specific flags.
+
+## `notes`
+
+Read worktree notes with machine-readable output
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--json` | `bool` | (get) Output result as JSON including metadata |
+
 ## `exec`
 
 Run a command or trigger a key action in a worktree
@@ -85,5 +111,13 @@ Show or edit worktree notes
 | --- | --- | --- |
 | `--input`, `-i` | `string` | (edit) Read note from file (use '-' for stdin) |
 | `--json` | `bool` | (show) Output note as JSON including metadata |
+
+## `describe`
+
+Describe the CLI structure as JSON for machine-readable introspection
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--all` | `bool` | Describe all commands and their flags |
 
 <!-- END GENERATED:cli-commands -->

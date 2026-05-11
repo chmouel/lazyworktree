@@ -102,7 +102,8 @@ func (m *Model) renderFooter(layout layoutDims) string {
 	case paneGitStatus: // Git Status pane
 		actionGroup := []string{m.renderKeyHint("j/k", "Scroll")}
 		if len(m.state.data.statusFiles) > 0 {
-			actionGroup = append(actionGroup,
+			actionGroup = append(
+				actionGroup,
 				m.renderKeyHint("Enter", "Show Diff"),
 				m.renderKeyHint("e", "Edit File"),
 				m.renderKeyHint("s", "Stage"),

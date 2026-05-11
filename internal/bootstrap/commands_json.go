@@ -1,5 +1,7 @@
 package bootstrap
 
+import "encoding/json"
+
 // flagDescJSON describes a single CLI flag for machine-readable introspection.
 type flagDescJSON struct {
 	Name    string   `json:"name"`
@@ -98,4 +100,104 @@ type worktreeJSONExtended struct {
 	AgentOpen     bool               `json:"agent_open"`
 	AgentActivity string             `json:"agent_activity,omitempty"`
 	AgentCount    int                `json:"agent_count"`
+}
+
+type jsonErrorEnvelope struct {
+	Error jsonError `json:"error"`
+}
+
+type jsonError struct {
+	Code    string          `json:"code"`
+	Message string          `json:"message"`
+	Details json.RawMessage `json:"details,omitempty"`
+}
+
+type doctorJSON struct {
+	Version    string           `json:"version"`
+	Build      doctorBuildJSON  `json:"build"`
+	Config     doctorConfigJSON `json:"config"`
+	Repository doctorRepoJSON   `json:"repository"`
+	Tools      doctorToolsJSON  `json:"tools"`
+	Checks     doctorChecksJSON `json:"checks"`
+}
+
+type doctorBuildJSON struct {
+	Commit  string `json:"commit,omitempty"`
+	Date    string `json:"date,omitempty"`
+	BuiltBy string `json:"built_by,omitempty"`
+}
+
+type doctorConfigJSON struct {
+	Path        string `json:"path,omitempty"`
+	Loaded      bool   `json:"loaded"`
+	WorktreeDir string `json:"worktree_dir,omitempty"`
+	NoteType    string `json:"note_type,omitempty"`
+	NotesPath   string `json:"notes_path,omitempty"`
+}
+
+type doctorRepoJSON struct {
+	CWD             string `json:"cwd"`
+	GitTopLevel     string `json:"git_top_level,omitempty"`
+	Repo            string `json:"repo,omitempty"`
+	Host            string `json:"host,omitempty"`
+	MainWorktree    string `json:"main_worktree,omitempty"`
+	CurrentWorktree string `json:"current_worktree,omitempty"`
+	InWorktree      bool   `json:"in_worktree"`
+	WorktreeCount   int    `json:"worktree_count"`
+}
+
+type doctorToolJSON struct {
+	Available bool   `json:"available"`
+	Path      string `json:"path,omitempty"`
+}
+
+type doctorToolsJSON struct {
+	Git  doctorToolJSON `json:"git"`
+	GH   doctorToolJSON `json:"gh"`
+	GLab doctorToolJSON `json:"glab"`
+}
+
+type doctorChecksJSON struct {
+	CanListWorktrees bool   `json:"can_list_worktrees"`
+	ConfigError      string `json:"config_error,omitempty"`
+	WorktreeError    string `json:"worktree_error,omitempty"`
+}
+
+type machineWorktreeJSON struct {
+	Path          string   `json:"path"`
+	Name          string   `json:"name"`
+	Branch        string   `json:"branch"`
+	Repo          string   `json:"repo"`
+	IsMain        bool     `json:"is_main"`
+	Dirty         bool     `json:"dirty"`
+	Ahead         int      `json:"ahead"`
+	Behind        int      `json:"behind"`
+	Unpushed      int      `json:"unpushed,omitempty"`
+	LastActive    string   `json:"last_active,omitempty"`
+	Description   string   `json:"description,omitempty"`
+	Tags          []string `json:"tags,omitempty"`
+	NotePresent   bool     `json:"note_present"`
+	NoteUpdatedAt int64    `json:"note_updated_at,omitempty"`
+	AgentCount    int      `json:"agent_count"`
+	AgentOpen     bool     `json:"agent_open"`
+	AgentActivity string   `json:"agent_activity,omitempty"`
+}
+
+type machineWorktreeListJSON struct {
+	Repo  string                `json:"repo"`
+	Count int                   `json:"count"`
+	Limit int                   `json:"limit,omitempty"`
+	Items []machineWorktreeJSON `json:"items"`
+}
+
+type machineWorktreeResolveJSON struct {
+	Input      string              `json:"input"`
+	ResolvedBy string              `json:"resolved_by"`
+	Worktree   machineWorktreeJSON `json:"worktree"`
+}
+
+type machineWorktreeContextJSON struct {
+	Worktree      machineWorktreeJSON `json:"worktree"`
+	Note          *noteShowJSON       `json:"note,omitempty"`
+	AgentSessions []agentSessionJSON  `json:"agent_sessions,omitempty"`
 }

@@ -23,13 +23,13 @@ func TestParseGlobalFlags(t *testing.T) {
 }
 
 func TestParseCommands(t *testing.T) {
-	path := filepath.Join("..", "..", "internal", "bootstrap", "commands.go")
+	path := filepath.Join("..", "..", "internal", "bootstrap")
 	commands, err := parseCommands(path)
 	if err != nil {
 		t.Fatalf("parseCommands returned error: %v", err)
 	}
 
-	required := []string{"list", "create", "delete", "rename", "exec"}
+	required := []string{"list", "create", "delete", "rename", "doctor", "worktrees", "notes", "exec", "describe"}
 	for _, name := range required {
 		if !containsCommand(commands, name) {
 			t.Fatalf("expected command %q", name)

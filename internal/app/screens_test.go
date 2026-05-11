@@ -309,6 +309,7 @@ func TestCommitFilesScreen_GetSelectedNode(t *testing.T) {
 	node := screen.GetSelectedNode()
 	if node == nil {
 		t.Fatal("expected node, got nil")
+		return
 	}
 	if node.Path != "a.go" {
 		t.Errorf("expected path 'a.go', got %s", node.Path)

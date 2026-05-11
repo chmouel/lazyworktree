@@ -35,6 +35,7 @@ _[You can see more screenshots here](https://chmouel.github.io/lazyworktree/#scr
 - Hooks - `.wt` files per worktree to automate setup and cleanup tasks
 - Customise worktree metadata - Press `e` in the worktree pane to edit the description, colour, notes, icon, and tags for the selected worktree.
 - Shell helpers - `cd "$(lazyworktree)"` shortcut and shell completion for bash, zsh, and fish (making it easy to jump to worktrees from the terminal)
+- LLM-friendly CLI - Use `doctor`, `describe`, `worktrees ...`, and `notes get` for stable JSON automation without launching the TUI
 
 ## Documentation
 

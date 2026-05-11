@@ -142,7 +142,8 @@ func (s *ConfirmScreen) View() string {
 		cancelButton = focusedCancelStyle.Render("[Cancel]")
 	}
 
-	content := fmt.Sprintf("%s\n\n%s  %s",
+	content := fmt.Sprintf(
+		"%s\n\n%s  %s",
 		messageStyle.Render(s.Message),
 		confirmButton,
 		cancelButton,

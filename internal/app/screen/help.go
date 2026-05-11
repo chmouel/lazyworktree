@@ -176,6 +176,7 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 - Command palette: Open commit screen (for staged changes, or prompt to stage all)
 - Commit screen: Ctrl+G opens it from anywhere, and c opens it from the status pane; subject stays on the first line, body below; Tab switches field, Enter moves from subject to body, Ctrl+S saves, Ctrl+O auto-generates, Ctrl+X opens the external editor when configured
 - Custom commands prefixed with _: appear in the command palette only
+- CLI automation: use lazyworktree doctor --json, lazyworktree worktrees resolve, and lazyworktree describe from the shell
 - ?: Show this help
 
 **{{HELP_REPO_OPS}}Repository Operations**

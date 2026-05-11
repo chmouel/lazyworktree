@@ -3,6 +3,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -60,6 +61,9 @@ func Run(args []string) int {
 			renameCommand(),
 			deleteCommand(),
 			listCommand(),
+			doctorCommand(),
+			worktreesCommand(),
+			notesCommand(),
 			execCommand(),
 			noteCommand(),
 			describeCommand(),
@@ -107,6 +111,17 @@ func Run(args []string) int {
 	}
 
 	if err := cliApp.Run(context.Background(), args); err != nil {
+		var exitErr interface {
+			error
+			ExitCode() int
+			Quiet() bool
+		}
+		if errors.As(err, &exitErr) {
+			if !exitErr.Quiet() && strings.TrimSpace(exitErr.Error()) != "" {
+				fmt.Fprintf(os.Stderr, "%v\n", exitErr)
+			}
+			return exitErr.ExitCode()
+		}
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}

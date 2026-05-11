@@ -86,7 +86,8 @@ func (s *WelcomeScreen) View() string {
 		MarginTop(1).
 		Bold(true)
 
-	content := lipgloss.JoinVertical(lipgloss.Center,
+	content := lipgloss.JoinVertical(
+		lipgloss.Center,
 		titleStyle.Render("LazyWorktree"),
 		"",
 		fmt.Sprintf("%s  %s", warningStyle.Render("⚠"), warningStyle.Render("No worktrees found")),

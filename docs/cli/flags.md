@@ -1,6 +1,6 @@
 # CLI Flags Reference
 
-This page is generated from `internal/bootstrap/flags.go` and `internal/bootstrap/commands.go`.
+This page is generated from `internal/bootstrap/flags.go` and `internal/bootstrap/*.go`.
 Run `make docs-sync` after changing flag definitions.
 
 ## Global Flags
@@ -68,6 +68,18 @@ Run `make docs-sync` after changing flag definitions.
 | `--json` | `bool` | Output result as JSON |
 | `--silent` | `bool` | Suppress progress messages |
 
+### `doctor`
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--json` | `bool` | Output result as JSON |
+
+### `notes`
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--json` | `bool` | (get) Output result as JSON including metadata |
+
 ### `exec`
 
 | Flag | Type | Usage |
@@ -83,11 +95,17 @@ Run `make docs-sync` after changing flag definitions.
 | `--input`, `-i` | `string` | (edit) Read note from file (use '-' for stdin) |
 | `--json` | `bool` | (show) Output note as JSON including metadata |
 
+### `describe`
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--all` | `bool` | Describe all commands and their flags |
+
 <!-- END GENERATED:command-flags -->
 
 ## Validation Rules
 
-These runtime rules are enforced in `internal/bootstrap/commands.go`:
+These runtime rules are enforced in `internal/bootstrap/*.go`:
 
 - `create`: `--from-pr`, `--from-issue`, `--from-pr-interactive`, and `--from-issue-interactive` are mutually exclusive.
 - `create`: `--query` requires `--from-pr-interactive` or `--from-issue-interactive`.

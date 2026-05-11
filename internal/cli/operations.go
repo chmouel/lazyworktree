@@ -349,7 +349,8 @@ func runBranchNameScript(ctx context.Context, script, content, scriptType, numbe
 	// #nosec G204 -- script is user-configured and trusted
 	cmd := exec.CommandContext(scriptCtx, "bash", "-c", script)
 	cmd.Stdin = strings.NewReader(content)
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(
+		os.Environ(),
 		fmt.Sprintf("LAZYWORKTREE_TYPE=%s", scriptType),
 		fmt.Sprintf("LAZYWORKTREE_NUMBER=%s", number),
 		fmt.Sprintf("LAZYWORKTREE_TEMPLATE=%s", template),
@@ -398,14 +399,16 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 	branchName := utils.GenerateIssueWorktreeName(selectedIssue, template, "")
 
 	if noWorkspace {
-		if !gitSvc.RunCommandChecked(ctx,
+		if !gitSvc.RunCommandChecked(
+			ctx,
 			[]string{"git", "branch", branchName, baseBranch},
 			"",
 			fmt.Sprintf("Failed to create branch from issue #%d", issueNumber),
 		) {
 			return "", fmt.Errorf("failed to create branch from issue #%d", issueNumber)
 		}
-		if !gitSvc.RunCommandChecked(ctx,
+		if !gitSvc.RunCommandChecked(
+			ctx,
 			[]string{"git", "switch", branchName},
 			"",
 			fmt.Sprintf("Failed to switch to branch %s", branchName),
@@ -434,7 +437,8 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 	}
 
 	// Create worktree from base branch
-	if !gitSvc.RunCommandChecked(ctx,
+	if !gitSvc.RunCommandChecked(
+		ctx,
 		[]string{"git", "worktree", "add", "-b", branchName, targetPath, baseBranch},
 		"",
 		fmt.Sprintf("Failed to create worktree from issue #%d", issueNumber),

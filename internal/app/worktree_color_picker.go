@@ -27,7 +27,8 @@ func buildCuratedColorItems() []appscreen.SelectionItem {
 	padFmt := fmt.Sprintf("%%-%ds", maxLen)
 
 	items := make([]appscreen.SelectionItem, 0, 3+len(colors))
-	items = append(items,
+	items = append(
+		items,
 		appscreen.SelectionItem{ID: worktreeColorNoneID, Label: fmt.Sprintf(padFmt, "None"), Description: "Clear worktree colour"},
 		appscreen.SelectionItem{ID: worktreeColorCustomID, Label: fmt.Sprintf(padFmt, "Custom…"), Description: "Enter hex, supported name, or 0-255"},
 		appscreen.SelectionItem{ID: worktreeColorBoldID, Label: fmt.Sprintf(padFmt, "Bold"), Description: "Toggle bold styling"},

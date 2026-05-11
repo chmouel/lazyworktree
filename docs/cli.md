@@ -1,10 +1,20 @@
 # CLI Usage
 
-The CLI supports listing, creating, deleting, renaming, and executing commands in worktrees without launching the full TUI.
+The CLI supports both human-first worktree lifecycle commands and machine-first read commands without launching the full TUI.
 
 <div class="lw-callout">
   <p><strong>Quick command cookbook:</strong> <code>lazyworktree list</code>, <code>lazyworktree create ...</code>, <code>lazyworktree delete ...</code>, and <code>lazyworktree exec ...</code>.</p>
 </div>
+
+For coding agents and scripts, start with:
+
+```bash
+lazyworktree describe
+lazyworktree doctor --json
+lazyworktree worktrees list --json
+lazyworktree worktrees resolve --name my-feature --json
+lazyworktree notes get my-feature --json
+```
 
 ## Config Overrides
 
@@ -25,6 +35,25 @@ lazyworktree ls                # Alias
 ```
 
 `--pristine` and `--json` are mutually exclusive.
+
+## Machine-readable discovery
+
+```bash
+lazyworktree doctor --json
+lazyworktree worktrees list --json
+lazyworktree worktrees resolve --name my-feature --json
+lazyworktree worktrees get my-feature --json
+lazyworktree worktrees context my-feature --json
+lazyworktree notes get my-feature --json
+```
+
+These commands are designed for automation:
+
+- `doctor` reports repository and tool health without failing when setup is incomplete
+- `worktrees resolve` turns a name, branch, or path into a canonical worktree path
+- `worktrees get` reads one exact worktree
+- `worktrees context` returns note and agent-session context for one worktree
+- `notes get` returns note metadata in a stable JSON shape
 
 ## Creating Worktrees
 

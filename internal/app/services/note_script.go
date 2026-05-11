@@ -35,7 +35,8 @@ func RunWorktreeNoteScript(ctx context.Context, script string, input WorktreeNot
 	// #nosec G204 -- script is user-configured and trusted
 	cmd := exec.CommandContext(ctx, "bash", "-c", script)
 	cmd.Stdin = strings.NewReader(input.Content)
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(
+		os.Environ(),
 		fmt.Sprintf("LAZYWORKTREE_TYPE=%s", input.Type),
 		fmt.Sprintf("LAZYWORKTREE_NUMBER=%d", input.Number),
 		fmt.Sprintf("LAZYWORKTREE_TITLE=%s", input.Title),

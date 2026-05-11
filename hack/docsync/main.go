@@ -15,7 +15,6 @@ import (
 	pathpkg "path"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -109,7 +108,7 @@ func main() {
 
 func collectDocsSyncData(root string) (*docsSyncData, error) {
 	flagsPath := filepath.Join(root, "internal", "bootstrap", "flags.go")
-	commandsPath := filepath.Join(root, "internal", "bootstrap", "commands.go")
+	commandsDir := filepath.Join(root, "internal", "bootstrap")
 	configPath := filepath.Join(root, "internal", "config", "config.go")
 	registryPath := filepath.Join(root, "internal", "app", "commands", "registry.go")
 
@@ -118,7 +117,7 @@ func collectDocsSyncData(root string) (*docsSyncData, error) {
 		return nil, err
 	}
 
-	commands, err := parseCommands(commandsPath)
+	commands, err := parseCommands(commandsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -203,41 +202,69 @@ func parseGlobalFlags(path string) ([]flagSpec, error) {
 	return nil, errors.New("globalFlags function not found")
 }
 
-func parseCommands(path string) ([]commandSpec, error) {
+func parseCommands(dir string) ([]commandSpec, error) {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, fmt.Errorf("parse commands file: %w", err)
+		return nil, fmt.Errorf("read commands directory: %w", err)
+	}
+
+	files := make([]*ast.File, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || strings.HasSuffix(name, "_test.go") || !strings.HasSuffix(name, ".go") {
+			continue
+		}
+
+		path := filepath.Join(dir, name)
+		file, parseErr := parser.ParseFile(fset, path, nil, parser.ParseComments)
+		if parseErr != nil {
+			return nil, fmt.Errorf("parse commands file %s: %w", path, parseErr)
+		}
+		if file.Name == nil || file.Name.Name != "bootstrap" {
+			continue
+		}
+		files = append(files, file)
+	}
+	if len(files) == 0 {
+		return nil, errors.New("bootstrap command files not found")
 	}
 
 	var commands []commandSpec
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok {
-			continue
-		}
-		if !strings.HasSuffix(fn.Name.Name, "Command") {
-			continue
-		}
+	allowedFuncs := map[string]struct{}{
+		"createCommand": {}, "deleteCommand": {}, "renameCommand": {}, "listCommand": {},
+		"execCommand": {}, "noteCommand": {}, "describeCommand": {}, "doctorCommand": {},
+		"worktreesCommand": {}, "notesCommand": {},
+	}
+	for _, file := range files {
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+			if _, ok := allowedFuncs[fn.Name.Name]; !ok {
+				continue
+			}
 
-		lit := extractReturnedCompositeLit(fn)
-		if lit == nil {
-			continue
-		}
+			lit := extractReturnedCompositeLit(fn)
+			if lit == nil {
+				continue
+			}
 
-		cmd := parseCommandLiteral(lit)
-		if cmd.Name == "" {
-			continue
+			cmd := parseCommandLiteral(lit)
+			if cmd.Name == "" {
+				continue
+			}
+			sort.Slice(cmd.Flags, func(i, j int) bool { return cmd.Flags[i].Name < cmd.Flags[j].Name })
+			commands = append(commands, cmd)
 		}
-		if !slices.Contains([]string{"create", "delete", "rename", "list", "exec", "note"}, cmd.Name) {
-			continue
-		}
-		sort.Slice(cmd.Flags, func(i, j int) bool { return cmd.Flags[i].Name < cmd.Flags[j].Name })
-		commands = append(commands, cmd)
 	}
 
 	// Parse note subcommands (show, edit) and attach their flags to the parent.
-	noteCmd := parseNoteSubcommands(file, commands)
+	noteCmd := parseMergedParentCommand(files, "note", map[string]string{
+		"noteShowCommand": "show",
+		"noteEditCommand": "edit",
+	}, "Show or edit worktree notes")
 	if noteCmd != nil {
 		for i, cmd := range commands {
 			if cmd.Name == "note" {
@@ -247,49 +274,62 @@ func parseCommands(path string) ([]commandSpec, error) {
 		}
 	}
 
+	notesCmd := parseMergedParentCommand(files, "notes", map[string]string{
+		"notesGetCommand": "get",
+	}, "Read worktree notes with machine-readable output")
+	if notesCmd != nil {
+		for i, cmd := range commands {
+			if cmd.Name == "notes" {
+				commands[i] = *notesCmd
+				break
+			}
+		}
+	}
+
 	if len(commands) == 0 {
 		return nil, errors.New("no command definitions found")
 	}
 
-	order := map[string]int{"list": 0, "create": 1, "delete": 2, "rename": 3, "exec": 4, "note": 5}
+	order := map[string]int{
+		"list": 0, "create": 1, "delete": 2, "rename": 3, "doctor": 4,
+		"worktrees": 5, "notes": 6, "exec": 7, "note": 8, "describe": 9,
+	}
 	sort.Slice(commands, func(i, j int) bool {
 		return order[commands[i].Name] < order[commands[j].Name]
 	})
 	return commands, nil
 }
 
-// parseNoteSubcommands extracts the show and edit subcommand definitions and
-// merges their flags into a single "note" commandSpec for documentation.
-func parseNoteSubcommands(file *ast.File, _ []commandSpec) *commandSpec {
-	subFuncs := map[string]string{
-		"noteShowCommand": "show",
-		"noteEditCommand": "edit",
-	}
+// parseMergedParentCommand extracts the given subcommand definitions and merges
+// their flags into a single parent commandSpec for documentation.
+func parseMergedParentCommand(files []*ast.File, parentName string, subFuncs map[string]string, usage string) *commandSpec {
 	var subs []commandSpec
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok {
-			continue
+	for _, file := range files {
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+			subName, ok := subFuncs[fn.Name.Name]
+			if !ok {
+				continue
+			}
+			lit := extractReturnedCompositeLit(fn)
+			if lit == nil {
+				continue
+			}
+			sub := parseCommandLiteral(lit)
+			sub.Name = subName
+			subs = append(subs, sub)
 		}
-		subName, ok := subFuncs[fn.Name.Name]
-		if !ok {
-			continue
-		}
-		lit := extractReturnedCompositeLit(fn)
-		if lit == nil {
-			continue
-		}
-		sub := parseCommandLiteral(lit)
-		sub.Name = subName
-		subs = append(subs, sub)
 	}
 	if len(subs) == 0 {
 		return nil
 	}
 
 	cmd := &commandSpec{
-		Name:  "note",
-		Usage: "Show or edit worktree notes",
+		Name:  parentName,
+		Usage: usage,
 	}
 	// Merge subcommand flags with subcommand prefix for documentation clarity.
 	for _, sub := range subs {
@@ -846,7 +886,7 @@ func orderedConfigKeys(keys []string) []string {
 func renderCLICommandsPage(commands []commandSpec) string {
 	var b strings.Builder
 	b.WriteString("# CLI Commands Reference\n\n")
-	b.WriteString("This page is generated from `internal/bootstrap/commands.go`. Run `make docs-sync` after changing command definitions.\n\n")
+	b.WriteString("This page is generated from `internal/bootstrap/*.go`. Run `make docs-sync` after changing command definitions.\n\n")
 	b.WriteString("<!-- BEGIN GENERATED:cli-commands -->\n")
 	b.WriteString("| Command | Usage | Args | Aliases | Guide |\n")
 	b.WriteString("| --- | --- | --- | --- | --- |\n")
@@ -884,7 +924,7 @@ func renderCLICommandsPage(commands []commandSpec) string {
 func renderCLIFlagsPage(global []flagSpec, commands []commandSpec) string {
 	var b strings.Builder
 	b.WriteString("# CLI Flags Reference\n\n")
-	b.WriteString("This page is generated from `internal/bootstrap/flags.go` and `internal/bootstrap/commands.go`.\n")
+	b.WriteString("This page is generated from `internal/bootstrap/flags.go` and `internal/bootstrap/*.go`.\n")
 	b.WriteString("Run `make docs-sync` after changing flag definitions.\n\n")
 
 	b.WriteString("## Global Flags\n\n")
@@ -913,7 +953,7 @@ func renderCLIFlagsPage(global []flagSpec, commands []commandSpec) string {
 	b.WriteString("<!-- END GENERATED:command-flags -->\n\n")
 
 	b.WriteString("## Validation Rules\n\n")
-	b.WriteString("These runtime rules are enforced in `internal/bootstrap/commands.go`:\n\n")
+	b.WriteString("These runtime rules are enforced in `internal/bootstrap/*.go`:\n\n")
 	b.WriteString("- `create`: `--from-pr`, `--from-issue`, `--from-pr-interactive`, and `--from-issue-interactive` are mutually exclusive.\n")
 	b.WriteString("- `create`: `--query` requires `--from-pr-interactive` or `--from-issue-interactive`.\n")
 	b.WriteString("- `create`: `--no-workspace` requires PR/issue creation mode and cannot be combined with `--with-change` or `--generate`.\n")
