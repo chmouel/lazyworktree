@@ -3,18 +3,13 @@
 # LazyWorktree
 
 <img align="right" width="180" height="180" alt="logo" src="./website/assets/logo.png" />
+LazyWorktree is a terminal UI for managing Git worktrees with a keyboard-first workflow.
 
-LazyWorktree is a terminal UI for managing Git worktrees with a keyboard-first
-workflow.
+It provides a easy way to work across multiple Git worktrees from one interface. From the current worktree, you can create, switch, remove, and run related operations without manually jumping between directories.
 
-It offer a development workflow around Git worktrees, allowing you to do
-various operations based on your current worktree you are working on.
+Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), it shows the state of your worktrees clearly and integrates with common development tools, including tmux, zellij, and OCI runtimes such as Docker or Podman.
 
-Built with [BubbleTea](https://github.com/charmbracelet/bubbletea), it focuses
-on fast iteration, clear state visibility, and tight Git tooling integration
-including tmux/zellij sessions and OCI container execution (docker/podman).
-Custom commands can be bound to keys or exposed only in the command palette by
-prefixing the config key with `_`.
+Custom commands can be bound to keys or made available only from the command palette. To hide a command from key binding, prefix its config key with `_`.
 
 ## Screenshot
 
