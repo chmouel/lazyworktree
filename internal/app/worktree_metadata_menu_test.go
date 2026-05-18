@@ -86,7 +86,7 @@ func TestShowEditWorktreeMetadataMenuAddsIconsWhenEnabled(t *testing.T) {
 	m := setupMetadataTestModel(t)
 	m.config.IconSet = "nerdfont"
 
-	previousProvider := currentIconProvider
+	previousProvider := activeIconProvider()
 	SetIconProvider(&NerdFontV3Provider{})
 	defer SetIconProvider(previousProvider)
 

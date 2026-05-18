@@ -1,6 +1,9 @@
 package app
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 // IconProvider defines the interface for providing icons.
 type IconProvider interface {
@@ -11,11 +14,22 @@ type IconProvider interface {
 	GetUIIcon(icon UIIcon) string
 }
 
-var currentIconProvider IconProvider = &NerdFontV3Provider{}
+var (
+	currentIconProvider   IconProvider = &NerdFontV3Provider{}
+	currentIconProviderMu sync.RWMutex
+)
 
 // SetIconProvider sets the current icon provider.
 func SetIconProvider(p IconProvider) {
+	currentIconProviderMu.Lock()
+	defer currentIconProviderMu.Unlock()
 	currentIconProvider = p
+}
+
+func activeIconProvider() IconProvider {
+	currentIconProviderMu.RLock()
+	defer currentIconProviderMu.RUnlock()
+	return currentIconProvider
 }
 
 // UIIcon identifies UI-specific icons that follow the selected icon set.
@@ -428,23 +442,23 @@ func textUIIcon(icon UIIcon, prIcon, issueIcon string) string {
 // Wrappers for backward compatibility and ease of use
 
 func deviconForName(name string, isDir bool) string {
-	return currentIconProvider.GetFileIcon(name, isDir)
+	return activeIconProvider().GetFileIcon(name, isDir)
 }
 
 func ciIconForConclusion(conclusion string) string {
-	return currentIconProvider.GetCIIcon(conclusion)
+	return activeIconProvider().GetCIIcon(conclusion)
 }
 
 func getIconPR() string {
-	return currentIconProvider.GetPRIcon()
+	return activeIconProvider().GetPRIcon()
 }
 
 func getIconIssue() string {
-	return currentIconProvider.GetIssueIcon()
+	return activeIconProvider().GetIssueIcon()
 }
 
 func uiIcon(icon UIIcon) string {
-	return currentIconProvider.GetUIIcon(icon)
+	return activeIconProvider().GetUIIcon(icon)
 }
 
 func iconPrefix(icon UIIcon, showIcons bool) string {

@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -241,4 +242,41 @@ func TestCombinedStatusIndicator(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestConcurrentIconProviderAccess(t *testing.T) {
+	t.Cleanup(func() { SetIconProvider(&NerdFontV3Provider{}) })
+
+	providers := []IconProvider{
+		&NerdFontV3Provider{},
+		&EmojiProvider{},
+		&TextProvider{},
+	}
+
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 200; i++ {
+				SetIconProvider(providers[i%len(providers)])
+			}
+		}()
+	}
+
+	for range 16 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 200; i++ {
+				_ = deviconForName("main.go", false)
+				_ = ciIconForConclusion("success")
+				_ = getIconPR()
+				_ = getIconIssue()
+				_ = uiIcon(UIIconSearch)
+			}
+		}()
+	}
+
+	wg.Wait()
 }
