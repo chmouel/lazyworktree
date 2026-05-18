@@ -557,22 +557,28 @@ func validateResolveFlags(cmd *appiCli.Command) (string, string, error) {
 func resolveWorktreeForMachine(cfg *config.AppConfig, repoKey, mainWorktree string, worktrees []*models.WorktreeInfo, input, kind string) (*resolvedWorktree, error) {
 	switch kind {
 	case "cwd":
+		input = filepath.Clean(input)
 		for _, wt := range worktrees {
-			if wt.Path == input || strings.HasPrefix(input, wt.Path+string(filepath.Separator)) {
+			wtPath := filepath.Clean(wt.Path)
+			if wtPath == input || strings.HasPrefix(input, wtPath+string(filepath.Separator)) {
 				return &resolvedWorktree{worktree: wt, resolvedBy: "cwd"}, nil
 			}
 		}
 		return nil, fmt.Errorf("worktree not found for cwd: %s", input)
 	case "path":
+		input = filepath.Clean(input)
+		var prefixMatch *models.WorktreeInfo
 		for _, wt := range worktrees {
-			if wt.Path == input {
+			wtPath := filepath.Clean(wt.Path)
+			if wtPath == input {
 				return &resolvedWorktree{worktree: wt, resolvedBy: "path"}, nil
 			}
-		}
-		for _, wt := range worktrees {
-			if strings.HasPrefix(input, wt.Path+string(filepath.Separator)) {
-				return &resolvedWorktree{worktree: wt, resolvedBy: "path-prefix"}, nil
+			if prefixMatch == nil && strings.HasPrefix(input, wtPath+string(filepath.Separator)) {
+				prefixMatch = wt
 			}
+		}
+		if prefixMatch != nil {
+			return &resolvedWorktree{worktree: prefixMatch, resolvedBy: "path-prefix"}, nil
 		}
 		return nil, fmt.Errorf("worktree not found for path: %s", input)
 	default:
@@ -583,7 +589,7 @@ func resolveWorktreeForMachine(cfg *config.AppConfig, repoKey, mainWorktree stri
 		}
 		constructedPath := filepath.Join(resolveMachineWorktreeBaseDir(cfg.WorktreeDir, mainWorktree, repoKey), input)
 		for _, wt := range worktrees {
-			if wt.Path == constructedPath {
+			if filepath.Clean(wt.Path) == constructedPath {
 				return &resolvedWorktree{worktree: wt, resolvedBy: "constructed-path"}, nil
 			}
 		}

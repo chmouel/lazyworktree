@@ -75,6 +75,46 @@ func TestWorktreesResolveAndNotesGetJSON(t *testing.T) {
 	assert.Empty(t, note.Note)
 }
 
+func TestWorktreesResolveNormalizesTrailingSlashInputs(t *testing.T) {
+	repoRoot, worktreeRoot, featurePath, _ := initMachineTestRepo(t)
+
+	for _, tc := range []struct {
+		args           []string
+		wantResolvedBy string
+	}{
+		{
+			args: []string{
+				"lazyworktree",
+				"--worktree-dir", worktreeRoot,
+				"worktrees",
+				"resolve",
+				"--cwd", featurePath + string(filepath.Separator),
+				"--json",
+			},
+			wantResolvedBy: "cwd",
+		},
+		{
+			args: []string{
+				"lazyworktree",
+				"--worktree-dir", worktreeRoot,
+				"worktrees",
+				"resolve",
+				"--path", featurePath + string(filepath.Separator),
+				"--json",
+			},
+			wantResolvedBy: "path",
+		},
+	} {
+		output, errOutput, err := runMachineCommand(t, repoRoot, tc.args)
+		require.NoError(t, err, errOutput)
+
+		var resolved machineWorktreeResolveJSON
+		require.NoError(t, json.Unmarshal(output, &resolved))
+		assert.Equal(t, normalizePathForTest(t, featurePath), resolved.Worktree.Path)
+		assert.Equal(t, tc.wantResolvedBy, resolved.ResolvedBy)
+	}
+}
+
 func TestWorktreesContextUsesConfiguredAgentRoots(t *testing.T) {
 	repoRoot, worktreeRoot, featurePath, _ := initMachineTestRepo(t)
 
