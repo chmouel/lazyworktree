@@ -71,6 +71,29 @@ lazyworktree note show --json | jq '{note, description, tags}'
 
 When agent session data is present, each session includes `liveness` and `source` fields so automation can distinguish confirmed active sessions from recent or heuristic matches.
 
+```bash
+# Show only confirmed-active sessions across all worktrees
+lazyworktree list --json | jq '[.[] | .agent_sessions[] | select(.liveness == "active")]'
+
+# Check whether any active session is open for a specific worktree
+lazyworktree worktrees context my-feature --json | jq '.agent_sessions[] | select(.liveness == "active") | .activity'
+```
+
+| `liveness` value | Meaning |
+|---|---|
+| `"active"` | Confirmed running: matched to a live process |
+| `"recent"` | No live process found, but activity within the last 10 minutes |
+| `"suspect"` | Matched by working-directory heuristic only — less certain |
+| `"inactive"` | No live process and no recent activity |
+
+| `source` value | Meaning |
+|---|---|
+| `"native"` | Session reported itself as active (e.g. Claude Code's own status) |
+| `"exact_file"` | Live process has the session transcript file open |
+| `"cwd_heuristic"` | Live process working directory matches the worktree path |
+| `"registry"` | Recovered from the persistent registry after a parse failure |
+| `"none"` | No liveness signal found |
+
 ### 5. Use `exec --json` for command automation
 
 ```bash
