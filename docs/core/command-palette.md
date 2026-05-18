@@ -10,7 +10,7 @@ The command palette is the fastest way to trigger actions without remembering ev
 
 ## Opening and Filtering
 
-- Open with `Ctrl+p` or `:`.
+- Open with `F1`, `Ctrl+p`, or `:`.
 - Type to filter actions and custom commands in real time.
 - MRU (Most Recently Used) ordering prioritises recently used entries at the top.
 

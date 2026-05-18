@@ -55,7 +55,7 @@ You can assign a colour to each worktree name (hex, supported named colour, or 2
 ### How to set a colour
 
 1. Select a worktree in the Worktree pane.
-2. Open the command palette (`Ctrl+p` or `:`) and search for **Set worktree colour**.
+2. Open the command palette (`F1`, `Ctrl+p`, or `:`) and search for **Set worktree colour**.
 3. Pick a named colour, a 256-palette index (0–255), choose **Custom…** to enter a value, or choose **None** to clear.
 
 If you pick `None`, the colour is cleared and the worktree name will use the default colour.

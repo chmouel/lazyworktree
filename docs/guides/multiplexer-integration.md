@@ -213,7 +213,7 @@ lazyworktree exec --key=t
 
 ## Command Palette Session Management
 
-Press `Ctrl+p` or `:` to open the command palette, where you can:
+Press `F1`, `Ctrl+p`, or `:` to open the command palette, where you can:
 
 - View all active sessions matching your configured `session_prefix`
 - Switch between sessions quickly

@@ -172,7 +172,7 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 - =: Toggle zoom for focused pane
 - y: Copy to clipboard (context-aware: path in worktrees pane, file path in status pane, SHA in log pane; uses OSC52, works over SSH)
 - Y: Copy selected worktree branch name to clipboard
-- : / Ctrl+P: Command Palette
+- : / F1 / Ctrl+P: Command Palette
 - Command palette: Open commit screen (for staged changes, or prompt to stage all)
 - Commit screen: Ctrl+G opens it from anywhere, and c opens it from the status pane; subject stays on the first line, body below; Tab switches field, Enter moves from subject to body, Ctrl+S saves, Ctrl+O auto-generates, Ctrl+X opens the external editor when configured
 - Custom commands prefixed with _: appear in the command palette only

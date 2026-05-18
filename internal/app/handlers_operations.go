@@ -139,7 +139,7 @@ func (m *Model) handleOperationKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, boo
 		m.sortMode = (m.sortMode + 1) % 3
 		m.updateTable()
 		return m, nil, true
-	case "ctrl+p", ":":
+	case "ctrl+p", ":", "f1":
 		return m, m.showCommandPalette(), true
 	case "?":
 		helpScreen := appscreen.NewHelpScreen(m.state.view.WindowWidth, m.state.view.WindowHeight, m.config.CustomCommands, m.config.Keybindings, m.theme, m.config.IconsEnabled())

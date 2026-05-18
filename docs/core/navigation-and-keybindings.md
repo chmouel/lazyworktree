@@ -109,7 +109,7 @@ Each commit displays a status indicator: `↑` (red) for unpushed commits, `★`
 
 | Key | Action |
 | --- | --- |
-| `Ctrl+p`, `:` | Open command palette |
+| `F1`, `Ctrl+p`, `:` | Open command palette |
 | `!` | Run arbitrary command in selected worktree |
 | `g` | Open lazygit |
 

@@ -34,7 +34,7 @@
 | `!` | Run arbitrary command in selected worktree (with command history) |
 | `v` | View CI checks (Enter opens browser, `Ctrl+v` opens logs in pager) |
 | `o` | Open PR/MR in browser (or root repo in editor if main branch with merged/closed/no PR) |
-| `ctrl+p`, `:` | Command palette |
+| `f1`, `ctrl+p`, `:` | Command palette |
 | `g` | Open LazyGit |
 | `r` | Refresh list (also refreshes PR/MR/CI for current worktree) |
 | `R` | Fetch all remotes |

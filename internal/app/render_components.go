@@ -142,14 +142,9 @@ func (m *Model) renderFooter(layout layoutDims) string {
 				openLabel = "Open PR"
 			}
 			actionGroup = append(actionGroup, m.renderKeyHint("o", openLabel))
-			// Show "Ctrl+G" hint only when current worktree has local changes
-			if hasLocalChanges(wt) {
-				actionGroup = append(actionGroup, m.renderKeyHint("Ctrl+G", "Commit"))
-			}
 		}
 		actionGroup = append(actionGroup, m.customFooterHints()...)
 		globalGroup := []string{
-			m.renderKeyHint("y", "Copy"),
 			m.renderKeyHint("q", "Quit"),
 			m.renderKeyHint("?", "Help"),
 			m.renderKeyHint("ctrl+p", "Palette"),
