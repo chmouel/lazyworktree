@@ -185,7 +185,7 @@ func (s *Service) ExecuteCommands(ctx context.Context, cmdList []string, cwd str
 			mainPath := env["MAIN_WORKTREE_PATH"]
 			wtPath := env["WORKTREE_PATH"]
 			statusFunc := func(ctx context.Context, path string) string {
-				return s.RunGit(ctx, []string{"git", "status", "--porcelain", "--ignored"}, path, []int{0}, true, false)
+				return s.RunGit(ctx, []string{"git", "status", "--porcelain", "-z", "--ignored"}, path, []int{0}, true, false)
 			}
 			if err := commands.LinkTopSymlinks(ctx, mainPath, wtPath, statusFunc); err != nil {
 				return err

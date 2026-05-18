@@ -161,6 +161,57 @@ func TestLinkTopSymlinks(t *testing.T) {
 		assert.Equal(t, file2, target2)
 	})
 
+	t.Run("symlink untracked files with spaces from porcelain z output", func(t *testing.T) {
+		mainDir := t.TempDir()
+		worktreeDir := t.TempDir()
+
+		fileWithSpaces := filepath.Join(mainDir, "my file.txt")
+		err := os.WriteFile(fileWithSpaces, []byte("content"), 0o600)
+		require.NoError(t, err)
+
+		statusFunc := func(_ context.Context, _ string) string {
+			return "?? my file.txt\x00"
+		}
+
+		err = LinkTopSymlinks(context.Background(), mainDir, worktreeDir, statusFunc)
+		require.NoError(t, err)
+
+		link := filepath.Join(worktreeDir, "my file.txt")
+		target, err := os.Readlink(link)
+		require.NoError(t, err)
+		assert.Equal(t, fileWithSpaces, target)
+	})
+
+	t.Run("symlink multiple porcelain z records with spaced names", func(t *testing.T) {
+		mainDir := t.TempDir()
+		worktreeDir := t.TempDir()
+
+		untracked := filepath.Join(mainDir, "first file.txt")
+		err := os.WriteFile(untracked, []byte("content"), 0o600)
+		require.NoError(t, err)
+
+		ignored := filepath.Join(mainDir, "ignored file.log")
+		err = os.WriteFile(ignored, []byte("content"), 0o600)
+		require.NoError(t, err)
+
+		statusFunc := func(_ context.Context, _ string) string {
+			return "?? first file.txt\x00!! ignored file.log\x00"
+		}
+
+		err = LinkTopSymlinks(context.Background(), mainDir, worktreeDir, statusFunc)
+		require.NoError(t, err)
+
+		untrackedLink := filepath.Join(worktreeDir, "first file.txt")
+		untrackedTarget, err := os.Readlink(untrackedLink)
+		require.NoError(t, err)
+		assert.Equal(t, untracked, untrackedTarget)
+
+		ignoredLink := filepath.Join(worktreeDir, "ignored file.log")
+		ignoredTarget, err := os.Readlink(ignoredLink)
+		require.NoError(t, err)
+		assert.Equal(t, ignored, ignoredTarget)
+	})
+
 	t.Run("symlink ignored files", func(t *testing.T) {
 		mainDir := t.TempDir()
 		worktreeDir := t.TempDir()

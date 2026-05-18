@@ -23,17 +23,7 @@ func LinkTopSymlinks(ctx context.Context, mainPath, worktreePath string, statusF
 	}
 
 	status := statusFunc(ctx, mainPath)
-	for _, line := range strings.Split(status, "\n") {
-		if len(line) < 4 {
-			continue
-		}
-		if !strings.HasPrefix(line, "?? ") && !strings.HasPrefix(line, "!! ") {
-			continue
-		}
-		rel := strings.TrimSpace(line[3:])
-		if rel == "" {
-			continue
-		}
+	for _, rel := range linkableStatusPaths(status) {
 		// Only symlink top-level items, skip nested paths
 		if strings.Contains(rel, "/") {
 			continue
@@ -89,6 +79,26 @@ func LinkTopSymlinks(ctx context.Context, mainPath, worktreePath string, statusF
 	}
 
 	return nil
+}
+
+func linkableStatusPaths(status string) []string {
+	records := strings.Split(status, "\n")
+	if strings.ContainsRune(status, '\x00') {
+		records = strings.Split(strings.TrimRight(status, "\x00"), "\x00")
+	}
+
+	paths := make([]string, 0, len(records))
+	for _, record := range records {
+		record = strings.TrimSuffix(record, "\r")
+		if len(record) < 4 {
+			continue
+		}
+		if !strings.HasPrefix(record, "?? ") && !strings.HasPrefix(record, "!! ") {
+			continue
+		}
+		paths = append(paths, record[3:])
+	}
+	return paths
 }
 
 func symlinkPath(mainPath, worktreePath, rel string) error {
