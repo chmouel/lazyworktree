@@ -15,7 +15,7 @@ fi
 
 tag_commit="$(git rev-list -n 1 "${TAG}^{commit}")"
 previous_tag="$(git describe --tags --abbrev=0 --match '*.[0-9]*.[0-9]*' "${tag_commit}^" 2>/dev/null || true)"
-model="gemini-3-flash-preview"
+model="gemini-3.5-flash"
 range="${TAG}"
 
 if [ -n "${previous_tag}" ]; then
