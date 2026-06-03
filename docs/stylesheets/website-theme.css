@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap");
 
 :root {
   --mint-radius: 16px;
@@ -7,18 +7,19 @@
 }
 
 [data-md-color-scheme="default"] {
-  --mint-bg: #f5f2e8;
-  --mint-panel: rgba(255, 255, 255, 0.68);
-  --mint-panel-alt: rgba(255, 255, 255, 0.86);
-  --mint-border: rgba(24, 48, 42, 0.15);
-  --mint-text: #1d2b28;
-  --mint-muted: #44524c;
-  --mint-accent: #0f766e;
-  --mint-accent-soft: #fff5da;
-  --mint-code-bg: rgba(255, 255, 255, 0.5);
-  --bg-gradient-warm: #fff5da;
-  --bg-gradient-cool: #d9efe8;
-  --grain-dot: rgba(36, 44, 40, 0.08);
+  --mint-bg: #f8fafc;
+  --mint-bg-alt: #f1f5f9;
+  --mint-panel: rgba(255, 255, 255, 0.72);
+  --mint-panel-alt: rgba(255, 255, 255, 0.88);
+  --mint-border: rgba(59, 130, 246, 0.1);
+  --mint-text: #0f172a;
+  --mint-muted: #475569;
+  --mint-accent: #2563eb;
+  --mint-accent-soft: rgba(37, 99, 235, 0.08);
+  --mint-code-bg: rgba(241, 245, 249, 0.6);
+  --bg-gradient-warm: #e0f2fe;
+  --bg-gradient-cool: #dbeafe;
+  --grain-dot: rgba(148, 163, 184, 0.05);
 
   --md-default-bg-color: transparent;
   --md-default-fg-color: var(--mint-text);
@@ -34,19 +35,19 @@
 }
 
 [data-md-color-scheme="slate"] {
-  --mint-bg: #141a1e;
-  --mint-bg-alt: #1a2228;
-  --mint-panel: rgba(30, 40, 38, 0.68);
-  --mint-panel-alt: rgba(30, 40, 38, 0.86);
-  --mint-border: rgba(200, 220, 210, 0.12);
-  --mint-text: #e0e4e0;
-  --mint-muted: #8a9490;
-  --mint-accent: #14b8a6;
-  --mint-accent-soft: rgba(20, 184, 166, 0.25);
-  --mint-code-bg: rgba(30, 40, 38, 0.5);
-  --bg-gradient-warm: #1e2a1e;
-  --bg-gradient-cool: #162028;
-  --grain-dot: rgba(200, 220, 210, 0.04);
+  --mint-bg: #050814;
+  --mint-bg-alt: #02040a;
+  --mint-panel: rgba(10, 20, 40, 0.6);
+  --mint-panel-alt: rgba(15, 27, 54, 0.8);
+  --mint-border: rgba(59, 130, 246, 0.16);
+  --mint-text: #f1f5f9;
+  --mint-muted: #94a3b8;
+  --mint-accent: #0082ff;
+  --mint-accent-soft: rgba(0, 130, 255, 0.12);
+  --mint-code-bg: rgba(10, 20, 40, 0.5);
+  --bg-gradient-warm: rgba(0, 130, 255, 0.15);
+  --bg-gradient-cool: rgba(0, 220, 255, 0.12);
+  --grain-dot: rgba(59, 130, 246, 0.04);
 
   --md-default-bg-color: transparent;
   --md-default-fg-color: var(--mint-text);
@@ -90,8 +91,9 @@ body,
 
 .md-typeset h1,
 .md-typeset h2 {
-  font-family: "Fraunces", serif;
-  line-height: 1.03;
+  font-family: "Space Grotesk", sans-serif;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
 .md-typeset h3,
@@ -283,10 +285,11 @@ body,
 
 .lw-kicker,
 .mint-kicker {
+  font-family: "IBM Plex Mono", monospace;
   margin: 0;
   text-transform: uppercase;
   font-size: 0.8rem;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--mint-accent);
   font-weight: 700;
 }
