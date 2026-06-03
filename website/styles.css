@@ -1,21 +1,21 @@
 :root {
-  --bg: #f5f2e8;
-  --bg-alt: #efe7d8;
-  --text: #1d2b28;
-  --muted: #44524c;
-  --surface: rgba(255, 255, 255, 0.68);
-  --surface-strong: rgba(255, 255, 255, 0.86);
-  --line: rgba(24, 48, 42, 0.15);
-  --brand: #0f766e;
-  --brand-strong: #0a4f4a;
-  --accent: #d96a28;
-  --shadow: 0 22px 55px rgba(15, 56, 44, 0.14);
+  --bg: #f8fafc;
+  --bg-alt: #f1f5f9;
+  --text: #0f172a;
+  --muted: #475569;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-strong: rgba(255, 255, 255, 0.88);
+  --line: rgba(59, 130, 246, 0.1);
+  --brand: #2563eb;
+  --brand-strong: #1d4ed8;
+  --accent: #2563eb;
+  --shadow: 0 22px 55px rgba(37, 99, 235, 0.1);
   --radius: 20px;
-  --bg-gradient-warm: #fff5da;
-  --bg-gradient-cool: #d9efe8;
-  --grain-dot: rgba(36, 44, 40, 0.08);
-  --orb-one: #a4d8cf;
-  --orb-two: #f1c49f;
+  --bg-gradient-warm: #e0f2fe;
+  --bg-gradient-cool: #dbeafe;
+  --grain-dot: rgba(148, 163, 184, 0.05);
+  --orb-one: rgba(37, 99, 235, 0.2);
+  --orb-two: rgba(0, 130, 255, 0.15);
   --chip-bg: #fff;
   --btn-on-brand: #fff;
   --btn-secondary-bg: rgba(255, 255, 255, 0.7);
@@ -24,27 +24,27 @@
 }
 
 [data-theme="dark"] {
-  --bg: #141a1e;
-  --bg-alt: #1a2228;
-  --text: #e0e4e0;
-  --muted: #8a9490;
-  --surface: rgba(30, 40, 38, 0.68);
-  --surface-strong: rgba(30, 40, 38, 0.86);
-  --line: rgba(200, 220, 210, 0.12);
-  --brand: #14b8a6;
-  --brand-strong: #0d9488;
-  --accent: #f59e0b;
+  --bg: #050814;
+  --bg-alt: #02040a;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --surface: rgba(10, 20, 40, 0.6);
+  --surface-strong: rgba(15, 27, 54, 0.8);
+  --line: rgba(59, 130, 246, 0.16);
+  --brand: #0082ff;
+  --brand-strong: #0066cc;
+  --accent: #0082ff;
   --shadow: 0 22px 55px rgba(0, 0, 0, 0.3);
-  --bg-gradient-warm: #1e2a1e;
-  --bg-gradient-cool: #162028;
-  --grain-dot: rgba(200, 220, 210, 0.04);
-  --orb-one: rgba(20, 184, 166, 0.25);
-  --orb-two: rgba(245, 158, 11, 0.18);
-  --chip-bg: rgba(30, 40, 38, 0.7);
+  --bg-gradient-warm: rgba(0, 130, 255, 0.15);
+  --bg-gradient-cool: rgba(0, 220, 255, 0.12);
+  --grain-dot: rgba(59, 130, 246, 0.04);
+  --orb-one: rgba(0, 130, 255, 0.25);
+  --orb-two: rgba(0, 220, 255, 0.18);
+  --chip-bg: rgba(10, 20, 40, 0.7);
   --btn-on-brand: #fff;
-  --btn-secondary-bg: rgba(30, 40, 38, 0.6);
+  --btn-secondary-bg: rgba(10, 20, 40, 0.6);
   --lightbox-bg: rgba(0, 0, 0, 0.9);
-  --lightbox-close: #e0e4e0;
+  --lightbox-close: #f1f5f9;
 }
 
 *,
@@ -137,7 +137,7 @@ body {
   display: inline-block;
   object-fit: cover;
   border: 1px solid var(--line);
-  box-shadow: 0 6px 14px rgba(13, 40, 33, 0.2);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.15);
 }
 
 .brand-text {
@@ -191,8 +191,9 @@ section {
 h1,
 h2 {
   margin: 0.6rem 0 0;
-  font-family: "Fraunces", serif;
-  line-height: 1.03;
+  font-family: "Space Grotesk", sans-serif;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
 h1 {
@@ -220,7 +221,7 @@ h2 {
   object-fit: cover;
   border-radius: 18px;
   border: 1px solid var(--line);
-  box-shadow: 0 12px 28px rgba(12, 58, 45, 0.22);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.18);
 }
 
 .hero-actions {
@@ -249,7 +250,7 @@ h2 {
 }
 
 .btn-primary:hover {
-  box-shadow: 0 10px 26px rgba(15, 118, 110, 0.26);
+  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.35);
 }
 
 .btn-secondary {
@@ -763,7 +764,7 @@ details pre {
 .feature-card[role="button"]:hover,
 .feature-card[role="button"]:focus-visible {
   transform: translateY(-4px);
-  box-shadow: 0 16px 40px rgba(15, 56, 44, 0.12);
+  box-shadow: 0 16px 40px rgba(37, 99, 235, 0.15);
   border-color: var(--brand);
   outline: none;
 }
