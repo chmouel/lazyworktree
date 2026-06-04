@@ -91,12 +91,12 @@ max_diff_chars: 200000
 #   git_pager: ""         # disables formatting
 #
 # If git_pager is delta and git_pager_args is omitted, lazyworktree automatically
-# selects a --syntax-theme matching your UI theme.
+# selects a --syntax-theme matching the final UI theme, including CLI overrides.
 git_pager: delta
 
 # Extra arguments passed to git_pager.
 # If you omit this setting and git_pager is delta, lazyworktree selects a syntax
-# theme matching your UI theme (e.g., Dracula for dark themes).
+# theme matching the final UI theme (e.g., Dracula for dark themes).
 git_pager_args:
   - --syntax-theme
   - Dracula

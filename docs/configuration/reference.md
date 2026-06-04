@@ -23,7 +23,7 @@ This page is generated from `internal/config/config.go`. Run `make docs-sync` af
 | `max_untracked_diffs` | `int` | `10` | Limit number of untracked file diffs rendered. |
 | `max_diff_chars` | `int` | `200000` | Maximum characters read from diff output. |
 | `git_pager` | `string` | `delta` | Diff formatter/pager command. |
-| `git_pager_args` | `[]string` | `auto-matched delta syntax theme` | Extra arguments passed to configured git pager. |
+| `git_pager_args` | `[]string` | `auto-matched delta syntax theme` | Extra arguments passed to configured git pager. Omit with delta to auto-match the final UI theme. |
 | `delta_path` | `string (legacy)` | `none` | Legacy alias for git_pager. |
 | `delta_args` | `[]string (legacy)` | `none` | Legacy alias for git_pager_args. |
 | `git_pager_interactive` | `bool` | `false` | Use interactive pager mode for terminal-native tools. |

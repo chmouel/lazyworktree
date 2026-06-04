@@ -7,6 +7,7 @@ Configure output viewers for diffs, logs, and file edits.
 - `git_pager`: formatter command (default `delta`)
 - empty `git_pager`: disable formatter
 - `git_pager_args`: formatter arguments
+- omitted `git_pager_args` with `delta`: auto-select syntax theme for the final UI theme, including CLI theme overrides
 
 Optional compatibility flags:
 

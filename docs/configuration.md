@@ -160,7 +160,7 @@ git config --local --get-regexp "^lw\."
 ### Diff, pager, and editor
 
 - `git_pager`: diff formatter (default: `delta`). Empty string disables formatting.
-- `git_pager_args`: arguments for `git_pager`. Auto-selects syntax theme for delta.
+- `git_pager_args`: arguments for `git_pager`. When omitted with `delta`, lazyworktree auto-selects a syntax theme for the final UI theme, including CLI theme overrides.
 - `git_pager_interactive`: set `true` for interactive viewers like `diffnav` or `tig`.
 - `git_pager_command_mode`: set `true` for command-based diff viewers like `lumen` that run their own git commands (for example `lumen diff`).
 - `pager`: pager for output display (default: `$PAGER`, fallback to `less`).

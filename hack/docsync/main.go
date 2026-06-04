@@ -430,7 +430,7 @@ func parseConfigKeys(path string) ([]configKeySpec, error) {
 		"max_untracked_diffs":          "Limit number of untracked file diffs rendered.",
 		"max_diff_chars":               "Maximum characters read from diff output.",
 		"max_name_length":              "Maximum displayed worktree name length.",
-		"git_pager_args":               "Extra arguments passed to configured git pager.",
+		"git_pager_args":               "Extra arguments passed to configured git pager. Omit with delta to auto-match the final UI theme.",
 		"delta_args":                   "Legacy alias for git_pager_args.",
 		"git_pager":                    "Diff formatter/pager command.",
 		"delta_path":                   "Legacy alias for git_pager.",
