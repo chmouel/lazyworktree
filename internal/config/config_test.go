@@ -1788,6 +1788,105 @@ func TestApplyCLIOverridesAcceptsConfiguredCustomTheme(t *testing.T) {
 	assert.Equal(t, []string{"--syntax-theme", "\"Catppuccin Mocha\""}, cfg.GitPagerArgs)
 }
 
+func TestApplyCLIOverridesThemeAndGitPagerReconcileArgs(t *testing.T) {
+	t.Run("clears default delta args when pager becomes non-delta", func(t *testing.T) {
+		cfg := DefaultConfig()
+
+		err := cfg.ApplyCLIOverrides([]string{
+			"lw.theme=nord",
+			"lw.git_pager=diff-so-fancy",
+		})
+		require.NoError(t, err)
+
+		assert.Equal(t, "nord", cfg.Theme)
+		assert.Equal(t, "diff-so-fancy", cfg.GitPager)
+		assert.Nil(t, cfg.GitPagerArgs)
+		assert.False(t, cfg.GitPagerArgsSet)
+	})
+
+	t.Run("sets default delta args when pager becomes delta", func(t *testing.T) {
+		cfg := DefaultConfig()
+		cfg.GitPager = "diff-so-fancy"
+		cfg.GitPagerArgs = nil
+
+		err := cfg.ApplyCLIOverrides([]string{
+			"lw.theme=nord",
+			"lw.git_pager=delta",
+		})
+		require.NoError(t, err)
+
+		assert.Equal(t, "nord", cfg.Theme)
+		assert.Equal(t, "delta", cfg.GitPager)
+		assert.Equal(t, []string{"--syntax-theme", "\"Nord\""}, cfg.GitPagerArgs)
+		assert.False(t, cfg.GitPagerArgsSet)
+	})
+
+	t.Run("keeps explicit pager args", func(t *testing.T) {
+		cfg := DefaultConfig()
+
+		err := cfg.ApplyCLIOverrides([]string{
+			"lw.theme=nord",
+			"lw.git_pager=diff-so-fancy",
+			"lw.git_pager_args=--color always",
+		})
+		require.NoError(t, err)
+
+		assert.Equal(t, "nord", cfg.Theme)
+		assert.Equal(t, "diff-so-fancy", cfg.GitPager)
+		assert.Equal(t, []string{"--color", "always"}, cfg.GitPagerArgs)
+		assert.True(t, cfg.GitPagerArgsSet)
+	})
+}
+
+func TestApplyCLIOverridesDoesNotResetUnspecifiedStringFields(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.WorktreeDir = "/existing/worktrees"
+	cfg.SortMode = "path"
+	cfg.GitPager = "diff-so-fancy"
+	cfg.GitPagerArgs = nil
+	cfg.Pager = "less -R"
+	cfg.CIScriptPager = "bat --plain"
+	cfg.Editor = "vim"
+	cfg.Commit.AutoGenerateCommand = "echo existing"
+	cfg.DebugLog = "/tmp/existing.log"
+	cfg.TrustMode = "always"
+	cfg.MergeMethod = "merge"
+	cfg.BranchNameScript = "branch-script"
+	cfg.WorktreeNoteScript = "note-script"
+	cfg.WorktreeNoteType = NoteTypeSplitted
+	cfg.WorktreeNotesPath = "/tmp/notes.json"
+	cfg.IssueBranchNameTemplate = "custom-issue-{number}"
+	cfg.PRBranchNameTemplate = "custom-pr-{number}"
+	cfg.SessionPrefix = "custom-"
+	cfg.AgentSessionClaudeRoot = "/tmp/claude"
+	cfg.AgentSessionPiRoot = "/tmp/pi"
+
+	err := cfg.ApplyCLIOverrides([]string{"lw.theme=nord"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "nord", cfg.Theme)
+	assert.Equal(t, "/existing/worktrees", cfg.WorktreeDir)
+	assert.Equal(t, "path", cfg.SortMode)
+	assert.Equal(t, "diff-so-fancy", cfg.GitPager)
+	assert.Nil(t, cfg.GitPagerArgs)
+	assert.Equal(t, "less -R", cfg.Pager)
+	assert.Equal(t, "bat --plain", cfg.CIScriptPager)
+	assert.Equal(t, "vim", cfg.Editor)
+	assert.Equal(t, "echo existing", cfg.Commit.AutoGenerateCommand)
+	assert.Equal(t, "/tmp/existing.log", cfg.DebugLog)
+	assert.Equal(t, "always", cfg.TrustMode)
+	assert.Equal(t, "merge", cfg.MergeMethod)
+	assert.Equal(t, "branch-script", cfg.BranchNameScript)
+	assert.Equal(t, "note-script", cfg.WorktreeNoteScript)
+	assert.Equal(t, NoteTypeSplitted, cfg.WorktreeNoteType)
+	assert.Equal(t, "/tmp/notes.json", cfg.WorktreeNotesPath)
+	assert.Equal(t, "custom-issue-{number}", cfg.IssueBranchNameTemplate)
+	assert.Equal(t, "custom-pr-{number}", cfg.PRBranchNameTemplate)
+	assert.Equal(t, "custom-", cfg.SessionPrefix)
+	assert.Equal(t, "/tmp/claude", cfg.AgentSessionClaudeRoot)
+	assert.Equal(t, "/tmp/pi", cfg.AgentSessionPiRoot)
+}
+
 func TestLoadConfigReadsCommitAutoGenerateCommandFromYAML(t *testing.T) {
 	tempDir := t.TempDir()
 	yamlPath := filepath.Join(tempDir, "config.yaml")

@@ -532,70 +532,69 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 		return err
 	}
 
-	// Apply each non-zero/non-empty field from overrideCfg to cfg
-	if overrideCfg.WorktreeDir != "" {
+	// Apply each field only when the matching override was provided.
+	if _, ok := overrideData["worktree_dir"]; ok {
 		cfg.WorktreeDir = overrideCfg.WorktreeDir
 	}
-	if overrideCfg.SortMode != "" {
+	if _, ok := overrideData["sort_mode"]; ok {
 		cfg.SortMode = overrideCfg.SortMode
 	}
 	if themeName, ok := overrideData["theme"].(string); ok {
 		if normalized := NormalizeConfiguredThemeName(themeName, cfg.CustomThemes); normalized != "" {
 			cfg.Theme = normalized
-			if !cfg.GitPagerArgsSet && filepath.Base(cfg.GitPager) == "delta" {
-				cfg.GitPagerArgs = DefaultDeltaArgsForConfiguredTheme(normalized, cfg.CustomThemes)
-			}
 		}
 	}
-	if overrideCfg.GitPager != "" {
+	if _, ok := overrideData["git_pager"]; ok {
+		cfg.GitPager = overrideCfg.GitPager
+	} else if _, ok := overrideData["delta_path"]; ok {
 		cfg.GitPager = overrideCfg.GitPager
 	}
-	if overrideCfg.Pager != "" {
+	if _, ok := overrideData["pager"]; ok {
 		cfg.Pager = overrideCfg.Pager
 	}
-	if overrideCfg.CIScriptPager != "" {
+	if _, ok := overrideData["ci_script_pager"]; ok {
 		cfg.CIScriptPager = overrideCfg.CIScriptPager
 	}
-	if overrideCfg.Editor != "" {
+	if _, ok := overrideData["editor"]; ok {
 		cfg.Editor = overrideCfg.Editor
 	}
-	if overrideCfg.Commit.AutoGenerateCommand != "" {
+	if overrideNestedData(overrideData, "commit", "auto_generate_command") {
 		cfg.Commit.AutoGenerateCommand = overrideCfg.Commit.AutoGenerateCommand
 	}
-	if overrideCfg.DebugLog != "" {
+	if _, ok := overrideData["debug_log"]; ok {
 		cfg.DebugLog = overrideCfg.DebugLog
 	}
-	if overrideCfg.TrustMode != "" {
+	if _, ok := overrideData["trust_mode"]; ok {
 		cfg.TrustMode = overrideCfg.TrustMode
 	}
-	if overrideCfg.MergeMethod != "" {
+	if _, ok := overrideData["merge_method"]; ok {
 		cfg.MergeMethod = overrideCfg.MergeMethod
 	}
-	if overrideCfg.BranchNameScript != "" {
+	if _, ok := overrideData["branch_name_script"]; ok {
 		cfg.BranchNameScript = overrideCfg.BranchNameScript
 	}
-	if overrideCfg.WorktreeNoteScript != "" {
+	if _, ok := overrideData["worktree_note_script"]; ok {
 		cfg.WorktreeNoteScript = overrideCfg.WorktreeNoteScript
 	}
-	if overrideCfg.WorktreeNoteType != "" {
+	if _, ok := overrideData["worktree_note_type"]; ok {
 		cfg.WorktreeNoteType = overrideCfg.WorktreeNoteType
 	}
-	if overrideCfg.WorktreeNotesPath != "" {
+	if _, ok := overrideData["worktree_notes_path"]; ok {
 		cfg.WorktreeNotesPath = overrideCfg.WorktreeNotesPath
 	}
-	if overrideCfg.IssueBranchNameTemplate != "" {
+	if _, ok := overrideData["issue_branch_name_template"]; ok {
 		cfg.IssueBranchNameTemplate = overrideCfg.IssueBranchNameTemplate
 	}
-	if overrideCfg.PRBranchNameTemplate != "" {
+	if _, ok := overrideData["pr_branch_name_template"]; ok {
 		cfg.PRBranchNameTemplate = overrideCfg.PRBranchNameTemplate
 	}
-	if overrideCfg.SessionPrefix != "" {
+	if _, ok := overrideData["session_prefix"]; ok {
 		cfg.SessionPrefix = overrideCfg.SessionPrefix
 	}
-	if overrideCfg.AgentSessionClaudeRoot != "" {
+	if overrideNestedData(overrideData, "agent_sessions", "claude_root") {
 		cfg.AgentSessionClaudeRoot = overrideCfg.AgentSessionClaudeRoot
 	}
-	if overrideCfg.AgentSessionPiRoot != "" {
+	if overrideNestedData(overrideData, "agent_sessions", "pi_root") {
 		cfg.AgentSessionPiRoot = overrideCfg.AgentSessionPiRoot
 	}
 
@@ -607,6 +606,9 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 		cfg.TerminateCommands = overrideCfg.TerminateCommands
 	}
 	if _, ok := overrideData["git_pager_args"]; ok {
+		cfg.GitPagerArgs = overrideCfg.GitPagerArgs
+		cfg.GitPagerArgsSet = true
+	} else if _, ok := overrideData["delta_args"]; ok {
 		cfg.GitPagerArgs = overrideCfg.GitPagerArgs
 		cfg.GitPagerArgsSet = true
 	}
@@ -686,7 +688,24 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 		}
 	}
 
+	if !cfg.GitPagerArgsSet {
+		if filepath.Base(cfg.GitPager) == "delta" {
+			cfg.GitPagerArgs = DefaultDeltaArgsForConfiguredTheme(cfg.Theme, cfg.CustomThemes)
+		} else {
+			cfg.GitPagerArgs = nil
+		}
+	}
+
 	return nil
+}
+
+func overrideNestedData(data map[string]any, parent, key string) bool {
+	nested, ok := data[parent].(map[string]any)
+	if !ok {
+		return false
+	}
+	_, ok = nested[key]
+	return ok
 }
 
 // mergeMaps merges src map into dst map, with src values taking precedence.
