@@ -1785,6 +1785,7 @@ func TestApplyCLIOverridesAcceptsConfiguredCustomTheme(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "catppuccin-frappe", cfg.Theme)
+	assert.Equal(t, []string{"--syntax-theme", "\"Catppuccin Mocha\""}, cfg.GitPagerArgs)
 }
 
 func TestLoadConfigReadsCommitAutoGenerateCommandFromYAML(t *testing.T) {

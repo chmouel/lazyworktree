@@ -542,6 +542,9 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	if themeName, ok := overrideData["theme"].(string); ok {
 		if normalized := NormalizeConfiguredThemeName(themeName, cfg.CustomThemes); normalized != "" {
 			cfg.Theme = normalized
+			if !cfg.GitPagerArgsSet && filepath.Base(cfg.GitPager) == "delta" {
+				cfg.GitPagerArgs = DefaultDeltaArgsForConfiguredTheme(normalized, cfg.CustomThemes)
+			}
 		}
 	}
 	if overrideCfg.GitPager != "" {
