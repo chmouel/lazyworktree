@@ -281,21 +281,6 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 		}
 	}
 
-	if themeName, ok := data["theme"].(string); ok {
-		if normalized := NormalizeThemeName(themeName); normalized != "" {
-			cfg.Theme = normalized
-		}
-	}
-
-	if !cfg.GitPagerArgsSet {
-		if filepath.Base(cfg.GitPager) == "delta" {
-			cfg.GitPagerArgs = DefaultDeltaArgsForTheme(cfg.Theme)
-		} else {
-			// Clear delta args inherited from DefaultConfig when using non-delta pager
-			cfg.GitPagerArgs = nil
-		}
-	}
-
 	cfg.GitPagerInteractive = coerceBool(data["git_pager_interactive"], false)
 	cfg.GitPagerCommandMode = coerceBool(data["git_pager_command_mode"], false)
 
@@ -414,6 +399,21 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 
 	if _, ok := data["custom_themes"]; ok {
 		cfg.CustomThemes = parseCustomThemes(data)
+	}
+
+	if themeName, ok := data["theme"].(string); ok {
+		if normalized := NormalizeConfiguredThemeName(themeName, cfg.CustomThemes); normalized != "" {
+			cfg.Theme = normalized
+		}
+	}
+
+	if !cfg.GitPagerArgsSet {
+		if filepath.Base(cfg.GitPager) == "delta" {
+			cfg.GitPagerArgs = DefaultDeltaArgsForConfiguredTheme(cfg.Theme, cfg.CustomThemes)
+		} else {
+			// Clear delta args inherited from DefaultConfig when using non-delta pager
+			cfg.GitPagerArgs = nil
+		}
 	}
 
 	if _, ok := data["layout_sizes"]; ok {
@@ -539,8 +539,10 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	if overrideCfg.SortMode != "" {
 		cfg.SortMode = overrideCfg.SortMode
 	}
-	if overrideCfg.Theme != "" {
-		cfg.Theme = overrideCfg.Theme
+	if themeName, ok := overrideData["theme"].(string); ok {
+		if normalized := NormalizeConfiguredThemeName(themeName, cfg.CustomThemes); normalized != "" {
+			cfg.Theme = normalized
+		}
 	}
 	if overrideCfg.GitPager != "" {
 		cfg.GitPager = overrideCfg.GitPager
@@ -759,7 +761,7 @@ func LoadConfig(configPath string) (*AppConfig, error) {
 
 		if !cfg.GitPagerArgsSet {
 			if filepath.Base(cfg.GitPager) == "delta" {
-				cfg.GitPagerArgs = DefaultDeltaArgsForTheme(cfg.Theme)
+				cfg.GitPagerArgs = DefaultDeltaArgsForConfiguredTheme(cfg.Theme, cfg.CustomThemes)
 			} else {
 				cfg.GitPagerArgs = nil
 			}

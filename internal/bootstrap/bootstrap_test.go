@@ -249,6 +249,29 @@ func TestApplyThemeConfig(t *testing.T) {
 	}
 }
 
+func TestApplyThemeConfigAcceptsConfiguredCustomTheme(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.GitPager = "delta"
+	cfg.CustomThemes = map[string]*config.CustomTheme{
+		"catppuccin-frappe": {
+			Base:   "catppuccin-mocha",
+			Accent: "#FF6B9D",
+		},
+	}
+
+	err := applyThemeConfig(cfg, "catppuccin-frappe")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.Theme != "catppuccin-frappe" {
+		t.Fatalf("expected custom theme, got %q", cfg.Theme)
+	}
+	if got, want := strings.Join(cfg.GitPagerArgs, " "), "--syntax-theme \"Catppuccin Mocha\""; got != want {
+		t.Fatalf("expected custom theme to inherit delta args %q, got %q", want, got)
+	}
+}
+
 func TestLoadCLIConfig(t *testing.T) {
 	t.Run("load default config", func(t *testing.T) {
 		cfg, err := loadCLIConfig("", "", nil)

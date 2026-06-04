@@ -1572,6 +1572,32 @@ func TestLoadConfigWithCustomPath(t *testing.T) {
 	assert.Equal(t, customConfigPath, cfg.ConfigPath)
 }
 
+func TestLoadConfigWithCustomThemeDefault(t *testing.T) {
+	defer func() { gitConfigMock = nil }()
+	gitConfigMock = func(args []string, repoPath string) (string, error) {
+		return "", nil
+	}
+
+	tempDir := t.TempDir()
+	customConfigPath := filepath.Join(tempDir, "custom-theme.yaml")
+	customConfigContent := `theme: catppuccin-frappe
+custom_themes:
+  catppuccin-frappe:
+    base: catppuccin-mocha
+    accent: "#FF6B9D"
+`
+	err := os.WriteFile(customConfigPath, []byte(customConfigContent), 0o600)
+	require.NoError(t, err)
+
+	cfg, err := LoadConfig(customConfigPath)
+	require.NoError(t, err)
+
+	assert.Equal(t, "catppuccin-frappe", cfg.Theme)
+	assert.Contains(t, cfg.CustomThemes, "catppuccin-frappe")
+	assert.Equal(t, []string{"--syntax-theme", "\"Catppuccin Mocha\""}, cfg.GitPagerArgs)
+	assert.Equal(t, customConfigPath, cfg.ConfigPath)
+}
+
 func TestLoadConfigWithCustomPathFromAnywhere(t *testing.T) {
 	// Setup mock to prevent loading real git config from the test repository
 	defer func() { gitConfigMock = nil }()
@@ -1744,6 +1770,21 @@ func TestApplyCLIOverrides(t *testing.T) {
 	assert.Equal(t, "echo note", cfg.WorktreeNoteScript)
 	assert.Equal(t, "/tmp/lazyworktree-notes.json", cfg.WorktreeNotesPath)
 	assert.Equal(t, "review-{number}-{generated}", cfg.PRBranchNameTemplate)
+}
+
+func TestApplyCLIOverridesAcceptsConfiguredCustomTheme(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.CustomThemes = map[string]*CustomTheme{
+		"catppuccin-frappe": {
+			Base:   "catppuccin-mocha",
+			Accent: "#FF6B9D",
+		},
+	}
+
+	err := cfg.ApplyCLIOverrides([]string{"lw.theme=catppuccin-frappe"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "catppuccin-frappe", cfg.Theme)
 }
 
 func TestLoadConfigReadsCommitAutoGenerateCommandFromYAML(t *testing.T) {

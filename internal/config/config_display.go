@@ -340,11 +340,65 @@ func DefaultDeltaArgsForTheme(themeName string) []string {
 	}
 }
 
+// DefaultDeltaArgsForConfiguredTheme returns the default delta arguments for a
+// built-in theme, or for the built-in base of a custom theme.
+func DefaultDeltaArgsForConfiguredTheme(themeName string, customThemes map[string]*CustomTheme) []string {
+	normalized := NormalizeThemeName(themeName)
+	if normalized != "" {
+		return DefaultDeltaArgsForTheme(normalized)
+	}
+
+	customName := NormalizeConfiguredThemeName(themeName, customThemes)
+	if customName == "" {
+		return DefaultDeltaArgsForTheme(themeName)
+	}
+
+	visited := make(map[string]bool)
+	for {
+		if visited[customName] {
+			return DefaultDeltaArgsForTheme(themeName)
+		}
+		visited[customName] = true
+
+		customTheme, ok := customThemes[customName]
+		if !ok || customTheme == nil {
+			return DefaultDeltaArgsForTheme(themeName)
+		}
+
+		baseName := NormalizeThemeName(customTheme.Base)
+		if baseName != "" {
+			return DefaultDeltaArgsForTheme(baseName)
+		}
+
+		nextCustomName := NormalizeConfiguredThemeName(customTheme.Base, customThemes)
+		if nextCustomName == "" {
+			return DefaultDeltaArgsForTheme(themeName)
+		}
+		customName = nextCustomName
+	}
+}
+
 // NormalizeThemeName returns the normalized theme name if valid, otherwise empty string.
 func NormalizeThemeName(name string) string {
 	name = strings.ToLower(strings.TrimSpace(name))
 	switch name {
 	case "dracula", "dracula-light", "narna", "clean-light", "catppuccin-latte", "rose-pine-dawn", "one-light", "everforest-light", "solarized-dark", "solarized-light", "gruvbox-dark", "gruvbox-light", "nord", "monokai", "catppuccin-mocha", "modern", "tokyo-night", "one-dark", "rose-pine", "ayu-mirage", "everforest-dark", "kanagawa":
+		return name
+	}
+	return ""
+}
+
+// NormalizeConfiguredThemeName returns the normalized theme name if it is a
+// built-in theme or one of the configured custom themes.
+func NormalizeConfiguredThemeName(name string, customThemes map[string]*CustomTheme) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return ""
+	}
+	if normalized := NormalizeThemeName(name); normalized != "" {
+		return normalized
+	}
+	if _, ok := customThemes[name]; ok {
 		return name
 	}
 	return ""

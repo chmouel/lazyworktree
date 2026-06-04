@@ -294,14 +294,14 @@ func applyThemeConfig(cfg *config.AppConfig, themeName string) error {
 		return nil
 	}
 
-	normalized := config.NormalizeThemeName(themeName)
+	normalized := config.NormalizeConfiguredThemeName(themeName, cfg.CustomThemes)
 	if normalized == "" {
 		return fmt.Errorf("unknown theme %q", themeName)
 	}
 
 	cfg.Theme = normalized
 	if !cfg.GitPagerArgsSet && filepath.Base(cfg.GitPager) == "delta" {
-		cfg.GitPagerArgs = config.DefaultDeltaArgsForTheme(normalized)
+		cfg.GitPagerArgs = config.DefaultDeltaArgsForConfiguredTheme(normalized, cfg.CustomThemes)
 	}
 
 	return nil
