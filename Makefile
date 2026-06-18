@@ -13,7 +13,7 @@ build: mkdir
 sanity: lint format test docs-sync
 
 lint:
-	golangci-lint run --fix $(GO_PACKAGES)
+	golangci-lint run --fix ./...
 
 format:
 	gofumpt -w .
