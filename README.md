@@ -9,8 +9,6 @@ Work across multiple Git worktrees from one interface. Create, switch, remove, a
 
 Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), it shows worktree state and integrates with development tools, including tmux, zellij, and OCI runtimes such as Docker or Podman.
 
-Custom commands can be bound to keys or made available only from the command palette. To hide a command from key binding, prefix its config key with `_`.
-
 ## Screenshot
 
 ![lazyworktree screenshot](./website/assets/screenshot-main.png)
