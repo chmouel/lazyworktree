@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/utils"
@@ -120,7 +121,7 @@ func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath s
 		}
 		sort.Strings(cfgKeys)
 		for _, k := range cfgKeys {
-			args = append(args, "-e", k+"="+cfg.Env[k])
+			args = append(args, "-e", k+"="+services.ExpandWithEnv(cfg.Env[k], env))
 		}
 	}
 

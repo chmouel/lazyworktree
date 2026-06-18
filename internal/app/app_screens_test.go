@@ -234,6 +234,46 @@ func TestShowCommandPaletteIncludesPaletteOnlyCustomCommands(t *testing.T) {
 	t.Fatal("palette-only custom command item not found in command palette")
 }
 
+func TestShowCommandPaletteIncludesPaletteOnlyContainerCommand(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
+			"_shell": {
+				Description: "Container shell",
+				Container: &config.ContainerCommand{
+					Image: "alpine",
+				},
+			},
+		}},
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	cmd := m.showCommandPalette()
+	if cmd == nil {
+		t.Fatal("showCommandPalette returned nil command")
+	}
+	if !m.state.ui.screenManager.IsActive() || m.state.ui.screenManager.Type() != appscreen.TypePalette {
+		t.Fatal("expected command palette screen")
+	}
+
+	paletteScreen := m.state.ui.screenManager.Current().(*appscreen.CommandPaletteScreen)
+	for _, item := range paletteScreen.Items {
+		if item.ID != "_shell" {
+			continue
+		}
+		if item.Label != "Container shell" {
+			t.Fatalf("expected label %q, got %q", "Container shell", item.Label)
+		}
+		if item.Description != customCommandPlaceholder {
+			t.Fatalf("expected description %q, got %q", customCommandPlaceholder, item.Description)
+		}
+		return
+	}
+
+	t.Fatal("palette-only container command item not found in command palette")
+}
+
 func TestShowCommandPaletteIncludesTmuxCommands(t *testing.T) {
 	// Skip this test if tmux is not available
 	if _, err := exec.LookPath("tmux"); err != nil {

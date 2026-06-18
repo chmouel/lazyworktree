@@ -118,6 +118,17 @@ func TestBuildContainerCommand(t *testing.T) {
 			wantContains: []string{"NODE_ENV=test"},
 		},
 		{
+			name: "container env vars expand configured values",
+			cfg: &config.ContainerCommand{
+				Image: "alpine", Runtime: "echo",
+				Env: map[string]string{"TASK_PATH": "${WORKTREE_PATH}/task"},
+			},
+			command:      "npm test",
+			worktreePath: "/wt",
+			env:          map[string]string{"WORKTREE_PATH": "/host/wt"},
+			wantContains: []string{"TASK_PATH=/host/wt/task"},
+		},
+		{
 			name: "extra args pass-through",
 			cfg: &config.ContainerCommand{
 				Image: "alpine", Runtime: "echo",

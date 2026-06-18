@@ -357,7 +357,7 @@ func (m *Model) customCommandKeys() []string {
 		if cmd == nil {
 			continue
 		}
-		if strings.TrimSpace(cmd.Command) == "" && cmd.Tmux == nil && cmd.Zellij == nil {
+		if strings.TrimSpace(cmd.Command) == "" && cmd.Tmux == nil && cmd.Zellij == nil && cmd.Container == nil {
 			continue
 		}
 		keys = append(keys, key)
