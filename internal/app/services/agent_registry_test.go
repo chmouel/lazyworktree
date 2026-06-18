@@ -36,8 +36,8 @@ func TestSessionRegistryStoreRoundTrip(t *testing.T) {
 		t.Fatalf("Load returned error: %v", err)
 	}
 
-	got := loaded["claude:/tmp/worktree/session.jsonl"]
-	if got == nil {
+	got, ok := loaded["claude:/tmp/worktree/session.jsonl"]
+	if !ok || got == nil {
 		t.Fatalf("expected stored session to be present, got %#v", loaded)
 	}
 	if got.Title != sessions[0].Title {
