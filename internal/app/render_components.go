@@ -159,7 +159,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 	}
 	footerContent := strings.Join(groupStrs, sep)
 
-	if !m.loading {
+	if !m.loading.active {
 		return footerStyle.Width(layout.width).Render(footerContent)
 	}
 	spinnerView := m.state.ui.spinner.View()

@@ -193,8 +193,8 @@ func TestDoubleClickZoom(t *testing.T) {
 			m.state.view.ZoomedPane = tt.initialZoom
 
 			// Simulate first click by setting tracking fields directly
-			m.lastClickTime = time.Now().Add(-tt.timeBetween)
-			m.lastClickPane = tt.firstPane
+			m.details.lastClickTime = time.Now().Add(-tt.timeBetween)
+			m.details.lastClickPane = tt.firstPane
 
 			// Build a click message targeting the second pane
 			msg := tea.MouseClickMsg{

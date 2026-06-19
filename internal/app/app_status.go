@@ -248,16 +248,16 @@ func (m *Model) restyleLogRows() {
 	}
 
 	if len(rows) == 0 || len(m.state.data.logEntries) == 0 {
-		m.lastLogCursor = -1
+		m.details.lastLog = -1
 		return
 	}
 
-	if cursor == m.lastLogCursor {
+	if cursor == m.details.lastLog {
 		return
 	}
 
 	changed := false
-	previous := m.lastLogCursor
+	previous := m.details.lastLog
 
 	// Restore styling on the old cursor row (it is no longer selected).
 	if previous >= 0 && previous < len(rows) && previous < len(m.state.data.logEntries) {
@@ -280,7 +280,7 @@ func (m *Model) restyleLogRows() {
 	if changed {
 		m.state.ui.logTable.SetRows(rows)
 	}
-	m.lastLogCursor = cursor
+	m.details.lastLog = cursor
 }
 
 func (m *Model) applyLogFilter(reset bool) {
@@ -333,7 +333,7 @@ func (m *Model) applyLogFilter(reset bool) {
 		for i, entry := range m.state.data.logEntries {
 			if entry.sha == selectedSHA {
 				m.state.ui.logTable.SetCursor(i)
-				m.lastLogCursor = targetCursor
+				m.details.lastLog = targetCursor
 				return
 			}
 		}
@@ -345,7 +345,7 @@ func (m *Model) applyLogFilter(reset bool) {
 	} else {
 		m.state.ui.logTable.SetCursor(0)
 	}
-	m.lastLogCursor = targetCursor
+	m.details.lastLog = targetCursor
 }
 
 func (m *Model) getDetailsCache(cacheKey string) (*detailsCacheEntry, bool) {

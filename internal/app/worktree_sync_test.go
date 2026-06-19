@@ -46,7 +46,7 @@ func TestPushToUpstreamRunsGitPush(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if !m.loading {
+	if !m.loading.active {
 		t.Fatal("expected loading to be true")
 	}
 	if m.state.ui.screenManager.Type() != appscreen.TypeLoading {
@@ -167,7 +167,7 @@ func TestPushToUpstreamPromptsForUpstream(t *testing.T) {
 	if pushCmd == nil {
 		t.Fatal("expected push command to be returned")
 	}
-	if !m.loading {
+	if !m.loading.active {
 		t.Fatal("expected loading to be true")
 	}
 	if m.state.ui.screenManager.Type() != appscreen.TypeLoading {
@@ -322,7 +322,7 @@ func TestSyncWithUpstreamRunsPullThenPush(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if !m.loading {
+	if !m.loading.active {
 		t.Fatal("expected loading to be true")
 	}
 	if m.state.ui.screenManager.Type() != appscreen.TypeLoading {
@@ -456,7 +456,7 @@ func TestSyncWithUpstreamPromptsForUpstream(t *testing.T) {
 	if syncCmd == nil {
 		t.Fatal("expected sync command to be returned")
 	}
-	if !m.loading {
+	if !m.loading.active {
 		t.Fatal("expected loading to be true")
 	}
 	if m.state.ui.screenManager.Type() != appscreen.TypeLoading {

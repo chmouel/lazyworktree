@@ -367,7 +367,7 @@ func (m *Model) handleCreateFromCurrentReady(msg createFromCurrentReadyMsg) tea.
 		m.createFromCurrent.inputScreen = nil
 
 		// Set pending selection so the new worktree is selected after creation
-		m.pendingSelectWorktreePath = targetPath
+		m.pendingOp.selectPath = targetPath
 
 		// Only attempt to move changes if checkbox is checked AND there are actual changes
 		// This prevents accidentally applying an unrelated existing stash when workspace is clean
@@ -703,12 +703,12 @@ func (m *Model) showPruneMerged() tea.Cmd {
 		return m.performMergedWorktreeCheck()
 	}
 
-	m.checkMergedAfterPRRefresh = true
+	m.loading.checkMergedAfterPR = true
 	m.cache.ciCache.Clear()
-	m.prDataLoaded = false
+	m.loading.prDataLoaded = false
 	m.updateTable()
 	m.updateTableColumns(m.state.ui.worktreeTable.Width())
-	m.loading = true
+	m.loading.active = true
 	m.setLoadingScreen("Fetching PR data...")
 	return m.fetchPRData()
 }

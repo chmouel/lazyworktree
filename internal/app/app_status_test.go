@@ -270,7 +270,7 @@ func TestApplyLogFilterUnfocusedKeepsAllStyled(t *testing.T) {
 	require.Len(t, rows, 3)
 
 	// lastLogCursor should be -1 when unfocused so focusing triggers restyle
-	assert.Equal(t, -1, m.lastLogCursor)
+	assert.Equal(t, -1, m.details.lastLog)
 
 	// When unfocused, all unpushed/unmerged rows keep WarnFg styling (no row stripped)
 	for _, cell := range rows[1] {
@@ -297,7 +297,7 @@ func TestRestyleLogRowsSwapsStyling(t *testing.T) {
 	// After reset, cursor is at 0 (pushed commit). Row 1 and 2 are unpushed with styling.
 	rows := m.state.ui.logTable.Rows()
 	require.Len(t, rows, 3)
-	assert.Equal(t, 0, m.lastLogCursor)
+	assert.Equal(t, 0, m.details.lastLog)
 
 	// Row 1 (unpushed, not cursor) should have ANSI codes
 	for _, cell := range rows[1] {

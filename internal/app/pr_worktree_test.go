@@ -20,7 +20,7 @@ func TestCreateFromPRResultMsgSuccess(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
-	m.loading = true
+	m.loading.active = true
 	m.setLoadingScreen("Creating worktree...")
 
 	targetPath := filepath.Join(cfg.WorktreeDir, "pr-123")
@@ -34,7 +34,7 @@ func TestCreateFromPRResultMsgSuccess(t *testing.T) {
 	_, cmd := m.Update(msg)
 
 	// Should clear loading state
-	if m.loading {
+	if m.loading.active {
 		t.Error("Expected loading to be false after successful creation")
 	}
 	if m.state.ui.screenManager.Type() == appscreen.TypeLoading {
@@ -60,9 +60,9 @@ func TestCreateFromPRResultMsgError(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
-	m.loading = true
+	m.loading.active = true
 	m.setLoadingScreen("Creating worktree...")
-	m.pendingSelectWorktreePath = "/some/path"
+	m.pendingOp.selectPath = "/some/path"
 
 	msg := createFromPRResultMsg{
 		prNumber:   456,
@@ -74,7 +74,7 @@ func TestCreateFromPRResultMsgError(t *testing.T) {
 	_, cmd := m.Update(msg)
 
 	// Should clear loading state
-	if m.loading {
+	if m.loading.active {
 		t.Error("Expected loading to be false after error")
 	}
 	if m.state.ui.screenManager.Type() == appscreen.TypeLoading {
@@ -82,8 +82,8 @@ func TestCreateFromPRResultMsgError(t *testing.T) {
 	}
 
 	// Should clear pending selection on error
-	if m.pendingSelectWorktreePath != "" {
-		t.Errorf("Expected pendingSelectWorktreePath to be cleared, got %q", m.pendingSelectWorktreePath)
+	if m.pendingOp.selectPath != "" {
+		t.Errorf("Expected pendingSelectWorktreePath to be cleared, got %q", m.pendingOp.selectPath)
 	}
 
 	// Should not return a command on error
@@ -111,7 +111,7 @@ func TestCreateFromPRResultMsgSuccessSavesGeneratedNote(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.repoKey = "test/repo"
 	m.setWindowSize(120, 40)
-	m.loading = true
+	m.loading.active = true
 	m.setLoadingScreen("Creating worktree...")
 
 	targetPath := filepath.Join(cfg.WorktreeDir, "pr-123")
@@ -140,7 +140,7 @@ func TestCreateFromIssueResultMsgSuccessSavesGeneratedNote(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.repoKey = "test/repo"
 	m.setWindowSize(120, 40)
-	m.loading = true
+	m.loading.active = true
 	m.setLoadingScreen("Creating worktree...")
 
 	targetPath := filepath.Join(cfg.WorktreeDir, "issue-123")
@@ -241,7 +241,7 @@ func TestHandleWorktreesLoadedSelectsPendingPath(t *testing.T) {
 	}
 
 	// Set pending selection to the PR worktree
-	m.pendingSelectWorktreePath = wt3Path
+	m.pendingOp.selectPath = wt3Path
 
 	msg := worktreesLoadedMsg{
 		worktrees: worktrees,
@@ -261,8 +261,8 @@ func TestHandleWorktreesLoadedSelectsPendingPath(t *testing.T) {
 	}
 
 	// Should clear pending selection after applying it
-	if m.pendingSelectWorktreePath != "" {
-		t.Errorf("Expected pendingSelectWorktreePath to be cleared, got %q", m.pendingSelectWorktreePath)
+	if m.pendingOp.selectPath != "" {
+		t.Errorf("Expected pendingSelectWorktreePath to be cleared, got %q", m.pendingOp.selectPath)
 	}
 }
 
@@ -289,9 +289,9 @@ func TestHandleWorktreesLoadedAssignsPendingPR(t *testing.T) {
 		Branch: "pr-branch",
 		Author: "alice",
 	}
-	m.pendingSelectWorktreePath = wt2Path
-	m.pendingPR = pr
-	m.pendingPRPath = wt2Path
+	m.pendingOp.selectPath = wt2Path
+	m.pendingOp.pr = pr
+	m.pendingOp.prPath = wt2Path
 
 	msg := worktreesLoadedMsg{worktrees: worktrees, err: nil}
 	_, _ = m.handleWorktreesLoaded(msg)
@@ -321,14 +321,14 @@ func TestHandleWorktreesLoadedAssignsPendingPR(t *testing.T) {
 	}
 
 	// prDataLoaded should be true and pending PR state should be cleared
-	if !m.prDataLoaded {
+	if !m.loading.prDataLoaded {
 		t.Error("Expected prDataLoaded to be true")
 	}
-	if m.pendingPR != nil {
+	if m.pendingOp.pr != nil {
 		t.Error("Expected pendingPR to be cleared")
 	}
-	if m.pendingPRPath != "" {
-		t.Errorf("Expected pendingPRPath to be cleared, got %q", m.pendingPRPath)
+	if m.pendingOp.prPath != "" {
+		t.Errorf("Expected pendingPRPath to be cleared, got %q", m.pendingOp.prPath)
 	}
 }
 
@@ -349,9 +349,9 @@ func TestHandleWorktreesLoadedAssignsPendingPRToOriginalPath(t *testing.T) {
 		{Path: otherPath, Branch: "feature"},
 	}
 
-	m.pendingSelectWorktreePath = otherPath
-	m.pendingPR = &models.PRInfo{Number: 42, Title: "Fix everything", Branch: "pr-branch"}
-	m.pendingPRPath = prPath
+	m.pendingOp.selectPath = otherPath
+	m.pendingOp.pr = &models.PRInfo{Number: 42, Title: "Fix everything", Branch: "pr-branch"}
+	m.pendingOp.prPath = prPath
 
 	_, _ = m.handleWorktreesLoaded(worktreesLoadedMsg{worktrees: worktrees})
 
@@ -376,7 +376,7 @@ func TestHandleWorktreesLoadedAssignsPendingPRToOriginalPath(t *testing.T) {
 	if otherWt.PR != nil {
 		t.Fatal("Expected non-PR worktree to remain without PR metadata")
 	}
-	if m.pendingPR != nil || m.pendingPRPath != "" {
+	if m.pendingOp.pr != nil || m.pendingOp.prPath != "" {
 		t.Fatal("Expected pending PR state to be cleared after assignment")
 	}
 }
@@ -388,9 +388,9 @@ func TestCreateFromPRResultMsgErrorClearsPendingPR(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
-	m.pendingPR = &models.PRInfo{Number: 99, Title: "Test"}
-	m.pendingPRPath = "/some/path"
-	m.pendingSelectWorktreePath = "/some/path"
+	m.pendingOp.pr = &models.PRInfo{Number: 99, Title: "Test"}
+	m.pendingOp.prPath = "/some/path"
+	m.pendingOp.selectPath = "/some/path"
 
 	msg := createFromPRResultMsg{
 		prNumber:   99,
@@ -401,11 +401,11 @@ func TestCreateFromPRResultMsgErrorClearsPendingPR(t *testing.T) {
 
 	_, _ = m.Update(msg)
 
-	if m.pendingPR != nil {
+	if m.pendingOp.pr != nil {
 		t.Error("Expected pendingPR to be cleared on error")
 	}
-	if m.pendingPRPath != "" {
-		t.Errorf("Expected pendingPRPath to be cleared on error, got %q", m.pendingPRPath)
+	if m.pendingOp.prPath != "" {
+		t.Errorf("Expected pendingPRPath to be cleared on error, got %q", m.pendingOp.prPath)
 	}
 }
 
@@ -416,7 +416,7 @@ func TestCreateFromPRResultMsgSuccessSetsPendingPR(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
-	m.loading = true
+	m.loading.active = true
 	m.setLoadingScreen("Creating worktree...")
 
 	pr := &models.PRInfo{Number: 123, Title: "Test PR", Branch: "feature"}
@@ -430,14 +430,14 @@ func TestCreateFromPRResultMsgSuccessSetsPendingPR(t *testing.T) {
 
 	_, _ = m.Update(msg)
 
-	if m.pendingPR == nil {
+	if m.pendingOp.pr == nil {
 		t.Fatal("Expected pendingPR to be set after successful creation")
 	}
-	if m.pendingPR.Number != 123 {
-		t.Errorf("Expected pendingPR number 123, got %d", m.pendingPR.Number)
+	if m.pendingOp.pr.Number != 123 {
+		t.Errorf("Expected pendingPR number 123, got %d", m.pendingOp.pr.Number)
 	}
-	if m.pendingPRPath != targetPath {
-		t.Errorf("Expected pendingPRPath %q, got %q", targetPath, m.pendingPRPath)
+	if m.pendingOp.prPath != targetPath {
+		t.Errorf("Expected pendingPRPath %q, got %q", targetPath, m.pendingOp.prPath)
 	}
 }
 
@@ -458,7 +458,7 @@ func TestHandleWorktreesLoadedPendingPathNotFound(t *testing.T) {
 	}
 
 	// Set pending selection to a path that doesn't exist
-	m.pendingSelectWorktreePath = filepath.Join(cfg.WorktreeDir, "nonexistent")
+	m.pendingOp.selectPath = filepath.Join(cfg.WorktreeDir, "nonexistent")
 
 	msg := worktreesLoadedMsg{
 		worktrees: worktrees,
@@ -468,8 +468,8 @@ func TestHandleWorktreesLoadedPendingPathNotFound(t *testing.T) {
 	_, _ = m.handleWorktreesLoaded(msg)
 
 	// Should still clear pending selection even if not found
-	if m.pendingSelectWorktreePath != "" {
-		t.Errorf("Expected pendingSelectWorktreePath to be cleared, got %q", m.pendingSelectWorktreePath)
+	if m.pendingOp.selectPath != "" {
+		t.Errorf("Expected pendingSelectWorktreePath to be cleared, got %q", m.pendingOp.selectPath)
 	}
 
 	// Selection should remain at initial position (0)
@@ -607,13 +607,13 @@ func TestHandleOpenPRsLoadedCreateUsesPRBranch(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected async creation command")
 	}
-	if !m.loading {
+	if !m.loading.active {
 		t.Fatal("expected loading state to be enabled")
 	}
 
 	expectedPath := filepath.Join(m.getRepoWorktreeDir(), "pr-77-use-pr-branch")
-	if m.pendingSelectWorktreePath != expectedPath {
-		t.Fatalf("expected pending path %q, got %q", expectedPath, m.pendingSelectWorktreePath)
+	if m.pendingOp.selectPath != expectedPath {
+		t.Fatalf("expected pending path %q, got %q", expectedPath, m.pendingOp.selectPath)
 	}
 	if m.state.ui.screenManager.Type() != appscreen.TypeLoading {
 		t.Fatalf("expected loading screen, got %v", m.state.ui.screenManager.Type())
@@ -628,7 +628,7 @@ func TestCreateFromPRResultMsgWithInitCommands(t *testing.T) {
 	}
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
-	m.loading = true
+	m.loading.active = true
 	m.setLoadingScreen("Creating worktree...")
 
 	targetPath := filepath.Join(cfg.WorktreeDir, "pr-555")
@@ -658,7 +658,7 @@ func TestPendingSelectWorktreePathClearedOnError(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.pendingSelectWorktreePath = "/some/pending/path"
+	m.pendingOp.selectPath = "/some/pending/path"
 
 	msg := createFromPRResultMsg{
 		prNumber:   111,
@@ -669,8 +669,8 @@ func TestPendingSelectWorktreePathClearedOnError(t *testing.T) {
 
 	_, _ = m.Update(msg)
 
-	if m.pendingSelectWorktreePath != "" {
-		t.Errorf("Expected pendingSelectWorktreePath to be cleared on error, got %q", m.pendingSelectWorktreePath)
+	if m.pendingOp.selectPath != "" {
+		t.Errorf("Expected pendingSelectWorktreePath to be cleared on error, got %q", m.pendingOp.selectPath)
 	}
 }
 
@@ -777,7 +777,7 @@ func TestCreateFromPRClearsScreenStack(t *testing.T) {
 
 	// Simulate what happens when the user submits the input:
 	// The code should clear the stack, then set the loading screen
-	m.loading = true
+	m.loading.active = true
 	m.statusContent = "Creating worktree from PR/MR #1..."
 	m.state.ui.screenManager.Clear() // This is the fix
 	m.setLoadingScreen(m.statusContent)

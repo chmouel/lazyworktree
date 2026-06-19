@@ -235,7 +235,7 @@ func (m *Model) updateTable() {
 		}
 
 		// Only include PR column if PR data has been loaded and PR is not disabled
-		if m.prDataLoaded && !m.config.DisablePR {
+		if m.loading.prDataLoaded && !m.config.DisablePR {
 			prStr := "-"
 			if wt.PR != nil && !wt.IsMain {
 				prIcon := ""
@@ -280,12 +280,12 @@ func (m *Model) updateWorktreeArrows() {
 	cursor := m.state.ui.worktreeTable.Cursor()
 
 	if len(rows) == 0 {
-		m.lastArrowCursor = -1
+		m.details.lastArrow = -1
 		return
 	}
 
 	changed := false
-	previous := m.lastArrowCursor
+	previous := m.details.lastArrow
 	if previous >= 0 && previous < len(rows) {
 		if previous != cursor {
 			rowChanged := false
@@ -298,9 +298,9 @@ func (m *Model) updateWorktreeArrows() {
 		rowChanged := false
 		rows[cursor], rowChanged = setRowLeadingMarker(rows[cursor], true)
 		changed = changed || rowChanged
-		m.lastArrowCursor = cursor
+		m.details.lastArrow = cursor
 	} else {
-		m.lastArrowCursor = -1
+		m.details.lastArrow = -1
 	}
 
 	if changed {
@@ -409,17 +409,17 @@ func (m *Model) updateDetailsView() tea.Cmd {
 
 func (m *Model) debouncedUpdateDetailsView() tea.Cmd {
 	// Cancel any existing pending detail update
-	if m.detailUpdateCancel != nil {
-		m.detailUpdateCancel()
-		m.detailUpdateCancel = nil
+	if m.details.updateCancel != nil {
+		m.details.updateCancel()
+		m.details.updateCancel = nil
 	}
 
 	// Get current selected index
-	m.pendingDetailsIndex = m.state.ui.worktreeTable.Cursor()
-	selectedIndex := m.pendingDetailsIndex
+	m.details.pendingIndex = m.state.ui.worktreeTable.Cursor()
+	selectedIndex := m.details.pendingIndex
 
 	ctx, cancel := context.WithCancel(context.Background())
-	m.detailUpdateCancel = cancel
+	m.details.updateCancel = cancel
 
 	return func() tea.Msg {
 		timer := time.NewTimer(debounceDelay)

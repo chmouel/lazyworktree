@@ -334,19 +334,14 @@ type Model struct {
 	theme  *theme.Theme
 
 	// State
-	state                     modelState
-	sortMode                  int // sortModePath, sortModeLastActive, or sortModeLastSwitched
-	prDataLoaded              bool
-	checkMergedAfterPRRefresh bool // Flag to trigger merged check after PR data refresh
-	repoKey                   string
-	repoKeyOnce               sync.Once
-	currentDetailsPath        string
-	loading                   bool
-	loadingOperation          string // Tracks what operation is loading (push, sync, etc.)
-	infoContent               string
-	statusContent             string
-	notesContent              string
-	agentSessionsContent      string
+	state                modelState
+	sortMode             int // sortModePath, sortModeLastActive, or sortModeLastSwitched
+	repoKey              string
+	repoKeyOnce          sync.Once
+	infoContent          string
+	statusContent        string
+	notesContent         string
+	agentSessionsContent string
 
 	// Status tree view
 	ciCheckIndex int // Current selection in CI checks (-1 = none, 0+ = index)
@@ -375,23 +370,8 @@ type Model struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	// Debouncing
-	detailUpdateCancel  context.CancelFunc
-	pendingDetailsIndex int
-	lastArrowCursor     int
-	lastLogCursor       int
-
-	// Double-click detection
-	lastClickTime time.Time
-	lastClickPane int
-
 	// Auto refresh
 	autoRefreshStarted bool
-
-	// Post-refresh selection (e.g. after creating worktree)
-	pendingSelectWorktreePath string
-	pendingPR                 *models.PRInfo
-	pendingPRPath             string
 
 	// Trust / repo commands
 	repoConfig     *config.RepoConfig
@@ -421,6 +401,11 @@ type Model struct {
 
 	// Render style cache (theme-dependent styles reused across frames).
 	renderStyles renderStyleCache
+
+	// Grouped state sub-structs
+	loading   loadingState
+	details   detailsState
+	pendingOp pendingOpState
 }
 
 // NewModel creates a new application model with the given configuration.
@@ -546,13 +531,17 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 				TerminalFocused: true,
 			},
 		},
-		infoContent:     errNoWorktreeSelected,
-		statusContent:   "Loading...",
-		loading:         true,
-		ciCheckIndex:    -1,
-		lastArrowCursor: -1,
-		commandRunner:   exec.CommandContext,
-		execProcess:     tea.ExecProcess,
+		infoContent:   errNoWorktreeSelected,
+		statusContent: "Loading...",
+		loading: loadingState{
+			active: true,
+		},
+		details: detailsState{
+			lastArrow: -1,
+		},
+		ciCheckIndex:  -1,
+		commandRunner: exec.CommandContext,
+		execProcess:   tea.ExecProcess,
 		startCommand: func(cmd *exec.Cmd) error {
 			return cmd.Start()
 		},
@@ -743,17 +732,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case createFromPRResultMsg:
-		m.loading = false
+		m.loading.active = false
 		m.clearLoadingScreen()
 		if msg.err != nil {
-			m.pendingSelectWorktreePath = ""
-			m.pendingPR = nil
-			m.pendingPRPath = ""
+			m.pendingOp.selectPath = ""
+			m.pendingOp.pr = nil
+			m.pendingOp.prPath = ""
 			m.showInfo(fmt.Sprintf("Failed to create worktree from PR/MR #%d: %v", msg.prNumber, msg.err), nil)
 			return m, nil
 		}
-		m.pendingPR = msg.pr
-		m.pendingPRPath = msg.targetPath
+		m.pendingOp.pr = msg.pr
+		m.pendingOp.prPath = msg.targetPath
 		if strings.TrimSpace(msg.note) != "" {
 			m.setWorktreeNote(msg.targetPath, msg.note)
 		}
@@ -766,10 +755,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.runCommandsWithTrust(initCmds, msg.targetPath, env, after)
 
 	case createFromIssueResultMsg:
-		m.loading = false
+		m.loading.active = false
 		m.clearLoadingScreen()
 		if msg.err != nil {
-			m.pendingSelectWorktreePath = ""
+			m.pendingOp.selectPath = ""
 			m.showInfo(fmt.Sprintf("Failed to create worktree from issue #%d: %v", msg.issueNumber, msg.err), nil)
 			return m, nil
 		}
@@ -809,7 +798,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case customCreateResultMsg:
-		m.loading = false
+		m.loading.active = false
 		m.clearLoadingScreen()
 		if msg.err != nil {
 			m.showInfo(fmt.Sprintf("Custom command failed: %v", msg.err), nil)
@@ -844,7 +833,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.executeCustomPostCommand(cmd, msg.targetPath, msg.env)
 
 	case customPostCommandResultMsg:
-		m.loading = false
+		m.loading.active = false
 		m.clearLoadingScreen()
 
 		if msg.err != nil {
@@ -900,8 +889,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateWorktreeStatus(msg.path, msg.statusFiles)
 		if msg.log != nil {
 			reset := false
-			if msg.path != "" && msg.path != m.currentDetailsPath {
-				m.currentDetailsPath = msg.path
+			if msg.path != "" && msg.path != m.details.currentPath {
+				m.details.currentPath = msg.path
 				reset = true
 			}
 			m.setLogEntries(msg.log, reset)
@@ -961,8 +950,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.refreshWorktrees()
 
 	case pushResultMsg:
-		m.loading = false
-		m.loadingOperation = ""
+		m.loading.active = false
+		m.loading.operation = ""
 		m.clearLoadingScreen()
 		output := strings.TrimSpace(msg.output)
 		if msg.err != nil {
@@ -982,8 +971,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.updateDetailsView()
 
 	case syncResultMsg:
-		m.loading = false
-		m.loadingOperation = ""
+		m.loading.active = false
+		m.loading.operation = ""
 		m.clearLoadingScreen()
 		output := strings.TrimSpace(msg.output)
 		if msg.err != nil {
@@ -1091,8 +1080,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ciRerunResultMsg:
-		m.loading = false
-		m.loadingOperation = ""
+		m.loading.active = false
+		m.loading.operation = ""
 		m.clearLoadingScreen()
 		if msg.err != nil {
 			m.showInfo(fmt.Sprintf("Failed to restart CI: %v", msg.err), nil)
@@ -1118,8 +1107,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) Close() {
 	m.persistCurrentSelection()
 	m.debugf("close")
-	if m.detailUpdateCancel != nil {
-		m.detailUpdateCancel()
+	if m.details.updateCancel != nil {
+		m.details.updateCancel()
 	}
 	if m.cancel != nil {
 		m.cancel()

@@ -212,8 +212,8 @@ func (m *Model) rerunCICheck(check *models.CICheck) tea.Cmd {
 	}
 
 	// Show loading screen
-	m.loading = true
-	m.loadingOperation = "rerun"
+	m.loading.active = true
+	m.loading.operation = "rerun"
 	m.setLoadingScreen("Restarting CI job...")
 
 	return func() tea.Msg {

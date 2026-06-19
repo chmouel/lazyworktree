@@ -240,7 +240,7 @@ func (m *Model) saveCache() {
 }
 
 func (m *Model) newLoadingScreen(message string) *appscreen.LoadingScreen {
-	operation := appscreen.TipOperationFromContext(m.loadingOperation, message)
+	operation := appscreen.TipOperationFromContext(m.loading.operation, message)
 	return appscreen.NewLoadingScreen(message, operation, m.theme, spinnerFrameSet(m.config.IconsEnabled()), m.config.IconsEnabled())
 }
 

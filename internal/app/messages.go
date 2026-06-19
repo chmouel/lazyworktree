@@ -34,8 +34,8 @@ func (m *Model) handleWorktreeMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cmd) {
 	m.worktreesLoaded = true
 	// Don't clear loading screen if we're in the middle of push/sync operations
-	if m.loadingOperation != "push" && m.loadingOperation != "sync" {
-		m.loading = false
+	if m.loading.operation != "push" && m.loading.operation != "sync" {
+		m.loading.active = false
 		m.clearLoadingScreen()
 	}
 	if msg.err != nil {
@@ -48,8 +48,8 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 	m.state.data.worktrees = msg.worktrees
 	restorePRState(m.state.data.worktrees, prStateMap)
 	m.pruneStaleWorktreeNotes(m.state.data.worktrees)
-	if !m.prDataLoaded && hasPRData(m.state.data.worktrees) {
-		m.prDataLoaded = true
+	if !m.loading.prDataLoaded && hasPRData(m.state.data.worktrees) {
+		m.loading.prDataLoaded = true
 		m.updateTableColumns(m.state.ui.worktreeTable.Width())
 	}
 
@@ -63,11 +63,11 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 	m.ensureRepoConfig()
 
 	// If we have a pending selection (newly created worktree), record access first
-	if m.pendingSelectWorktreePath != "" {
-		m.recordAccess(m.pendingSelectWorktreePath)
+	if m.pendingOp.selectPath != "" {
+		m.recordAccess(m.pendingOp.selectPath)
 		// Update the LastSwitchedTS for this worktree before sorting
 		for _, wt := range m.state.data.worktrees {
-			if wt.Path == m.pendingSelectWorktreePath {
+			if wt.Path == m.pendingOp.selectPath {
 				wt.LastSwitchedTS = m.state.data.accessHistory[wt.Path]
 				break
 			}
@@ -75,19 +75,19 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 	}
 
 	// Apply pending PR metadata to the specific worktree path it was created for.
-	if m.pendingPR != nil && m.pendingPRPath != "" {
+	if m.pendingOp.pr != nil && m.pendingOp.prPath != "" {
 		for _, wt := range m.state.data.worktrees {
-			if wt.Path != m.pendingPRPath {
+			if wt.Path != m.pendingOp.prPath {
 				continue
 			}
-			wt.PR = m.pendingPR
+			wt.PR = m.pendingOp.pr
 			wt.PRFetchStatus = models.PRFetchStatusLoaded
-			if !m.prDataLoaded {
-				m.prDataLoaded = true
+			if !m.loading.prDataLoaded {
+				m.loading.prDataLoaded = true
 				m.updateTableColumns(m.state.ui.worktreeTable.Width())
 			}
-			m.pendingPR = nil
-			m.pendingPRPath = ""
+			m.pendingOp.pr = nil
+			m.pendingOp.prPath = ""
 			break
 		}
 	}
@@ -96,16 +96,16 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 	m.updateTable()
 	m.refreshSelectedWorktreeAgentSessionsPane()
 
-	if m.pendingSelectWorktreePath != "" {
+	if m.pendingOp.selectPath != "" {
 		// Find and select the worktree in the filtered list
 		for i, wt := range m.state.data.filteredWts {
-			if wt.Path == m.pendingSelectWorktreePath {
+			if wt.Path == m.pendingOp.selectPath {
 				m.state.ui.worktreeTable.SetCursor(i)
 				m.state.data.selectedIndex = i
 				break
 			}
 		}
-		m.pendingSelectWorktreePath = ""
+		m.pendingOp.selectPath = ""
 	}
 	m.saveCache()
 	if len(m.state.data.worktrees) == 0 {
@@ -168,8 +168,8 @@ func (m *Model) handleCachedWorktrees(msg cachedWorktreesMsg) (tea.Model, tea.Cm
 	prStateMap := extractPRState(m.state.data.worktrees)
 	m.state.data.worktrees = validated
 	restorePRState(m.state.data.worktrees, prStateMap)
-	if !m.prDataLoaded && hasPRData(m.state.data.worktrees) {
-		m.prDataLoaded = true
+	if !m.loading.prDataLoaded && hasPRData(m.state.data.worktrees) {
+		m.loading.prDataLoaded = true
 		m.updateTableColumns(m.state.ui.worktreeTable.Width())
 	}
 	// Populate LastSwitchedTS from access history
@@ -189,15 +189,15 @@ func (m *Model) handleCachedWorktrees(msg cachedWorktreesMsg) (tea.Model, tea.Cm
 
 // handlePruneResult processes prune result message.
 func (m *Model) handlePruneResult(msg pruneResultMsg) (tea.Model, tea.Cmd) {
-	m.loading = false
+	m.loading.active = false
 	if msg.err == nil && msg.worktrees != nil {
 		// Preserve PR state across worktree reload to prevent race condition
 		prStateMap := extractPRState(m.state.data.worktrees)
 		m.state.data.worktrees = msg.worktrees
 		restorePRState(m.state.data.worktrees, prStateMap)
 		m.pruneStaleWorktreeNotes(m.state.data.worktrees)
-		if !m.prDataLoaded && hasPRData(m.state.data.worktrees) {
-			m.prDataLoaded = true
+		if !m.loading.prDataLoaded && hasPRData(m.state.data.worktrees) {
+			m.loading.prDataLoaded = true
 			m.updateTableColumns(m.state.ui.worktreeTable.Width())
 		}
 		m.updateTable()
@@ -253,7 +253,7 @@ func (m *Model) handlePRMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handlePRDataLoaded processes PR data loaded message.
 func (m *Model) handlePRDataLoaded(msg prDataLoadedMsg) (tea.Model, tea.Cmd) {
-	m.loading = false
+	m.loading.active = false
 	m.clearLoadingScreen()
 	if msg.err == nil {
 		log.Printf("handlePRDataLoaded: prMap has %d entries, worktreePRs has %d entries, worktreeErrors has %d entries",
@@ -312,22 +312,22 @@ func (m *Model) handlePRDataLoaded(msg prDataLoadedMsg) (tea.Model, tea.Cmd) {
 				log.Printf("  Final: wt.PR = nil, status = %s, error = %q", wt.PRFetchStatus, wt.PRFetchError)
 			}
 		}
-		m.prDataLoaded = true
+		m.loading.prDataLoaded = true
 		// Update columns before rows to include the PR column
 		m.updateTableColumns(m.state.ui.worktreeTable.Width())
 		m.updateTable()
 
 		// If we were triggered from showPruneMerged, run the merged check now
-		if m.checkMergedAfterPRRefresh {
-			m.checkMergedAfterPRRefresh = false
+		if m.loading.checkMergedAfterPR {
+			m.loading.checkMergedAfterPR = false
 			return m, m.performMergedWorktreeCheck()
 		}
 
 		return m, m.updateDetailsView()
 	}
 	// Even if PR fetch failed, run merged check if requested (will fall back to git-based detection)
-	if m.checkMergedAfterPRRefresh {
-		m.checkMergedAfterPRRefresh = false
+	if m.loading.checkMergedAfterPR {
+		m.loading.checkMergedAfterPR = false
 		return m, m.performMergedWorktreeCheck()
 	}
 	return m, nil
@@ -372,8 +372,8 @@ func (m *Model) handleSinglePRLoaded(msg singlePRLoadedMsg) (tea.Model, tea.Cmd)
 	}
 
 	// If PR data now exists, ensure prDataLoaded is set so table shows PR column
-	if !m.prDataLoaded && hasPRData(m.state.data.worktrees) {
-		m.prDataLoaded = true
+	if !m.loading.prDataLoaded && hasPRData(m.state.data.worktrees) {
+		m.loading.prDataLoaded = true
 		m.updateTableColumns(m.state.ui.worktreeTable.Width())
 	}
 	m.updateTable()
@@ -464,11 +464,11 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 		}
 
 		// Create worktree from PR branch (can take time, so do it async with a loading pulse)
-		m.loading = true
+		m.loading.active = true
 		m.statusContent = fmt.Sprintf("Creating worktree from PR/MR #%d...", pr.Number)
 		m.state.ui.screenManager.Clear() // Clear all stacked screens before loading
 		m.setLoadingScreen(m.statusContent)
-		m.pendingSelectWorktreePath = targetPath
+		m.pendingOp.selectPath = targetPath
 		return func() tea.Msg {
 			ok := m.state.services.git.CreateWorktreeFromPR(m.ctx, pr.Number, remoteBranch, localBranch, targetPath)
 			if !ok {
@@ -611,11 +611,11 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 					}
 
 					// Create worktree from base branch (can take time, so do it async with a loading pulse)
-					m.loading = true
+					m.loading.active = true
 					m.statusContent = fmt.Sprintf("Creating worktree from issue #%d...", issue.Number)
 					m.state.ui.screenManager.Clear() // Clear all stacked screens before loading
 					m.setLoadingScreen(m.statusContent)
-					m.pendingSelectWorktreePath = targetPath
+					m.pendingOp.selectPath = targetPath
 					return func() tea.Msg {
 						ok := m.state.services.git.RunCommandChecked(
 							m.ctx,

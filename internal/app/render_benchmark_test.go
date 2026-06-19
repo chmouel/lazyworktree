@@ -19,7 +19,7 @@ func benchmarkModel(b *testing.B, worktrees, statusFiles, logEntries int) *Model
 		Theme:       "dracula",
 	}
 	m := NewModel(cfg, "")
-	m.loading = false
+	m.loading.active = false
 	m.worktreesLoaded = true
 	m.state.view.WindowWidth = 180
 	m.state.view.WindowHeight = 50

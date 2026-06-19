@@ -82,7 +82,7 @@ func TestBuildInfoContentMainBranchWithoutPRHidesFetchHint(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
-	m.prDataLoaded = false
+	m.loading.prDataLoaded = false
 
 	mainWt := &models.WorktreeInfo{
 		Path:        "/tmp/main",
@@ -108,7 +108,7 @@ func TestBuildInfoContentFeatureBranchShowsFetchHint(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
-	m.prDataLoaded = false
+	m.loading.prDataLoaded = false
 
 	mainWt := &models.WorktreeInfo{
 		Path:        "/tmp/main",
@@ -134,7 +134,7 @@ func TestBuildInfoContentNoUpstreamHidesPRSection(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.WorktreeDir = t.TempDir()
 	m := NewModel(cfg, "")
-	m.prDataLoaded = true
+	m.loading.prDataLoaded = true
 
 	wt := &models.WorktreeInfo{
 		Path:        "/tmp/no-upstream",

@@ -127,15 +127,15 @@ func TestIntegrationCreateFromPRValidationErrors(t *testing.T) {
 func TestIntegrationPRAndCIErrorPaths(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.loading = true
+	m.loading.active = true
 	m.state.data.worktrees = []*models.WorktreeInfo{{Branch: featureBranch}}
 
 	updated, _ := m.Update(prDataLoadedMsg{err: errors.New("boom")})
 	m = updated.(*Model)
-	if m.loading {
+	if m.loading.active {
 		t.Fatal("expected loading to be false")
 	}
-	if m.prDataLoaded {
+	if m.loading.prDataLoaded {
 		t.Fatal("expected prDataLoaded to remain false")
 	}
 	if m.state.data.worktrees[0].PR != nil {

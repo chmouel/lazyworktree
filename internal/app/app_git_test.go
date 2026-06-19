@@ -21,12 +21,12 @@ func TestFetchRemotesCompleteTriggersRefresh(t *testing.T) {
 	t.Parallel()
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.loading = true
+	m.loading.active = true
 	m.setLoadingScreen("Fetching remotes...")
 
 	_, cmd := m.Update(fetchRemotesCompleteMsg{})
 	// loading stays true while refreshing worktrees
-	if !m.loading {
+	if !m.loading.active {
 		t.Fatal("expected loading to stay true during worktree refresh")
 	}
 	if m.statusContent != "Remotes fetched" {

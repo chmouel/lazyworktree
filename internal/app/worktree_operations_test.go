@@ -784,7 +784,7 @@ func TestShowPruneMerged(t *testing.T) {
 	if cmd := m.showPruneMerged(); cmd == nil {
 		t.Fatal("expected fetchPRData command")
 	}
-	if !m.checkMergedAfterPRRefresh {
+	if !m.loading.checkMergedAfterPR {
 		t.Fatal("expected checkMergedAfterPRRefresh flag to be set")
 	}
 	if m.state.ui.screenManager.Type() != appscreen.TypeLoading {
@@ -902,7 +902,7 @@ func TestShowPruneMergedUnknownHost(t *testing.T) {
 	// Should return performMergedWorktreeCheck (which returns nil for no merged worktrees)
 	// or textinput.Blink if there are merged worktrees
 	// Key assertion: should NOT trigger loading screen or set checkMergedAfterPRRefresh
-	if m.checkMergedAfterPRRefresh {
+	if m.loading.checkMergedAfterPR {
 		t.Fatal("expected checkMergedAfterPRRefresh to be false for unknown host")
 	}
 	if m.state.ui.screenManager.Type() == appscreen.TypeLoading {

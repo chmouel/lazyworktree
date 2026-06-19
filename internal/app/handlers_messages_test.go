@@ -67,7 +67,7 @@ func TestHandlePRDataLoadedUpdatesTable(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if !m.prDataLoaded {
+	if !m.loading.prDataLoaded {
 		t.Fatal("expected prDataLoaded to be true")
 	}
 	if m.state.data.worktrees[0].PR == nil {
@@ -93,7 +93,7 @@ func TestUpdateTableHidesPRForMainWorktree(t *testing.T) {
 		WorktreeDir: t.TempDir(),
 	}
 	m := NewModel(cfg, "")
-	m.prDataLoaded = true
+	m.loading.prDataLoaded = true
 	m.state.data.worktrees = []*models.WorktreeInfo{
 		{
 			Path:       filepath.Join(cfg.WorktreeDir, "main"),
@@ -147,7 +147,7 @@ func TestHandlePRDataLoadedWithWorktreePRs(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected command to be returned")
 	}
-	if !m.prDataLoaded {
+	if !m.loading.prDataLoaded {
 		t.Fatal("expected prDataLoaded to be true")
 	}
 	if m.state.data.worktrees[0].PR == nil {
@@ -216,7 +216,7 @@ func TestHandleWorktreesLoadedSuccess(t *testing.T) {
 	if !updatedModel.worktreesLoaded {
 		t.Error("expected worktreesLoaded to be true")
 	}
-	if updatedModel.loading {
+	if updatedModel.loading.active {
 		t.Error("expected loading to be false")
 	}
 	if len(updatedModel.state.data.worktrees) != 2 {
@@ -262,7 +262,7 @@ func TestHandleWorktreesLoadedWithPendingSelection(t *testing.T) {
 	m := NewModel(cfg, "")
 
 	wtPath := filepath.Join(cfg.WorktreeDir, testWt1)
-	m.pendingSelectWorktreePath = wtPath
+	m.pendingOp.selectPath = wtPath
 
 	wts := []*models.WorktreeInfo{
 		{Path: wtPath, Branch: "main"},
@@ -272,7 +272,7 @@ func TestHandleWorktreesLoadedWithPendingSelection(t *testing.T) {
 	updated, _ := m.handleWorktreesLoaded(msg)
 	updatedModel := updated.(*Model)
 
-	if updatedModel.pendingSelectWorktreePath != "" {
+	if updatedModel.pendingOp.selectPath != "" {
 		t.Error("expected pendingSelectWorktreePath to be cleared")
 	}
 }
@@ -354,7 +354,7 @@ func TestHandleCachedWorktreesNormalisesPaths(t *testing.T) {
 func TestHandlePruneResultSuccess(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.loading = true
+	m.loading.active = true
 
 	wts := []*models.WorktreeInfo{
 		{Path: filepath.Join(cfg.WorktreeDir, testWt1), Branch: "main"},
@@ -364,7 +364,7 @@ func TestHandlePruneResultSuccess(t *testing.T) {
 	updated, _ := m.handlePruneResult(msg)
 	updatedModel := updated.(*Model)
 
-	if updatedModel.loading {
+	if updatedModel.loading.active {
 		t.Error("expected loading to be false")
 	}
 	if !strings.Contains(updatedModel.statusContent, "Pruned 1") {
@@ -481,7 +481,7 @@ func TestHandlePRDataLoadedSuccess(t *testing.T) {
 	updated, _ := m.handlePRDataLoaded(msg)
 	updatedModel := updated.(*Model)
 
-	if !updatedModel.prDataLoaded {
+	if !updatedModel.loading.prDataLoaded {
 		t.Error("expected prDataLoaded to be true")
 	}
 	if updatedModel.state.data.worktrees[0].PR == nil {
@@ -497,7 +497,7 @@ func TestHandlePRDataLoadedError(t *testing.T) {
 	updated, cmd := m.handlePRDataLoaded(msg)
 	updatedModel := updated.(*Model)
 
-	if updatedModel.prDataLoaded {
+	if updatedModel.loading.prDataLoaded {
 		t.Error("expected prDataLoaded to be false on error")
 	}
 	if cmd != nil {
@@ -930,7 +930,7 @@ func TestPRDataResetSyncsRowsAndColumns(t *testing.T) {
 	}
 	m.handlePRDataLoaded(prMsg)
 
-	if !m.prDataLoaded {
+	if !m.loading.prDataLoaded {
 		t.Fatal("expected prDataLoaded to be true after loading PR data")
 	}
 	if len(m.state.ui.worktreeTable.Columns()) != 4 {
@@ -943,11 +943,11 @@ func TestPRDataResetSyncsRowsAndColumns(t *testing.T) {
 
 	// Now simulate pressing 'p' to refetch - this should reset to 3 columns
 	m.cache.ciCache.Clear()
-	m.prDataLoaded = false
+	m.loading.prDataLoaded = false
 	m.updateTable()
 	m.updateTableColumns(m.state.ui.worktreeTable.Width())
 
-	if m.prDataLoaded {
+	if m.loading.prDataLoaded {
 		t.Fatal("expected prDataLoaded to be false after reset")
 	}
 	if len(m.state.ui.worktreeTable.Columns()) != 3 {
@@ -970,9 +970,9 @@ func TestPRDataLoadedSyncAfterWorktreeReload(t *testing.T) {
 		{Path: filepath.Join(cfg.WorktreeDir, "wt2"), Branch: "feature-2"},
 	}
 	m.state.data.worktrees = initialWts
-	m.prDataLoaded = true
+	m.loading.prDataLoaded = true
 
-	m.prDataLoaded = false
+	m.loading.prDataLoaded = false
 
 	newWts := []*models.WorktreeInfo{
 		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1"},
@@ -996,7 +996,7 @@ func TestPRDataLoadedSyncAfterWorktreeReload(t *testing.T) {
 		t.Fatalf("expected PR number 42, got %d", restoredPR.Number)
 	}
 
-	if !updatedModel.prDataLoaded {
+	if !updatedModel.loading.prDataLoaded {
 		t.Fatal("expected prDataLoaded to be true after restoring PR state")
 	}
 }
@@ -1012,7 +1012,7 @@ func TestPRDataLoadedNotSetWhenNoPRData(t *testing.T) {
 	m.state.data.worktrees = []*models.WorktreeInfo{
 		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1"},
 	}
-	m.prDataLoaded = false
+	m.loading.prDataLoaded = false
 
 	// Load new worktrees without PR data
 	newWts := []*models.WorktreeInfo{
@@ -1023,7 +1023,7 @@ func TestPRDataLoadedNotSetWhenNoPRData(t *testing.T) {
 	updatedModel := updated.(*Model)
 
 	// prDataLoaded should remain false since no PR data exists
-	if updatedModel.prDataLoaded {
+	if updatedModel.loading.prDataLoaded {
 		t.Fatal("expected prDataLoaded to remain false when no PR data exists")
 	}
 }
@@ -1040,7 +1040,7 @@ func TestPRDataLoadedSyncAfterCachedWorktrees(t *testing.T) {
 	m.state.data.worktrees = []*models.WorktreeInfo{
 		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1", PR: &models.PRInfo{Number: 123}},
 	}
-	m.prDataLoaded = false
+	m.loading.prDataLoaded = false
 	m.worktreesLoaded = false
 
 	newWts := []*models.WorktreeInfo{
@@ -1050,7 +1050,7 @@ func TestPRDataLoadedSyncAfterCachedWorktrees(t *testing.T) {
 	updated, _ := m.handleCachedWorktrees(msg)
 	updatedModel := updated.(*Model)
 
-	if !updatedModel.prDataLoaded {
+	if !updatedModel.loading.prDataLoaded {
 		t.Fatal("expected prDataLoaded to be true after restoring PR state from cache")
 	}
 }
@@ -1061,12 +1061,12 @@ func TestPRDataLoadedSyncAfterCachedWorktrees(t *testing.T) {
 func TestPRDataLoadedSyncAfterPruneResult(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
-	m.loading = true
+	m.loading.active = true
 
 	m.state.data.worktrees = []*models.WorktreeInfo{
 		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1", PR: &models.PRInfo{Number: 456}},
 	}
-	m.prDataLoaded = false
+	m.loading.prDataLoaded = false
 
 	newWts := []*models.WorktreeInfo{
 		{Path: filepath.Join(cfg.WorktreeDir, "wt1"), Branch: "feature-1"},
@@ -1075,7 +1075,7 @@ func TestPRDataLoadedSyncAfterPruneResult(t *testing.T) {
 	updated, _ := m.handlePruneResult(msg)
 	updatedModel := updated.(*Model)
 
-	if !updatedModel.prDataLoaded {
+	if !updatedModel.loading.prDataLoaded {
 		t.Fatal("expected prDataLoaded to be true after restoring PR state from prune")
 	}
 }
@@ -1093,7 +1093,7 @@ func TestHandleSinglePRLoadedUpdatesPRData(t *testing.T) {
 	}
 	m.state.data.filteredWts = m.state.data.worktrees
 	m.state.data.selectedIndex = 0
-	m.prDataLoaded = false
+	m.loading.prDataLoaded = false
 
 	msg := singlePRLoadedMsg{
 		worktreePath: wtPath,
@@ -1113,7 +1113,7 @@ func TestHandleSinglePRLoadedUpdatesPRData(t *testing.T) {
 	if updatedModel.state.data.worktrees[0].PRFetchStatus != models.PRFetchStatusLoaded {
 		t.Fatalf("expected PRFetchStatus to be Loaded, got %v", updatedModel.state.data.worktrees[0].PRFetchStatus)
 	}
-	if !updatedModel.prDataLoaded {
+	if !updatedModel.loading.prDataLoaded {
 		t.Fatal("expected prDataLoaded to be true after receiving PR data")
 	}
 }
@@ -1250,7 +1250,7 @@ func TestDisablePRTableColumnsExcludesPRColumn(t *testing.T) {
 		DisablePR:   true,
 	}
 	m := NewModel(cfg, "")
-	m.prDataLoaded = true // Even with PR data loaded, DisablePR should hide column
+	m.loading.prDataLoaded = true // Even with PR data loaded, DisablePR should hide column
 
 	m.updateTableColumns(100)
 
@@ -1268,7 +1268,7 @@ func TestDisablePRTableRowsExcludesPRColumn(t *testing.T) {
 		DisablePR:   true,
 	}
 	m := NewModel(cfg, "")
-	m.prDataLoaded = true
+	m.loading.prDataLoaded = true
 	m.state.data.worktrees = []*models.WorktreeInfo{
 		{
 			Path:       filepath.Join(cfg.WorktreeDir, "test"),

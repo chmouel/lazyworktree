@@ -312,10 +312,10 @@ func (m *Model) fetchPRDataWithState() tea.Cmd {
 		return nil
 	}
 	m.cache.ciCache.Clear()
-	m.prDataLoaded = false
+	m.loading.prDataLoaded = false
 	m.updateTable()
 	m.updateTableColumns(m.state.ui.worktreeTable.Width())
-	m.loading = true
+	m.loading.active = true
 	m.statusContent = "Fetching PR data..."
 	m.setLoadingScreen("Fetching PR data...")
 	return m.fetchPRData()

@@ -543,7 +543,7 @@ func TestPRFetchingFlow(t *testing.T) {
 	updated, _ := m.handlePRDataLoaded(msg)
 	m = updated.(*Model)
 
-	if !m.prDataLoaded {
+	if !m.loading.prDataLoaded {
 		t.Error("expected prDataLoaded to be true")
 	}
 	if m.state.data.worktrees[0].PR == nil {
@@ -615,7 +615,7 @@ func TestMultipleErrorHandling(t *testing.T) {
 	prMsg := prDataLoadedMsg{prMap: nil, worktreePRs: nil, err: os.ErrPermission}
 	updated, _ = m.handlePRDataLoaded(prMsg)
 	m = updated.(*Model)
-	if m.prDataLoaded {
+	if m.loading.prDataLoaded {
 		t.Error("expected prDataLoaded to be false on error")
 	}
 

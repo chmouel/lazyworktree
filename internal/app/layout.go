@@ -660,7 +660,7 @@ func (m *Model) updateTableColumns(totalWidth int) {
 	last := 15
 
 	// Only include PR column width if PR data has been loaded and PR is not disabled
-	showPRColumn := m.prDataLoaded && !m.config.DisablePR
+	showPRColumn := m.loading.prDataLoaded && !m.config.DisablePR
 	pr := 0
 	if showPRColumn {
 		pr = 12

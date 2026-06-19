@@ -121,17 +121,17 @@ func (m *Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 
 	if targetPane >= 0 {
 		now := time.Now()
-		if targetPane == m.lastClickPane && now.Sub(m.lastClickTime) < 400*time.Millisecond {
+		if targetPane == m.details.lastClickPane && now.Sub(m.details.lastClickTime) < 400*time.Millisecond {
 			if m.state.view.ZoomedPane >= 0 {
 				m.state.view.ZoomedPane = -1
 			} else {
 				m.state.view.ZoomedPane = targetPane
 			}
-			m.lastClickTime = time.Time{}
+			m.details.lastClickTime = time.Time{}
 		} else {
-			m.lastClickTime = now
+			m.details.lastClickTime = now
 		}
-		m.lastClickPane = targetPane
+		m.details.lastClickPane = targetPane
 	}
 
 	if targetPane >= 0 && targetPane != m.state.view.FocusedPane {

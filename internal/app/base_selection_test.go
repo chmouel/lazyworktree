@@ -987,8 +987,8 @@ func TestCreateWorktreeFromBase(t *testing.T) {
 		t.Fatalf("expected worktreesLoadedMsg, got %T", msg)
 	}
 
-	if m.pendingSelectWorktreePath != targetPath {
-		t.Fatalf("expected pendingSelectWorktreePath %q, got %q", targetPath, m.pendingSelectWorktreePath)
+	if m.pendingOp.selectPath != targetPath {
+		t.Fatalf("expected pendingSelectWorktreePath %q, got %q", targetPath, m.pendingOp.selectPath)
 	}
 
 	if loaded.err != nil {

@@ -62,7 +62,7 @@ func (m *Model) handleOperationKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, boo
 		model, cmd := m.handleEnterKey()
 		return model, cmd, true
 	case "r":
-		m.loading = true
+		m.loading.active = true
 		m.setLoadingScreen(loadingRefreshWorktrees)
 		cmds := []tea.Cmd{m.refreshWorktrees()}
 		if !m.config.DisablePR && m.state.services.git.IsGitHubOrGitLab(m.ctx) {
@@ -124,7 +124,7 @@ func (m *Model) handleOperationKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, boo
 	case "S":
 		return m, m.syncWithUpstream(), true
 	case "R":
-		m.loading = true
+		m.loading.active = true
 		m.statusContent = "Fetching remotes..."
 		m.setLoadingScreen("Fetching remotes...")
 		return m, m.fetchRemotes(), true

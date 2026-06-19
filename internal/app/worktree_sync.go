@@ -77,8 +77,8 @@ func (m *Model) syncWithUpstream() tea.Cmd {
 
 // beginPush initiates a push operation.
 func (m *Model) beginPush(wt *models.WorktreeInfo, args []string) tea.Cmd {
-	m.loading = true
-	m.loadingOperation = "push"
+	m.loading.active = true
+	m.loading.operation = "push"
 	m.statusContent = "Pushing to upstream..."
 	m.setLoadingScreen("Pushing to upstream...")
 	return m.runPush(wt, args)
@@ -86,8 +86,8 @@ func (m *Model) beginPush(wt *models.WorktreeInfo, args []string) tea.Cmd {
 
 // beginSync initiates a sync operation (pull + push).
 func (m *Model) beginSync(wt *models.WorktreeInfo, pullArgs, pushArgs []string) tea.Cmd {
-	m.loading = true
-	m.loadingOperation = "sync"
+	m.loading.active = true
+	m.loading.operation = "sync"
 	m.statusContent = "Synchronising with upstream..."
 	m.setLoadingScreen("Synchronising with upstream...")
 	return m.runSync(wt, pullArgs, pushArgs)
@@ -150,8 +150,8 @@ func (m *Model) showSyncChoice(wt *models.WorktreeInfo) tea.Cmd {
 
 // updateFromBase updates the branch from its base branch.
 func (m *Model) updateFromBase(wt *models.WorktreeInfo) tea.Cmd {
-	m.loading = true
-	m.loadingOperation = "sync"
+	m.loading.active = true
+	m.loading.operation = "sync"
 	m.statusContent = fmt.Sprintf("Updating from %s...", wt.PR.BaseBranch)
 	m.setLoadingScreen(fmt.Sprintf("Updating from %s...", wt.PR.BaseBranch))
 

@@ -753,7 +753,7 @@ func TestUpdateThemeRefreshesCachedPRStateIconColours(t *testing.T) {
 	m := NewModel(cfg, "")
 	m.setWindowSize(120, 40)
 
-	m.prDataLoaded = true
+	m.loading.prDataLoaded = true
 	m.state.data.worktrees = []*models.WorktreeInfo{
 		{
 			Path:        filepath.Join(cfg.WorktreeDir, "feature-theme-refresh"),
