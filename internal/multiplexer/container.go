@@ -121,24 +121,40 @@ func BuildContainerCommand(cfg *config.ContainerCommand, command, worktreePath s
 		}
 		sort.Strings(cfgKeys)
 		for _, k := range cfgKeys {
-			args = append(args, "-e", k+"="+services.ExpandWithEnv(cfg.Env[k], env))
+			args = append(args, "-e", k+"="+services.ExpandWithEnv(cfg.Env[k], containerEnv))
 		}
 	}
 
 	// Extra args pass-through
 	args = append(args, cfg.ExtraArgs...)
 
-	// Entrypoint override: command becomes --entrypoint
+	// Entrypoint override: command becomes --entrypoint.
+	// Multi-word commands must be wrapped via "sh -c" because --entrypoint
+	// expects a single executable path — passing "go test ./..." as-is makes
+	// the runtime look for a binary literally named that.
+	isMultiWord := command != "" && strings.ContainsAny(command, " \t")
 	if command != "" {
-		log.Printf("container: entrypoint override %q", command)
-		args = append(args, "--entrypoint", command)
+		if isMultiWord {
+			log.Printf("container: multi-word entrypoint, wrapping with sh -c %q", command)
+			args = append(args, "--entrypoint", "sh")
+		} else {
+			log.Printf("container: entrypoint override %q", command)
+			args = append(args, "--entrypoint", command)
+		}
 	}
 
 	// Image
 	args = append(args, cfg.Image)
 
-	// Arguments passed after the image (as CMD)
-	args = append(args, cfg.Args...)
+	// When wrapping a multi-word command, use the "sh -c 'cmd "$@"' _" idiom
+	// so that cfg.Args are forwarded as arguments to the wrapped command
+	// rather than becoming orphaned shell positional parameters.
+	if isMultiWord {
+		args = append(args, "-c", command+` "$@"`, "_")
+		args = append(args, cfg.Args...)
+	} else {
+		args = append(args, cfg.Args...)
+	}
 
 	// Shell-quote each arg
 	quoted := make([]string, len(args))

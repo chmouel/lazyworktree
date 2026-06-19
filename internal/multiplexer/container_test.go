@@ -44,7 +44,7 @@ func TestBuildContainerCommand(t *testing.T) {
 			command:      "go test ./...",
 			worktreePath: "/home/user/worktrees/feature",
 			env:          map[string]string{},
-			wantContains: []string{"'echo'", "'run'", "'--rm'", "'golang:1.22'", "go test"},
+			wantContains: []string{"'echo'", "'run'", "'--rm'", "'--entrypoint'", "'sh'", "'golang:1.22'", "'-c'", "'go test ./... \"$@\"'", "'_'"},
 		},
 		{
 			name:         "auto-mount worktree to /workspace",
@@ -126,7 +126,7 @@ func TestBuildContainerCommand(t *testing.T) {
 			command:      "npm test",
 			worktreePath: "/wt",
 			env:          map[string]string{"WORKTREE_PATH": "/host/wt"},
-			wantContains: []string{"TASK_PATH=/host/wt/task"},
+			wantContains: []string{"TASK_PATH=/workspace/task"},
 		},
 		{
 			name: "extra args pass-through",
@@ -278,6 +278,39 @@ func TestBuildContainerCommandInteractive(t *testing.T) {
 		assert.Contains(t, got, "'--entrypoint'")
 		assert.Contains(t, got, "'bash'")
 		assert.Contains(t, got, "'alpine'")
+	})
+	t.Run("multi-word command wraps with sh -c", func(t *testing.T) {
+		t.Parallel()
+		cfg := &config.ContainerCommand{Image: "alpine", Runtime: "echo"}
+		got, err := BuildContainerCommand(cfg, "go test ./...", "/wt", map[string]string{}, false)
+		require.NoError(t, err)
+		assert.Contains(t, got, "'--entrypoint'")
+		assert.Contains(t, got, "'sh'")
+		assert.Contains(t, got, "'alpine'")
+		assert.Contains(t, got, "'-c'")
+		assert.Contains(t, got, "'go test ./... \"$@\"'")
+		assert.Contains(t, got, "'_'")
+		// Must not contain a direct entrypoint with the full command
+		assert.NotContains(t, got, "'--entrypoint' 'go test ./...'")
+	})
+	t.Run("multi-word command forwards cfg.Args through sh -c", func(t *testing.T) {
+		t.Parallel()
+		cfg := &config.ContainerCommand{Image: "alpine", Runtime: "echo", Args: []string{"--verbose", "--count=3"}}
+		got, err := BuildContainerCommand(cfg, "go test ./...", "/wt", map[string]string{}, false)
+		require.NoError(t, err)
+		assert.Contains(t, got, "'go test ./... \"$@\"'")
+		assert.Contains(t, got, "'_'")
+		assert.Contains(t, got, "'--verbose'")
+		assert.Contains(t, got, "'--count=3'")
+	})
+	t.Run("single-word command uses direct entrypoint", func(t *testing.T) {
+		t.Parallel()
+		cfg := &config.ContainerCommand{Image: "alpine", Runtime: "echo"}
+		got, err := BuildContainerCommand(cfg, "make", "/wt", map[string]string{}, false)
+		require.NoError(t, err)
+		assert.Contains(t, got, "'--entrypoint'")
+		assert.Contains(t, got, "'make'")
+		assert.NotContains(t, got, "'-c'")
 	})
 }
 
