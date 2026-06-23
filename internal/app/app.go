@@ -63,6 +63,7 @@ const (
 	prStateOpen   = "OPEN"
 	prStateMerged = "MERGED"
 	prStateClosed = "CLOSED"
+	prStateDraft  = "DRAFT"
 
 	commitMessageMaxLength     = 80
 	filterWorktreesPlaceholder = "Filter worktrees..."

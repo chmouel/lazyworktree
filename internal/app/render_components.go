@@ -372,11 +372,11 @@ func (m *Model) prStateCompactStyle(state string) lipgloss.Style {
 
 // renderPRStateBadge renders a compact badge for PR/MR state.
 func (m *Model) renderPRStateBadge(state string, showNerdFontIcons bool) string {
-	bg, fg := m.prStateColors(state)
 	label := prStateText(state, showNerdFontIcons)
 	if label == "" {
 		return ""
 	}
+	bg, fg := m.prStateColors(state)
 	if showNerdFontIcons {
 		edgeStyle := lipgloss.NewStyle().Foreground(bg)
 		badgeStyle := lipgloss.NewStyle().
@@ -392,8 +392,7 @@ func (m *Model) renderPRStateBadge(state string, showNerdFontIcons bool) string 
 }
 
 func prStateText(state string, showNerdFontIcons bool) string {
-	icon := ""
-	label := ""
+	var icon, label string
 	switch state {
 	case prStateOpen:
 		icon, label = " ", "Open"
@@ -401,7 +400,7 @@ func prStateText(state string, showNerdFontIcons bool) string {
 		icon, label = " ", "Merged"
 	case prStateClosed:
 		icon, label = " ", "Closed"
-	case "DRAFT":
+	case prStateDraft:
 		icon, label = " ", "Draft"
 	default:
 		return ""
@@ -412,32 +411,33 @@ func prStateText(state string, showNerdFontIcons bool) string {
 	return label
 }
 
+var remoteIconTable = []struct {
+	domain string
+	icon   string
+}{
+	{"github.com", "\ue709"},
+	{"bitbucket.org", "\ue703"},
+	{"gitlab.com", "\uf296"},
+	{"dev.azure.com", "\U000f0805"},
+	{"codeberg.org", "\uf330"},
+	{"git.FreeBSD.org", "\uf30c"},
+	{"gitlab.archlinux.org", "\uf303"},
+	{"gitlab.freedesktop.org", "\uf360"},
+	{"gitlab.gnome.org", "\uf361"},
+	{"gnu.org", "\ue779"},
+	{"invent.kde.org", "\uf373"},
+	{"kernel.org", "\uf31a"},
+	{"salsa.debian.org", "\uf306"},
+	{"sr.ht", "\uf1db"},
+}
+
 func prRemoteIcon(url string, showNerdFontIcons bool) string {
 	if !showNerdFontIcons {
 		return ""
 	}
-	remoteIcons := []struct {
-		domain string
-		icon   string
-	}{
-		{"github.com", "\ue709"},
-		{"bitbucket.org", "\ue703"},
-		{"gitlab.com", "\uf296"},
-		{"dev.azure.com", "\U000f0805"},
-		{"codeberg.org", "\uf330"},
-		{"git.FreeBSD.org", "\uf30c"},
-		{"gitlab.archlinux.org", "\uf303"},
-		{"gitlab.freedesktop.org", "\uf360"},
-		{"gitlab.gnome.org", "\uf361"},
-		{"gnu.org", "\ue779"},
-		{"invent.kde.org", "\uf373"},
-		{"kernel.org", "\uf31a"},
-		{"salsa.debian.org", "\uf306"},
-		{"sr.ht", "\uf1db"},
-	}
-	for _, remoteIcon := range remoteIcons {
-		if strings.Contains(url, remoteIcon.domain) {
-			return remoteIcon.icon
+	for _, r := range remoteIconTable {
+		if strings.Contains(url, r.domain) {
+			return r.icon
 		}
 	}
 	return "\U000f02a2"
