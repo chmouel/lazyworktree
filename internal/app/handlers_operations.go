@@ -119,6 +119,11 @@ func (m *Model) handleOperationKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, boo
 			}
 		}
 		return m, nil, true
+	case "p":
+		if !m.config.DisablePR {
+			return m, m.fetchPRDataWithState(), true
+		}
+		return m, nil, true
 	case "P":
 		return m, m.pushToUpstream(), true
 	case "S":

@@ -239,6 +239,14 @@ func (m *Model) saveCache() {
 	}
 }
 
+func (m *Model) clearAllCaches() tea.Cmd {
+	m.resetDetailsCache()
+	m.cache.ciCache.Clear()
+	m.cache.dataCache = make(map[string]any)
+	_ = services.DeleteCache(m.getRepoKey(), m.getWorktreeDir())
+	return m.refreshWorktrees()
+}
+
 func (m *Model) newLoadingScreen(message string) *appscreen.LoadingScreen {
 	operation := appscreen.TipOperationFromContext(m.loading.operation, message)
 	return appscreen.NewLoadingScreen(message, operation, m.theme, spinnerFrameSet(m.config.IconsEnabled()), m.config.IconsEnabled())

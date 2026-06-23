@@ -66,6 +66,15 @@ func LoadCache(repoKey, worktreeDir string) ([]*models.WorktreeInfo, error) {
 	return payload.Worktrees, nil
 }
 
+// DeleteCache removes the on-disk worktree cache file for the given repo.
+func DeleteCache(repoKey, worktreeDir string) error {
+	cachePath := filepath.Join(worktreeDir, repoKey, models.CacheFilename)
+	if err := os.Remove(cachePath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
 // SaveCache saves worktree data to the cache file.
 func SaveCache(repoKey, worktreeDir string, worktrees []*models.WorktreeInfo) error {
 	cachePath := filepath.Join(worktreeDir, repoKey, models.CacheFilename)

@@ -303,6 +303,7 @@ func (m *Model) registerPaletteActions(registry *commands.Registry) {
 			m.state.ui.screenManager.Push(helpScreen)
 			return nil
 		},
+		ClearCache: m.clearAllCaches,
 	})
 }
 

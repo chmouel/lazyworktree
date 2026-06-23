@@ -26,7 +26,7 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) 
 			model, cmd := m.navigateCICheckUp()
 			return model, cmd, true
 		}
-		return m, nil, true
+		return m, nil, false
 	default:
 		return m, nil, false
 	}

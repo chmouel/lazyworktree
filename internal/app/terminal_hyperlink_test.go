@@ -125,7 +125,7 @@ func TestBuildInfoContentFeatureBranchShowsFetchHint(t *testing.T) {
 	m.state.data.worktrees = []*models.WorktreeInfo{mainWt, featureWt}
 
 	info := m.buildInfoContent(featureWt)
-	if !strings.Contains(info, "Press 'r' to refresh and fetch PR data") {
+	if !strings.Contains(info, "Press 'p' to fetch PR data") {
 		t.Fatalf("expected fetch hint for feature branch, got %q", info)
 	}
 }

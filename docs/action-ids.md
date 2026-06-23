@@ -75,3 +75,4 @@ Keys defined in `keybindings:` take priority over `custom_commands` and built-in
 | `settings-theme` | Select theme | — | Change the application theme with live preview |
 | `settings-taskboard` | Taskboard | `T` | Browse and toggle worktree tasks |
 | `settings-help` | Help | `?` | Show help |
+| `cache-clear` | Clear cache | — | Clear all in-memory and on-disk caches then refresh |

@@ -209,10 +209,8 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 				infoLines = append(infoLines, grayStyle.Render("  Fetching PR data..."))
 
 			default:
-				// Not fetched yet (non-main branch)
-				if !m.loading.prDataLoaded {
-					infoLines = append(infoLines, grayStyle.Render("  Press 'r' to refresh and fetch PR data"))
-				}
+				// Status is empty (not yet fetched in this session).
+				infoLines = append(infoLines, grayStyle.Render("  Press 'p' to fetch PR data"))
 			}
 		}
 	}
