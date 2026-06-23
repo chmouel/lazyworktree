@@ -218,10 +218,10 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		if cachedChecks, _, ok := m.cache.ciCache.Get(wt.Branch); ok && len(cachedChecks) > 0 {
 			infoLines = append(infoLines, m.infoSectionDivider(30))
 
-			// Summary pill next to CI Checks heading
+			// Summary chip next to CI Checks heading
 			aggregate := aggregateCIConclusion(cachedChecks)
-			summaryPill := m.renderCIStatusPill(aggregate)
-			infoLines = append(infoLines, sectionStyle.Render("CI Checks:")+" "+summaryPill)
+			summaryChip := m.renderCIStatusChip(aggregate, m.config.IconsEnabled())
+			infoLines = append(infoLines, sectionStyle.Render("CI Checks:")+" "+summaryChip)
 
 			selectedStyle := lipgloss.NewStyle().
 				Foreground(m.theme.AccentFg).

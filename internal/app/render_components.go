@@ -251,15 +251,19 @@ func (m *Model) renderPaneBlock(index int, title string, focused bool, width, he
 	return lipgloss.JoinVertical(lipgloss.Left, finalTopBorder, styledContent)
 }
 
-// renderCIStatusPill renders a CI aggregate status as a powerline pill.
-func (m *Model) renderCIStatusPill(conclusion string) string {
-	label := ciConclusionLabel(conclusion)
-	bg, fg := m.ciConclusionColors(conclusion)
-	bubbleStyle := lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(true)
-	edgeStyle := lipgloss.NewStyle().Foreground(bg)
-	leftEdge := edgeStyle.Render("\ue0b6")
-	rightEdge := edgeStyle.Render("\ue0b4")
-	return leftEdge + bubbleStyle.Render(" "+label+" ") + rightEdge
+// renderCIStatusChip renders the aggregate CI state as a lightweight inline chip.
+func (m *Model) renderCIStatusChip(conclusion string, showIcons bool) string {
+	statusConclusion := conclusion
+	if statusConclusion == "" {
+		statusConclusion = "pending"
+	}
+	statusStyle := m.ciIconStyle(statusConclusion).Bold(true)
+	icon := getCIStatusIcon(statusConclusion, false, showIcons)
+	label := ciConclusionDisplayLabel(statusConclusion)
+	if icon == "" {
+		return statusStyle.Render(label)
+	}
+	return fmt.Sprintf("%s %s", statusStyle.Render(icon), statusStyle.Render(label))
 }
 
 // tagPillColor returns a deterministic theme colour for a tag string.
@@ -314,21 +318,21 @@ func (m *Model) renderPlainTagPills(tags []string) string {
 	return joinTagPills(tags, m.renderPlainTagPill)
 }
 
-// ciConclusionLabel maps a CI conclusion to an uppercase display label.
-func ciConclusionLabel(conclusion string) string {
+// ciConclusionDisplayLabel maps a CI conclusion to a compact display label.
+func ciConclusionDisplayLabel(conclusion string) string {
 	switch conclusion {
 	case "success":
-		return "SUCCESS"
+		return "Passed"
 	case "failure":
-		return "FAILED"
+		return "Failed"
 	case "pending", "":
-		return "PENDING"
+		return "Pending"
 	case "skipped":
-		return "SKIPPED"
+		return "Skipped"
 	case "cancelled":
-		return "CANCELLED"
+		return "Cancelled"
 	default:
-		return strings.ToUpper(conclusion)
+		return strings.ToUpper(conclusion[:1]) + strings.ToLower(conclusion[1:])
 	}
 }
 
@@ -343,20 +347,6 @@ func (m *Model) ciIconStyle(conclusion string) lipgloss.Style {
 		return m.renderStyles.ciIconPendingStyle
 	default: // skipped, cancelled, etc.
 		return m.renderStyles.ciIconDefaultStyle
-	}
-}
-
-// ciConclusionColors returns (background, foreground) theme colours for a CI conclusion.
-func (m *Model) ciConclusionColors(conclusion string) (color.Color, color.Color) {
-	switch conclusion {
-	case "success":
-		return m.theme.SuccessFg, m.theme.AccentFg
-	case "failure":
-		return m.theme.ErrorFg, m.theme.AccentFg
-	case "pending", "":
-		return m.theme.WarnFg, m.theme.AccentFg
-	default:
-		return m.theme.BorderDim, m.theme.TextFg
 	}
 }
 

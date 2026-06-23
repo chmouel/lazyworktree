@@ -262,6 +262,24 @@ func TestRenderInfoBoxHidesPRStateBadgeWhenNoPRExists(t *testing.T) {
 	assert.NotContains(t, result, "Merged")
 }
 
+func TestBuildInfoContent_UsesInlineCIStatusChip(t *testing.T) {
+	t.Parallel()
+	m := newModelForRenderTest(t)
+	wt := &models.WorktreeInfo{
+		Path:   "/tmp/wt-ci-chip",
+		Branch: "feature/ci-chip",
+	}
+	m.cache.ciCache.Set(wt.Branch, []*models.CICheck{
+		{Name: "build", Status: "completed", Conclusion: "success"},
+	})
+
+	result := stripTerminalSequences(m.buildInfoContent(wt))
+
+	assert.Contains(t, result, "CI Checks: S Passed")
+	assert.NotContains(t, result, "\ue0b6")
+	assert.NotContains(t, result, "\ue0b4")
+}
+
 func TestAggregateCIConclusion_NoChecks(t *testing.T) {
 	t.Parallel()
 

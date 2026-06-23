@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRenderCIStatusPill(t *testing.T) {
+func TestRenderCIStatusChip(t *testing.T) {
 	t.Parallel()
 
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
@@ -16,26 +16,24 @@ func TestRenderCIStatusPill(t *testing.T) {
 	tests := []struct {
 		name       string
 		conclusion string
-		wantLabel  string
+		want       string
 	}{
-		{"success", "success", "SUCCESS"},
-		{"failure", "failure", "FAILED"},
-		{"pending", "pending", "PENDING"},
-		{"empty treated as pending", "", "PENDING"},
-		{"skipped", "skipped", "SKIPPED"},
-		{"cancelled", "cancelled", "CANCELLED"},
+		{"success", "success", "S Passed"},
+		{"failure", "failure", "F Failed"},
+		{"pending", "pending", "P Pending"},
+		{"empty treated as pending", "", "P Pending"},
+		{"skipped", "skipped", "- Skipped"},
+		{"cancelled", "cancelled", "C Cancelled"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			result := m.renderCIStatusPill(tt.conclusion)
+			result := stripTerminalSequences(m.renderCIStatusChip(tt.conclusion, false))
 
-			// Should contain Powerline edges
-			assert.Contains(t, result, "\ue0b6", "should have left Powerline edge")
-			assert.Contains(t, result, "\ue0b4", "should have right Powerline edge")
-			// Should contain the text label
-			assert.Contains(t, result, tt.wantLabel)
+			assert.Equal(t, tt.want, result)
+			assert.NotContains(t, result, "\ue0b6", "chip should not use Powerline edges")
+			assert.NotContains(t, result, "\ue0b4", "chip should not use Powerline edges")
 		})
 	}
 }
@@ -157,7 +155,7 @@ func TestTagColorAvoidsAccentDimSlot(t *testing.T) {
 	assert.NotEqual(t, m.theme.AccentDim, m.tagPillColor("zaki"))
 }
 
-func TestCIConclusionLabel(t *testing.T) {
+func TestCIConclusionDisplayLabel(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -165,19 +163,19 @@ func TestCIConclusionLabel(t *testing.T) {
 		conclusion string
 		want       string
 	}{
-		{"success", "success", "SUCCESS"},
-		{"failure", "failure", "FAILED"},
-		{"pending", "pending", "PENDING"},
-		{"empty", "", "PENDING"},
-		{"skipped", "skipped", "SKIPPED"},
-		{"cancelled", "cancelled", "CANCELLED"},
-		{"unknown", "foobar", "FOOBAR"},
+		{"success", "success", "Passed"},
+		{"failure", "failure", "Failed"},
+		{"pending", "pending", "Pending"},
+		{"empty", "", "Pending"},
+		{"skipped", "skipped", "Skipped"},
+		{"cancelled", "cancelled", "Cancelled"},
+		{"unknown", "foobar", "Foobar"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tt.want, ciConclusionLabel(tt.conclusion))
+			assert.Equal(t, tt.want, ciConclusionDisplayLabel(tt.conclusion))
 		})
 	}
 }
