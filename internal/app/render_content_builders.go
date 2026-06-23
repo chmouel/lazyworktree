@@ -150,7 +150,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		prLabelStyle := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true) // Accent for PR prominence
 		prNumber := fmt.Sprintf("#%d", wt.PR.Number)
 		prNumber = renderStyle.Render(prNumber)
-		prPrefix := fmt.Sprintf("PR %s by %s %s", prNumber, authorText, m.renderPRStatePill(wt.PR.State))
+		prPrefix := fmt.Sprintf("PR/MR %s by %s", prNumber, authorText)
 		if m.config.IconsEnabled() {
 			prPrefix = iconWithSpace(getIconPR()) + prPrefix
 		}

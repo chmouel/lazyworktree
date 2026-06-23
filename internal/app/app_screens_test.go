@@ -774,7 +774,7 @@ func TestUpdateThemeRefreshesCachedPRStateIconColours(t *testing.T) {
 	}
 
 	indicator := prStateIndicator(prStateOpen, m.config.IconsEnabled())
-	oldRenderedState := m.prStateIconStyle(prStateOpen).Render(indicator)
+	oldRenderedState := m.prStateCompactStyle(prStateOpen).Render(indicator)
 	before := rows[0][3]
 	if !strings.Contains(before, oldRenderedState) {
 		t.Fatalf("expected PR column %q to contain old rendered state %q", before, oldRenderedState)
@@ -784,7 +784,7 @@ func TestUpdateThemeRefreshesCachedPRStateIconColours(t *testing.T) {
 
 	rows = m.state.ui.worktreeTable.Rows()
 	after := rows[0][3]
-	newRenderedState := m.prStateIconStyle(prStateOpen).Render(indicator)
+	newRenderedState := m.prStateCompactStyle(prStateOpen).Render(indicator)
 	if !strings.Contains(after, newRenderedState) {
 		t.Fatalf("expected PR column %q to contain new rendered state %q", after, newRenderedState)
 	}

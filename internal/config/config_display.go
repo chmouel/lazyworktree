@@ -47,6 +47,11 @@ func (c *AppConfig) IconsEnabled() bool {
 	return iconSet != ""
 }
 
+// NerdFontIconsEnabled reports whether the active icon set supports Nerd Font glyphs.
+func (c *AppConfig) NerdFontIconsEnabled() bool {
+	return strings.EqualFold(strings.TrimSpace(c.IconSet), "nerd-font-v3")
+}
+
 func iconSetOptionsString() string {
 	return strings.Join(iconSetOptions, ", ")
 }

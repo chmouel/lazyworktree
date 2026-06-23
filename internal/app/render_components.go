@@ -360,22 +360,6 @@ func (m *Model) ciConclusionColors(conclusion string) (color.Color, color.Color)
 	}
 }
 
-// prStateIconStyle returns a foreground-only style for a PR state indicator icon.
-func (m *Model) prStateIconStyle(state string) lipgloss.Style {
-	m.ensureRenderStyles()
-
-	switch state {
-	case prStateOpen:
-		return m.renderStyles.prStateOpenStyle
-	case prStateMerged:
-		return m.renderStyles.prStateMergedStyle
-	case prStateClosed:
-		return m.renderStyles.prStateClosedStyle
-	default:
-		return m.renderStyles.ciIconDefaultStyle
-	}
-}
-
 // prStateColors returns (background, foreground) theme colours for a PR state.
 func (m *Model) prStateColors(state string) (color.Color, color.Color) {
 	switch state {
@@ -390,14 +374,83 @@ func (m *Model) prStateColors(state string) (color.Color, color.Color) {
 	}
 }
 
-// renderPRStatePill renders a PR state as a powerline pill.
-func (m *Model) renderPRStatePill(state string) string {
+// prStateCompactStyle returns the foreground-only style used in compact table cells.
+func (m *Model) prStateCompactStyle(state string) lipgloss.Style {
+	bg, _ := m.prStateColors(state)
+	return lipgloss.NewStyle().Foreground(bg)
+}
+
+// renderPRStateBadge renders a compact badge for PR/MR state.
+func (m *Model) renderPRStateBadge(state string, showNerdFontIcons bool) string {
 	bg, fg := m.prStateColors(state)
-	bubbleStyle := lipgloss.NewStyle().Background(bg).Foreground(fg).Bold(true)
-	edgeStyle := lipgloss.NewStyle().Foreground(bg)
-	leftEdge := edgeStyle.Render("\ue0b6")
-	rightEdge := edgeStyle.Render("\ue0b4")
-	return leftEdge + bubbleStyle.Render(" "+state+" ") + rightEdge
+	label := prStateText(state, showNerdFontIcons)
+	if label == "" {
+		return ""
+	}
+	if showNerdFontIcons {
+		edgeStyle := lipgloss.NewStyle().Foreground(bg)
+		badgeStyle := lipgloss.NewStyle().
+			Background(bg).
+			Foreground(fg).
+			Bold(true)
+		return edgeStyle.Render("\ue0b6") + badgeStyle.Render(label) + edgeStyle.Render("\ue0b4")
+	}
+	return lipgloss.NewStyle().
+		Foreground(fg).
+		Bold(true).
+		Render(label)
+}
+
+func prStateText(state string, showNerdFontIcons bool) string {
+	icon := ""
+	label := ""
+	switch state {
+	case prStateOpen:
+		icon, label = " ", "Open"
+	case prStateMerged:
+		icon, label = " ", "Merged"
+	case prStateClosed:
+		icon, label = " ", "Closed"
+	case "DRAFT":
+		icon, label = " ", "Draft"
+	default:
+		return ""
+	}
+	if showNerdFontIcons {
+		return icon + label
+	}
+	return label
+}
+
+func prRemoteIcon(url string, showNerdFontIcons bool) string {
+	if !showNerdFontIcons {
+		return ""
+	}
+	remoteIcons := []struct {
+		domain string
+		icon   string
+	}{
+		{"github.com", "\ue709"},
+		{"bitbucket.org", "\ue703"},
+		{"gitlab.com", "\uf296"},
+		{"dev.azure.com", "\U000f0805"},
+		{"codeberg.org", "\uf330"},
+		{"git.FreeBSD.org", "\uf30c"},
+		{"gitlab.archlinux.org", "\uf303"},
+		{"gitlab.freedesktop.org", "\uf360"},
+		{"gitlab.gnome.org", "\uf361"},
+		{"gnu.org", "\ue779"},
+		{"invent.kde.org", "\uf373"},
+		{"kernel.org", "\uf31a"},
+		{"salsa.debian.org", "\uf306"},
+		{"sr.ht", "\uf1db"},
+	}
+	for _, remoteIcon := range remoteIcons {
+		if strings.Contains(url, remoteIcon.domain) {
+			return remoteIcon.icon
+		}
+	}
+	return "\U000f02a2"
 }
 
 // basePaneStyle returns the base style for panes.

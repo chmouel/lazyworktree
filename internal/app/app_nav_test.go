@@ -60,6 +60,42 @@ func TestWorktreeMatchesFilter(t *testing.T) {
 	}
 }
 
+func TestUpdateTablePRColumnKeepsCompactStateIndicator(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
+	cfg.IconSet = "text"
+	m := NewModel(cfg, "")
+	m.loading.prDataLoaded = true
+	m.state.data.worktrees = []*models.WorktreeInfo{
+		{
+			Path:   filepath.Join(cfg.WorktreeDir, "a-pr-worktree"),
+			Branch: "feature/with-pr",
+			PR:     &models.PRInfo{Number: 42, State: prStateOpen},
+		},
+		{
+			Path:   filepath.Join(cfg.WorktreeDir, "b-no-pr-worktree"),
+			Branch: "feature/without-pr",
+		},
+	}
+
+	m.updateTable()
+
+	rows := m.state.ui.worktreeTable.Rows()
+	if len(rows) != 2 || len(rows[0]) != 4 || len(rows[1]) != 4 {
+		t.Fatalf("expected two rows with PR column, got %#v", rows)
+	}
+	prColumn := stripTerminalSequences(rows[0][3])
+	if !strings.Contains(prColumn, "#42") {
+		t.Fatalf("expected PR number in PR column, got %q", prColumn)
+	}
+	if strings.Contains(prColumn, "Open") || strings.Contains(prColumn, "\ue0b6") || strings.Contains(prColumn, "\ue0b4") {
+		t.Fatalf("did not expect large state badge in PR column, got %q", prColumn)
+	}
+	if rows[1][3] != "-" {
+		t.Fatalf("expected no-PR row to keep placeholder, got %q", rows[1][3])
+	}
+}
+
 func TestWorkspaceNameTruncation(t *testing.T) {
 	tests := []struct {
 		name          string

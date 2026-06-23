@@ -40,7 +40,7 @@ func TestRenderCIStatusPill(t *testing.T) {
 	}
 }
 
-func TestRenderPRStatePill(t *testing.T) {
+func TestRenderPRStateBadge(t *testing.T) {
 	t.Parallel()
 
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
@@ -51,24 +51,46 @@ func TestRenderPRStatePill(t *testing.T) {
 		state     string
 		wantLabel string
 	}{
-		{"open", "OPEN", "OPEN"},
-		{"merged", "MERGED", "MERGED"},
-		{"closed", "CLOSED", "CLOSED"},
-		{"unknown", "DRAFT", "DRAFT"},
+		{"open", "OPEN", "Open"},
+		{"merged", "MERGED", "Merged"},
+		{"closed", "CLOSED", "Closed"},
+		{"unknown", "DRAFT", "Draft"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			result := m.renderPRStatePill(tt.state)
+			result := m.renderPRStateBadge(tt.state, false)
+			plain := stripTerminalSequences(result)
 
-			// Should contain Powerline edges
-			assert.Contains(t, result, "\ue0b6", "should have left Powerline edge")
-			assert.Contains(t, result, "\ue0b4", "should have right Powerline edge")
-			// Should contain the text label
-			assert.Contains(t, result, tt.wantLabel)
+			assert.Equal(t, tt.wantLabel, plain)
+			assert.NotContains(t, result, "\ue0b6", "badge should not use Powerline edges")
+			assert.NotContains(t, result, "\ue0b4", "badge should not use Powerline edges")
 		})
 	}
+}
+
+func TestRenderPRStateBadgeWithIconsUsesLazyGitShape(t *testing.T) {
+	t.Parallel()
+
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir(), IconSet: "nerd-font-v3"}
+	m := NewModel(cfg, "")
+
+	result := stripTerminalSequences(m.renderPRStateBadge(prStateMerged, cfg.NerdFontIconsEnabled()))
+
+	assert.Equal(t, "\ue0b6 Merged\ue0b4", result)
+}
+
+func TestRenderPRStateBadgeTextModeAvoidsNerdFontGlyphs(t *testing.T) {
+	t.Parallel()
+
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir(), IconSet: "text"}
+	m := NewModel(cfg, "")
+
+	result := stripTerminalSequences(m.renderPRStateBadge(prStateMerged, cfg.NerdFontIconsEnabled()))
+
+	assert.Equal(t, "Merged", result)
+	assert.Empty(t, prRemoteIcon("https://github.com/org/repo/pull/42", cfg.NerdFontIconsEnabled()))
 }
 
 func TestRenderTagPill(t *testing.T) {

@@ -96,6 +96,20 @@ func (m *Model) renderInfoBox(width, height int) string {
 
 	titleStyle := lipgloss.NewStyle().Foreground(m.theme.MutedFg).Bold(true)
 	innerBoxStyle := m.baseInnerBoxStyle()
+	title := titleStyle.Render("Info")
+	if wt := m.selectedWorktree(); wt != nil && wt.PR != nil && !m.config.DisablePR {
+		hidePRDetails := wt.IsMain && (wt.PR.State == prStateMerged || wt.PR.State == prStateClosed)
+		if !hidePRDetails {
+			showNerdFontIcons := m.config.NerdFontIconsEnabled()
+			badge := m.renderPRStateBadge(wt.PR.State, showNerdFontIcons)
+			if badge != "" {
+				if remoteIcon := prRemoteIcon(wt.PR.URL, showNerdFontIcons); remoteIcon != "" {
+					badge = remoteIcon + "  " + badge
+				}
+				title = lipgloss.JoinHorizontal(lipgloss.Left, title, "  ", badge)
+			}
+		}
+	}
 
 	// Title takes 1 line
 	vpWidth := max(1, width-innerBoxStyle.GetHorizontalFrameSize())
@@ -105,7 +119,7 @@ func (m *Model) renderInfoBox(width, height int) string {
 	m.state.ui.infoViewport.SetHeight(vpHeight)
 	m.state.ui.infoViewport.SetContent(content)
 
-	boxContent := lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render("Info"), m.state.ui.infoViewport.View())
+	boxContent := lipgloss.JoinVertical(lipgloss.Left, title, m.state.ui.infoViewport.View())
 
 	return innerBoxStyle.
 		Width(width).

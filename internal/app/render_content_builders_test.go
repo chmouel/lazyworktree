@@ -180,6 +180,88 @@ func TestBuildInfoContent_BasicWorktree(t *testing.T) {
 	assert.Contains(t, result, "feature/test")
 }
 
+func TestBuildInfoContent_PRDetailsExcludeHeaderStateBadge(t *testing.T) {
+	t.Parallel()
+	m := newModelForRenderTest(t)
+	wt := &models.WorktreeInfo{
+		Path:   "/tmp/wt-pr-badge",
+		Branch: "feature/pr-badge",
+		PR: &models.PRInfo{
+			Number: 42,
+			State:  prStateOpen,
+			Title:  "Show status badge",
+			URL:    "https://example.com/org/repo/pull/42",
+		},
+	}
+
+	result := stripTerminalSequences(m.buildInfoContent(wt))
+
+	assert.Contains(t, result, "PR/MR #42")
+	assert.Contains(t, result, "Show status badge")
+	assert.NotContains(t, result, " Open ")
+	assert.NotContains(t, result, "\ue0b6")
+	assert.NotContains(t, result, "\ue0b4")
+}
+
+func TestBuildInfoContent_NoPRHidesPRStateBadge(t *testing.T) {
+	t.Parallel()
+	m := newModelForRenderTest(t)
+	m.loading.prDataLoaded = true
+	wt := &models.WorktreeInfo{
+		Path:          "/tmp/wt-no-pr-badge",
+		Branch:        "feature/no-pr-badge",
+		HasUpstream:   true,
+		PRFetchStatus: models.PRFetchStatusNoPR,
+	}
+
+	result := stripTerminalSequences(m.buildInfoContent(wt))
+
+	assert.NotContains(t, result, "PR/MR")
+	assert.NotContains(t, result, " Open ")
+	assert.NotContains(t, result, " Merged ")
+	assert.NotContains(t, result, " Closed ")
+}
+
+func TestRenderInfoBoxShowsPRStateBadgeInHeader(t *testing.T) {
+	t.Parallel()
+	m := newModelForRenderTest(t)
+	m.config.IconSet = "nerd-font-v3"
+	wt := &models.WorktreeInfo{
+		Path:   "/tmp/wt-merged-pr",
+		Branch: "feature/merged-pr",
+		PR:     &models.PRInfo{Number: 42, State: prStateMerged, URL: "https://github.com/org/repo/pull/42"},
+	}
+	m.state.data.worktrees = []*models.WorktreeInfo{wt}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.state.ui.worktreeTable.SetCursor(0)
+	m.infoContent = m.buildInfoContent(wt)
+
+	result := stripTerminalSequences(m.renderInfoBox(80, 10))
+
+	assert.Contains(t, result, "\ue709  \ue0b6 Merged\ue0b4")
+}
+
+func TestRenderInfoBoxHidesPRStateBadgeWhenNoPRExists(t *testing.T) {
+	t.Parallel()
+	m := newModelForRenderTest(t)
+	wt := &models.WorktreeInfo{
+		Path:   "/tmp/wt-no-pr",
+		Branch: "feature/no-pr",
+	}
+	m.state.data.worktrees = []*models.WorktreeInfo{wt}
+	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
+	m.state.data.selectedIndex = 0
+	m.state.ui.worktreeTable.SetCursor(0)
+	m.infoContent = m.buildInfoContent(wt)
+
+	result := stripTerminalSequences(m.renderInfoBox(80, 10))
+
+	assert.NotContains(t, result, "\ue0b6")
+	assert.NotContains(t, result, "\ue0b4")
+	assert.NotContains(t, result, "Merged")
+}
+
 func TestAggregateCIConclusion_NoChecks(t *testing.T) {
 	t.Parallel()
 

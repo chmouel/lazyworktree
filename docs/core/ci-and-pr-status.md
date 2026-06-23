@@ -57,9 +57,12 @@ ci_auto_refresh: true  # default: false
 When a worktree branch has an associated pull or merge request, the status pane displays:
 
 - PR/MR title and number
-- Review status
+- PR/MR state as a coloured badge (`Open`, `Merged`, or `Closed`)
 - CI check results
 - Divergence from upstream
+
+Rows without a linked PR/MR do not show a PR/MR state badge.
+For the primary worktree, details for a linked merged or closed PR/MR, including the state badge, are hidden.
 
 ### Creating Worktrees from PRs/MRs
 

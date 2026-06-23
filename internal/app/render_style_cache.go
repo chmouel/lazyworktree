@@ -33,10 +33,6 @@ type renderStyleCache struct {
 	ciIconPendingStyle lipgloss.Style
 	ciIconDefaultStyle lipgloss.Style
 
-	prStateOpenStyle   lipgloss.Style
-	prStateMergedStyle lipgloss.Style
-	prStateClosedStyle lipgloss.Style
-
 	baseBoxStyle lipgloss.Style
 
 	// Annotation keyword styles
@@ -140,10 +136,6 @@ func (m *Model) ensureRenderStyles() {
 		ciIconFailureStyle: lipgloss.NewStyle().Foreground(m.theme.ErrorFg),
 		ciIconPendingStyle: lipgloss.NewStyle().Foreground(m.theme.WarnFg),
 		ciIconDefaultStyle: lipgloss.NewStyle().Foreground(m.theme.MutedFg),
-
-		prStateOpenStyle:   lipgloss.NewStyle().Foreground(m.theme.SuccessFg),
-		prStateMergedStyle: lipgloss.NewStyle().Foreground(m.theme.Accent),
-		prStateClosedStyle: lipgloss.NewStyle().Foreground(m.theme.ErrorFg),
 
 		annotFixStyle:     lipgloss.NewStyle().Bold(true).Foreground(m.theme.ErrorFg),
 		annotWarnStyle:    lipgloss.NewStyle().Bold(true).Foreground(m.theme.WarnFg),
