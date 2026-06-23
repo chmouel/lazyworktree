@@ -190,6 +190,7 @@ func initMachineTestRepo(t *testing.T) (string, string, string, *git.Service) {
 	runGit(t, repoRoot, "init")
 	runGit(t, repoRoot, "config", "user.name", "Lazy Worktree Test")
 	runGit(t, repoRoot, "config", "user.email", "lazyworktree@example.com")
+	runGit(t, repoRoot, "config", "commit.gpgsign", "false")
 	runGit(t, repoRoot, "branch", "-m", "main")
 	require.NoError(t, os.WriteFile(filepath.Join(repoRoot, "README.md"), []byte("hello\n"), 0o600))
 	runGit(t, repoRoot, "add", "README.md")
