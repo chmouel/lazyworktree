@@ -57,9 +57,14 @@ ci_auto_refresh: true  # default: false
 When a worktree branch has an associated pull or merge request, the status pane displays:
 
 - PR/MR title and number
+- The author's username, with a small round avatar badge on Kitty-compatible terminals
 - PR/MR state as a coloured badge (`Open`, `Merged`, or `Closed`)
 - CI check results
 - Divergence from upstream
+
+![PR/MR information in the Info pane, with a round author avatar badge](../assets/pr-info-avatar.png)
+
+*The Info pane showing a linked pull request, its author avatar, state badge, and CI checks.*
 
 Rows without a linked PR/MR do not show a PR/MR state badge.
 For the primary worktree, details for a linked merged or closed PR/MR, including the state badge, are hidden.
