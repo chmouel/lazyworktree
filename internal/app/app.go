@@ -339,6 +339,8 @@ type Model struct {
 	sortMode             int // sortModePath, sortModeLastActive, or sortModeLastSwitched
 	repoKey              string
 	repoKeyOnce          sync.Once
+	repoWebURL           string
+	repoWebURLOnce       sync.Once
 	infoContent          string
 	statusContent        string
 	notesContent         string

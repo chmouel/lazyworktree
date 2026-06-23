@@ -104,7 +104,7 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 	}
 
 	infoLines := make([]string, 0, 32)
-	infoLines = addField(infoLines, "Path:", valueStyle.Render(wt.Path))
+	infoLines = addField(infoLines, "Path:", valueStyle.Render(shortenHomePath(wt.Path)))
 	infoLines = addField(infoLines, "Branch:", valueStyle.Render(wt.Branch))
 	if note, ok := m.getWorktreeNote(wt.Path); ok {
 		if note.Description != "" {

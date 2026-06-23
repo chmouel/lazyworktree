@@ -26,7 +26,11 @@ func (m *Model) renderHeader(layout layoutDims) string {
 			repoText = " " + repoText // Repo icon
 		}
 		repoStyle := m.renderStyles.headerRepoStyle
-		repoStr = "   " + repoStyle.Render(repoText)
+		rendered := repoStyle.Render(repoText)
+		if url := m.getRepoWebURL(); url != "" {
+			rendered = osc8Hyperlink(rendered, url)
+		}
+		repoStr = "   " + rendered
 	}
 
 	headerStyle := m.renderStyles.headerContainerStyle.Width(layout.width)

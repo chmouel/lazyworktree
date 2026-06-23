@@ -440,6 +440,28 @@ func (m *Model) getMainWorktreePath() string {
 	return ""
 }
 
+func (m *Model) getRepoWebURL() string {
+	m.repoWebURLOnce.Do(func() {
+		raw := strings.TrimSpace(m.state.services.git.RunGit(
+			m.ctx, []string{"git", "remote", "get-url", "origin"},
+			"", []int{0}, true, false,
+		))
+		m.repoWebURL = m.gitURLToWebURL(raw)
+	})
+	return m.repoWebURL
+}
+
+func shortenHomePath(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return path
+	}
+	if strings.HasPrefix(path, home) {
+		return "~" + path[len(home):]
+	}
+	return path
+}
+
 func (m *Model) getWorktreeDir() string {
 	if m.config.WorktreeDir != "" {
 		return m.config.WorktreeDir
