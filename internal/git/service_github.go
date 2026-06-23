@@ -23,16 +23,28 @@ var (
 	gitlabAuthorKeys = authorKeys{usernameKey: "username", isBotKey: "bot"}
 )
 
-// extractAuthor extracts author, authorName, and isBot from a JSON map using host-specific keys.
-func extractAuthor(data map[string]any, keys authorKeys) (author, authorName string, isBot bool) {
+// extractAuthor extracts author metadata from a JSON map using host-specific keys.
+func extractAuthor(data map[string]any, keys authorKeys) (author, authorName, avatarURL string, isBot bool) {
 	authorObj, ok := data["author"].(map[string]any)
 	if !ok {
-		return "", "", false
+		return "", "", "", false
 	}
 	author, _ = authorObj[keys.usernameKey].(string)
 	authorName, _ = authorObj["name"].(string)
+	avatarURL, _ = authorObj["avatar_url"].(string)
+	if avatarURL == "" {
+		avatarURL, _ = authorObj["avatarUrl"].(string)
+	}
 	isBot, _ = authorObj[keys.isBotKey].(bool)
 	return
+}
+
+func githubAvatarURL(login string) string {
+	login = strings.TrimSpace(login)
+	if login == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://github.com/%s.png?size=64", login)
 }
 
 // GetAuthenticatedUsername returns the authenticated forge username for this repository host.
@@ -99,19 +111,23 @@ func (s *Service) fetchGitHubPRs(ctx context.Context) (map[string]*models.PRInfo
 		title, _ := p["title"].(string)
 		body, _ := p["body"].(string)
 		url, _ := p["url"].(string)
-		author, authorName, authorIsBot := extractAuthor(p, githubAuthorKeys)
+		author, authorName, authorAvatarURL, authorIsBot := extractAuthor(p, githubAuthorKeys)
+		if authorAvatarURL == "" {
+			authorAvatarURL = githubAvatarURL(author)
+		}
 
 		if headRefName != "" {
 			prMap[headRefName] = &models.PRInfo{
-				Number:      int(number),
-				State:       state,
-				Title:       title,
-				Body:        body,
-				URL:         url,
-				Branch:      headRefName,
-				Author:      author,
-				AuthorName:  authorName,
-				AuthorIsBot: authorIsBot,
+				Number:          int(number),
+				State:           state,
+				Title:           title,
+				Body:            body,
+				URL:             url,
+				Branch:          headRefName,
+				Author:          author,
+				AuthorName:      authorName,
+				AuthorAvatarURL: authorAvatarURL,
+				AuthorIsBot:     authorIsBot,
 			}
 		}
 	}
@@ -161,19 +177,23 @@ func (s *Service) fetchGitHubPRForWorktreeWithError(ctx context.Context, worktre
 	url, _ := pr["url"].(string)
 	headRefName, _ := pr["headRefName"].(string)
 	baseRefName, _ := pr["baseRefName"].(string)
-	author, authorName, authorIsBot := extractAuthor(pr, githubAuthorKeys)
+	author, authorName, authorAvatarURL, authorIsBot := extractAuthor(pr, githubAuthorKeys)
+	if authorAvatarURL == "" {
+		authorAvatarURL = githubAvatarURL(author)
+	}
 
 	return &models.PRInfo{
-		Number:      int(number),
-		State:       state,
-		Title:       title,
-		Body:        body,
-		URL:         url,
-		Branch:      headRefName,
-		BaseBranch:  baseRefName,
-		Author:      author,
-		AuthorName:  authorName,
-		AuthorIsBot: authorIsBot,
+		Number:          int(number),
+		State:           state,
+		Title:           title,
+		Body:            body,
+		URL:             url,
+		Branch:          headRefName,
+		BaseBranch:      baseRefName,
+		Author:          author,
+		AuthorName:      authorName,
+		AuthorAvatarURL: authorAvatarURL,
+		AuthorIsBot:     authorIsBot,
 	}, nil
 }
 
@@ -225,22 +245,26 @@ func (s *Service) fetchGitHubOpenPRs(ctx context.Context) ([]*models.PRInfo, err
 		body, _ := p["body"].(string)
 		url, _ := p["url"].(string)
 		headRefName, _ := p["headRefName"].(string)
-		author, authorName, authorIsBot := extractAuthor(p, githubAuthorKeys)
+		author, authorName, authorAvatarURL, authorIsBot := extractAuthor(p, githubAuthorKeys)
+		if authorAvatarURL == "" {
+			authorAvatarURL = githubAvatarURL(author)
+		}
 		isDraft, _ := p["isDraft"].(bool)
 		ciStatus := computeCIStatusFromRollup(p["statusCheckRollup"])
 
 		result = append(result, &models.PRInfo{
-			Number:      int(number),
-			State:       prStateOpen,
-			Title:       title,
-			Body:        body,
-			URL:         url,
-			Branch:      headRefName,
-			Author:      author,
-			AuthorName:  authorName,
-			AuthorIsBot: authorIsBot,
-			IsDraft:     isDraft,
-			CIStatus:    ciStatus,
+			Number:          int(number),
+			State:           prStateOpen,
+			Title:           title,
+			Body:            body,
+			URL:             url,
+			Branch:          headRefName,
+			Author:          author,
+			AuthorName:      authorName,
+			AuthorAvatarURL: authorAvatarURL,
+			AuthorIsBot:     authorIsBot,
+			IsDraft:         isDraft,
+			CIStatus:        ciStatus,
 		})
 	}
 
@@ -285,23 +309,27 @@ func (s *Service) fetchGitHubPR(ctx context.Context, prNumber int) (*models.PRIn
 	url, _ := pr["url"].(string)
 	headRefName, _ := pr["headRefName"].(string)
 	baseRefName, _ := pr["baseRefName"].(string)
-	author, authorName, authorIsBot := extractAuthor(pr, githubAuthorKeys)
+	author, authorName, authorAvatarURL, authorIsBot := extractAuthor(pr, githubAuthorKeys)
+	if authorAvatarURL == "" {
+		authorAvatarURL = githubAvatarURL(author)
+	}
 	isDraft, _ := pr["isDraft"].(bool)
 	ciStatus := computeCIStatusFromRollup(pr["statusCheckRollup"])
 
 	return &models.PRInfo{
-		Number:      int(number),
-		State:       prStateOpen,
-		Title:       title,
-		Body:        body,
-		URL:         url,
-		Branch:      headRefName,
-		BaseBranch:  baseRefName,
-		Author:      author,
-		AuthorName:  authorName,
-		AuthorIsBot: authorIsBot,
-		IsDraft:     isDraft,
-		CIStatus:    ciStatus,
+		Number:          int(number),
+		State:           prStateOpen,
+		Title:           title,
+		Body:            body,
+		URL:             url,
+		Branch:          headRefName,
+		BaseBranch:      baseRefName,
+		Author:          author,
+		AuthorName:      authorName,
+		AuthorAvatarURL: authorAvatarURL,
+		AuthorIsBot:     authorIsBot,
+		IsDraft:         isDraft,
+		CIStatus:        ciStatus,
 	}, nil
 }
 
@@ -344,7 +372,7 @@ func (s *Service) fetchGitHubOpenIssues(ctx context.Context) ([]*models.IssueInf
 		title, _ := i["title"].(string)
 		body, _ := i["body"].(string)
 		url, _ := i["url"].(string)
-		author, authorName, authorIsBot := extractAuthor(i, githubAuthorKeys)
+		author, authorName, _, authorIsBot := extractAuthor(i, githubAuthorKeys)
 
 		result = append(result, &models.IssueInfo{
 			Number:      int(number),
@@ -397,7 +425,7 @@ func (s *Service) fetchGitHubIssue(ctx context.Context, issueNumber int) (*model
 	title, _ := issue["title"].(string)
 	body, _ := issue["body"].(string)
 	url, _ := issue["url"].(string)
-	author, authorName, authorIsBot := extractAuthor(issue, githubAuthorKeys)
+	author, authorName, _, authorIsBot := extractAuthor(issue, githubAuthorKeys)
 
 	return &models.IssueInfo{
 		Number:      int(number),

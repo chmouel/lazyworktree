@@ -26,7 +26,7 @@ func (m *Model) handleWorktreeMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case absorbMergeResultMsg:
 		return m.handleAbsorbResult(msg)
 	default:
-		return m, nil
+		return m, m.queuePRAvatarFetches()
 	}
 }
 
@@ -131,6 +131,9 @@ func (m *Model) handleWorktreesLoaded(msg worktreesLoadedMsg) (tea.Model, tea.Cm
 	if cmd := m.updateDetailsView(); cmd != nil {
 		cmds = append(cmds, cmd)
 	}
+	if cmd := m.queuePRAvatarFetches(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
 	if cmd := m.startAutoRefresh(); cmd != nil {
 		cmds = append(cmds, cmd)
 	}
@@ -184,7 +187,7 @@ func (m *Model) handleCachedWorktrees(msg cachedWorktreesMsg) (tea.Model, tea.Cm
 	}
 	m.refreshSelectedWorktreeAgentSessionsPane()
 	m.statusContent = loadingRefreshWorktrees
-	return m, nil
+	return m, m.queuePRAvatarFetches()
 }
 
 // handlePruneResult processes prune result message.
@@ -221,7 +224,7 @@ func (m *Model) handlePruneResult(msg pruneResultMsg) (tea.Model, tea.Cmd) {
 		parts = append(parts, "Nothing to prune")
 	}
 	m.statusContent = strings.Join(parts, ", ")
-	return m, nil
+	return m, m.queuePRAvatarFetches()
 }
 
 // handleAbsorbResult processes absorb merge result message.
@@ -323,7 +326,7 @@ func (m *Model) handlePRDataLoaded(msg prDataLoadedMsg) (tea.Model, tea.Cmd) {
 			return m, m.performMergedWorktreeCheck()
 		}
 
-		return m, m.updateDetailsView()
+		return m, tea.Batch(m.queuePRAvatarFetches(), m.updateDetailsView())
 	}
 	// Even if PR fetch failed, run merged check if requested (will fall back to git-based detection)
 	if m.loading.checkMergedAfterPR {
@@ -383,8 +386,9 @@ func (m *Model) handleSinglePRLoaded(msg singlePRLoadedMsg) (tea.Model, tea.Cmd)
 		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
 	}
 
-	// Trigger CI fetch for the current worktree
-	return m, m.maybeFetchCIStatus()
+	// Trigger CI fetch for the current worktree, and queue any avatar badge
+	// downloads now that this worktree's PR (and its author avatar URL) exists.
+	return m, tea.Batch(m.maybeFetchCIStatus(), m.queuePRAvatarFetches())
 }
 
 // handleOpenPRsLoaded handles the result of fetching open PRs.
@@ -463,9 +467,11 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 			return func() tea.Msg { return errMsg{err: err} }
 		}
 
-		// Create worktree from PR branch (can take time, so do it async with a loading pulse)
+		label := changeRequestLabel(pr)
+
+		// Create worktree from PR/MR branch (can take time, so do it async with a loading pulse)
 		m.loading.active = true
-		m.statusContent = fmt.Sprintf("Creating worktree from PR/MR #%d...", pr.Number)
+		m.statusContent = fmt.Sprintf("Creating worktree from %s #%d...", label, pr.Number)
 		m.state.ui.screenManager.Clear() // Clear all stacked screens before loading
 		m.setLoadingScreen(m.statusContent)
 		m.pendingOp.selectPath = targetPath
@@ -476,12 +482,13 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 					prNumber:   pr.Number,
 					branch:     localBranch,
 					targetPath: targetPath,
-					err:        fmt.Errorf("create worktree from PR/MR branch %q", remoteBranch),
+					pr:         pr,
+					err:        fmt.Errorf("create worktree from %s branch %q", label, remoteBranch),
 				}
 			}
 			noteText, err := m.generateWorktreeNote("pr", pr.Number, pr.Title, pr.Body, pr.URL)
 			if err != nil {
-				m.debugf("worktree note script error for PR/MR #%d: %v", pr.Number, err)
+				m.debugf("worktree note script error for %s #%d: %v", label, pr.Number, err)
 			}
 			return createFromPRResultMsg{
 				prNumber:   pr.Number,

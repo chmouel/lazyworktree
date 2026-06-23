@@ -715,7 +715,7 @@ func (m *Model) updateTableColumns(totalWidth int) {
 	}
 
 	if showPRColumn {
-		columns = append(columns, table.Column{Title: "PR", Width: pr})
+		columns = append(columns, table.Column{Title: m.changeRequestColumnTitle(), Width: pr})
 	}
 
 	m.state.ui.worktreeTable.SetColumns(columns)

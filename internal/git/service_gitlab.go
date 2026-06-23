@@ -64,21 +64,22 @@ func (s *Service) fetchGitLabPRs(ctx context.Context) (map[string]*models.PRInfo
 		description, _ := p["description"].(string)
 		webURL, _ := p["web_url"].(string)
 		sourceBranch, _ := p["source_branch"].(string)
-		author, authorName, authorIsBot := extractAuthor(p, gitlabAuthorKeys)
+		author, authorName, authorAvatarURL, authorIsBot := extractAuthor(p, gitlabAuthorKeys)
 		isDraft, _ := p["draft"].(bool)
 
 		if sourceBranch != "" {
 			prMap[sourceBranch] = &models.PRInfo{
-				Number:      int(iid),
-				State:       state,
-				Title:       title,
-				Body:        description,
-				URL:         webURL,
-				Branch:      sourceBranch,
-				Author:      author,
-				AuthorName:  authorName,
-				AuthorIsBot: authorIsBot,
-				IsDraft:     isDraft,
+				Number:          int(iid),
+				State:           state,
+				Title:           title,
+				Body:            description,
+				URL:             webURL,
+				Branch:          sourceBranch,
+				Author:          author,
+				AuthorName:      authorName,
+				AuthorAvatarURL: authorAvatarURL,
+				AuthorIsBot:     authorIsBot,
+				IsDraft:         isDraft,
 			}
 		}
 	}
@@ -115,21 +116,22 @@ func (s *Service) fetchGitLabPRForWorktreeWithError(ctx context.Context, worktre
 	webURL, _ := pr["web_url"].(string)
 	sourceBranch, _ := pr["source_branch"].(string)
 	targetBranch, _ := pr["target_branch"].(string)
-	author, authorName, authorIsBot := extractAuthor(pr, gitlabAuthorKeys)
+	author, authorName, authorAvatarURL, authorIsBot := extractAuthor(pr, gitlabAuthorKeys)
 	isDraft, _ := pr["draft"].(bool)
 
 	return &models.PRInfo{
-		Number:      int(iid),
-		State:       state,
-		Title:       title,
-		Body:        description,
-		URL:         webURL,
-		Branch:      sourceBranch,
-		BaseBranch:  targetBranch,
-		Author:      author,
-		AuthorName:  authorName,
-		AuthorIsBot: authorIsBot,
-		IsDraft:     isDraft,
+		Number:          int(iid),
+		State:           state,
+		Title:           title,
+		Body:            description,
+		URL:             webURL,
+		Branch:          sourceBranch,
+		BaseBranch:      targetBranch,
+		Author:          author,
+		AuthorName:      authorName,
+		AuthorAvatarURL: authorAvatarURL,
+		AuthorIsBot:     authorIsBot,
+		IsDraft:         isDraft,
 	}, nil
 }
 
@@ -159,7 +161,7 @@ func (s *Service) fetchGitLabOpenPRs(ctx context.Context) ([]*models.PRInfo, err
 		description, _ := p["description"].(string)
 		webURL, _ := p["web_url"].(string)
 		sourceBranch, _ := p["source_branch"].(string)
-		author, authorName, authorIsBot := extractAuthor(p, gitlabAuthorKeys)
+		author, authorName, authorAvatarURL, authorIsBot := extractAuthor(p, gitlabAuthorKeys)
 
 		// GitLab uses "draft" field for WIP/draft MRs
 		isDraft, _ := p["draft"].(bool)
@@ -167,17 +169,18 @@ func (s *Service) fetchGitLabOpenPRs(ctx context.Context) ([]*models.PRInfo, err
 		ciStatus := "none"
 
 		result = append(result, &models.PRInfo{
-			Number:      int(iid),
-			State:       state,
-			Title:       title,
-			Body:        description,
-			URL:         webURL,
-			Branch:      sourceBranch,
-			Author:      author,
-			AuthorName:  authorName,
-			AuthorIsBot: authorIsBot,
-			IsDraft:     isDraft,
-			CIStatus:    ciStatus,
+			Number:          int(iid),
+			State:           state,
+			Title:           title,
+			Body:            description,
+			URL:             webURL,
+			Branch:          sourceBranch,
+			Author:          author,
+			AuthorName:      authorName,
+			AuthorAvatarURL: authorAvatarURL,
+			AuthorIsBot:     authorIsBot,
+			IsDraft:         isDraft,
+			CIStatus:        ciStatus,
 		})
 	}
 
@@ -210,22 +213,23 @@ func (s *Service) fetchGitLabPR(ctx context.Context, prNumber int) (*models.PRIn
 	webURL, _ := pr["web_url"].(string)
 	sourceBranch, _ := pr["source_branch"].(string)
 	targetBranch, _ := pr["target_branch"].(string)
-	author, authorName, authorIsBot := extractAuthor(pr, gitlabAuthorKeys)
+	author, authorName, authorAvatarURL, authorIsBot := extractAuthor(pr, gitlabAuthorKeys)
 	isDraft, _ := pr["draft"].(bool)
 
 	return &models.PRInfo{
-		Number:      int(iid),
-		State:       state,
-		Title:       title,
-		Body:        description,
-		URL:         webURL,
-		Branch:      sourceBranch,
-		BaseBranch:  targetBranch,
-		Author:      author,
-		AuthorName:  authorName,
-		AuthorIsBot: authorIsBot,
-		IsDraft:     isDraft,
-		CIStatus:    "none",
+		Number:          int(iid),
+		State:           state,
+		Title:           title,
+		Body:            description,
+		URL:             webURL,
+		Branch:          sourceBranch,
+		BaseBranch:      targetBranch,
+		Author:          author,
+		AuthorName:      authorName,
+		AuthorAvatarURL: authorAvatarURL,
+		AuthorIsBot:     authorIsBot,
+		IsDraft:         isDraft,
+		CIStatus:        "none",
 	}, nil
 }
 
@@ -254,7 +258,7 @@ func (s *Service) fetchGitLabOpenIssues(ctx context.Context) ([]*models.IssueInf
 		title, _ := i["title"].(string)
 		description, _ := i["description"].(string)
 		webURL, _ := i["web_url"].(string)
-		author, authorName, authorIsBot := extractAuthor(i, gitlabAuthorKeys)
+		author, authorName, _, authorIsBot := extractAuthor(i, gitlabAuthorKeys)
 
 		result = append(result, &models.IssueInfo{
 			Number:      int(iid),
@@ -295,7 +299,7 @@ func (s *Service) fetchGitLabIssue(ctx context.Context, issueNumber int) (*model
 	title, _ := issue["title"].(string)
 	description, _ := issue["description"].(string)
 	webURL, _ := issue["web_url"].(string)
-	author, authorName, authorIsBot := extractAuthor(issue, gitlabAuthorKeys)
+	author, authorName, _, authorIsBot := extractAuthor(issue, gitlabAuthorKeys)
 
 	return &models.IssueInfo{
 		Number:      int(iid),

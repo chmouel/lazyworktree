@@ -66,6 +66,10 @@ theme: dracula
 # Options: "nerd-font-v3", "text"
 icon_set: nerd-font-v3
 
+# Tiny PR/MR author avatar badges in the Info pane.
+# Options: "auto" (Kitty-compatible terminals), "never", "always"
+avatar_badges: auto
+
 # Start with the filter focused and automatically select the first match when you press Enter
 search_auto_select: false
 

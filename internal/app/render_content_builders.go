@@ -146,16 +146,20 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 				authorText = iconPrefix(UIIconBot, m.config.IconsEnabled()) + authorText
 			}
 			authorText = renderStyle.Render(authorText)
+			if badge := m.renderAvatarBadge(wt.PR); badge != "" {
+				authorText = badge + " " + authorText
+			}
 		}
 		prLabelStyle := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true) // Accent for PR prominence
 		prNumber := fmt.Sprintf("#%d", wt.PR.Number)
 		prNumber = renderStyle.Render(prNumber)
-		prPrefix := fmt.Sprintf("PR/MR %s by %s", prNumber, authorText)
+		prHeading := fmt.Sprintf("%s %s by ", changeRequestLabel(wt.PR), prNumber)
 		if m.config.IconsEnabled() {
-			prPrefix = iconWithSpace(getIconPR()) + prPrefix
+			prHeading = iconWithSpace(getIconPR()) + prHeading
 		}
+		prPrefix := prLabelStyle.Render(prHeading) + authorText
 		infoLines = append(infoLines, m.infoSectionDivider(30))
-		infoLines = append(infoLines, prLabelStyle.Render(prPrefix))
+		infoLines = append(infoLines, prPrefix)
 		infoLines = append(infoLines, fmt.Sprintf("  %s ", wt.PR.Title))
 		// // URL styled with cyan for consistency
 		infoLines = append(infoLines, fmt.Sprintf("  %s", wt.PR.URL))

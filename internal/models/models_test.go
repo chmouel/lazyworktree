@@ -51,6 +51,59 @@ func TestPRInfo(t *testing.T) {
 	}
 }
 
+func TestPRInfoEnsureAuthorAvatarURL(t *testing.T) {
+	tests := []struct {
+		name string
+		pr   *PRInfo
+		want string
+	}{
+		{
+			name: "backfills github avatar from login",
+			pr: &PRInfo{
+				Author: "chmouel",
+				URL:    "https://github.com/tektoncd/pipelines-as-code/pull/2745",
+			},
+			want: "https://github.com/chmouel.png?size=64",
+		},
+		{
+			name: "keeps existing avatar url",
+			pr: &PRInfo{
+				Author:          "chmouel",
+				AuthorAvatarURL: "https://example.com/custom.png",
+				URL:             "https://github.com/o/r/pull/1",
+			},
+			want: "https://example.com/custom.png",
+		},
+		{
+			name: "ignores non-github hosts",
+			pr: &PRInfo{
+				Author: "alice",
+				URL:    "https://gitlab.com/o/r/-/merge_requests/1",
+			},
+			want: "",
+		},
+		{
+			name: "no-op without author login",
+			pr: &PRInfo{
+				URL: "https://github.com/o/r/pull/1",
+			},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.pr.EnsureAuthorAvatarURL()
+			assert.Equal(t, tt.want, tt.pr.AuthorAvatarURL)
+		})
+	}
+}
+
+func TestPRInfoEnsureAuthorAvatarURLNilSafe(t *testing.T) {
+	var pr *PRInfo
+	assert.NotPanics(t, func() { pr.EnsureAuthorAvatarURL() })
+}
+
 func TestWorktreeInfo(t *testing.T) {
 	tests := []struct {
 		name string

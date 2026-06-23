@@ -96,7 +96,7 @@ func TestCreateFromPRResultMsgError(t *testing.T) {
 		t.Fatalf("Expected info screen to be shown, got active=%v type=%v", m.state.ui.screenManager.IsActive(), m.state.ui.screenManager.Type())
 	}
 	infoScr := m.state.ui.screenManager.Current().(*appscreen.InfoScreen)
-	if !strings.Contains(infoScr.Message, "Failed to create worktree from PR/MR #456") {
+	if !strings.Contains(infoScr.Message, "Failed to create worktree from PR #456") {
 		t.Errorf("Expected error message about PR #456, got %q", infoScr.Message)
 	}
 	if !strings.Contains(infoScr.Message, "failed to checkout branch") {
@@ -778,7 +778,7 @@ func TestCreateFromPRClearsScreenStack(t *testing.T) {
 	// Simulate what happens when the user submits the input:
 	// The code should clear the stack, then set the loading screen
 	m.loading.active = true
-	m.statusContent = "Creating worktree from PR/MR #1..."
+	m.statusContent = "Creating worktree from PR #1..."
 	m.state.ui.screenManager.Clear() // This is the fix
 	m.setLoadingScreen(m.statusContent)
 

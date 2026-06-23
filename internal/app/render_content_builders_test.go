@@ -1,8 +1,10 @@
 package app
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/stretchr/testify/assert"
@@ -126,6 +128,132 @@ func TestRenderStatusFiles_DirectoryGrouping(t *testing.T) {
 	assert.Contains(t, result, "b.go")
 }
 
+func TestBuildInfoContentAvatarBadgeFallbackWhenDisabled(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir(), AvatarBadges: "never"}
+	m := NewModel(cfg, "")
+	wt := &models.WorktreeInfo{
+		Path:   t.TempDir(),
+		Branch: "feature",
+		PR: &models.PRInfo{
+			Number:          42,
+			State:           prStateOpen,
+			Title:           "Add feature",
+			URL:             "https://github.com/acme/repo/pull/42",
+			Author:          "alice",
+			AuthorAvatarURL: "https://example.com/alice.png",
+		},
+	}
+
+	info := m.buildInfoContent(wt)
+
+	assert.Contains(t, stripTerminalSequences(info), "PR #42 by alice")
+	assert.NotContains(t, info, kittyPlaceholderRune)
+}
+
+func TestBuildInfoContentRendersAvatarBadgeWhenLoaded(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir(), AvatarBadges: "always"}
+	m := NewModel(cfg, "")
+	avatarURL := "https://example.com/alice.png"
+	m.avatarStates[avatarURL] = &avatarRuntimeState{
+		status:     avatarStateLoaded,
+		registered: true,
+		image:      &services.AvatarImage{URL: avatarURL, Key: "alice", PNG: []byte("png")},
+	}
+	wt := &models.WorktreeInfo{
+		Path:   t.TempDir(),
+		Branch: "feature",
+		PR: &models.PRInfo{
+			Number:          42,
+			State:           prStateOpen,
+			Title:           "Add feature",
+			URL:             "https://github.com/acme/repo/pull/42",
+			Author:          "alice",
+			AuthorAvatarURL: avatarURL,
+		},
+	}
+
+	info := m.buildInfoContent(wt)
+
+	assert.Contains(t, info, kittyPlaceholderRune)
+	assert.Contains(t, stripTerminalSequences(info), "alice")
+}
+
+func TestKittyRegisterAvatarBuildsQuietVirtualPlacement(t *testing.T) {
+	t.Setenv("TMUX", "")
+	image := &services.AvatarImage{Key: "alice", PNG: []byte(strings.Repeat("a", 5000))}
+
+	seq := kittyRegisterAvatar(image)
+
+	assert.Contains(t, seq, "\x1b_Ga=T,f=100")
+	assert.Contains(t, seq, "c=2")
+	assert.Contains(t, seq, "r=1")
+	assert.Contains(t, seq, "U=1")
+	assert.Contains(t, seq, "q=2")
+	assert.Contains(t, seq, "m=1")
+	assert.NotContains(t, seq, "a=p")
+}
+
+func TestKittyRegisterAvatarWrapsGraphicsForTmux(t *testing.T) {
+	t.Setenv("TMUX", "/tmp/tmux-1000/default,123,0")
+	image := &services.AvatarImage{Key: "alice", PNG: []byte("png")}
+
+	seq := kittyRegisterAvatar(image)
+
+	assert.True(t, strings.HasPrefix(seq, "\x1bPtmux;\x1b\x1b_Ga=T"))
+	assert.True(t, strings.HasSuffix(seq, "\x1b\\"))
+}
+
+func TestHandleAvatarLoadedRefreshesSelectedInfo(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir(), AvatarBadges: "always"}
+	m := NewModel(cfg, "")
+	avatarURL := "https://example.com/alice.png"
+	wt := &models.WorktreeInfo{
+		Path:   t.TempDir(),
+		Branch: "feature",
+		PR: &models.PRInfo{
+			Number:          42,
+			State:           prStateOpen,
+			Title:           "Add feature",
+			URL:             "https://github.com/acme/repo/pull/42",
+			Author:          "alice",
+			AuthorAvatarURL: avatarURL,
+		},
+	}
+	m.state.data.worktrees = []*models.WorktreeInfo{wt}
+	m.state.data.filteredWts = m.state.data.worktrees
+	m.state.data.selectedIndex = 0
+
+	updated, cmd := m.handleAvatarLoaded(avatarLoadedMsg{
+		url:   avatarURL,
+		image: &services.AvatarImage{URL: avatarURL, Key: "alice", PNG: []byte("png")},
+	})
+
+	assert.NotNil(t, cmd)
+	updatedModel := updated.(*Model)
+	assert.NotContains(t, updatedModel.infoContent, kittyPlaceholderRune)
+
+	updated, cmd = updatedModel.handleAvatarRegistered(avatarRegisteredMsg{url: avatarURL})
+	assert.Nil(t, cmd)
+	assert.Contains(t, updated.(*Model).infoContent, kittyPlaceholderRune)
+}
+
+func TestChangeRequestLabelForURL(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{name: "github pull request", url: "https://github.com/acme/repo/pull/42", want: "PR"},
+		{name: "gitlab merge request", url: "https://gitlab.example.com/acme/repo/-/merge_requests/42", want: "MR"},
+		{name: "other forge pull request", url: "https://gitea.example.com/acme/repo/pulls/42", want: "PR"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, changeRequestLabelForURL(tt.url))
+		})
+	}
+}
+
 func TestRenderStatusFiles_StagedAndUnstagedSameFile(t *testing.T) {
 	t.Parallel()
 	m := newModelForRenderTest(t)
@@ -196,7 +324,7 @@ func TestBuildInfoContent_PRDetailsExcludeHeaderStateBadge(t *testing.T) {
 
 	result := stripTerminalSequences(m.buildInfoContent(wt))
 
-	assert.Contains(t, result, "PR/MR #42")
+	assert.Contains(t, result, "PR #42")
 	assert.Contains(t, result, "Show status badge")
 	assert.NotContains(t, result, " Open ")
 	assert.NotContains(t, result, "\ue0b6")

@@ -61,6 +61,7 @@ type AppConfig struct {
 	MergeMethod             string // Merge method for absorb: "rebase" or "merge" (default: "rebase")
 	FuzzyFinderInput        bool   // Enable fuzzy finder for input suggestions (default: false)
 	IconSet                 string // Icon set: "nerd-font-v3", "text" (default: "nerd-font-v3"). Legacy "emoji" and "none" map to "text".
+	AvatarBadges            string // PR/MR author avatar badges: "auto", "never", or "always" (default: "auto").
 	IssueBranchNameTemplate string // Template for issue branch names with placeholders: {number}, {title} (default: "issue-{number}-{title}")
 	PRBranchNameTemplate    string // Template for PR branch names with placeholders: {number}, {title}, {generated}, {pr_author} (default: "pr-{number}-{title}")
 	SessionPrefix           string // Prefix for tmux/zellij session names (default: "wt-")
@@ -109,6 +110,7 @@ func DefaultConfig() *AppConfig {
 		PaletteMRU:              true,
 		PaletteMRULimit:         5,
 		IconSet:                 "nerd-font-v3",
+		AvatarBadges:            "auto",
 		CustomThemes:            make(map[string]*CustomTheme),
 		Keybindings:             make(KeybindingsConfig),
 		CustomCommands: CustomCommandsConfig{
@@ -252,6 +254,17 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 			default:
 				return nil, fmt.Errorf("invalid icon_set %q (available: %s)", iconSet, iconSetOptionsString())
 			}
+		}
+	}
+	if avatarBadges, ok := data["avatar_badges"].(string); ok {
+		avatarBadges = strings.ToLower(strings.TrimSpace(avatarBadges))
+		switch avatarBadges {
+		case "", "auto":
+			cfg.AvatarBadges = "auto"
+		case "never", "always":
+			cfg.AvatarBadges = avatarBadges
+		default:
+			return nil, fmt.Errorf("invalid avatar_badges %q (available: auto, never, always)", avatarBadges)
 		}
 	}
 
@@ -643,6 +656,9 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	}
 	if _, ok := overrideData["icon_set"]; ok {
 		cfg.IconSet = overrideCfg.IconSet
+	}
+	if _, ok := overrideData["avatar_badges"]; ok {
+		cfg.AvatarBadges = overrideCfg.AvatarBadges
 	}
 	if _, ok := overrideData["palette_mru"]; ok {
 		cfg.PaletteMRU = overrideCfg.PaletteMRU

@@ -272,6 +272,7 @@ func TestFetchPRGitHub(t *testing.T) {
 	assert.Equal(t, "main", pr.BaseBranch)
 	assert.Equal(t, "testuser", pr.Author)
 	assert.Equal(t, "Test User", pr.AuthorName)
+	assert.Equal(t, "https://github.com/testuser.png?size=64", pr.AuthorAvatarURL)
 	assert.False(t, pr.AuthorIsBot)
 	assert.False(t, pr.IsDraft)
 }

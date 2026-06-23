@@ -3,9 +3,11 @@ package app
 import (
 	"fmt"
 	"image/color"
+	"net/url"
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/chmouel/lazyworktree/internal/models"
 )
 
 // renderHeader renders the application header.
@@ -27,8 +29,8 @@ func (m *Model) renderHeader(layout layoutDims) string {
 		}
 		repoStyle := m.renderStyles.headerRepoStyle
 		rendered := repoStyle.Render(repoText)
-		if url := m.getRepoWebURL(); url != "" {
-			rendered = osc8Hyperlink(rendered, url)
+		if repoURL := m.getRepoWebURL(); repoURL != "" {
+			rendered = osc8Hyperlink(rendered, repoURL)
 		}
 		repoStr = "   " + rendered
 	}
@@ -143,7 +145,7 @@ func (m *Model) renderFooter(layout layoutDims) string {
 			if wt.IsMain && (wt.PR == nil || wt.PR.State == prStateMerged || wt.PR.State == prStateClosed) {
 				openLabel = "Open Repo"
 			} else if wt.PR != nil && wt.PR.URL != "" {
-				openLabel = "Open PR"
+				openLabel = "Open " + changeRequestLabel(wt.PR)
 			}
 			actionGroup = append(actionGroup, m.renderKeyHint("o", openLabel))
 		}
@@ -435,16 +437,48 @@ var remoteIconTable = []struct {
 	{"sr.ht", "\uf1db"},
 }
 
-func prRemoteIcon(url string, showNerdFontIcons bool) string {
+func prRemoteIcon(rawURL string, showNerdFontIcons bool) string {
 	if !showNerdFontIcons {
 		return ""
 	}
 	for _, r := range remoteIconTable {
-		if strings.Contains(url, r.domain) {
+		if strings.Contains(rawURL, r.domain) {
 			return r.icon
 		}
 	}
 	return "\U000f02a2"
+}
+
+func changeRequestLabel(pr *models.PRInfo) string {
+	if pr == nil {
+		return "PR"
+	}
+	return changeRequestLabelForURL(pr.URL)
+}
+
+func changeRequestLabelForURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err == nil {
+		host := strings.ToLower(u.Host)
+		path := strings.ToLower(u.Path)
+		if strings.Contains(host, "gitlab") || strings.Contains(path, "/merge_requests/") {
+			return "MR"
+		}
+	}
+	rawURL = strings.ToLower(rawURL)
+	if strings.Contains(rawURL, "gitlab") || strings.Contains(rawURL, "/merge_requests/") {
+		return "MR"
+	}
+	return "PR"
+}
+
+func (m *Model) changeRequestColumnTitle() string {
+	for _, wt := range m.state.data.worktrees {
+		if wt != nil && wt.PR != nil && changeRequestLabel(wt.PR) == "MR" {
+			return "MR"
+		}
+	}
+	return "PR"
 }
 
 // basePaneStyle returns the base style for panes.

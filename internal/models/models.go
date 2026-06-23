@@ -2,6 +2,7 @@
 package models
 
 import (
+	"net/url"
 	"strings"
 	"time"
 )
@@ -15,18 +16,35 @@ type CommitFile struct {
 
 // PRInfo captures the relevant metadata for a pull request.
 type PRInfo struct {
-	Number      int
-	State       string
-	Title       string
-	Body        string // For branch_name_script input
-	URL         string
-	Branch      string // Branch name (headRefName for GitHub, source_branch for GitLab)
-	BaseBranch  string // Base branch name (baseRefName for GitHub, target_branch for GitLab)
-	Author      string // PR/MR author username
-	AuthorName  string // PR/MR author full name
-	AuthorIsBot bool   // Whether the author is a bot
-	IsDraft     bool   // Whether the PR is a draft
-	CIStatus    string // Computed CI status: "success", "failure", "pending", "none"
+	Number          int
+	State           string
+	Title           string
+	Body            string // For branch_name_script input
+	URL             string
+	Branch          string // Branch name (headRefName for GitHub, source_branch for GitLab)
+	BaseBranch      string // Base branch name (baseRefName for GitHub, target_branch for GitLab)
+	Author          string // PR/MR author username
+	AuthorName      string // PR/MR author full name
+	AuthorAvatarURL string // PR/MR author avatar URL
+	AuthorIsBot     bool   // Whether the author is a bot
+	IsDraft         bool   // Whether the PR is a draft
+	CIStatus        string // Computed CI status: "success", "failure", "pending", "none"
+}
+
+// EnsureAuthorAvatarURL backfills AuthorAvatarURL from the author login for
+// github.com pull requests when it is missing. This recovers PR data restored
+// from an older on-disk cache written before avatar URLs were persisted.
+func (p *PRInfo) EnsureAuthorAvatarURL() {
+	if p == nil || strings.TrimSpace(p.AuthorAvatarURL) != "" {
+		return
+	}
+	login := strings.TrimSpace(p.Author)
+	if login == "" {
+		return
+	}
+	if u, err := url.Parse(p.URL); err == nil && strings.EqualFold(u.Hostname(), "github.com") {
+		p.AuthorAvatarURL = "https://github.com/" + login + ".png?size=64"
+	}
 }
 
 // IssueInfo captures the relevant metadata for an issue.

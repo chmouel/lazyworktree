@@ -58,6 +58,11 @@ func LoadCache(repoKey, worktreeDir string) ([]*models.WorktreeInfo, error) {
 	if len(payload.Worktrees) == 0 {
 		return nil, nil
 	}
+	for _, wt := range payload.Worktrees {
+		if wt != nil && wt.PR != nil {
+			wt.PR.EnsureAuthorAvatarURL()
+		}
+	}
 	return payload.Worktrees, nil
 }
 

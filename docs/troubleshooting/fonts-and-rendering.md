@@ -65,19 +65,46 @@ Some terminals require additional configuration for true colour:
 - **screen**: true-colour support is limited; consider tmux instead
 - **SSH sessions**: ensure the remote `$TERM` is propagated correctly
 
+## Symptom: PR/MR Author Avatars Do Not Appear
+
+Avatar badges use the Kitty graphics protocol and are deliberately conservative.
+They only appear in the Info pane when PR/MR data includes an author avatar URL
+and `avatar_badges` is enabled. Each badge is rendered as a small, round avatar
+with transparent corners so it blends into the surrounding pane.
+
+```yaml
+avatar_badges: auto
+```
+
+Use `avatar_badges: never` to keep plain-text author names everywhere. Use
+`avatar_badges: always` only when your terminal supports Kitty graphics but is
+not detected automatically.
+
+Avatars are cached on disk under your user cache directory. The cache is
+versioned, so upgrades that change the avatar appearance regenerate fresh images
+automatically; you do not need to clear the cache by hand.
+
+LazyWorktree wraps Kitty graphics registration for tmux passthrough. If avatars
+do not render in tmux, ensure your tmux version and configuration allow
+passthrough, for example `set -g allow-passthrough on`. If avatars still do not
+render in tmux or zellij, test outside the multiplexer, then fall back to
+`never` if your terminal stack cannot pass Kitty graphics sequences through
+reliably.
+
 ## Tested Terminal Emulators
 
 These terminals work with LazyWorktree's default icon and colour settings:
 
-| Terminal | Icons | True colour | Notes |
-| --- | --- | --- | --- |
-| iTerm2 | Yes | Yes | Set Nerd Font in Profiles > Text |
-| Alacritty | Yes | Yes | Set font in `alacritty.toml` |
-| Kitty | Yes | Yes | Nerd Font symbols built in |
-| WezTerm | Yes | Yes | Set font in `wezterm.lua` |
-| GNOME Terminal | Yes | Yes | Set Nerd Font in profile preferences |
-| Windows Terminal | Yes | Yes | Set font face in `settings.json` |
-| macOS Terminal.app | Partial | No | Limited colour support; use iTerm2 or another alternative |
+| Terminal | Icons | True colour | Avatar badges | Notes |
+| --- | --- | --- | --- | --- |
+| iTerm2 | Yes | Yes | No | Set Nerd Font in Profiles > Text |
+| Alacritty | Yes | Yes | No | Set font in `alacritty.toml` |
+| Kitty | Yes | Yes | Yes | Nerd Font symbols built in |
+| WezTerm | Yes | Yes | Yes | Set font in `wezterm.lua` |
+| Ghostty | Yes | Yes | Yes | Uses Kitty-compatible graphics |
+| GNOME Terminal | Yes | Yes | No | Set Nerd Font in profile preferences |
+| Windows Terminal | Yes | Yes | No | Set font face in `settings.json` |
+| macOS Terminal.app | Partial | No | No | Limited colour support; use iTerm2 or another alternative |
 
 ## Theme Readability Checks
 

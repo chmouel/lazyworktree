@@ -53,8 +53,14 @@ You can also resize the worktree pane at runtime with `h` (shrink) and `l` (grow
 ## Icon Rendering
 
 - `icon_set`: `nerd-font-v3` or `text`
+- `avatar_badges`: `auto`, `never`, or `always`
 
 If glyphs render incorrectly, use `text` or install a patched Nerd Font.
+
+`avatar_badges: auto` shows tiny PR/MR author avatars in the Info pane only
+when LazyWorktree detects a Kitty-compatible terminal, such as Kitty, WezTerm,
+or Ghostty. Use `never` to keep plain text everywhere, or `always` to force the
+Kitty graphics path for a compatible terminal that is not detected automatically.
 
 ## Commit Log Indicators
 

@@ -135,6 +135,14 @@ type (
 		checks []*models.CICheck
 		err    error
 	}
+	avatarLoadedMsg struct {
+		url   string
+		image *services.AvatarImage
+		err   error
+	}
+	avatarRegisteredMsg struct {
+		url string
+	}
 	singlePRLoadedMsg struct {
 		worktreePath string
 		pr           *models.PRInfo
@@ -387,6 +395,10 @@ type Model struct {
 	// Per-worktree annotations.
 	worktreeNotes map[string]models.WorktreeNote
 
+	// Runtime-only PR/MR author avatar state.
+	avatarCache  *services.AvatarCache
+	avatarStates map[string]*avatarRuntimeState
+
 	// Command palette usage history for MRU sorting
 	paletteHistory []commandPaletteUsage
 
@@ -555,6 +567,8 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	m.state.data.filteredWts = []*models.WorktreeInfo{}
 	m.state.data.accessHistory = make(map[string]int64)
 	m.worktreeNotes = make(map[string]models.WorktreeNote)
+	m.avatarCache = services.NewDefaultAvatarCache()
+	m.avatarStates = make(map[string]*avatarRuntimeState)
 
 	m.cache.dataCache = make(map[string]any)
 	m.cache.divergenceCache = make(map[string]string)
@@ -741,7 +755,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pendingOp.selectPath = ""
 			m.pendingOp.pr = nil
 			m.pendingOp.prPath = ""
-			m.showInfo(fmt.Sprintf("Failed to create worktree from PR/MR #%d: %v", msg.prNumber, msg.err), nil)
+			m.showInfo(fmt.Sprintf("Failed to create worktree from %s #%d: %v", changeRequestLabel(msg.pr), msg.prNumber, msg.err), nil)
 			return m, nil
 		}
 		m.pendingOp.pr = msg.pr
@@ -883,6 +897,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case prDataLoadedMsg, singlePRLoadedMsg, ciStatusLoadedMsg:
 		return m.handlePRMessages(msg)
+
+	case avatarLoadedMsg:
+		return m.handleAvatarLoaded(msg)
+
+	case avatarRegisteredMsg:
+		return m.handleAvatarRegistered(msg)
 
 	case statusUpdatedMsg:
 		if msg.info != "" {

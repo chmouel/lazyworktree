@@ -25,6 +25,7 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, "tofu", cfg.TrustMode)
 	assert.Equal(t, "rebase", cfg.MergeMethod)
 	assert.Equal(t, "nerd-font-v3", cfg.IconSet)
+	assert.Equal(t, "auto", cfg.AvatarBadges)
 	assert.Empty(t, cfg.WorktreeDir)
 	assert.Empty(t, cfg.InitCommands)
 	assert.Empty(t, cfg.TerminateCommands)
@@ -85,6 +86,33 @@ func TestNormalizeArgsList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := normalizeArgsList(tt.input)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestParseConfigAvatarBadges(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{name: "auto", input: "auto", want: "auto"},
+		{name: "never", input: "never", want: "never"},
+		{name: "always", input: "always", want: "always"},
+		{name: "empty maps to auto", input: "", want: "auto"},
+		{name: "invalid", input: "sometimes", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := parseConfig(map[string]any{"avatar_badges": tt.input})
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.AvatarBadges)
 		})
 	}
 }

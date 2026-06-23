@@ -8,6 +8,7 @@ This page is generated from `internal/config/config.go`. Run `make docs-sync` af
 | `worktree_dir` | `string` | `none` | Root directory for managed worktrees. Supports `$LWT_REPO_PATH` (auto-set to the git repository root) for repo-local placement, e.g. `$LWT_REPO_PATH/.worktrees`. When the directory is inside the repository, the `<repoName>` path segment is omitted automatically. |
 | `theme` | `string` | `auto-detect` | UI theme selection. |
 | `icon_set` | `enum(nerd-font-v3\|text)` | `nerd-font-v3` | Icon rendering mode for terminal compatibility. |
+| `avatar_badges` | `enum(auto\|never\|always)` | `auto` | Show tiny PR/MR author avatar badges in the Info pane on Kitty-compatible terminals. |
 | `layout` | `enum(default\|top)` | `default` | Pane layout strategy. |
 | `sort_mode` | `enum(path\|active\|switched)` | `switched` | Primary sort behaviour in the worktree list. |
 | `sort_by_active` | `bool (legacy)` | `none` | Compatibility key for older sort configuration. |

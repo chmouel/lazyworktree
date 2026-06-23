@@ -43,6 +43,7 @@ auto_refresh: true
 refresh_interval: 10  # Seconds
 disable_pr: false     # Disable all PR/MR fetching and display (default: false)
 icon_set: nerd-font-v3
+avatar_badges: auto   # PR/MR author avatar badges: auto, never, or always
 search_auto_select: false
 fuzzy_finder_input: false
 palette_mru: true         # Enable MRU (Most Recently Used) sorting for command palette
@@ -148,6 +149,7 @@ git config --local --get-regexp "^lw\."
 - `ci_auto_refresh`: periodically refresh CI status for GitHub repositories (default: false).
 - `refresh_interval`: refresh frequency in seconds (default: 10).
 - `icon_set`: choose icon set (`nerd-font-v3`, `text`).
+- `avatar_badges`: show PR/MR author avatar badges in the Info pane on Kitty-compatible terminals (`auto`, `never`, `always`).
 - `max_untracked_diffs`, `max_diff_chars`: limits for diff display (0 disables).
 - `max_name_length`: maximum display length for worktree names (default: 95, 0 disables truncation).
 
