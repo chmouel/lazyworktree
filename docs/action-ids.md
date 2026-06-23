@@ -33,7 +33,7 @@ Keys defined in `keybindings:` take priority over `custom_commands` and built-in
 | `git-ci-checks` | View CI checks | `v` | View CI check logs for current worktree |
 | `git-pr` | Open in browser | `o` | Open PR, branch, or repo in browser |
 | `git-lazygit` | Open LazyGit | `g` | Open LazyGit in selected worktree |
-| `git-run-command` | Run command | `!` | Run arbitrary command in worktree |
+| `git-run-command` | Run command | `!` | Run arbitrary shell command in worktree |
 
 ## Status Pane
 

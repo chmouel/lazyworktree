@@ -224,7 +224,7 @@ func RegisterGitOperations(r *Registry, h GitHandlers) {
 		CommandAction{ID: "git-ci-checks", Label: "View CI checks", Description: "View CI check logs for current worktree", Section: sectionGitOperations, Shortcut: "v", Icon: IconGit, Handler: h.ViewCIChecks, Available: h.CIChecksAvailable},
 		CommandAction{ID: "git-pr", Label: "Open in browser", Description: "Open PR, branch, or repo in browser", Section: sectionGitOperations, Shortcut: "o", Icon: IconGit, Handler: h.OpenPR},
 		CommandAction{ID: "git-lazygit", Label: "Open LazyGit", Description: "Open LazyGit in selected worktree", Section: sectionGitOperations, Shortcut: "g", Icon: IconGit, Handler: h.OpenLazyGit},
-		CommandAction{ID: "git-run-command", Label: "Run command", Description: "Run arbitrary command in worktree", Section: sectionGitOperations, Shortcut: "!", Icon: IconGit, Handler: h.RunCommand},
+		CommandAction{ID: "git-run-command", Label: "Run command", Description: "Run arbitrary shell command in worktree", Section: sectionGitOperations, Shortcut: "!", Icon: IconGit, Handler: h.RunCommand},
 	)
 }
 

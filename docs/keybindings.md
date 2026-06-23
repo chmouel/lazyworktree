@@ -31,7 +31,7 @@
 | `d` | View diff in pager (worktree or commit, depending on pane) |
 | `A` | Absorb worktree into main |
 | `X` | Prune merged worktrees and stale branches (refreshes PR data, checks merge status; stale branches require `prune_stale_branches` config) |
-| `!` | Run arbitrary command in selected worktree (with command history) |
+| `!` | Run arbitrary shell command in selected worktree (with command history) |
 | `v` | View CI checks (Enter opens browser, `Ctrl+v` opens logs in pager) |
 | `o` | Open PR/MR in browser (or root repo in editor if main branch with merged/closed/no PR) |
 | `f1`, `ctrl+p`, `:` | Command palette |

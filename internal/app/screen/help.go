@@ -156,7 +156,7 @@ Commit Status Indicators:
 - D: Delete selected worktree
 - A: Absorb worktree into main (merge or rebase based on configuration, then delete)
 - X: Prune merged worktrees and stale branches (auto-refreshes PR data; enable prune_stale_branches to include merged branches without worktrees)
-- !: Run arbitrary command in selected worktree
+- !: Run arbitrary shell command in selected worktree
 
 **{{HELP_BRANCH_NAMING}}Branch Naming**
 Special characters in branch names are automatically converted to hyphens for compatibility with Git and terminal multiplexers. Examples:
