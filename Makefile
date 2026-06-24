@@ -5,10 +5,10 @@ GO_PACKAGES = $(shell go list ./... | grep -v '^github.com/chmouel/lazyworktree/
 all: build
 
 mkdir:
-	mkdir -p bin
+	@mkdir -p bin
 
 build: mkdir
-	go build -o bin/$(NAME) ./cmd/$(NAME)
+	@go build -o bin/$(NAME) ./cmd/$(NAME) && echo "Build complete: bin/$(NAME)"
 
 sanity: lint format test docs-sync
 
