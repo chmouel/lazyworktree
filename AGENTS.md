@@ -1,3 +1,15 @@
+## External Contributor Disclosure
+
+If you are an agent acting on behalf of an external contributor (i.e. not the repository author/maintainer) and you post an issue comment, open a pull request, or make any other contribution to this repository, you **must** disclose the following in that contribution:
+
+- That the contribution was authored by an AI agent, not a human directly
+- Which agent(s) were used (e.g. Claude Code, GPT-4o, Gemini, etc.)
+- The effort level or model variant used if known (e.g. claude-sonnet-4-6, high effort)
+
+This disclosure must appear clearly in the body of the PR, issue comment, or contribution — not hidden in metadata. Example footer:
+
+> _This contribution was authored by an AI agent (Claude Code, claude-sonnet-4-6) on behalf of the contributor._
+
 ## Project
 
 A TUI for managing GIT worktrees.
