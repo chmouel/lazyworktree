@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -20,14 +21,34 @@ type AgentWatchService struct {
 	Paths   map[string]struct{}
 	Mu      sync.Mutex
 	Watcher *fsnotify.Watcher
-	logf    func(string, ...any)
+	// Debounce throttles how often transcript-write bursts trigger a refresh.
+	// A value <= 0 disables throttling. See PlanRefresh.
+	Debounce    time.Duration
+	LastRefresh time.Time
+	// trailingScheduled is set while a single trailing-edge refresh is pending so
+	// a burst schedules at most one catch-up. These timing fields are only
+	// touched from the bubbletea update loop, never the watcher goroutine.
+	trailingScheduled bool
+	logf              func(string, ...any)
 }
 
-// NewAgentWatchService creates a watcher for the provided roots.
-func NewAgentWatchService(roots []string, logf func(string, ...any)) *AgentWatchService {
+// RefreshPlan describes how a watcher event should be handled.
+type RefreshPlan struct {
+	// Now requests an immediate (leading-edge) refresh.
+	Now bool
+	// TrailingIn, when > 0, requests a single trailing-edge refresh scheduled
+	// this far in the future so the final write of a burst still renders without
+	// waiting for the periodic auto-refresh.
+	TrailingIn time.Duration
+}
+
+// NewAgentWatchService creates a watcher for the provided roots. debounce
+// bounds how often transcript-write events trigger a full session re-parse.
+func NewAgentWatchService(roots []string, debounce time.Duration, logf func(string, ...any)) *AgentWatchService {
 	return &AgentWatchService{
-		Roots: roots,
-		logf:  logf,
+		Roots:    roots,
+		Debounce: debounce,
+		logf:     logf,
 	}
 }
 
@@ -88,6 +109,37 @@ func (w *AgentWatchService) NextEvent() <-chan struct{} {
 // ResetWaiting clears the pending wait flag after an event is processed.
 func (w *AgentWatchService) ResetWaiting() {
 	w.Waiting = false
+}
+
+// PlanRefresh decides how a watcher event should be handled. An active agent
+// appends to its transcript many times per second; without throttling every
+// append triggers a full re-parse of every session JSONL and pegs a CPU core.
+// Outside the debounce window the event refreshes immediately (leading edge).
+// Inside it the immediate refresh is dropped, but the first such event arms a
+// single trailing-edge refresh at the end of the window so the final write of a
+// burst still renders promptly rather than waiting for the periodic
+// auto-refresh. A Debounce <= 0 disables throttling.
+func (w *AgentWatchService) PlanRefresh(now time.Time) RefreshPlan {
+	if w.Debounce <= 0 {
+		w.LastRefresh = now
+		return RefreshPlan{Now: true}
+	}
+	if w.LastRefresh.IsZero() || now.Sub(w.LastRefresh) >= w.Debounce {
+		w.LastRefresh = now
+		return RefreshPlan{Now: true}
+	}
+	if w.trailingScheduled {
+		return RefreshPlan{}
+	}
+	w.trailingScheduled = true
+	return RefreshPlan{TrailingIn: w.Debounce - now.Sub(w.LastRefresh)}
+}
+
+// TrailingRefreshFired records that the scheduled trailing-edge refresh has run,
+// clearing the pending flag and starting a fresh debounce window from now.
+func (w *AgentWatchService) TrailingRefreshFired(now time.Time) {
+	w.trailingScheduled = false
+	w.LastRefresh = now
 }
 
 func (w *AgentWatchService) run() {

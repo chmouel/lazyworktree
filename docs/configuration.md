@@ -153,6 +153,24 @@ git config --local --get-regexp "^lw\."
 - `max_untracked_diffs`, `max_diff_chars`: limits for diff display (0 disables).
 - `max_name_length`: maximum display length for worktree names (default: 95, 0 disables truncation).
 
+### Agent sessions
+
+The Agent Sessions pane surfaces live AI coding-agent transcripts (Claude Code, pi) per worktree. Settings are grouped under `agent_sessions`:
+
+- `disabled`: set to `true` to turn off transcript watching entirely and hide the pane (default: `false`).
+- `refresh_debounce_ms`: debounce window in milliseconds for transcript-driven refreshes (default: `600`). Raise it to lower CPU while an agent is actively writing; set to `0` to disable throttling.
+- `claude_root`, `pi_root`: override the base directories searched for transcripts (defaults: `~/.claude/projects` and `~/.pi/agent/sessions`).
+
+```yaml
+agent_sessions:
+  disabled: false
+  refresh_debounce_ms: 600
+  claude_root: ~/.claude/projects
+  pi_root: ~/.pi/agent/sessions
+```
+
+See [AI integration](guides/ai-integration.md) for transcript discovery details.
+
 ### Search and palette
 
 - `search_auto_select`: start with filter focused (or use `--search-auto-select`).

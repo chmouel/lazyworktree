@@ -106,3 +106,22 @@ func (m *Model) shouldRefreshGitEvent(now time.Time) bool {
 	}
 	return m.state.services.watch.ShouldRefresh(now)
 }
+
+// planAgentRefresh turns a watcher event into the command the debounce calls
+// for: an immediate refresh, or a single trailing-edge catch-up, or nothing.
+// PlanRefresh never asks for both at once.
+func (m *Model) planAgentRefresh(now time.Time) tea.Cmd {
+	if m.state.services.agentWatch == nil {
+		return nil
+	}
+	plan := m.state.services.agentWatch.PlanRefresh(now)
+	if plan.Now {
+		return m.refreshAgentSessions()
+	}
+	if plan.TrailingIn > 0 {
+		return tea.Tick(plan.TrailingIn, func(time.Time) tea.Msg {
+			return agentRefreshDueMsg{}
+		})
+	}
+	return nil
+}
