@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
+	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
@@ -236,7 +237,7 @@ func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranc
 		m.state.services.git.RunCommandChecked(m.ctx, []string{"git", "stash", "drop", stashRef}, wt.Path, "Failed to drop stash")
 
 		// Run init commands and refresh
-		env := m.buildCommandEnv(newBranch, targetPath)
+		env := m.buildCommandEnvWithContext(newBranch, targetPath, services.LazyWorktreeContext{Type: "diff"})
 		initCmds := m.collectInitCommands()
 		after := func() tea.Msg {
 			worktrees, err := m.state.services.git.GetWorktrees(m.ctx)
@@ -456,7 +457,7 @@ func (m *Model) executeCreateWithChanges(wt *models.WorktreeInfo, currentBranch,
 		m.state.services.git.RunCommandChecked(m.ctx, []string{"git", "stash", "drop", stashRef}, wt.Path, "Failed to drop stash")
 
 		// Run init commands and refresh
-		env := m.buildCommandEnv(newBranch, targetPath)
+		env := m.buildCommandEnvWithContext(newBranch, targetPath, services.LazyWorktreeContext{Type: "diff"})
 		initCmds := m.collectInitCommands()
 		after := func() tea.Msg {
 			worktrees, err := m.state.services.git.GetWorktrees(m.ctx)
@@ -699,7 +700,7 @@ func (m *Model) showWorktreeNoteEditor(worktreePath string) tea.Cmd {
 
 // showPruneMerged initiates the prune merged worktrees workflow.
 func (m *Model) showPruneMerged() tea.Cmd {
-	if !m.state.services.git.IsGitHubOrGitLab(m.ctx) {
+	if m.config.DisablePR || !m.state.services.git.IsGitHubOrGitLab(m.ctx) {
 		return m.performMergedWorktreeCheck()
 	}
 
@@ -886,7 +887,7 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 			for _, wt := range toPrune {
 				// Run terminate commands for each worktree with its environment
 				if len(terminateCmds) > 0 {
-					env := m.buildCommandEnv(wt.Branch, wt.Path)
+					env := m.buildCommandEnvForWorktree(wt)
 					_ = m.state.services.git.ExecuteCommands(m.ctx, terminateCmds, wt.Path, env)
 				}
 
@@ -1045,7 +1046,7 @@ func (m *Model) showAbsorbWorktree() tea.Cmd {
 
 // deleteWorktreeCmd returns a command function that deletes a worktree and its branch.
 func (m *Model) deleteWorktreeCmd(wt *models.WorktreeInfo) func() tea.Cmd {
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
+	env := m.buildCommandEnvForWorktree(wt)
 	terminateCmds := m.collectTerminateCommands()
 	afterCmd := func() tea.Msg {
 		m.state.services.git.RunCommandChecked(m.ctx, []string{"git", "worktree", "remove", "--force", wt.Path}, "", fmt.Sprintf("Failed to remove worktree %s", wt.Path))
@@ -1065,7 +1066,7 @@ func (m *Model) deleteWorktreeCmd(wt *models.WorktreeInfo) func() tea.Cmd {
 
 // deleteWorktreeOnlyCmd returns a command function that deletes only the worktree (not the branch).
 func (m *Model) deleteWorktreeOnlyCmd(wt *models.WorktreeInfo) func() tea.Cmd {
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
+	env := m.buildCommandEnvForWorktree(wt)
 	terminateCmds := m.collectTerminateCommands()
 
 	afterCmd := func() tea.Msg {

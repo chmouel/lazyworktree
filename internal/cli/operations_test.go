@@ -40,6 +40,10 @@ type fakeGitService struct {
 	lastPRTargetPath     string
 	prs                  []*models.PRInfo
 	prsErr               error
+	fetchPRCalls         int
+	prForWorktree        *models.PRInfo
+	prForWorktreeErr     error
+	prForWorktreeCalls   int
 
 	issues    []*models.IssueInfo
 	issuesErr error
@@ -49,6 +53,9 @@ type fakeGitService struct {
 
 	mainWorktreePath      string
 	executedCommands      error
+	lastExecutedEnv       map[string]string
+	lastExecutedCwd       string
+	lastExecutedCommands  []string
 	lastWorktreeAddPath   string
 	lastWorktreeAddBranch string
 	renameWorktreeCalled  bool
@@ -71,7 +78,10 @@ func (f *fakeGitService) CreateWorktreeFromPR(_ context.Context, _ int, remoteBr
 	return f.createdFromPR
 }
 
-func (f *fakeGitService) ExecuteCommands(_ context.Context, _ []string, _ string, _ map[string]string) error {
+func (f *fakeGitService) ExecuteCommands(_ context.Context, commands []string, cwd string, env map[string]string) error {
+	f.lastExecutedCommands = append([]string{}, commands...)
+	f.lastExecutedCwd = cwd
+	f.lastExecutedEnv = env
 	return f.executedCommands
 }
 
@@ -96,6 +106,7 @@ func (f *fakeGitService) FetchIssue(_ context.Context, issueNumber int) (*models
 }
 
 func (f *fakeGitService) FetchPR(_ context.Context, prNumber int) (*models.PRInfo, error) {
+	f.fetchPRCalls++
 	for _, pr := range f.prs {
 		if pr.Number == prNumber {
 			return pr, nil
@@ -105,6 +116,11 @@ func (f *fakeGitService) FetchPR(_ context.Context, prNumber int) (*models.PRInf
 		return nil, f.prsErr
 	}
 	return nil, fmt.Errorf("PR #%d not found", prNumber)
+}
+
+func (f *fakeGitService) FetchPRForWorktreeWithError(_ context.Context, _ string) (*models.PRInfo, error) {
+	f.prForWorktreeCalls++
+	return f.prForWorktree, f.prForWorktreeErr
 }
 
 func (f *fakeGitService) GetCurrentBranch(_ context.Context) (string, error) {
@@ -442,15 +458,42 @@ func TestBuildCommandEnv(t *testing.T) {
 
 	env := buildCommandEnv("branch", "/wt/path", "/main/path", "repo")
 	want := map[string]string{
-		"WORKTREE_BRANCH":    "branch",
-		"MAIN_WORKTREE_PATH": "/main/path",
-		"WORKTREE_PATH":      "/wt/path",
-		"WORKTREE_NAME":      "path",
-		"REPO_NAME":          "repo",
+		"WORKTREE_BRANCH":             "branch",
+		"MAIN_WORKTREE_PATH":          "/main/path",
+		"WORKTREE_PATH":               "/wt/path",
+		"WORKTREE_NAME":               "path",
+		"REPO_NAME":                   "repo",
+		"REPO_OWNER":                  "",
+		"REPO_REPONAME":               "repo",
+		"LAZYWORKTREE_TYPE":           "",
+		"LAZYWORKTREE_NUMBER":         "",
+		"LAZYWORKTREE_TEMPLATE":       "",
+		"LAZYWORKTREE_SUGGESTED_NAME": "",
+		"LAZYWORKTREE_TITLE":          "",
+		"LAZYWORKTREE_URL":            "",
+		"LAZYWORKTREE_DESCRIPTION":    "",
 	}
 
 	if !reflect.DeepEqual(want, env) {
 		t.Fatalf("unexpected env: want=%#v got=%#v", want, env)
+	}
+}
+
+func TestCreateFromPRWithFSDisabledPRDoesNotFetch(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeGitService{}
+	cfg := &config.AppConfig{DisablePR: true, WorktreeDir: t.TempDir()}
+
+	_, err := CreateFromPRWithFS(context.Background(), svc, cfg, 42, false, true, DefaultFS)
+	if err == nil {
+		t.Fatal("expected error when PR integration is disabled")
+	}
+	if !strings.Contains(err.Error(), "PR/MR integration is disabled") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if svc.fetchPRCalls != 0 {
+		t.Fatalf("expected no PR fetch when disabled, got %d", svc.fetchPRCalls)
 	}
 }
 
@@ -544,16 +587,40 @@ func TestRunInitCommands(t *testing.T) {
 		executedCommands: nil, // Success
 	}
 
-	err := runInitCommands(ctx, svc, cfg, "branch", wtPath, false)
+	err := runInitCommands(ctx, svc, cfg, "branch", wtPath, appservices.LazyWorktreeContext{}, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := svc.lastExecutedEnv["LAZYWORKTREE_NUMBER"]; got != "" {
+		t.Fatalf("expected empty lazyworktree number without context, got %q", got)
+	}
+	if got := svc.lastExecutedEnv["REPO_REPONAME"]; got != testRepoName {
+		t.Fatalf("expected repo name component, got %q", got)
+	}
+
+	lazyCtx := appservices.LazyWorktreeContext{
+		Type:        "issue",
+		Number:      "42",
+		Title:       "Issue title",
+		URL:         "https://example.com/issues/42",
+		Description: "Issue body",
+	}
+	err = runInitCommands(ctx, svc, cfg, "branch", wtPath, lazyCtx, false)
+	if err != nil {
+		t.Fatalf("unexpected error with context: %v", err)
+	}
+	if got := svc.lastExecutedEnv["LAZYWORKTREE_NUMBER"]; got != "42" {
+		t.Fatalf("expected contextual lazyworktree number, got %q", got)
+	}
+	if got := svc.lastExecutedEnv["LAZYWORKTREE_TITLE"]; got != "Issue title" {
+		t.Fatalf("expected contextual lazyworktree title, got %q", got)
 	}
 
 	// Test with no commands
 	cfg2 := &config.AppConfig{
 		InitCommands: []string{},
 	}
-	err = runInitCommands(ctx, svc, cfg2, "branch", wtPath, false)
+	err = runInitCommands(ctx, svc, cfg2, "branch", wtPath, appservices.LazyWorktreeContext{}, false)
 	if err != nil {
 		t.Fatalf("unexpected error with no commands: %v", err)
 	}
@@ -577,7 +644,7 @@ func TestRunTerminateCommands(t *testing.T) {
 		executedCommands: nil, // Success
 	}
 
-	err := runTerminateCommands(ctx, svc, cfg, "branch", wtPath, false)
+	err := runTerminateCommands(ctx, svc, cfg, "branch", wtPath, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -586,9 +653,41 @@ func TestRunTerminateCommands(t *testing.T) {
 	cfg2 := &config.AppConfig{
 		TerminateCommands: []string{},
 	}
-	err = runTerminateCommands(ctx, svc, cfg2, "branch", wtPath, false)
+	called := false
+	err = runTerminateCommands(ctx, svc, cfg2, "branch", wtPath, func() appservices.LazyWorktreeContext {
+		called = true
+		return appservices.LazyWorktreeContext{Type: "pr"}
+	}, false)
 	if err != nil {
 		t.Fatalf("unexpected error with no commands: %v", err)
+	}
+	if called {
+		t.Fatal("expected lazy context provider not to run when no terminate commands exist")
+	}
+}
+
+func TestLazyWorktreeContextForWorktreeFetchesPR(t *testing.T) {
+	t.Parallel()
+
+	wt := &models.WorktreeInfo{Path: "/tmp/wt", Branch: "feature"}
+	svc := &fakeGitService{
+		prForWorktree: &models.PRInfo{
+			Number: 77,
+			Title:  "PR title",
+			Body:   "PR body",
+			URL:    "https://example.com/pull/77",
+		},
+	}
+
+	ctx := lazyWorktreeContextForWorktree(context.Background(), svc, wt)
+	if got := ctx.Type; got != "pr" {
+		t.Fatalf("expected pr context, got %q", got)
+	}
+	if got := ctx.Number; got != "77" {
+		t.Fatalf("expected PR number, got %q", got)
+	}
+	if wt.PR == nil || wt.PR.Number != 77 {
+		t.Fatalf("expected fetched PR to be cached on worktree, got %#v", wt.PR)
 	}
 }
 

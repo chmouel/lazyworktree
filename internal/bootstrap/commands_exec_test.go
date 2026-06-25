@@ -1,9 +1,18 @@
 package bootstrap
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/chmouel/lazyworktree/internal/app/services"
+	"github.com/chmouel/lazyworktree/internal/git"
+	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestShellInvocationForExec(t *testing.T) {
@@ -86,4 +95,34 @@ func TestResolveCreateExecCWD(t *testing.T) {
 			t.Fatalf("cwd = %q, want same directory as %q", cwd, tmpDir)
 		}
 	})
+}
+
+func TestAttachExecPRContextPopulatesCommandEnv(t *testing.T) {
+	ctx := context.Background()
+	svc := git.NewService(func(string, string) {}, func(string, string, string) {})
+	svc.SetCommandRunner(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		switch {
+		case name == "git" && strings.Join(args, " ") == "remote get-url origin":
+			return exec.CommandContext(ctx, "sh", "-c", "printf '%s' 'https://github.com/acme/project.git'")
+		case name == "gh" && strings.HasPrefix(strings.Join(args, " "), "pr view --json "):
+			return exec.CommandContext(ctx, "sh", "-c", "printf '%s' '{\"number\":71,\"state\":\"OPEN\",\"title\":\"Fix CPU\",\"body\":\"Details\",\"url\":\"https://github.com/acme/project/pull/71\",\"headRefName\":\"fix-cpu\",\"baseRefName\":\"main\",\"author\":{\"login\":\"alice\",\"name\":\"Alice\",\"is_bot\":false}}'")
+		default:
+			return exec.CommandContext(ctx, "sh", "-c", "printf ''")
+		}
+	})
+	worktreePath := t.TempDir()
+
+	wt := &models.WorktreeInfo{
+		Path:   worktreePath,
+		Branch: "fix-cpu",
+	}
+
+	attachExecPRContext(ctx, svc, wt)
+
+	require.NotNil(t, wt.PR)
+	env := services.BuildCommandEnvWithContext("fix-cpu", wt.Path, "acme/project", filepath.Dir(worktreePath), services.LazyWorktreeContextFromPR(wt.PR, "", ""))
+
+	assert.Equal(t, "pr", env[services.EnvLazyWorktreeType])
+	assert.Equal(t, "71", env[services.EnvLazyWorktreeNumber])
+	assert.Equal(t, "Fix CPU", env[services.EnvLazyWorktreeTitle])
 }

@@ -373,6 +373,49 @@ func TestExecuteArbitraryCommand(t *testing.T) {
 	if value, ok := envValue(capture.env, "WORKTREE_BRANCH"); !ok || value != "feat" {
 		t.Fatalf("expected WORKTREE_BRANCH in env, got %q (present=%v)", value, ok)
 	}
+	if value, ok := envValue(capture.env, "LAZYWORKTREE_NUMBER"); !ok || value != "" {
+		t.Fatalf("expected empty LAZYWORKTREE_NUMBER in env, got %q (present=%v)", value, ok)
+	}
+}
+
+func TestExecuteCustomCommandDirectUsesPRContextEnv(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
+			"x": {Command: "echo hello"},
+		}},
+	}
+	m := NewModel(cfg, "")
+	m.state.data.filteredWts = []*models.WorktreeInfo{{
+		Path:   testWorktreePath,
+		Branch: "feat",
+		PR: &models.PRInfo{
+			Number: 123,
+			Title:  "Add feature",
+			Body:   "Feature body",
+			URL:    "https://example.com/pull/123",
+		},
+	}}
+	m.state.data.selectedIndex = 0
+
+	capture := &commandCapture{}
+	m.commandRunner = capture.runner
+	m.execProcess = capture.exec
+
+	cmd := m.executeCustomCommandDirect(cfg.CustomCommands[config.PaneUniversal]["x"])
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+
+	if value, ok := envValue(capture.env, "LAZYWORKTREE_TYPE"); !ok || value != "pr" {
+		t.Fatalf("expected LAZYWORKTREE_TYPE=pr in env, got %q (present=%v)", value, ok)
+	}
+	if value, ok := envValue(capture.env, "LAZYWORKTREE_NUMBER"); !ok || value != "123" {
+		t.Fatalf("expected LAZYWORKTREE_NUMBER=123 in env, got %q (present=%v)", value, ok)
+	}
+	if value, ok := envValue(capture.env, "LAZYWORKTREE_TITLE"); !ok || value != "Add feature" {
+		t.Fatalf("expected LAZYWORKTREE_TITLE in env, got %q (present=%v)", value, ok)
+	}
 }
 
 func TestExecuteArbitraryCommandNoSelection(t *testing.T) {

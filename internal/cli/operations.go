@@ -50,6 +50,7 @@ type gitService interface {
 	FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
 	FetchIssue(ctx context.Context, issueNumber int) (*models.IssueInfo, error)
 	FetchPR(ctx context.Context, prNumber int) (*models.PRInfo, error)
+	FetchPRForWorktreeWithError(ctx context.Context, worktreePath string) (*models.PRInfo, error)
 	GetCurrentBranch(ctx context.Context) (string, error)
 	GetMainWorktreePath(ctx context.Context) string
 	GetWorktrees(ctx context.Context) ([]*models.WorktreeInfo, error)
@@ -223,7 +224,7 @@ func createWorktreeFromBranch(ctx context.Context, gitSvc gitService, cfg *confi
 	}
 
 	// Run init commands
-	if err := runInitCommands(ctx, gitSvc, cfg, worktreeName, targetPath, silent); err != nil {
+	if err := runInitCommands(ctx, gitSvc, cfg, worktreeName, targetPath, appservices.LazyWorktreeContext{}, silent); err != nil {
 		// Clean up the worktree if init commands fail
 		gitSvc.RunCommandChecked(ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", "Failed to cleanup worktree")
 		return err
@@ -262,6 +263,10 @@ func CreateFromPR(ctx context.Context, gitSvc gitService, cfg *config.AppConfig,
 
 // CreateFromPRWithFS creates a worktree from a PR number using the provided filesystem.
 func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, prNumber int, noWorkspace, silent bool, fs OSFilesystem) (string, error) {
+	if cfg.DisablePR {
+		return "", fmt.Errorf("PR/MR integration is disabled in configuration")
+	}
+
 	if !silent {
 		fmt.Fprintf(os.Stderr, "Fetching PR #%d...\n", prNumber)
 	}
@@ -281,9 +286,9 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 		template = "pr-{number}-{title}"
 	}
 	generatedTitle := ""
+	suggestedName := utils.GeneratePRWorktreeName(selectedPR, template, "")
 	if cfg.BranchNameScript != "" {
 		prContent := fmt.Sprintf("%s\n\n%s", selectedPR.Title, selectedPR.Body)
-		suggestedName := utils.GeneratePRWorktreeName(selectedPR, template, "")
 		aiTitle, scriptErr := runBranchNameScript(ctx, cfg.BranchNameScript, prContent, "pr", fmt.Sprintf("%d", selectedPR.Number), template, suggestedName)
 		if scriptErr != nil {
 			if !silent {
@@ -339,7 +344,7 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 	}
 
 	// Run init commands
-	if err := runInitCommands(ctx, gitSvc, cfg, localBranch, targetPath, silent); err != nil {
+	if err := runInitCommands(ctx, gitSvc, cfg, localBranch, targetPath, appservices.LazyWorktreeContextFromPR(selectedPR, template, suggestedName), silent); err != nil {
 		// Clean up the worktree if init commands fail
 		gitSvc.RunCommandChecked(ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", "Failed to cleanup worktree")
 		return "", err
@@ -371,13 +376,12 @@ func runBranchNameScript(ctx context.Context, script, content, scriptType, numbe
 	// #nosec G204 -- script is user-configured and trusted
 	cmd := exec.CommandContext(scriptCtx, "bash", "-c", script)
 	cmd.Stdin = strings.NewReader(content)
-	cmd.Env = append(
-		os.Environ(),
-		fmt.Sprintf("LAZYWORKTREE_TYPE=%s", scriptType),
-		fmt.Sprintf("LAZYWORKTREE_NUMBER=%s", number),
-		fmt.Sprintf("LAZYWORKTREE_TEMPLATE=%s", template),
-		fmt.Sprintf("LAZYWORKTREE_SUGGESTED_NAME=%s", suggestedName),
-	)
+	cmd.Env = appservices.AppendCommandEnv(os.Environ(), appservices.BuildCommandEnvWithContext("", "", "", "", appservices.LazyWorktreeContext{
+		Type:          scriptType,
+		Number:        number,
+		Template:      template,
+		SuggestedName: suggestedName,
+	}))
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -469,7 +473,7 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 	}
 
 	// Run init commands
-	if err := runInitCommands(ctx, gitSvc, cfg, branchName, targetPath, silent); err != nil {
+	if err := runInitCommands(ctx, gitSvc, cfg, branchName, targetPath, appservices.LazyWorktreeContextFromIssue(selectedIssue, template, branchName), silent); err != nil {
 		// Clean up the worktree if init commands fail
 		gitSvc.RunCommandChecked(ctx, []string{"git", "worktree", "remove", "--force", targetPath}, "", "Failed to cleanup worktree")
 		return "", err
@@ -516,7 +520,13 @@ func DeleteWorktree(ctx context.Context, gitSvc gitService, cfg *config.AppConfi
 	}
 
 	// Run terminate commands
-	if err := runTerminateCommands(ctx, gitSvc, cfg, selectedWorktree.Branch, selectedWorktree.Path, silent); err != nil {
+	var lazyCtxProvider func() appservices.LazyWorktreeContext
+	if !cfg.DisablePR {
+		lazyCtxProvider = func() appservices.LazyWorktreeContext {
+			return lazyWorktreeContextForWorktree(ctx, gitSvc, selectedWorktree)
+		}
+	}
+	if err := runTerminateCommands(ctx, gitSvc, cfg, selectedWorktree.Branch, selectedWorktree.Path, lazyCtxProvider, silent); err != nil {
 		// Log error but continue with deletion
 		if !silent {
 			fmt.Fprintf(os.Stderr, "Warning: terminate commands failed: %v\n", err)
@@ -662,7 +672,7 @@ func FindWorktreeByPathOrName(pathOrName string, worktrees []*models.WorktreeInf
 }
 
 // runInitCommands runs init commands with TOFU trust checks.
-func runInitCommands(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branch, wtPath string, silent bool) error {
+func runInitCommands(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branch, wtPath string, lazyCtx appservices.LazyWorktreeContext, silent bool) error {
 	// Collect init commands from global and repo config
 	commands := make([]string, 0)
 	commands = append(commands, cfg.InitCommands...)
@@ -691,7 +701,7 @@ func runInitCommands(ctx context.Context, gitSvc gitService, cfg *config.AppConf
 
 	// Build environment
 	repoName := gitSvc.ResolveRepoName(ctx)
-	env := buildCommandEnv(branch, wtPath, mainPath, repoName)
+	env := buildCommandEnvWithContext(branch, wtPath, mainPath, repoName, lazyCtx)
 
 	// Run commands
 	if !silent {
@@ -705,7 +715,7 @@ func runInitCommands(ctx context.Context, gitSvc gitService, cfg *config.AppConf
 }
 
 // runTerminateCommands runs terminate commands with TOFU trust checks.
-func runTerminateCommands(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branch, wtPath string, silent bool) error {
+func runTerminateCommands(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branch, wtPath string, lazyCtxProvider func() appservices.LazyWorktreeContext, silent bool) error {
 	// Collect terminate commands
 	commands := make([]string, 0)
 	commands = append(commands, cfg.TerminateCommands...)
@@ -733,7 +743,11 @@ func runTerminateCommands(ctx context.Context, gitSvc gitService, cfg *config.Ap
 
 	// Build environment
 	repoName := gitSvc.ResolveRepoName(ctx)
-	env := buildCommandEnv(branch, wtPath, mainPath, repoName)
+	lazyCtx := appservices.LazyWorktreeContext{}
+	if lazyCtxProvider != nil {
+		lazyCtx = lazyCtxProvider()
+	}
+	env := buildCommandEnvWithContext(branch, wtPath, mainPath, repoName, lazyCtx)
 
 	// Run commands
 	if !silent {
@@ -775,13 +789,26 @@ func checkTrust(_ context.Context, cfg *config.AppConfig, wtFilePath string) err
 
 // buildCommandEnv builds the environment variables for commands.
 func buildCommandEnv(branch, wtPath, mainPath, repoName string) map[string]string {
-	return map[string]string{
-		"WORKTREE_BRANCH":    branch,
-		"MAIN_WORKTREE_PATH": mainPath,
-		"WORKTREE_PATH":      wtPath,
-		"WORKTREE_NAME":      filepath.Base(wtPath),
-		"REPO_NAME":          repoName,
+	return buildCommandEnvWithContext(branch, wtPath, mainPath, repoName, appservices.LazyWorktreeContext{})
+}
+
+func buildCommandEnvWithContext(branch, wtPath, mainPath, repoName string, lazyCtx appservices.LazyWorktreeContext) map[string]string {
+	return appservices.BuildCommandEnvWithContext(branch, wtPath, repoName, mainPath, lazyCtx)
+}
+
+func lazyWorktreeContextForWorktree(ctx context.Context, gitSvc gitService, wt *models.WorktreeInfo) appservices.LazyWorktreeContext {
+	if wt == nil {
+		return appservices.LazyWorktreeContext{}
 	}
+	if wt.PR != nil {
+		return appservices.LazyWorktreeContextFromPR(wt.PR, "", "")
+	}
+	pr, err := gitSvc.FetchPRForWorktreeWithError(ctx, wt.Path)
+	if err != nil || pr == nil {
+		return appservices.LazyWorktreeContext{}
+	}
+	wt.PR = pr
+	return appservices.LazyWorktreeContextFromPR(pr, "", "")
 }
 
 func maybeCreateAutoWorktreeNote(
@@ -798,11 +825,12 @@ func maybeCreateAutoWorktreeNote(
 
 	content := fmt.Sprintf("%s\n\n%s", title, body)
 	noteText, err := appservices.RunWorktreeNoteScript(ctx, cfg.WorktreeNoteScript, appservices.WorktreeNoteScriptInput{
-		Content: content,
-		Type:    contentType,
-		Number:  number,
-		Title:   title,
-		URL:     url,
+		Content:     content,
+		Type:        contentType,
+		Number:      number,
+		Title:       title,
+		URL:         url,
+		Description: body,
 	})
 	if err != nil {
 		if !silent {
@@ -935,7 +963,7 @@ func createWorktreeWithChanges(ctx context.Context, gitSvc gitService, cfg *conf
 	gitSvc.RunCommandChecked(ctx, []string{"git", "stash", "drop", stashRef}, currentWt.Path, "Failed to drop stash")
 
 	// Run init commands
-	if err := runInitCommands(ctx, gitSvc, cfg, newBranch, targetPath, silent); err != nil {
+	if err := runInitCommands(ctx, gitSvc, cfg, newBranch, targetPath, appservices.LazyWorktreeContext{Type: "diff"}, silent); err != nil {
 		return err
 	}
 

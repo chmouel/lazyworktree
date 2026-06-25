@@ -1087,11 +1087,13 @@ func TestExecuteCustomCreateCommand(t *testing.T) {
 	m.state.data.worktrees = []*models.WorktreeInfo{
 		{Path: repo.dir, Branch: repo.branch, IsMain: true},
 	}
+	m.repoKey = "owner/repo"
+	envFile := filepath.Join(t.TempDir(), "env")
 
 	menu := &config.CustomCreateMenu{
 		Label:       "Test Menu",
 		Description: "Test Description",
-		Command:     "echo test-branch-name",
+		Command:     fmt.Sprintf("printf '%%s|%%s|%%s|%%s|%%s' \"$MAIN_WORKTREE_PATH\" \"$WORKTREE_PATH\" \"$WORKTREE_NAME\" \"$LAZYWORKTREE_NUMBER\" \"$REPO_OWNER\" > %s; echo test-branch-name", shellQuote(envFile)),
 		Interactive: false,
 	}
 
@@ -1117,6 +1119,14 @@ func TestExecuteCustomCreateCommand(t *testing.T) {
 	}
 	if result.branchName != "test-branch-name" {
 		t.Errorf("expected branch name 'test-branch-name', got %q", result.branchName)
+	}
+	// #nosec G304 -- envFile is created under the test-owned temporary directory.
+	content, err := os.ReadFile(envFile)
+	if err != nil {
+		t.Fatalf("failed to read env capture: %v", err)
+	}
+	if got, want := string(content), repo.dir+"||||owner"; got != want {
+		t.Fatalf("unexpected custom create env: got %q want %q", got, want)
 	}
 }
 

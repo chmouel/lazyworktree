@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/app/screen"
+	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	log "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -178,11 +179,8 @@ func (m *Model) showDeleteFile() tea.Cmd {
 
 func (m *Model) deleteFilesCmd(wt *models.WorktreeInfo, files []*StatusFile) func() tea.Cmd {
 	return func() tea.Cmd {
-		env := m.buildCommandEnv(wt.Branch, wt.Path)
-		envVars := os.Environ()
-		for k, v := range env {
-			envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-		}
+		env := m.buildCommandEnvForWorktree(wt)
+		envVars := services.AppendCommandEnv(os.Environ(), env)
 
 		var errs []error
 		for _, sf := range files {
@@ -261,11 +259,8 @@ func (m *Model) commitAction(useEditor bool) tea.Cmd {
 }
 
 func (m *Model) performCommit(wt *models.WorktreeInfo, stageAll, useEditor bool) tea.Cmd {
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
-	for k, v := range env {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
+	env := m.buildCommandEnvForWorktree(wt)
+	envVars := services.AppendCommandEnv(os.Environ(), env)
 
 	if stageAll {
 		// Stage all changes before committing
@@ -406,11 +401,8 @@ func (m *Model) openCommitInExternalEditor(wt *models.WorktreeInfo, commitText s
 		return nil
 	}
 
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
-	for k, v := range env {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
+	env := m.buildCommandEnvForWorktree(wt)
+	envVars := services.AppendCommandEnv(os.Environ(), env)
 
 	tmpPath := filepath.Join(os.TempDir(), "COMMIT_EDITMSG")
 	// #nosec G304 -- tmpPath is derived from os.TempDir with a fixed file name
@@ -496,11 +488,8 @@ func (m *Model) stageCurrentFile(sf StatusFile) tea.Cmd {
 		return nil
 	}
 
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
-	for k, v := range env {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
+	env := m.buildCommandEnvForWorktree(wt)
+	envVars := services.AppendCommandEnv(os.Environ(), env)
 
 	// Clear cache so status pane refreshes with latest git status
 	m.deleteDetailsCache(wt.Path)
@@ -559,11 +548,8 @@ func (m *Model) stageDirectory(node *StatusTreeNode) tea.Cmd {
 		cmdStr = fmt.Sprintf("git add %s", fileList)
 	}
 
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
-	for k, v := range env {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
+	env := m.buildCommandEnvForWorktree(wt)
+	envVars := services.AppendCommandEnv(os.Environ(), env)
 
 	// Clear cache so status pane refreshes with latest git status
 	m.deleteDetailsCache(wt.Path)
