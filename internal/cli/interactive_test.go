@@ -222,6 +222,10 @@ func (m *mockGitServiceForInteractive) FetchPR(_ context.Context, prNumber int) 
 	return nil, fmt.Errorf("PR #%d not found", prNumber)
 }
 
+func (m *mockGitServiceForInteractive) FetchPRForWorktreeWithError(context.Context, string) (*models.PRInfo, error) {
+	return nil, nil
+}
+
 func (m *mockGitServiceForInteractive) GetCurrentBranch(context.Context) (string, error) {
 	return "main", nil
 }

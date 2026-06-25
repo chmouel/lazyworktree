@@ -35,6 +35,16 @@ The following variables are available to all init and terminate commands:
 | `MAIN_WORKTREE_PATH` | Absolute path to the main (bare) worktree | `/home/user/project` |
 | `WORKTREE_PATH` | Absolute path to the new worktree | `/home/user/project-worktrees/feature-auth` |
 | `WORKTREE_NAME` | Short name of the worktree | `feature-auth` |
+| `REPO_NAME` | Repository key, usually `owner/repo` | `acme/project` |
+| `REPO_OWNER` | Repository owner when available | `acme` |
+| `REPO_REPONAME` | Repository name without the owner | `project` |
+| `LAZYWORKTREE_TYPE` | Source context type when known | `pr` |
+| `LAZYWORKTREE_NUMBER` | PR/MR or issue number when known | `42` |
+| `LAZYWORKTREE_TITLE` | PR/MR or issue title when known | `Add auth` |
+| `LAZYWORKTREE_URL` | PR/MR or issue URL when known | `https://github.com/acme/project/pull/42` |
+| `LAZYWORKTREE_DESCRIPTION` | PR/MR or issue body when known | `Adds authentication` |
+
+Contextual `LAZYWORKTREE_*` values are empty when no PR/MR, issue, or diff source context is known.
 
 ## Execution Order
 

@@ -18,10 +18,26 @@ terminate_commands:
 
 ## Available Environment Variables
 
-- `WORKTREE_BRANCH`
-- `MAIN_WORKTREE_PATH`
-- `WORKTREE_PATH`
-- `WORKTREE_NAME`
+Lifecycle hooks receive the same managed command environment as custom commands:
+
+| Variable | Description |
+| --- | --- |
+| `WORKTREE_BRANCH` | Branch checked out in the worktree |
+| `MAIN_WORKTREE_PATH` | Path to the main/root worktree |
+| `WORKTREE_PATH` | Full path to the worktree |
+| `WORKTREE_NAME` | Basename of the worktree directory |
+| `REPO_NAME` | Repository key, usually `owner/repo` |
+| `REPO_OWNER` | Repository owner when available |
+| `REPO_REPONAME` | Repository name without the owner |
+| `LAZYWORKTREE_TYPE` | Source context type, such as `pr`, `issue`, or `diff` when known |
+| `LAZYWORKTREE_NUMBER` | PR/MR or issue number when known |
+| `LAZYWORKTREE_TEMPLATE` | Branch-name template used during PR/MR or issue creation when known |
+| `LAZYWORKTREE_SUGGESTED_NAME` | LazyWorktree's default branch/worktree name suggestion when known |
+| `LAZYWORKTREE_TITLE` | PR/MR or issue title when known |
+| `LAZYWORKTREE_URL` | PR/MR or issue URL when known |
+| `LAZYWORKTREE_DESCRIPTION` | PR/MR or issue body when known |
+
+Contextual values are empty when LazyWorktree does not know the PR/MR, issue, or diff source. Issue metadata is available to creation-time hooks, but is not persisted for later terminate hooks after reload.
 
 ## Trust on First Use (TOFU)
 

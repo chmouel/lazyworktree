@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -35,14 +36,13 @@ func RunWorktreeNoteScript(ctx context.Context, script string, input WorktreeNot
 	// #nosec G204 -- script is user-configured and trusted
 	cmd := exec.CommandContext(ctx, "bash", "-c", script)
 	cmd.Stdin = strings.NewReader(input.Content)
-	cmd.Env = append(
-		os.Environ(),
-		fmt.Sprintf("LAZYWORKTREE_TYPE=%s", input.Type),
-		fmt.Sprintf("LAZYWORKTREE_NUMBER=%d", input.Number),
-		fmt.Sprintf("LAZYWORKTREE_TITLE=%s", input.Title),
-		fmt.Sprintf("LAZYWORKTREE_URL=%s", input.URL),
-		fmt.Sprintf("LAZYWORKTREE_DESCRIPTION=%s", input.Description),
-	)
+	cmd.Env = AppendCommandEnv(os.Environ(), BuildCommandEnvWithContext("", "", "", "", LazyWorktreeContext{
+		Type:        input.Type,
+		Number:      strconv.Itoa(input.Number),
+		Title:       input.Title,
+		URL:         input.URL,
+		Description: input.Description,
+	}))
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

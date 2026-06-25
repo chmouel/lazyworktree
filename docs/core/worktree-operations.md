@@ -129,7 +129,7 @@ For hook setup and trust behaviour, see [Lifecycle Hooks](../configuration/lifec
 
 ## Environment-Aware Commands
 
-Custom commands and lifecycle hooks receive worktree context variables:
+Custom commands and lifecycle hooks receive managed worktree and source context variables:
 
 | Variable | Description |
 | --- | --- |
@@ -138,3 +138,14 @@ Custom commands and lifecycle hooks receive worktree context variables:
 | `WORKTREE_PATH` | Full path to the worktree directory |
 | `MAIN_WORKTREE_PATH` | Path to the main/root worktree |
 | `REPO_NAME` | Name of the repository |
+| `REPO_OWNER` | Repository owner when available |
+| `REPO_REPONAME` | Repository name without the owner |
+| `LAZYWORKTREE_TYPE` | Source context type, such as `pr`, `issue`, or `diff` when known |
+| `LAZYWORKTREE_NUMBER` | PR/MR or issue number when known |
+| `LAZYWORKTREE_TEMPLATE` | Branch-name template used during PR/MR or issue creation when known |
+| `LAZYWORKTREE_SUGGESTED_NAME` | LazyWorktree's default branch/worktree name suggestion when known |
+| `LAZYWORKTREE_TITLE` | PR/MR or issue title when known |
+| `LAZYWORKTREE_URL` | PR/MR or issue URL when known |
+| `LAZYWORKTREE_DESCRIPTION` | PR/MR or issue body when known |
+
+`LAZYWORKTREE_*` values are empty when the selected worktree has no known PR/MR, issue, or diff source context.
