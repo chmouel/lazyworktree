@@ -293,22 +293,9 @@ Capture the command output and emit a JSON object containing name, path, command
 .PP
 .B Environment:
 .PP
-The exec command sets the same \fBWORKTREE_*\fR environment variables as custom commands in the TUI:
-.TP
-.B WORKTREE_PATH
-The absolute path to the worktree directory.
-.TP
-.B WORKTREE_BRANCH
-The branch name of the worktree.
-.TP
-.B WORKTREE_NAME
-The basename of the worktree directory.
-.TP
-.B REPO_NAME
-The repository name.
-.TP
-.B MAIN_WORKTREE_PATH
-The path to the main worktree.
+The exec command sets the same managed environment variables as custom commands in the TUI: WORKTREE_BRANCH, MAIN_WORKTREE_PATH, WORKTREE_PATH, WORKTREE_NAME, REPO_NAME, REPO_OWNER, REPO_REPONAME, LAZYWORKTREE_TYPE, LAZYWORKTREE_NUMBER, LAZYWORKTREE_TEMPLATE, LAZYWORKTREE_SUGGESTED_NAME, LAZYWORKTREE_TITLE, LAZYWORKTREE_URL, and LAZYWORKTREE_DESCRIPTION.
+.PP
+Contextual LAZYWORKTREE_* values are empty when no PR/MR, issue, or diff source context is known.
 .
 .SS note
 Show or edit worktree notes from the CLI, without launching the TUI. Useful for scripting, piping, and quick edits.
@@ -1388,7 +1375,7 @@ Script operates under a 30-second timeout.
 .B worktree_note_script
 Script to generate an initial worktree note when creating from a PR/MR or issue. The script receives title and body content on stdin and may return multiline output. If the script fails or returns empty output, worktree creation continues and no note is saved.
 .br
-Available environment variables: LAZYWORKTREE_TYPE (pr/issue), LAZYWORKTREE_NUMBER, LAZYWORKTREE_TITLE, LAZYWORKTREE_URL.
+Available environment variables: LAZYWORKTREE_TYPE (pr/issue), LAZYWORKTREE_NUMBER, LAZYWORKTREE_TITLE, LAZYWORKTREE_URL, LAZYWORKTREE_DESCRIPTION.
 .br
 Script operates under a 30-second timeout.
 .
@@ -1396,7 +1383,7 @@ Script operates under a 30-second timeout.
 .B init_commands
 List of commands to execute when creating a worktree. These execute before any repository-specific .wt commands (if present).
 .br
-Available environment variables: WORKTREE_BRANCH, MAIN_WORKTREE_PATH, WORKTREE_PATH, WORKTREE_NAME.
+Available environment variables: WORKTREE_BRANCH, MAIN_WORKTREE_PATH, WORKTREE_PATH, WORKTREE_NAME, REPO_NAME, REPO_OWNER, REPO_REPONAME, LAZYWORKTREE_TYPE, LAZYWORKTREE_NUMBER, LAZYWORKTREE_TEMPLATE, LAZYWORKTREE_SUGGESTED_NAME, LAZYWORKTREE_TITLE, LAZYWORKTREE_URL, LAZYWORKTREE_DESCRIPTION. Contextual LAZYWORKTREE_* values are empty when no PR/MR, issue, or diff source context is known.
 .br
 Special built-in command: \fBlink_topsymlinks\fR (not a shell command) symlinks untracked/ignored files from main worktree root, non-empty editor configs (.vscode, .idea, .cursor, .claude/settings.local.json) if it exists, ensures tmp/ directory exists, and runs direnv allow if .envrc is present.
 .
@@ -1434,7 +1421,7 @@ Each custom command supports the following fields:
 .PP
 Supported key formats: single keys (e, s, t), modifier combinations (ctrl+e, alt+t), special keys (enter, esc, tab, space), and palette-only identifiers prefixed with \fB_\fR (for example \fB_review\fR).
 .PP
-Environment variables available in custom commands: WORKTREE_BRANCH, MAIN_WORKTREE_PATH, WORKTREE_PATH, WORKTREE_NAME, REPO_NAME.
+Environment variables available in custom commands: WORKTREE_BRANCH, MAIN_WORKTREE_PATH, WORKTREE_PATH, WORKTREE_NAME, REPO_NAME, REPO_OWNER, REPO_REPONAME, LAZYWORKTREE_TYPE, LAZYWORKTREE_NUMBER, LAZYWORKTREE_TEMPLATE, LAZYWORKTREE_SUGGESTED_NAME, LAZYWORKTREE_TITLE, LAZYWORKTREE_URL, LAZYWORKTREE_DESCRIPTION. Contextual LAZYWORKTREE_* values are empty when no PR/MR, issue, or diff source context is known.
 .PP
 For tmux sessions, the following fields are available:
 .RS
@@ -1469,7 +1456,7 @@ For container execution, the following fields are available:
 .IP \(bu 2
 \fBmounts\fR: Additional bind mounts (optional). Each mount has: source (host path), target (container path), read_only (default: false). The worktree path is automatically mounted to the working directory.
 .IP \(bu 2
-\fBenv\fR: Extra environment variables passed to the container (optional). WORKTREE_* variables are forwarded automatically.
+\fBenv\fR: Extra environment variables passed to the container (optional). Managed WORKTREE_*, REPO_*, and LAZYWORKTREE_* variables are forwarded automatically.
 .IP \(bu 2
 \fBworking_dir\fR: Working directory inside the container (default: /workspace)
 .IP \(bu 2
@@ -1495,12 +1482,12 @@ Each custom create menu entry supports the following fields:
 .IP \(bu 2
 \fBinteractive\fR: Run interactively (default: false). Set to true for TUI-based commands like fzf or jayrah. When true, lazyworktree suspends, the command runs in the terminal, and stdout is captured via a temp file.
 .IP \(bu 2
-\fBpost_command\fR: Command to run in the new worktree directory after creation (optional). Runs after global/repo init_commands. Has access to environment variables like WORKTREE_BRANCH, WORKTREE_PATH, etc.
+\fBpost_command\fR: Command to run in the new worktree directory after creation (optional). Runs after global/repo init_commands. Has access to the full managed command environment, including WORKTREE_*, REPO_*, and LAZYWORKTREE_* variables.
 .IP \(bu 2
 \fBpost_interactive\fR: Run post-command interactively (default: false). When true, the TUI suspends to show command I/O.
 .RE
 .PP
-By default, commands run non-interactively with a 30-second timeout. When \fBinteractive: true\fR, there is no timeout. The command output (first line only, whitespace trimmed, case preserved) is used as the suggested branch name. Post-commands are useful for automated setup tasks like creating initial commits, installing dependencies, or opening editors. If a post-command fails, the error is shown but the worktree is kept. This feature is useful for integrating external tools like JIRA, Linear, or custom scripts.
+By default, commands run non-interactively with a 30-second timeout. When \fBinteractive: true\fR, there is no timeout. The command output (first line only, whitespace trimmed, case preserved) is used as the suggested branch name. The pre-create command receives MAIN_WORKTREE_PATH, REPO_*, and empty managed WORKTREE_*/LAZYWORKTREE_* values because the new branch and worktree path do not exist yet. Post-commands are useful for automated setup tasks like creating initial commits, installing dependencies, or opening editors. If a post-command fails, the error is shown but the worktree is kept. This feature is useful for integrating external tools like JIRA, Linear, or custom scripts.
 .PP
 Example configuration:
 .RS
@@ -1681,6 +1668,26 @@ WORKTREE_PATH \- Path to the selected worktree
 WORKTREE_NAME \- Name of the worktree (directory name)
 .IP \(bu 2
 REPO_NAME \- Name of the repository (from GitHub/GitLab)
+.IP \(bu 2
+REPO_OWNER \- Repository owner when available
+.IP \(bu 2
+REPO_REPONAME \- Repository name without the owner
+.IP \(bu 2
+LAZYWORKTREE_TYPE \- Source context type, such as pr, issue, or diff when known
+.IP \(bu 2
+LAZYWORKTREE_NUMBER \- PR/MR or issue number when known
+.IP \(bu 2
+LAZYWORKTREE_TEMPLATE \- Branch-name template used during PR/MR or issue creation when known
+.IP \(bu 2
+LAZYWORKTREE_SUGGESTED_NAME \- LazyWorktree's default branch/worktree name suggestion when known
+.IP \(bu 2
+LAZYWORKTREE_TITLE \- PR/MR or issue title when known
+.IP \(bu 2
+LAZYWORKTREE_URL \- PR/MR or issue URL when known
+.IP \(bu 2
+LAZYWORKTREE_DESCRIPTION \- PR/MR or issue body when known
+.PP
+Contextual LAZYWORKTREE_* values are empty when no PR/MR, issue, or diff source context is known.
 .
 .SH CONFIGURATION FILES
 .TP

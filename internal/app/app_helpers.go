@@ -68,6 +68,17 @@ func (m *Model) buildCommandEnv(branch, wtPath string) map[string]string {
 	return services.BuildCommandEnv(branch, wtPath, m.repoKey, m.state.services.git.GetMainWorktreePath(m.ctx))
 }
 
+func (m *Model) buildCommandEnvWithContext(branch, wtPath string, lazyCtx services.LazyWorktreeContext) map[string]string {
+	return services.BuildCommandEnvWithContext(branch, wtPath, m.repoKey, m.state.services.git.GetMainWorktreePath(m.ctx), lazyCtx)
+}
+
+func (m *Model) buildCommandEnvForWorktree(wt *models.WorktreeInfo) map[string]string {
+	if wt == nil {
+		return m.buildCommandEnv("", "")
+	}
+	return m.buildCommandEnvWithContext(wt.Branch, wt.Path, services.LazyWorktreeContextFromPR(wt.PR, "", ""))
+}
+
 func expandWithEnv(input string, env map[string]string) string {
 	return services.ExpandWithEnv(input, env)
 }
@@ -101,22 +112,7 @@ func filterEnvVars(environ []string, excluded ...string) []string {
 // filterWorktreeEnvVars filters out worktree-specific environment variables
 // to prevent duplicates when building command environments.
 func filterWorktreeEnvVars(environ []string) []string {
-	worktreeVars := map[string]bool{
-		"WORKTREE_PATH":      true,
-		"MAIN_WORKTREE_PATH": true,
-		"WORKTREE_BRANCH":    true,
-		"WORKTREE_NAME":      true,
-		"REPO_NAME":          true,
-	}
-
-	filtered := make([]string, 0, len(environ))
-	for _, entry := range environ {
-		parts := strings.SplitN(entry, "=", 2)
-		if len(parts) > 0 && !worktreeVars[parts[0]] {
-			filtered = append(filtered, entry)
-		}
-	}
-	return filtered
+	return services.FilterManagedCommandEnv(environ)
 }
 
 func nonInteractiveSSHCommand(existing, fallback string) string {

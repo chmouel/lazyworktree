@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/multiplexer"
@@ -168,11 +169,8 @@ func (m *Model) openStatusFileInEditor(sf StatusFile) tea.Cmd {
 		return nil
 	}
 
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := os.Environ()
-	for k, v := range env {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
+	env := m.buildCommandEnvForWorktree(wt)
+	envVars := services.AppendCommandEnv(os.Environ(), env)
 
 	cmdStr := fmt.Sprintf("%s %s", editor, shellQuote(sf.Filename))
 	// #nosec G204 -- command is constructed from user config and controlled inputs
@@ -209,7 +207,7 @@ func (m *Model) executeCustomCommandDirect(customCmd *config.CustomCommand) tea.
 
 	if customCmd.NewTab {
 		if customCmd.Container != nil {
-			env := m.buildCommandEnv(wt.Branch, wt.Path)
+			env := m.buildCommandEnvForWorktree(wt)
 			wrappedCmd, err := multiplexer.BuildContainerCommand(customCmd.Container, customCmd.Command, wt.Path, env, true)
 			if err != nil {
 				return func() tea.Msg { return errMsg{err: err} }
@@ -226,11 +224,8 @@ func (m *Model) executeCustomCommandDirect(customCmd *config.CustomCommand) tea.
 	}
 
 	// Set environment variables
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := filterWorktreeEnvVars(os.Environ())
-	for k, v := range env {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
+	env := m.buildCommandEnvForWorktree(wt)
+	envVars := services.AppendCommandEnv(os.Environ(), env)
 
 	var c *exec.Cmd
 	baseCmd := customCmd.Command
@@ -264,11 +259,8 @@ func (m *Model) executeCustomCommandDirect(customCmd *config.CustomCommand) tea.
 }
 
 func (m *Model) executeCustomCommandWithPager(customCmd *config.CustomCommand, wt *models.WorktreeInfo) tea.Cmd {
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := filterWorktreeEnvVars(os.Environ())
-	for k, v := range env {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
+	env := m.buildCommandEnvForWorktree(wt)
+	envVars := services.AppendCommandEnv(os.Environ(), env)
 
 	pager := m.pagerCommand()
 	pagerEnv := m.pagerEnv(pager)
@@ -311,11 +303,8 @@ func (m *Model) executeArbitraryCommand(cmdStr string) tea.Cmd {
 	wt := m.state.data.filteredWts[m.state.data.selectedIndex]
 
 	// Build environment variables (same as custom commands)
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
-	envVars := filterWorktreeEnvVars(os.Environ())
-	for k, v := range env {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
+	env := m.buildCommandEnvForWorktree(wt)
+	envVars := services.AppendCommandEnv(os.Environ(), env)
 
 	// Get pager configuration
 	pager := m.pagerCommand()

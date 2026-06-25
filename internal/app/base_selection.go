@@ -14,6 +14,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
+	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
@@ -926,9 +927,11 @@ func (m *Model) executeCustomCreateCommand(menu *config.CustomCreateMenu) tea.Cm
 		}
 	}
 
+	env := services.BuildCommandEnv("", "", m.repoKey, mainWorktreePath)
+
 	if menu.Interactive {
 		// Interactive mode: suspend TUI, run command in terminal, capture stdout via temp file
-		return m.executeCustomCreateCommandInteractive(menu, mainWorktreePath)
+		return m.executeCustomCreateCommandInteractive(menu, mainWorktreePath, env)
 	}
 
 	// Non-interactive mode: capture stdout directly
@@ -941,6 +944,7 @@ func (m *Model) executeCustomCreateCommand(menu *config.CustomCreateMenu) tea.Cm
 		// #nosec G204 -- user-configured command from trusted config
 		cmd := exec.CommandContext(ctx, "bash", "-c", menu.Command)
 		cmd.Dir = mainWorktreePath
+		cmd.Env = services.AppendCommandEnv(os.Environ(), env)
 
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
@@ -974,7 +978,7 @@ func (m *Model) executeCustomCreateCommand(menu *config.CustomCreateMenu) tea.Cm
 
 // executeCustomCreateCommandInteractive runs a custom create command interactively.
 // The TUI suspends, the command runs in the terminal, and stdout is captured to a temp file.
-func (m *Model) executeCustomCreateCommandInteractive(menu *config.CustomCreateMenu, workDir string) tea.Cmd {
+func (m *Model) executeCustomCreateCommandInteractive(menu *config.CustomCreateMenu, workDir string, env map[string]string) tea.Cmd {
 	// Create temp file for capturing stdout
 	tmpFile, err := os.CreateTemp("", "lazyworktree-custom-create-*")
 	if err != nil {
@@ -992,6 +996,7 @@ func (m *Model) executeCustomCreateCommandInteractive(menu *config.CustomCreateM
 	// #nosec G204 -- user-configured command from trusted config
 	c := m.commandRunner(m.ctx, "bash", "-c", wrappedCmd)
 	c.Dir = workDir
+	c.Env = services.AppendCommandEnv(os.Environ(), env)
 
 	return m.execProcess(c, func(err error) tea.Msg {
 		defer func() { _ = os.Remove(tmpPath) }()
@@ -1054,11 +1059,7 @@ func (m *Model) executeCustomPostCommand(script, targetPath string, env map[stri
 		cmd := exec.CommandContext(ctx, "bash", "-c", script)
 		cmd.Dir = targetPath
 
-		// Merge environment variables
-		cmd.Env = os.Environ()
-		for k, v := range env {
-			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
-		}
+		cmd.Env = services.AppendCommandEnv(os.Environ(), env)
 
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
@@ -1079,10 +1080,7 @@ func (m *Model) executeCustomPostCommand(script, targetPath string, env map[stri
 // The TUI suspends and the command runs in the terminal.
 func (m *Model) executeCustomPostCommandInteractive(script, targetPath string, env map[string]string) tea.Cmd {
 	// Build environment for command
-	envList := os.Environ()
-	for k, v := range env {
-		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
-	}
+	envList := services.AppendCommandEnv(os.Environ(), env)
 
 	// #nosec G204 -- user-configured command from trusted config
 	c := m.commandRunner(m.ctx, "bash", "-c", script)

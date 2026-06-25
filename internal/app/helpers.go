@@ -32,14 +32,12 @@ func runBranchNameScript(ctx context.Context, script, content, scriptType, numbe
 	cmd := exec.CommandContext(ctx, "bash", "-c", script)
 	cmd.Stdin = strings.NewReader(content)
 
-	// Set environment variables to provide context to the script
-	cmd.Env = append(
-		os.Environ(),
-		fmt.Sprintf("LAZYWORKTREE_TYPE=%s", scriptType),
-		fmt.Sprintf("LAZYWORKTREE_NUMBER=%s", number),
-		fmt.Sprintf("LAZYWORKTREE_TEMPLATE=%s", template),
-		fmt.Sprintf("LAZYWORKTREE_SUGGESTED_NAME=%s", suggestedName),
-	)
+	cmd.Env = services.AppendCommandEnv(os.Environ(), services.BuildCommandEnvWithContext("", "", "", "", services.LazyWorktreeContext{
+		Type:          scriptType,
+		Number:        number,
+		Template:      template,
+		SuggestedName: suggestedName,
+	}))
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -70,11 +68,12 @@ func (m *Model) generateWorktreeNote(contentType string, number int, title, body
 
 	content := fmt.Sprintf("%s\n\n%s", title, body)
 	return services.RunWorktreeNoteScript(m.ctx, m.config.WorktreeNoteScript, services.WorktreeNoteScriptInput{
-		Content: content,
-		Type:    contentType,
-		Number:  number,
-		Title:   title,
-		URL:     url,
+		Content:     content,
+		Type:        contentType,
+		Number:      number,
+		Title:       title,
+		URL:         url,
+		Description: body,
 	})
 }
 

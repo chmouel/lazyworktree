@@ -298,6 +298,14 @@ trust_mode: "tofu"
 #   WORKTREE_NAME       - Name of the worktree (directory basename)
 #   MAIN_WORKTREE_PATH  - Path to the main repository
 #   REPO_NAME           - Repository key (from GitHub/GitLab or local hash)
+#   REPO_OWNER          - Repository owner when available
+#   REPO_REPONAME       - Repository name without the owner
+#   LAZYWORKTREE_TYPE   - Source context: pr, issue, or diff when known
+#   LAZYWORKTREE_NUMBER - PR/MR or issue number when known
+#   LAZYWORKTREE_TITLE  - PR/MR or issue title when known
+#   LAZYWORKTREE_URL    - PR/MR or issue URL when known
+#   LAZYWORKTREE_DESCRIPTION - PR/MR or issue body when known
+# Contextual LAZYWORKTREE_* values are empty when no source context is known.
 
 # Commands to run after creating a new worktree
 # Executes when creating worktrees from branches, PRs, issues, or changes
@@ -493,7 +501,9 @@ custom_commands:
 #                command in the terminal, and captures stdout via temp file
 #   post_command: Command to run in new worktree after creation (optional)
 #                 Runs after global/repo init_commands. Has access to environment
-#                 variables like WORKTREE_BRANCH, WORKTREE_PATH, etc.
+#                 variables like WORKTREE_BRANCH, WORKTREE_PATH, LAZYWORKTREE_*, etc.
+#                 The pre-create command receives MAIN_WORKTREE_PATH and REPO_*,
+#                 with WORKTREE_* and LAZYWORKTREE_* set to empty values.
 #   post_interactive: Run post-command interactively (default: false). When true,
 #                     TUI suspends to show command I/O
 custom_create_menus:
