@@ -27,7 +27,14 @@ func (m *Model) agentRenderStyles() agentRenderStyles {
 	}
 }
 
+func (m *Model) agentSessionsEnabled() bool {
+	return m.config == nil || !m.config.AgentSessionsDisabled
+}
+
 func (m *Model) refreshAgentSessions() tea.Cmd {
+	if !m.agentSessionsEnabled() {
+		return nil
+	}
 	service := m.state.services.agentSessions
 	if service == nil {
 		return nil
@@ -49,6 +56,9 @@ func (m *Model) refreshAgentSessions() tea.Cmd {
 }
 
 func (m *Model) startAgentWatcher() tea.Cmd {
+	if !m.agentSessionsEnabled() {
+		return nil
+	}
 	watcher := m.state.services.agentWatch
 	if watcher == nil || watcher.Started {
 		return nil
@@ -96,6 +106,9 @@ func (m *Model) hasAnyAgentSessionsForSelectedWorktree() bool {
 }
 
 func (m *Model) allAgentSessionsForSelectedWorktree() []*models.AgentSession {
+	if !m.agentSessionsEnabled() {
+		return nil
+	}
 	wt := m.selectedWorktree()
 	service := m.state.services.agentSessions
 	if wt == nil || service == nil {

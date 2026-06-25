@@ -98,6 +98,7 @@ type (
 		err      error
 	}
 	agentWatchChangedMsg  struct{}
+	agentRefreshDueMsg    struct{}
 	deprecationWarningMsg struct{}
 	debouncedDetailsMsg   struct {
 		selectedIndex int
@@ -302,6 +303,7 @@ type uiState struct {
 	logTable              table.Model
 	filterInput           textinput.Model
 	spinner               spinner.Model
+	spinnerActive         bool // whether the spinner tick loop is running (only while loading)
 	screenManager         *screen.Manager
 }
 
@@ -597,7 +599,11 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 		cfg.AgentSessionClaudeRoot, cfg.AgentSessionPiRoot, m.debugf,
 	)
 	m.state.services.agentProcesses = services.NewAgentProcessService(m.debugf)
-	m.state.services.agentWatch = services.NewAgentWatchService(m.state.services.agentSessions.WatchRoots(), m.debugf)
+	m.state.services.agentWatch = services.NewAgentWatchService(
+		m.state.services.agentSessions.WatchRoots(),
+		time.Duration(cfg.AgentRefreshDebounceMs)*time.Millisecond,
+		m.debugf,
+	)
 	m.state.services.filter = services.NewFilterService(initialFilter)
 
 	gitService.SetCommandRunner(func(ctx context.Context, name string, args ...string) *exec.Cmd {
@@ -624,6 +630,7 @@ func (m *Model) Init() tea.Cmd {
 	m.loadAccessHistory()
 	m.loadWorktreeNotes()
 	m.loadPaletteHistory()
+	m.state.ui.spinnerActive = true
 	cmds := []tea.Cmd{
 		m.loadCache(),
 		m.refreshWorktrees(),
@@ -642,6 +649,30 @@ func (m *Model) Init() tea.Cmd {
 
 // Update processes Bubble Tea messages and routes them through the app model.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	wasLoading := m.loading.active
+	model, cmd := m.updateModel(msg)
+	mm, ok := model.(*Model)
+	if !ok {
+		return model, cmd
+	}
+	// Restart the loading spinner only on the transition into a loading state.
+	// The tick loop self-stops when idle (see spinner.TickMsg); without that gate
+	// it re-renders the whole UI ~12 times a second forever and pegs a core.
+	//
+	// The not-loading -> loading transition is required, not just !spinnerActive:
+	// a freshly built Model is loading.active before Init runs the first Tick, so
+	// gating on !spinnerActive alone would inject a spurious tick on the first
+	// message of any such model. In production Init sets both flags together and
+	// the loop only stops while idle, so loading-without-a-live-loop never occurs
+	// outside that pre-Init window.
+	if !wasLoading && mm.loading.active && !mm.state.ui.spinnerActive {
+		mm.state.ui.spinnerActive = true
+		cmd = tea.Batch(cmd, mm.state.ui.spinner.Tick)
+	}
+	return mm, cmd
+}
+
+func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
@@ -672,6 +703,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleMouseWheel(msg)
 
 	case spinner.TickMsg:
+		if !m.loading.active && m.loadingScreen() == nil {
+			// Idle: stop the tick loop instead of re-rendering forever. The
+			// Update wrapper restarts it when a loading operation begins.
+			m.state.ui.spinnerActive = false
+			return m, nil
+		}
 		m.state.ui.spinner, cmd = m.state.ui.spinner.Update(msg)
 		if loadingScreen := m.loadingScreen(); loadingScreen != nil {
 			loadingScreen.Tick()
@@ -702,7 +739,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state.services.agentWatch != nil {
 			m.state.services.agentWatch.ResetWaiting()
 		}
-		cmds = append(cmds, m.waitForAgentWatchEvent(), m.refreshAgentSessions())
+		cmds = append(cmds, m.waitForAgentWatchEvent())
+		if cmd := m.planAgentRefresh(time.Now()); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return m, tea.Batch(cmds...)
+
+	case agentRefreshDueMsg:
+		if m.state.services.agentWatch != nil {
+			m.state.services.agentWatch.TrailingRefreshFired(time.Now())
+		}
+		if cmd := m.refreshAgentSessions(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 		return m, tea.Batch(cmds...)
 
 	case openPRsLoadedMsg:

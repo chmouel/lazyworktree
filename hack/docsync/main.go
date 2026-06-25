@@ -455,7 +455,7 @@ func parseConfigKeys(path string) ([]configKeySpec, error) {
 		"custom_create_menus":          "Custom create menu entries.",
 		"custom_themes":                "Custom theme definitions.",
 		"worktree_note_type":           "Note storage format strategy. Use `onejson` (default) for a single shared JSON file, or `splitted` for individual markdown files with YAML frontmatter.",
-		"agent_sessions":               "Custom base directories for finding AI agent transcripts. Supports `claude_root` and `pi_root` nested options.",
+		"agent_sessions":               "Agent-session pane settings. Nested options: `claude_root` and `pi_root` (custom transcript base directories); `disabled` (`bool`, default `false`) to turn off transcript watching and hide the Agent Sessions pane; `refresh_debounce_ms` (`int`, default `600`) to throttle transcript re-parsing — raise it to lower CPU while an agent is actively writing, set `0` to disable throttling.",
 		"layout_sizes":                 "Configurable baseline layout weights for panes (`worktrees`, `info`, `git_status`, `commit`, `agent_sessions`, `notes`). Relative weights are normalised at runtime.",
 	}
 

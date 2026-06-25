@@ -71,6 +71,8 @@ type AppConfig struct {
 	PaletteMRULimit         int    // Number of MRU items to show (default: 5)
 	AgentSessionClaudeRoot  string // Custom root for Claude transcript discovery (default: ~/.claude/projects)
 	AgentSessionPiRoot      string // Custom root for pi transcript discovery (default: ~/.pi/agent/sessions)
+	AgentSessionsDisabled   bool   // Disable the Agent Sessions pane and transcript watching (default: false)
+	AgentRefreshDebounceMs  int    // Debounce window (ms) for agent transcript refreshes (default: 600; 0 disables throttling)
 	CustomCreateMenus       []*CustomCreateMenu
 	CustomThemes            map[string]*CustomTheme // User-defined custom themes
 	LayoutSizes             *LayoutSizes            // Configurable pane size weights (nil = use defaults)
@@ -111,6 +113,7 @@ func DefaultConfig() *AppConfig {
 		PaletteMRULimit:         5,
 		IconSet:                 "nerd-font-v3",
 		AvatarBadges:            "auto",
+		AgentRefreshDebounceMs:  600,
 		CustomThemes:            make(map[string]*CustomTheme),
 		Keybindings:             make(KeybindingsConfig),
 		CustomCommands: CustomCommandsConfig{
@@ -211,6 +214,8 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 				}
 			}
 		}
+		cfg.AgentSessionsDisabled = coerceBool(agentData["disabled"], cfg.AgentSessionsDisabled)
+		cfg.AgentRefreshDebounceMs = coerceInt(agentData["refresh_debounce_ms"], cfg.AgentRefreshDebounceMs)
 	}
 
 	cfg.InitCommands = normalizeCommandList(data["init_commands"])
@@ -609,6 +614,12 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	}
 	if overrideNestedData(overrideData, "agent_sessions", "pi_root") {
 		cfg.AgentSessionPiRoot = overrideCfg.AgentSessionPiRoot
+	}
+	if overrideNestedData(overrideData, "agent_sessions", "disabled") {
+		cfg.AgentSessionsDisabled = overrideCfg.AgentSessionsDisabled
+	}
+	if overrideNestedData(overrideData, "agent_sessions", "refresh_debounce_ms") {
+		cfg.AgentRefreshDebounceMs = overrideCfg.AgentRefreshDebounceMs
 	}
 
 	// Arrays - check if they exist in override data

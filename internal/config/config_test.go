@@ -2019,3 +2019,32 @@ func TestConfigPrecedenceFullStack(t *testing.T) {
 	assert.Equal(t, "/yaml/path", cfg.WorktreeDir)
 	assert.Equal(t, 200000, cfg.MaxDiffChars)
 }
+
+func TestParseConfigAgentSessions(t *testing.T) {
+	t.Run("defaults: enabled with 600ms debounce", func(t *testing.T) {
+		cfg, err := parseConfig(map[string]any{})
+		require.NoError(t, err)
+		assert.False(t, cfg.AgentSessionsDisabled)
+		assert.Equal(t, 600, cfg.AgentRefreshDebounceMs)
+	})
+
+	t.Run("disable feature and tune debounce", func(t *testing.T) {
+		cfg, err := parseConfig(map[string]any{
+			"agent_sessions": map[string]any{
+				"disabled":            true,
+				"refresh_debounce_ms": 1500,
+			},
+		})
+		require.NoError(t, err)
+		assert.True(t, cfg.AgentSessionsDisabled)
+		assert.Equal(t, 1500, cfg.AgentRefreshDebounceMs)
+	})
+
+	t.Run("explicit zero debounce is honored", func(t *testing.T) {
+		cfg, err := parseConfig(map[string]any{
+			"agent_sessions": map[string]any{"refresh_debounce_ms": 0},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 0, cfg.AgentRefreshDebounceMs)
+	})
+}
