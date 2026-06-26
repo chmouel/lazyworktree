@@ -116,7 +116,7 @@ func (m *Model) showCICheckLog(check *models.CICheck) tea.Cmd {
 	}
 
 	// Build environment variables
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
+	env := m.buildCommandEnvForWorktree(wt)
 
 	// Add CI-specific environment variables
 	env["LW_CI_JOB_NAME"] = check.Name
@@ -126,10 +126,7 @@ func (m *Model) showCICheckLog(check *models.CICheck) tea.Cmd {
 		env["LW_CI_STARTED_AT"] = check.StartedAt.Format(time.RFC3339)
 	}
 
-	envVars := os.Environ()
-	for k, v := range env {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-	}
+	envVars := services.AppendCommandEnv(os.Environ(), env)
 
 	// Use --log-failed for failed checks, --log for others
 	logFlag := "--log"

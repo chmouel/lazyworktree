@@ -27,17 +27,18 @@ func TestRunWorktreeNoteScriptSuccess(t *testing.T) {
 func TestRunWorktreeNoteScriptEnv(t *testing.T) {
 	t.Parallel()
 
-	script := `printf "%s|%s|%s|%s" "$LAZYWORKTREE_TYPE" "$LAZYWORKTREE_NUMBER" "$LAZYWORKTREE_TITLE" "$LAZYWORKTREE_URL"`
+	script := `printf "%s|%s|%s|%s|%s" "$LAZYWORKTREE_TYPE" "$LAZYWORKTREE_NUMBER" "$LAZYWORKTREE_TITLE" "$LAZYWORKTREE_URL" "$LAZYWORKTREE_DESCRIPTION"`
 	note, err := RunWorktreeNoteScript(context.Background(), script, WorktreeNoteScriptInput{
-		Type:   "pr",
-		Number: 123,
-		Title:  "Fix bug",
-		URL:    "https://example.com/pr/123",
+		Type:        "pr",
+		Number:      123,
+		Title:       "Fix bug",
+		URL:         "https://example.com/pr/123",
+		Description: "Bug details",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if note != "pr|123|Fix bug|https://example.com/pr/123" {
+	if note != "pr|123|Fix bug|https://example.com/pr/123|Bug details" {
 		t.Fatalf("unexpected env output: %q", note)
 	}
 }

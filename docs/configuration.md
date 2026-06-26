@@ -223,3 +223,5 @@ CI environment variables: `LW_CI_JOB_NAME`, `LW_CI_JOB_NAME_CLEAN`, `LW_CI_RUN_I
 ### Custom create menu
 
 - `custom_create_menus`: add custom items to the creation menu (`c` key). Supports `interactive` and `post_command`.
+- Command environments include managed `WORKTREE_*`, `REPO_*`, and `LAZYWORKTREE_*` variables. Contextual `LAZYWORKTREE_*` values are empty when the PR/MR, issue, or diff source is unknown.
+- A custom create menu pre-command runs before the new branch/path exists, so it receives `MAIN_WORKTREE_PATH`, `REPO_*`, and empty managed `WORKTREE_*`/`LAZYWORKTREE_*` values. Its `post_command` runs after creation with the full worktree environment.

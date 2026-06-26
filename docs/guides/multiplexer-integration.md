@@ -146,7 +146,14 @@ All session configuration fields support environment variable substitution:
 | `$WORKTREE_BRANCH` | Branch name for the worktree | `feature/my-feature` |
 | `$WORKTREE_PATH` | Full path to the worktree directory | `/home/user/worktrees/my-feature` |
 | `$MAIN_WORKTREE_PATH` | Path to the main/root worktree | `/home/user/repo` |
-| `$REPO_NAME` | Name of the repository | `lazyworktree` |
+| `$REPO_NAME` | Repository key, usually `owner/repo` | `chmouel/lazyworktree` |
+| `$REPO_OWNER` | Repository owner when available | `chmouel` |
+| `$REPO_REPONAME` | Repository name without the owner | `lazyworktree` |
+| `$LAZYWORKTREE_TYPE` | Source context, such as `pr`, `issue`, or `diff` when known | `pr` |
+| `$LAZYWORKTREE_NUMBER` | PR/MR or issue number when known | `42` |
+| `$LAZYWORKTREE_TITLE` | PR/MR or issue title when known | `Add worktree context` |
+
+Contextual `LAZYWORKTREE_*` values are empty when no source context is known.
 
 ### Example Using Environment Variables
 

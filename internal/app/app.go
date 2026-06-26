@@ -167,6 +167,7 @@ type (
 		branch     string
 		targetPath string
 		note       string
+		lazyCtx    services.LazyWorktreeContext
 		pr         *models.PRInfo
 		err        error
 	}
@@ -180,6 +181,7 @@ type (
 		targetPath  string
 		note        string
 		noteErr     string
+		lazyCtx     services.LazyWorktreeContext
 		err         error
 	}
 	renameWorktreeResultMsg struct {
@@ -812,7 +814,7 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if strings.TrimSpace(msg.note) != "" {
 			m.setWorktreeNote(msg.targetPath, msg.note)
 		}
-		env := m.buildCommandEnv(msg.branch, msg.targetPath)
+		env := m.buildCommandEnvWithContext(msg.branch, msg.targetPath, msg.lazyCtx)
 		initCmds := m.collectInitCommands()
 		after := func() tea.Msg {
 			worktrees, err := m.state.services.git.GetWorktrees(m.ctx)
@@ -834,7 +836,7 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.noteErr != "" {
 			m.statusContent = msg.noteErr
 		}
-		env := m.buildCommandEnv(msg.branch, msg.targetPath)
+		env := m.buildCommandEnvWithContext(msg.branch, msg.targetPath, msg.lazyCtx)
 		initCmds := m.collectInitCommands()
 		after := func() tea.Msg {
 			worktrees, err := m.state.services.git.GetWorktrees(m.ctx)

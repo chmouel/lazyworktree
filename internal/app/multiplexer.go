@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
+	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/multiplexer"
@@ -228,7 +229,7 @@ func (m *Model) openTmuxSession(customCmd *config.CustomCommand, wt *models.Work
 		return nil
 	}
 	tmuxCfg := customCmd.Tmux
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
+	env := m.buildCommandEnvForWorktree(wt)
 	insideTmux := os.Getenv("TMUX") != ""
 	sessionName := expandWithEnv(tmuxCfg.SessionName, env)
 	if strings.TrimSpace(sessionName) == "" {
@@ -288,7 +289,7 @@ func (m *Model) openTmuxSession(customCmd *config.CustomCommand, wt *models.Work
 	// #nosec G204 -- command is built from user-configured tmux session settings.
 	c := m.commandRunner(m.ctx, "bash", "-lc", script)
 	c.Dir = wt.Path
-	c.Env = append(os.Environ(), envMapToList(env)...)
+	c.Env = services.AppendCommandEnv(os.Environ(), env)
 
 	return m.execProcess(c, func(err error) tea.Msg {
 		defer func() {
@@ -494,7 +495,7 @@ func (m *Model) openZellijSession(customCmd *config.CustomCommand, wt *models.Wo
 
 	// When outside zellij, create/reuse a session and add a pane, then attach
 	zellijCfg := customCmd.Zellij
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
+	env := m.buildCommandEnvForWorktree(wt)
 	sessionName := strings.TrimSpace(expandWithEnv(zellijCfg.SessionName, env))
 	if sessionName == "" {
 		sessionName = fmt.Sprintf("%s%s", m.config.SessionPrefix, filepath.Base(wt.Path))

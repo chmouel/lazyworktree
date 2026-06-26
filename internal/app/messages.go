@@ -9,6 +9,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"github.com/chmouel/lazyworktree/internal/app/screen"
+	"github.com/chmouel/lazyworktree/internal/app/services"
 	log "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/utils"
@@ -448,6 +449,8 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 		if worktreeName == "" {
 			worktreeName = fmt.Sprintf("pr-%d", pr.Number)
 		}
+		suggestedName := utils.GeneratePRWorktreeName(pr, template, "")
+		lazyCtx := services.LazyWorktreeContextFromPR(pr, template, suggestedName)
 
 		localBranch := remoteBranch
 		if wt := m.getWorktreeForBranch(localBranch); wt != nil {
@@ -482,6 +485,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 					prNumber:   pr.Number,
 					branch:     localBranch,
 					targetPath: targetPath,
+					lazyCtx:    lazyCtx,
 					pr:         pr,
 					err:        fmt.Errorf("create worktree from %s branch %q", label, remoteBranch),
 				}
@@ -495,6 +499,7 @@ func (m *Model) handleOpenPRsLoaded(msg openPRsLoadedMsg) tea.Cmd {
 				branch:     localBranch,
 				targetPath: targetPath,
 				note:       noteText,
+				lazyCtx:    lazyCtx,
 				pr:         pr,
 			}
 		}
@@ -579,8 +584,10 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 				if template == "" {
 					template = "issue-{number}-{title}"
 				}
+				suggestedName := utils.GenerateIssueWorktreeName(issue, template, "")
 
 				defaultName := utils.GenerateIssueWorktreeName(issue, template, generatedTitle)
+				lazyCtx := services.LazyWorktreeContextFromIssue(issue, template, suggestedName)
 
 				suggested := strings.TrimSpace(defaultName)
 				if suggested != "" {
@@ -635,6 +642,7 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 								issueNumber: issue.Number,
 								branch:      newBranch,
 								targetPath:  targetPath,
+								lazyCtx:     lazyCtx,
 								err:         fmt.Errorf("create worktree from issue #%d", issue.Number),
 							}
 						}
@@ -649,6 +657,7 @@ func (m *Model) handleOpenIssuesLoaded(msg openIssuesLoadedMsg) tea.Cmd {
 							targetPath:  targetPath,
 							note:        noteText,
 							noteErr:     noteErr,
+							lazyCtx:     lazyCtx,
 						}
 					}
 				}

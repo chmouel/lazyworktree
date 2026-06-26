@@ -210,7 +210,7 @@ container:
     API_KEY: "${API_KEY}"
 ```
 
-`WORKTREE_*` environment variables (`WORKTREE_BRANCH`, `WORKTREE_PATH`, `WORKTREE_NAME`, `MAIN_WORKTREE_PATH`, `REPO_NAME`) are forwarded into the container automatically.
+Managed command variables are forwarded into the container automatically, including `WORKTREE_*`, `REPO_*`, and contextual `LAZYWORKTREE_*` values. Contextual values are empty when no PR/MR, issue, or diff source is known.
 
 ## Advanced
 

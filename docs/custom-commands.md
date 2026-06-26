@@ -258,7 +258,7 @@ Each mount entry has:
 | `target` | string | **required** | Container path |
 | `read_only` | bool | `false` | Mount as read-only |
 
-The worktree path is automatically mounted to the working directory. If a user-specified mount targets the same path as `working_dir`, the automatic mount is skipped. WORKTREE_* environment variables are forwarded into the container automatically.
+The worktree path is automatically mounted to the working directory. If a user-specified mount targets the same path as `working_dir`, the automatic mount is skipped. Managed worktree and `LAZYWORKTREE_*` environment variables are forwarded into the container automatically.
 
 **`entrypoint` vs `command`:** The `entrypoint` overrides the container image's default entrypoint (the binary that runs inside the container), whilst `command` provides arguments passed to that entrypoint via `sh -c`. When both are set, the entrypoint runs with the command as its argument. When only `entrypoint` is set (no `command`), the container runs the entrypoint directly — useful for interactive shells or tools that need no additional arguments. When only `command` is set, it runs under the image's default entrypoint. When neither is set, the container runs with its image defaults.
 
@@ -266,13 +266,28 @@ When combined with `tmux` or `zellij`, each window/tab command is individually w
 
 ## Environment Variables
 
-Available to commands and templates:
+Available to commands, tmux/zellij templates, terminal tabs, `show_output`, and containers:
 
-- `WORKTREE_BRANCH`
-- `MAIN_WORKTREE_PATH`
-- `WORKTREE_PATH`
-- `WORKTREE_NAME`
-- `REPO_NAME`
+| Variable | Description |
+| --- | --- |
+| `WORKTREE_BRANCH` | Branch checked out in the selected worktree |
+| `MAIN_WORKTREE_PATH` | Path to the main/root worktree |
+| `WORKTREE_PATH` | Full path to the selected worktree |
+| `WORKTREE_NAME` | Basename of the selected worktree directory |
+| `REPO_NAME` | Repository key, usually `owner/repo` |
+| `REPO_OWNER` | Repository owner when available |
+| `REPO_REPONAME` | Repository name without the owner |
+| `LAZYWORKTREE_TYPE` | Source context type, such as `pr`, `issue`, or `diff` when known |
+| `LAZYWORKTREE_NUMBER` | PR/MR or issue number when known |
+| `LAZYWORKTREE_TEMPLATE` | Branch-name template used during PR/MR or issue creation when known |
+| `LAZYWORKTREE_SUGGESTED_NAME` | LazyWorktree's default branch/worktree name suggestion when known |
+| `LAZYWORKTREE_TITLE` | PR/MR or issue title when known |
+| `LAZYWORKTREE_URL` | PR/MR or issue URL when known |
+| `LAZYWORKTREE_DESCRIPTION` | PR/MR or issue body when known |
+
+LazyWorktree manages all of these keys for command execution. If source context is unavailable, contextual `LAZYWORKTREE_*` values are set to empty strings so stale parent-shell values do not leak into commands.
+
+For `custom_create_menus`, the pre-create `command` runs before a branch and worktree path exist. It receives `MAIN_WORKTREE_PATH`, `REPO_NAME`, `REPO_OWNER`, `REPO_REPONAME`, and empty managed `WORKTREE_*`/`LAZYWORKTREE_*` values. Its `post_command` runs after creation and receives the full generated worktree environment.
 
 ## Supported Key Formats
 

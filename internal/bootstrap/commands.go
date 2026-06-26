@@ -566,8 +566,16 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	)
 	switch {
 	case fromPR > 0:
+		if cfg.DisablePR {
+			opErr = fmt.Errorf("PR/MR integration is disabled in configuration")
+			break
+		}
 		outputPath, opErr = createFromPRFunc(ctx, gitSvc, cfg, fromPR, noWorkspace, silent)
 	case fromPRInteractive:
+		if cfg.DisablePR {
+			opErr = fmt.Errorf("PR/MR integration is disabled in configuration")
+			break
+		}
 		prNumber, err := selectPRInteractiveFunc(ctx, gitSvc, query)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -1557,8 +1565,19 @@ func handleExecAction(ctx context.Context, cmd *appiCli.Command) error {
 		}
 	}
 
+	if !cfg.DisablePR {
+		attachExecPRContext(ctx, gitSvc, targetWorktree)
+	}
+
 	// Build environment variables
-	env := services.BuildCommandEnv(targetWorktree.Branch, targetWorktree.Path, gitSvc.ResolveRepoName(ctx), mainWorktreePath)
+	lazyCtx := services.LazyWorktreeContextFromPR(targetWorktree.PR, "", "")
+	env := services.BuildCommandEnvWithContext(
+		targetWorktree.Branch,
+		targetWorktree.Path,
+		gitSvc.ResolveRepoName(ctx),
+		mainWorktreePath,
+		lazyCtx,
+	)
 
 	// Execute command or key action
 	if command != "" {
@@ -1588,6 +1607,13 @@ func handleExecAction(ctx context.Context, cmd *appiCli.Command) error {
 	return executeKeyAction(ctx, key, cfg, targetWorktree, env)
 }
 
+func attachExecPRContext(ctx context.Context, gitSvc *git.Service, wt *models.WorktreeInfo) {
+	if wt == nil || wt.PR != nil || wt.IsMain {
+		return
+	}
+	wt.PR = gitSvc.FetchPRForWorktree(ctx, wt.Path)
+}
+
 // executeShellCommandCaptured runs a shell command with its stdout/stderr forwarded to
 // our own stderr, returning the child process exit code and any OS-level error.
 func executeShellCommandCaptured(ctx context.Context, command, cwd string, env map[string]string) (int, error) {
@@ -1598,7 +1624,7 @@ func executeShellCommandCaptured(ctx context.Context, command, cwd string, env m
 	execCmd.Stdin = os.Stdin
 	execCmd.Stdout = os.Stderr // redirect child stdout to our stderr
 	execCmd.Stderr = os.Stderr
-	execCmd.Env = append(os.Environ(), services.EnvMapToList(env)...)
+	execCmd.Env = services.AppendCommandEnv(os.Environ(), env)
 
 	if err := execCmd.Run(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
@@ -1617,7 +1643,7 @@ func executeShellCommand(ctx context.Context, command, cwd string, env map[strin
 	execCmd.Stdin = os.Stdin
 	execCmd.Stdout = os.Stdout
 	execCmd.Stderr = os.Stderr
-	execCmd.Env = append(os.Environ(), services.EnvMapToList(env)...)
+	execCmd.Env = services.AppendCommandEnv(os.Environ(), env)
 
 	if err := execCmd.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: command failed: %v\n", err)
@@ -1719,7 +1745,7 @@ func executeTmuxAction(ctx context.Context, tmuxCfg *config.TmuxCommand, contain
 	// #nosec G204 -- command is built from user-configured tmux session settings
 	execCmd := exec.CommandContext(ctx, "bash", "-lc", script)
 	execCmd.Dir = wt.Path
-	execCmd.Env = append(os.Environ(), services.EnvMapToList(env)...)
+	execCmd.Env = services.AppendCommandEnv(os.Environ(), env)
 	execCmd.Stdin = os.Stdin
 	execCmd.Stdout = os.Stdout
 	execCmd.Stderr = os.Stderr
@@ -1782,7 +1808,7 @@ func executeZellijAction(ctx context.Context, zellijCfg *config.TmuxCommand, con
 	// #nosec G204 -- command is built from user-configured zellij session settings
 	execCmd := exec.CommandContext(ctx, "bash", "-lc", script)
 	execCmd.Dir = wt.Path
-	execCmd.Env = append(os.Environ(), services.EnvMapToList(env)...)
+	execCmd.Env = services.AppendCommandEnv(os.Environ(), env)
 	execCmd.Stdin = os.Stdin
 	execCmd.Stdout = os.Stdout
 	execCmd.Stderr = os.Stderr
@@ -1808,7 +1834,7 @@ func executeShowOutputAction(ctx context.Context, command string, cfg *config.Ap
 	// #nosec G204 -- explicit user-provided command executed by request
 	execCmd := exec.CommandContext(ctx, shellPath, shellArgs...)
 	execCmd.Dir = wt.Path
-	execCmd.Env = append(os.Environ(), services.EnvMapToList(env)...)
+	execCmd.Env = services.AppendCommandEnv(os.Environ(), env)
 
 	output, err := execCmd.CombinedOutput()
 	if err != nil {

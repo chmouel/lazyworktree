@@ -144,6 +144,6 @@ Execute a shell command or trigger a custom command key action:
 - Auto-detects worktree from current directory when `--workspace` is omitted.
 - Accepts either a positional shell command or `--key` to trigger a custom command.
 - Palette-only custom commands still use their `_name` identifier with `--key`.
-- Sets `WORKTREE_*` environment variables (same as custom commands in the TUI).
+- Sets the same managed `WORKTREE_*`, `REPO_*`, and contextual `LAZYWORKTREE_*` environment variables as custom commands in the TUI.
 - Supports shell, tmux, zellij, and show-output command types.
 - `new-tab` commands are not supported in CLI mode.

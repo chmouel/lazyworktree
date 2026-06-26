@@ -242,7 +242,7 @@ func (m *Model) openTerminalTab(customCmd *config.CustomCommand, wt *models.Work
 		}
 	}
 
-	env := m.buildCommandEnv(wt.Branch, wt.Path)
+	env := m.buildCommandEnvForWorktree(wt)
 	// Forward the current PATH so tools (tmux, zellij, etc.) available to
 	// lazyworktree are also reachable in the new tab.
 	if p := os.Getenv("PATH"); p != "" {
