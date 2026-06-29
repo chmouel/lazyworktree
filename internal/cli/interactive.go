@@ -9,11 +9,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	log "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/multiplexer"
 )
 
 // selectableItem is implemented by types that can be presented in an interactive selector.
@@ -102,13 +104,17 @@ func selectWithFzf[T selectableItem](items []T, query, prompt, header, cancelMsg
 		lines = append(lines, item.FormatLine())
 	}
 	input := strings.Join(lines, "\n")
-	previewScript := buildGenericPreviewScript(items)
+	previewCommand, cleanupPreview, err := prepareGenericPreviewCommand(items)
+	if err != nil {
+		return zero, err
+	}
+	defer cleanupPreview()
 
 	fzfArgs := []string{
 		"--ansi",
 		"--prompt", prompt,
 		"--header", header,
-		"--preview", previewScript,
+		"--preview", previewCommand,
 		"--preview-window", "wrap:down:40%",
 	}
 	if query != "" {
@@ -204,6 +210,31 @@ func selectWithPrompt[T selectableItem](items []T, query, noun string, stdin io.
 	}
 
 	return items[idx-1], nil
+}
+
+func prepareGenericPreviewCommand[T selectableItem](items []T) (string, func(), error) {
+	previewDir, err := os.MkdirTemp("", "lazyworktree-fzf-preview-*")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("failed to create fzf preview directory: %w", err)
+	}
+	cleanup := func() {
+		_ = os.RemoveAll(previewDir) //nolint:gosec // previewDir comes from os.MkdirTemp.
+	}
+
+	for _, item := range items {
+		previewPath := filepath.Join(previewDir, strconv.Itoa(item.ItemNumber()))
+		// #nosec G306 - preview files only need to be readable by the current user.
+		if err := os.WriteFile(previewPath, []byte(item.FormatPreview()), 0o600); err != nil {
+			cleanup()
+			return "", func() {}, fmt.Errorf("failed to write fzf preview file: %w", err)
+		}
+	}
+
+	quotedDir := multiplexer.ShellQuote(previewDir)
+	command := "num=$(printf '%s\\n' {1} | tr -cd '0-9'); " +
+		"file=" + quotedDir + "/\"$num\"; " +
+		"if [ -f \"$file\" ]; then cat \"$file\"; else echo 'No preview available'; fi"
+	return command, cleanup, nil
 }
 
 // buildGenericPreviewScript creates a shell script that maps item numbers to their

@@ -468,6 +468,22 @@ func TestBuildPRPreviewScript_SingleQuoteEscaping(t *testing.T) {
 	assert.Contains(t, script, "It'\\''s a bug that can'\\''t be fixed")
 }
 
+func TestPrepareGenericPreviewCommand_UsesTempFiles(t *testing.T) {
+	longBody := strings.Repeat("body ", 4096)
+	items := wrapPRs([]*models.PRInfo{
+		{Number: 42, Title: "Large PR", Body: longBody, Author: "dev", Branch: "feature", BaseBranch: "main"},
+	})
+
+	command, cleanup, err := prepareGenericPreviewCommand(items)
+	require.NoError(t, err)
+	defer cleanup()
+
+	assert.Less(t, len(command), 500)
+	assert.NotContains(t, command, longBody)
+	assert.Contains(t, command, "lazyworktree-fzf-preview-")
+	assert.Contains(t, command, "cat \"$file\"")
+}
+
 func TestSelectPRInteractive_NoPRs(t *testing.T) {
 	gitSvc := &mockGitServiceForInteractive{prs: []*models.PRInfo{}}
 	stderr := &bytes.Buffer{}
