@@ -535,7 +535,7 @@ func TestHandleCreateOutputSelection(t *testing.T) {
 		writeOutputSelectionFunc = oldWriteOutputSelection
 	})
 
-	loadCLIConfigFunc = func(string, string, []string) (*config.AppConfig, error) {
+	loadCLIConfigFunc = func(string, string, string, []string) (*config.AppConfig, error) {
 		return &config.AppConfig{WorktreeDir: tmpDir}, nil
 	}
 	newCLIGitServiceFunc = func(*config.AppConfig) *git.Service {
@@ -626,7 +626,7 @@ func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
 		writeOutputSelectionFunc = oldWriteOutputSelection
 	})
 
-	loadCLIConfigFunc = func(string, string, []string) (*config.AppConfig, error) {
+	loadCLIConfigFunc = func(string, string, string, []string) (*config.AppConfig, error) {
 		return &config.AppConfig{WorktreeDir: tmpDir}, nil
 	}
 	newCLIGitServiceFunc = func(*config.AppConfig) *git.Service {
@@ -693,7 +693,7 @@ func TestHandleCreateExecRunsInCreatedWorktree(t *testing.T) {
 		runCreateExecFunc = oldRunCreateExec
 	})
 
-	loadCLIConfigFunc = func(string, string, []string) (*config.AppConfig, error) {
+	loadCLIConfigFunc = func(string, string, string, []string) (*config.AppConfig, error) {
 		return &config.AppConfig{WorktreeDir: tmpDir}, nil
 	}
 	newCLIGitServiceFunc = func(*config.AppConfig) *git.Service {
@@ -768,7 +768,7 @@ func TestHandleCreateExecRunsInCurrentDirWithNoWorkspace(t *testing.T) {
 		runCreateExecFunc = oldRunCreateExec
 	})
 
-	loadCLIConfigFunc = func(string, string, []string) (*config.AppConfig, error) {
+	loadCLIConfigFunc = func(string, string, string, []string) (*config.AppConfig, error) {
 		return &config.AppConfig{WorktreeDir: tmpDir}, nil
 	}
 	newCLIGitServiceFunc = func(*config.AppConfig) *git.Service {

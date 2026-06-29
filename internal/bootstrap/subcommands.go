@@ -3,13 +3,16 @@ package bootstrap
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/git"
+	"github.com/chmouel/lazyworktree/internal/log"
+	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
 // loadCLIConfig loads and configures the application configuration for CLI mode.
-func loadCLIConfig(configFileFlag, worktreeDirFlag string, configOverrides []string) (*config.AppConfig, error) {
+func loadCLIConfig(configFileFlag, worktreeDirFlag, debugLogFlag string, configOverrides []string) (*config.AppConfig, error) {
 	ensureRepoPath()
 
 	cfg, err := config.LoadConfig(configFileFlag)
@@ -28,7 +31,33 @@ func loadCLIConfig(configFileFlag, worktreeDirFlag string, configOverrides []str
 		}
 	}
 
+	configureCLIDebugLog(debugLogFlag, cfg)
+
 	return cfg, nil
+}
+
+func configureCLIDebugLog(debugLogFlag string, cfg *config.AppConfig) {
+	path := strings.TrimSpace(debugLogFlag)
+	if path == "" && cfg != nil {
+		path = strings.TrimSpace(cfg.DebugLog)
+	}
+	if path == "" {
+		_ = log.SetFile("")
+		return
+	}
+
+	expanded, err := utils.ExpandPath(path)
+	if err == nil {
+		path = expanded
+	}
+	if err := log.SetFile(path); err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening debug log file %q: %v\n", path, err)
+		return
+	}
+	if cfg != nil {
+		cfg.DebugLog = path
+	}
+	log.Printf("debug logging enabled")
 }
 
 // newCLIGitService creates a new git service configured for CLI mode.

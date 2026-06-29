@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	lwlog "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -496,6 +500,36 @@ func TestSelectPRInteractive_UsesPromptFallback(t *testing.T) {
 	assert.Equal(t, 42, num)
 }
 
+func TestSelectPRInteractive_LogsFetchCountAndSelection(t *testing.T) {
+	oldFunc := selectPRFunc
+	t.Cleanup(func() { selectPRFunc = oldFunc })
+	selectPRFunc = func(prs []*models.PRInfo, _ string, _ io.Reader, _ io.Writer) (*models.PRInfo, error) {
+		return prs[1], nil
+	}
+
+	logFile := filepath.Join(t.TempDir(), "pr-selector.log")
+	require.NoError(t, lwlog.SetFile(logFile))
+	t.Cleanup(func() {
+		_ = lwlog.Close()
+		_ = lwlog.SetFile("")
+	})
+
+	gitSvc := &mockGitServiceForInteractive{prs: samplePRs()}
+	stderr := &bytes.Buffer{}
+
+	num, err := SelectPRInteractive(context.Background(), gitSvc, "dark", strings.NewReader(""), stderr)
+	require.NoError(t, err)
+	assert.Equal(t, 42, num)
+	require.NoError(t, lwlog.Close())
+
+	// #nosec G304 - test path comes from t.TempDir().
+	content, err := os.ReadFile(logFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), `pr selector: fetching open pull requests query="dark"`)
+	assert.Contains(t, string(content), "pr selector: fetched 3 open pull requests")
+	assert.Contains(t, string(content), "pr selector: selected PR #42")
+}
+
 func TestSelectPRDefault_FallsBackToPromptWhenNoFzf(t *testing.T) {
 	oldLookPath := fzfLookPath
 	t.Cleanup(func() { fzfLookPath = oldLookPath })
@@ -511,6 +545,60 @@ func TestSelectPRDefault_FallsBackToPromptWhenNoFzf(t *testing.T) {
 	selected, err := selectPRDefault(prs, "", stdin, stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 10, selected.Number)
+}
+
+func TestSelectPRDefault_LogsPromptFallback(t *testing.T) {
+	oldLookPath := fzfLookPath
+	t.Cleanup(func() { fzfLookPath = oldLookPath })
+	fzfLookPath = func(name string) (string, error) {
+		return "", exec.ErrNotFound
+	}
+
+	logFile := filepath.Join(t.TempDir(), "prompt-fallback.log")
+	require.NoError(t, lwlog.SetFile(logFile))
+	t.Cleanup(func() {
+		_ = lwlog.Close()
+		_ = lwlog.SetFile("")
+	})
+
+	selected, err := selectPRDefault(samplePRs(), "", strings.NewReader("1\n"), &bytes.Buffer{})
+	require.NoError(t, err)
+	assert.Equal(t, 10, selected.Number)
+	require.NoError(t, lwlog.Close())
+
+	// #nosec G304 - test path comes from t.TempDir().
+	content, err := os.ReadFile(logFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "pr selector: fzf unavailable")
+	assert.Contains(t, string(content), `selector: using numbered prompt noun="pull request" items=3 filtered=3 query=""`)
+}
+
+func TestSelectPRWithFzf_LogsExitError(t *testing.T) {
+	tmpDir := t.TempDir()
+	fzfPath := filepath.Join(tmpDir, "fzf")
+	script := "#!/bin/sh\necho fzf boom >&2\nexit 2\n"
+	require.NoError(t, os.WriteFile(fzfPath, []byte(script), 0o700))
+	t.Setenv("PATH", tmpDir)
+
+	logFile := filepath.Join(t.TempDir(), "fzf-error.log")
+	require.NoError(t, lwlog.SetFile(logFile))
+	t.Cleanup(func() {
+		_ = lwlog.Close()
+		_ = lwlog.SetFile("")
+	})
+
+	stderr := &bytes.Buffer{}
+	_, err := selectPRWithFzf(samplePRs(), "", stderr)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "pull request selection cancelled")
+	assert.Contains(t, stderr.String(), "fzf boom")
+	require.NoError(t, lwlog.Close())
+
+	// #nosec G304 - test path comes from t.TempDir().
+	content, err := os.ReadFile(logFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), `selector: invoking fzf prompt="Select PR> " items=3 query=""`)
+	assert.Contains(t, string(content), `selector: fzf failed prompt="Select PR> " exit=2 stderr="fzf boom"`)
 }
 
 func TestSelectPRInteractive_FormattedLinesParseable(t *testing.T) {

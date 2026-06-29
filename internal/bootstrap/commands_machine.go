@@ -221,6 +221,7 @@ func handleDoctorAction(ctx context.Context, cmd *appiCli.Command) error {
 	cfg, cfgErr := loadCLIConfigFunc(
 		cmd.String("config-file"),
 		cmd.String("worktree-dir"),
+		cmd.String("debug-log"),
 		cmd.StringSlice("config"),
 	)
 	if cfg == nil {
@@ -489,6 +490,7 @@ func loadWorktreeCommandState(ctx context.Context, cmd *appiCli.Command, include
 	cfg, err := loadCLIConfigFunc(
 		cmd.String("config-file"),
 		cmd.String("worktree-dir"),
+		cmd.String("debug-log"),
 		cmd.StringSlice("config"),
 	)
 	if err != nil {

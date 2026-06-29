@@ -9,6 +9,7 @@ import (
 
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/git"
+	lwlog "github.com/chmouel/lazyworktree/internal/log"
 	urfavecli "github.com/urfave/cli/v3"
 )
 
@@ -274,7 +275,7 @@ func TestApplyThemeConfigAcceptsConfiguredCustomTheme(t *testing.T) {
 
 func TestLoadCLIConfig(t *testing.T) {
 	t.Run("load default config", func(t *testing.T) {
-		cfg, err := loadCLIConfig("", "", nil)
+		cfg, err := loadCLIConfig("", "", "", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -284,7 +285,7 @@ func TestLoadCLIConfig(t *testing.T) {
 	})
 
 	t.Run("apply worktree dir", func(t *testing.T) {
-		cfg, err := loadCLIConfig("", "/test/path", nil)
+		cfg, err := loadCLIConfig("", "/test/path", "", nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -295,7 +296,7 @@ func TestLoadCLIConfig(t *testing.T) {
 
 	t.Run("apply config overrides", func(t *testing.T) {
 		overrides := []string{"lw.theme=dracula"}
-		cfg, err := loadCLIConfig("", "", overrides)
+		cfg, err := loadCLIConfig("", "", "", overrides)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -303,6 +304,105 @@ func TestLoadCLIConfig(t *testing.T) {
 			t.Errorf("expected theme to be dracula, got %q", cfg.Theme)
 		}
 	})
+
+	t.Run("debug flag initialises log file", func(t *testing.T) {
+		logFile := filepath.Join(t.TempDir(), "flag.log")
+		cfg, err := loadCLIConfig("", "", logFile, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.DebugLog != logFile {
+			t.Fatalf("expected debug log %q, got %q", logFile, cfg.DebugLog)
+		}
+		if err := lwlog.Close(); err != nil {
+			t.Fatalf("failed to close log: %v", err)
+		}
+		assertFileContains(t, logFile, "debug logging enabled")
+	})
+
+	t.Run("config debug log initialises log file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logFile := filepath.Join(tmpDir, "config.log")
+		configFile := filepath.Join(tmpDir, "config.yaml")
+		content := "debug_log: " + logFile + "\n"
+		if err := os.WriteFile(configFile, []byte(content), 0o600); err != nil {
+			t.Fatalf("failed to write config: %v", err)
+		}
+
+		cfg, err := loadCLIConfig(configFile, "", "", nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.DebugLog != logFile {
+			t.Fatalf("expected debug log %q, got %q", logFile, cfg.DebugLog)
+		}
+		if err := lwlog.Close(); err != nil {
+			t.Fatalf("failed to close log: %v", err)
+		}
+		assertFileContains(t, logFile, "debug logging enabled")
+	})
+
+	t.Run("config override debug log initialises log file", func(t *testing.T) {
+		logFile := filepath.Join(t.TempDir(), "override.log")
+		cfg, err := loadCLIConfig("", "", "", []string{"lw.debug_log=" + logFile})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.DebugLog != logFile {
+			t.Fatalf("expected debug log %q, got %q", logFile, cfg.DebugLog)
+		}
+		if err := lwlog.Close(); err != nil {
+			t.Fatalf("failed to close log: %v", err)
+		}
+		assertFileContains(t, logFile, "debug logging enabled")
+	})
+
+	t.Run("debug flag wins over config and override", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configLog := filepath.Join(tmpDir, "config.log")
+		overrideLog := filepath.Join(tmpDir, "override.log")
+		flagLog := filepath.Join(tmpDir, "flag.log")
+		configFile := filepath.Join(tmpDir, "config.yaml")
+		content := "debug_log: " + configLog + "\n"
+		if err := os.WriteFile(configFile, []byte(content), 0o600); err != nil {
+			t.Fatalf("failed to write config: %v", err)
+		}
+
+		cfg, err := loadCLIConfig(configFile, "", flagLog, []string{"lw.debug_log=" + overrideLog})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.DebugLog != flagLog {
+			t.Fatalf("expected debug log %q, got %q", flagLog, cfg.DebugLog)
+		}
+		if err := lwlog.Close(); err != nil {
+			t.Fatalf("failed to close log: %v", err)
+		}
+		assertFileContains(t, flagLog, "debug logging enabled")
+		assertFileMissing(t, configLog)
+		assertFileMissing(t, overrideLog)
+	})
+}
+
+func assertFileContains(t *testing.T, path, want string) {
+	t.Helper()
+	// #nosec G304 - callers pass paths created under t.TempDir().
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", path, err)
+	}
+	if !strings.Contains(string(content), want) {
+		t.Fatalf("expected %s to contain %q, got %q", path, want, string(content))
+	}
+}
+
+func assertFileMissing(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); err == nil {
+		t.Fatalf("expected %s not to exist", path)
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("failed to stat %s: %v", path, err)
+	}
 }
 
 func TestNewCLIGitService(t *testing.T) {

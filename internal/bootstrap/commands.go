@@ -524,6 +524,7 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	cfg, err := loadCLIConfigFunc(
 		cmd.String("config-file"),
 		cmd.String("worktree-dir"),
+		cmd.String("debug-log"),
 		cmd.StringSlice("config"),
 	)
 	if err != nil {
@@ -948,6 +949,7 @@ func handleListAction(ctx context.Context, cmd *appiCli.Command) error {
 	cfg, err := loadCLIConfigFunc(
 		cmd.String("config-file"),
 		cmd.String("worktree-dir"),
+		cmd.String("debug-log"),
 		cmd.StringSlice("config"),
 	)
 	if err != nil {
@@ -1149,6 +1151,7 @@ func handleDeleteAction(ctx context.Context, cmd *appiCli.Command) error {
 	cfg, err := loadCLIConfigFunc(
 		cmd.String("config-file"),
 		cmd.String("worktree-dir"),
+		cmd.String("debug-log"),
 		cmd.StringSlice("config"),
 	)
 	if err != nil {
@@ -1222,6 +1225,7 @@ func handleRenameAction(ctx context.Context, cmd *appiCli.Command) error {
 	cfg, err := loadCLIConfigFunc(
 		cmd.String("config-file"),
 		cmd.String("worktree-dir"),
+		cmd.String("debug-log"),
 		cmd.StringSlice("config"),
 	)
 	if err != nil {
@@ -1362,6 +1366,7 @@ func handleNoteShowAction(ctx context.Context, cmd *appiCli.Command) error {
 	cfg, err := loadCLIConfigFunc(
 		cmd.String("config-file"),
 		cmd.String("worktree-dir"),
+		cmd.String("debug-log"),
 		cmd.StringSlice("config"),
 	)
 	if err != nil {
@@ -1416,6 +1421,7 @@ func handleNoteEditAction(ctx context.Context, cmd *appiCli.Command) error {
 	cfg, err := loadCLIConfigFunc(
 		cmd.String("config-file"),
 		cmd.String("worktree-dir"),
+		cmd.String("debug-log"),
 		cmd.StringSlice("config"),
 	)
 	if err != nil {
@@ -1510,7 +1516,8 @@ func handleExecAction(ctx context.Context, cmd *appiCli.Command) error {
 	cfg, err := loadCLIConfigFunc(
 		cmd.String("config-file"),
 		cmd.String("worktree-dir"),
-		cmd.StringSlice("config-override"),
+		cmd.String("debug-log"),
+		cmd.StringSlice("config"),
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)

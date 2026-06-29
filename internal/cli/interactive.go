@@ -2,7 +2,9 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	log "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
 )
 
@@ -112,29 +115,42 @@ func selectWithFzf[T selectableItem](items []T, query, prompt, header, cancelMsg
 		fzfArgs = append(fzfArgs, "--query", query)
 	}
 
+	log.Printf("selector: invoking fzf prompt=%q items=%d query=%q", prompt, len(items), query)
 	//nolint:gosec // This is not executing user input, just a static script we built
 	cmd := exec.Command("fzf", fzfArgs...)
 	cmd.Stdin = strings.NewReader(input)
-	cmd.Stderr = stderr
+	var fzfStderr bytes.Buffer
+	cmd.Stderr = io.MultiWriter(stderr, &fzfStderr)
 
 	out, err := cmd.Output()
 	if err != nil {
+		stderrText := strings.TrimSpace(fzfStderr.String())
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			log.Printf("selector: fzf failed prompt=%q exit=%d stderr=%q", prompt, exitErr.ExitCode(), stderrText)
+		} else {
+			log.Printf("selector: fzf failed prompt=%q error=%v stderr=%q", prompt, err, stderrText)
+		}
 		return zero, fmt.Errorf("%s", cancelMsg)
 	}
 
 	selected := strings.TrimSpace(string(out))
 	if selected == "" {
+		log.Printf("selector: fzf returned empty selection prompt=%q", prompt)
 		return zero, fmt.Errorf("%s", notFoundMsg)
 	}
 
 	num, err := parseNumberFromLine(selected)
 	if err != nil {
+		log.Printf("selector: failed to parse fzf selection prompt=%q selection=%q error=%v", prompt, selected, err)
 		return zero, err
 	}
 	item, ok := lookup[num]
 	if !ok {
+		log.Printf("selector: fzf selection not found prompt=%q number=%d", prompt, num)
 		return zero, fmt.Errorf("%s #%d not found", notFoundMsg, num)
 	}
+	log.Printf("selector: fzf selected prompt=%q number=%d", prompt, num)
 	return item, nil
 }
 
@@ -156,7 +172,9 @@ func filterItems[T selectableItem](items []T, query string) []T {
 // selectWithPrompt displays a numbered list and reads the user's choice.
 func selectWithPrompt[T selectableItem](items []T, query, noun string, stdin io.Reader, stderr io.Writer) (T, error) {
 	var zero T
+	total := len(items)
 	items = filterItems(items, query)
+	log.Printf("selector: using numbered prompt noun=%q items=%d filtered=%d query=%q", noun, total, len(items), query)
 	if len(items) == 0 {
 		return zero, fmt.Errorf("no %ss matching %q", noun, query)
 	}
@@ -282,25 +300,33 @@ func SelectIssueInteractiveFromStdio(ctx context.Context, gitSvc gitService, que
 // SelectPRInteractive presents an interactive PR selector (fzf when available, numbered list otherwise).
 func SelectPRInteractive(ctx context.Context, gitSvc gitService, query string, stdin io.Reader, stderr io.Writer) (int, error) {
 	fmt.Fprintf(stderr, "Fetching open pull requests...\n")
+	log.Printf("pr selector: fetching open pull requests query=%q", query)
 
 	prs, err := gitSvc.FetchAllOpenPRs(ctx)
 	if err != nil {
+		log.Printf("pr selector: fetch failed: %v", err)
 		return 0, fmt.Errorf("failed to fetch pull requests: %w", err)
 	}
+	log.Printf("pr selector: fetched %d open pull requests", len(prs))
 	if len(prs) == 0 {
 		return 0, fmt.Errorf("no open pull requests found")
 	}
 
 	selected, err := selectPRFunc(prs, query, stdin, stderr)
 	if err != nil {
+		log.Printf("pr selector: selection failed: %v", err)
 		return 0, err
 	}
+	log.Printf("pr selector: selected PR #%d", selected.Number)
 	return selected.Number, nil
 }
 
 func selectPRDefault(prs []*models.PRInfo, query string, stdin io.Reader, stderr io.Writer) (*models.PRInfo, error) {
-	if _, err := fzfLookPath("fzf"); err == nil {
+	if path, err := fzfLookPath("fzf"); err == nil {
+		log.Printf("pr selector: using fzf at %q", path)
 		return selectPRWithFzf(prs, query, stderr)
+	} else {
+		log.Printf("pr selector: fzf unavailable: %v; using numbered prompt", err)
 	}
 	return selectPRWithPrompt(prs, query, stdin, stderr)
 }
