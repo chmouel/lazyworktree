@@ -49,6 +49,22 @@ func TestResolveRemoteName(t *testing.T) {
 		assert.Equal(t, "other/repo", svc.ResolveRepoName(context.Background()))
 	})
 
+	t.Run("a remote literally named auto is honoured", func(t *testing.T) {
+		// "auto" is a valid remote name, not a reserved keyword: only an unset
+		// ci_remote triggers automatic upstream preference.
+		repo := t.TempDir()
+		runGit(t, repo, "init")
+		runGit(t, repo, "remote", "add", "origin", "https://github.com/fork/repo.git")
+		runGit(t, repo, "remote", "add", "upstream", "https://github.com/canonical/repo.git")
+		runGit(t, repo, "remote", "add", "auto", "https://github.com/team/repo.git")
+		withCwd(t, repo)
+
+		svc := newRemoteTestService()
+		svc.SetCIRemote("auto")
+		assert.Equal(t, "auto", svc.resolveRemoteName(context.Background()))
+		assert.Equal(t, "team/repo", svc.ResolveRepoName(context.Background()))
+	})
+
 	t.Run("configured origin disables upstream preference", func(t *testing.T) {
 		repo := t.TempDir()
 		runGit(t, repo, "init")

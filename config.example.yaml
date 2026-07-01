@@ -50,8 +50,8 @@ ci_auto_refresh: false
 
 # Git remote to query for CI and PR/MR status.
 # When unset (default), an "upstream" remote is preferred when present,
-# otherwise "origin". Set a remote name to override. Useful for fork workflows
-# where pull requests live on the upstream repository.
+# otherwise "origin". Set a remote name to target a specific remote. Useful for
+# fork workflows where pull requests live on the upstream repository.
 # ci_remote: origin
 
 # Start with fuzzy finder input focused in selection screens
