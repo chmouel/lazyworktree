@@ -117,9 +117,10 @@ func (s *Service) prepareAllowedCommand(ctx context.Context, args []string) (*ex
 }
 
 // SetCIRemote sets the preferred git remote for CI/PR queries. An empty value
-// selects automatic resolution (prefer an "upstream" remote when present,
-// otherwise fall back to "origin"). Must be called before the first git host or
-// remote resolution to take effect.
+// (the default) selects automatic resolution (prefer an "upstream" remote when
+// present, otherwise fall back to "origin"). Any non-empty value is treated as a
+// literal remote name. Must be called before the first git host or remote
+// resolution to take effect.
 func (s *Service) SetCIRemote(remote string) {
 	s.ciRemote = strings.TrimSpace(remote)
 }
