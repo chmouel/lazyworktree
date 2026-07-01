@@ -20,10 +20,12 @@ func (s *Service) fetchPRRefInfo(ctx context.Context, prNumber int, remoteBranch
 	host := s.DetectHost(ctx)
 	switch host {
 	case gitHostGithub:
-		prRaw := s.RunGit(ctx, []string{
+		prViewArgs := []string{
 			"gh", "pr", "view", fmt.Sprintf("%d", prNumber),
 			"--json", "headRefOid,headRepository",
-		}, "", []int{0}, true, true)
+		}
+		prViewArgs = append(prViewArgs, s.ghRepoArgs(ctx)...)
+		prRaw := s.RunGit(ctx, prViewArgs, "", []int{0}, true, true)
 		if prRaw == "" {
 			s.notify(fmt.Sprintf("Failed to get PR #%d info", prNumber), "error")
 			return nil, false

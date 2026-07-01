@@ -464,6 +464,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	gitService := git.NewService(notify, notifyOnce)
 	gitService.SetGitPager(cfg.GitPager)
 	gitService.SetGitPagerArgs(cfg.GitPagerArgs)
+	gitService.SetCIRemote(cfg.CIRemote)
 	trustManager := security.NewTrustManager()
 
 	columns := []table.Column{

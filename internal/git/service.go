@@ -50,9 +50,12 @@ type Service struct {
 	semaphore            chan struct{}
 	mainBranch           string
 	gitHost              string
+	ciRemote             string // configured preferred remote for CI/PR queries ("" = auto: prefer upstream)
+	remoteName           string // resolved remote name (upstream/origin) used for host, repo, and CI/PR queries
 	remoteURL            string
 	mainWorktreePath     string
 	mainBranchOnce       sync.Once
+	remoteNameOnce       sync.Once
 	remoteURLOnce        sync.Once
 	gitHostOnce          sync.Once
 	mainWorktreePathOnce sync.Once
@@ -111,6 +114,14 @@ func (s *Service) prepareAllowedCommand(ctx context.Context, args []string) (*ex
 	default:
 		return nil, fmt.Errorf("unsupported command %q", args[0])
 	}
+}
+
+// SetCIRemote sets the preferred git remote for CI/PR queries. An empty value
+// selects automatic resolution (prefer an "upstream" remote when present,
+// otherwise fall back to "origin"). Must be called before the first git host or
+// remote resolution to take effect.
+func (s *Service) SetCIRemote(remote string) {
+	s.ciRemote = strings.TrimSpace(remote)
 }
 
 // SetGitPagerArgs sets additional arguments used when formatting diffs.
