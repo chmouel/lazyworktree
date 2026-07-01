@@ -65,6 +65,7 @@ func newCLIGitService(cfg *config.AppConfig) *git.Service {
 	gitSvc := git.NewService(cliNotify, cliNotifyOnce)
 	gitSvc.SetGitPager(cfg.GitPager)
 	gitSvc.SetGitPagerArgs(cfg.GitPagerArgs)
+	gitSvc.SetCIRemote(cfg.CIRemote)
 	return gitSvc
 }
 

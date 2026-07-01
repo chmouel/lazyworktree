@@ -47,6 +47,7 @@ type AppConfig struct {
 	DebugLog                string
 	Pager                   string
 	CIScriptPager           string // Pager for CI check logs, implicitly interactive
+	CIRemote                string // Preferred remote for CI/PR queries: "" (auto: prefer upstream), or a remote name (e.g. "upstream", "origin")
 	Editor                  string
 	AutoRefresh             bool
 	CIAutoRefresh           bool // Periodically refresh CI status (GitHub only, uses API rate limits)
@@ -174,6 +175,9 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 		if ciScriptPager != "" {
 			cfg.CIScriptPager = ciScriptPager
 		}
+	}
+	if ciRemote, ok := data["ci_remote"].(string); ok {
+		cfg.CIRemote = strings.TrimSpace(ciRemote)
 	}
 	if editor, ok := data["editor"].(string); ok {
 		editor = strings.TrimSpace(editor)
@@ -572,6 +576,9 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	}
 	if _, ok := overrideData["ci_script_pager"]; ok {
 		cfg.CIScriptPager = overrideCfg.CIScriptPager
+	}
+	if _, ok := overrideData["ci_remote"]; ok {
+		cfg.CIRemote = overrideCfg.CIRemote
 	}
 	if _, ok := overrideData["editor"]; ok {
 		cfg.Editor = overrideCfg.Editor

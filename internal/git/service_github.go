@@ -85,12 +85,14 @@ func (s *Service) FetchPRMap(ctx context.Context) (map[string]*models.PRInfo, er
 }
 
 func (s *Service) fetchGitHubPRs(ctx context.Context) (map[string]*models.PRInfo, error) {
-	prRaw := s.RunGit(ctx, []string{
+	args := []string{
 		"gh", "pr", "list",
 		"--state", "all",
 		"--json", "headRefName,state,number,title,body,url,author",
 		"--limit", "100",
-	}, "", []int{0}, false, false)
+	}
+	args = append(args, s.ghRepoArgs(ctx)...)
+	prRaw := s.RunGit(ctx, args, "", []int{0}, false, false)
 
 	if prRaw == "" {
 		return make(map[string]*models.PRInfo), nil
@@ -216,12 +218,14 @@ func (s *Service) FetchAllOpenPRs(ctx context.Context) ([]*models.PRInfo, error)
 }
 
 func (s *Service) fetchGitHubOpenPRs(ctx context.Context) ([]*models.PRInfo, error) {
-	prRaw := s.RunGit(ctx, []string{
+	args := []string{
 		"gh", "pr", "list",
 		"--state", "open",
 		"--json", "headRefName,state,number,title,body,url,author,isDraft,statusCheckRollup",
 		"--limit", "100",
-	}, "", []int{0}, false, false)
+	}
+	args = append(args, s.ghRepoArgs(ctx)...)
+	prRaw := s.RunGit(ctx, args, "", []int{0}, false, false)
 
 	if prRaw == "" {
 		return []*models.PRInfo{}, nil
@@ -282,10 +286,12 @@ func (s *Service) FetchPR(ctx context.Context, prNumber int) (*models.PRInfo, er
 }
 
 func (s *Service) fetchGitHubPR(ctx context.Context, prNumber int) (*models.PRInfo, error) {
-	prRaw := s.RunGit(ctx, []string{
+	args := []string{
 		"gh", "pr", "view", strconv.Itoa(prNumber),
 		"--json", "headRefName,baseRefName,state,number,title,body,url,author,isDraft,statusCheckRollup",
-	}, "", []int{0}, false, false)
+	}
+	args = append(args, s.ghRepoArgs(ctx)...)
+	prRaw := s.RunGit(ctx, args, "", []int{0}, false, false)
 
 	if prRaw == "" {
 		return nil, fmt.Errorf("PR #%d not found", prNumber)
@@ -344,12 +350,14 @@ func (s *Service) FetchAllOpenIssues(ctx context.Context) ([]*models.IssueInfo, 
 }
 
 func (s *Service) fetchGitHubOpenIssues(ctx context.Context) ([]*models.IssueInfo, error) {
-	issueRaw := s.RunGit(ctx, []string{
+	args := []string{
 		"gh", "issue", "list",
 		"--state", "open",
 		"--json", "number,state,title,body,url,author",
 		"--limit", "100",
-	}, "", []int{0}, false, false)
+	}
+	args = append(args, s.ghRepoArgs(ctx)...)
+	issueRaw := s.RunGit(ctx, args, "", []int{0}, false, false)
 
 	if issueRaw == "" {
 		return []*models.IssueInfo{}, nil
@@ -400,10 +408,12 @@ func (s *Service) FetchIssue(ctx context.Context, issueNumber int) (*models.Issu
 }
 
 func (s *Service) fetchGitHubIssue(ctx context.Context, issueNumber int) (*models.IssueInfo, error) {
-	issueRaw := s.RunGit(ctx, []string{
+	args := []string{
 		"gh", "issue", "view", strconv.Itoa(issueNumber),
 		"--json", "number,state,title,body,url,author",
-	}, "", []int{0}, false, false)
+	}
+	args = append(args, s.ghRepoArgs(ctx)...)
+	issueRaw := s.RunGit(ctx, args, "", []int{0}, false, false)
 
 	if issueRaw == "" {
 		return nil, fmt.Errorf("issue #%d not found", issueNumber)
@@ -462,10 +472,12 @@ func (s *Service) mapGitHubConclusion(status, conclusion string) string {
 
 func (s *Service) fetchGitHubCI(ctx context.Context, prNumber int) ([]*models.CICheck, error) {
 	// Use gh pr checks to get CI status
-	out := s.RunGit(ctx, []string{
+	args := []string{
 		"gh", "pr", "checks", fmt.Sprintf("%d", prNumber),
 		"--json", "name,state,bucket,link,startedAt",
-	}, "", []int{0, 1, 8}, true, true) // exit code 8 = checks pending
+	}
+	args = append(args, s.ghRepoArgs(ctx)...)
+	out := s.RunGit(ctx, args, "", []int{0, 1, 8}, true, true) // exit code 8 = checks pending
 
 	if out == "" {
 		return nil, nil

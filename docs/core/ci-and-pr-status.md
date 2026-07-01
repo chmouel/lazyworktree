@@ -52,6 +52,16 @@ CI status is fetched lazily and cached for 30 seconds. To enable periodic backgr
 ci_auto_refresh: true  # default: false
 ```
 
+## Remote Selection
+
+CI and PR/MR status are queried against a single remote. By default an `upstream` remote is preferred when present, otherwise `origin`. This suits fork workflows where pull requests live on the upstream repository rather than your fork.
+
+To pin a specific remote, set:
+
+```yaml
+ci_remote: origin  # default: auto (prefer upstream, then origin)
+```
+
 ## PR/MR Integration
 
 When a worktree branch has an associated pull or merge request, the status pane displays:

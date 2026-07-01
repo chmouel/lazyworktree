@@ -24,9 +24,35 @@ func (s *Service) GetMainBranch(ctx context.Context) string {
 	return s.mainBranch
 }
 
+// resolveRemoteName determines which git remote CI/PR queries should target.
+// When ci_remote is configured it is preferred (falling back to origin if that
+// remote does not exist); otherwise an "upstream" remote is preferred when
+// present, which suits fork workflows where PRs live on the upstream repository.
+func (s *Service) resolveRemoteName(ctx context.Context) string {
+	s.remoteNameOnce.Do(func() {
+		preferred := s.ciRemote
+		if preferred == "" {
+			preferred = "upstream"
+		}
+		if preferred != "origin" && s.remoteExists(ctx, preferred) {
+			s.remoteName = preferred
+			return
+		}
+		s.remoteName = "origin"
+	})
+	return s.remoteName
+}
+
+// remoteExists reports whether a git remote with the given name is configured.
+func (s *Service) remoteExists(ctx context.Context, name string) bool {
+	out := s.RunGit(ctx, []string{"git", "remote", "get-url", name}, "", []int{0, 1, 2, 128}, true, true)
+	return strings.TrimSpace(out) != ""
+}
+
 func (s *Service) getRemoteURL(ctx context.Context) string {
 	s.remoteURLOnce.Do(func() {
-		s.remoteURL = strings.TrimSpace(s.RunGit(ctx, []string{"git", "remote", "get-url", "origin"}, "", []int{0}, true, true))
+		remote := s.resolveRemoteName(ctx)
+		s.remoteURL = strings.TrimSpace(s.RunGit(ctx, []string{"git", "remote", "get-url", remote}, "", []int{0}, true, true))
 	})
 	return s.remoteURL
 }
