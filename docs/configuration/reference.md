@@ -15,6 +15,7 @@ This page is generated from `internal/config/config.go`. Run `make docs-sync` af
 | `auto_refresh` | `bool` | `true` | Enable background refresh of repository state. |
 | `refresh_interval` | `int` | `10` | Background refresh cadence in seconds. |
 | `ci_auto_refresh` | `bool` | `false` | Enable periodic CI refresh for GitHub repositories. |
+| `ci_remote` | `string` | `prefer upstream` | Git remote to query for CI and PR/MR status. When unset, an `upstream` remote is preferred when present, otherwise `origin`. Set to a remote name (e.g. `origin`) to target a specific remote. Useful for fork workflows where pull requests live on the upstream repository. |
 | `auto_fetch_prs` | `bool` | `false` | Automatically fetch PR/MR data. |
 | `disable_pr` | `bool` | `false` | Disable PR/MR integration. |
 | `prune_stale_branches` | `bool` | `false` | Include merged branches without worktrees in prune. |

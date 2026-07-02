@@ -117,6 +117,28 @@ func TestParseConfigAvatarBadges(t *testing.T) {
 	}
 }
 
+func TestParseConfigCIRemote(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]any
+		want  string
+	}{
+		{name: "unset defaults to empty (auto)", input: map[string]any{}, want: ""},
+		{name: "explicit remote name", input: map[string]any{"ci_remote": "upstream"}, want: "upstream"},
+		{name: "auto is stored verbatim", input: map[string]any{"ci_remote": "auto"}, want: "auto"},
+		{name: "origin", input: map[string]any{"ci_remote": "origin"}, want: "origin"},
+		{name: "trims whitespace", input: map[string]any{"ci_remote": "  upstream  "}, want: "upstream"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := parseConfig(tt.input)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.CIRemote)
+		})
+	}
+}
+
 func TestNormalizeCommandList(t *testing.T) {
 	tests := []struct {
 		name     string

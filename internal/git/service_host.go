@@ -112,6 +112,22 @@ func (s *Service) ResolveRepoName(ctx context.Context) string {
 	return repoName
 }
 
+// ghRepoArgs returns "--repo <owner/repo>" flags targeting the resolved CI/PR
+// remote, so gh queries the intended repository (e.g. upstream) rather than
+// whatever gh would default to. It returns nil when the resolved remote is
+// origin (preserving gh's own default resolution) or when no usable owner/repo
+// can be determined.
+func (s *Service) ghRepoArgs(ctx context.Context) []string {
+	if s.resolveRemoteName(ctx) == "origin" {
+		return nil
+	}
+	repo := s.ResolveRepoName(ctx)
+	if repo == "" || repo == "unknown" || strings.HasPrefix(repo, "local-") {
+		return nil
+	}
+	return []string{"--repo", repo}
+}
+
 // localRepoKey builds a stable, compact cache key when no remote name is available.
 func localRepoKey(path string) string {
 	path = strings.TrimSpace(path)
