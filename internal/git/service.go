@@ -37,6 +37,14 @@ const (
 // so tests can mock it and avoid depending on system binaries being installed.
 var LookupPath = exec.LookPath
 
+// OptionalLocksEnv disables git's optional locks for a subprocess. Read-only
+// commands such as `git status` and `git diff` otherwise opportunistically
+// refresh the index, writing .git/index.lock as a side effect; in a worktree
+// where a coding agent is committing, that transient lock races the agent's own
+// and intermittently fails its commit. Only optional locks are suppressed — the
+// required locks taken by real writes (commit, checkout, …) are unaffected.
+const OptionalLocksEnv = "GIT_OPTIONAL_LOCKS=0"
+
 // NotifyFn receives ongoing notifications.
 type NotifyFn func(message string, severity string)
 
@@ -106,7 +114,13 @@ func (s *Service) prepareAllowedCommand(ctx context.Context, args []string) (*ex
 	}
 
 	switch args[0] {
-	case "git", "glab", "gh":
+	case "git":
+		cmd := s.commandRunner(ctx, args[0], args[1:]...)
+		// Keep lazyworktree's background status/diff polling from taking the
+		// worktree index lock and racing a concurrent git command there.
+		cmd.Env = append(os.Environ(), OptionalLocksEnv)
+		return cmd, nil
+	case "glab", "gh":
 		return s.commandRunner(ctx, args[0], args[1:]...), nil
 	default:
 		return nil, fmt.Errorf("unsupported command %q", args[0])
@@ -344,7 +358,12 @@ func (s *Service) RunGitWithCombinedOutput(ctx context.Context, args []string, c
 		cmd.Dir = cwd
 	}
 	if len(env) > 0 {
-		cmd.Env = append(os.Environ(), formatEnv(env)...)
+		// prepareAllowedCommand already seeds cmd.Env (with GIT_OPTIONAL_LOCKS=0
+		// for git); extend that rather than os.Environ() so it isn't dropped.
+		if cmd.Env == nil {
+			cmd.Env = os.Environ()
+		}
+		cmd.Env = append(cmd.Env, formatEnv(env)...)
 	}
 
 	return cmd.CombinedOutput()
