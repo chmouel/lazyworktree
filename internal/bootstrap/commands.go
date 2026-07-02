@@ -314,6 +314,11 @@ func createCommand() *appiCli.Command {
 				Name:  "silent",
 				Usage: "Suppress progress messages",
 			},
+			&appiCli.BoolFlag{
+				Name:    "update-on-existing",
+				Aliases: []string{"U"},
+				Usage:   "If the target worktree already exists and is clean, reset it to the latest source instead of failing",
+			},
 			&appiCli.StringFlag{
 				Name:  "output-selection",
 				Usage: "Write created worktree path to a file",
@@ -500,6 +505,16 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 		}
 	}
 
+	updateOnExisting := cmd.Bool("update-on-existing")
+	if updateOnExisting {
+		if err := validateIncompatibility("--update-on-existing", true, "--with-change", withChange); err != nil {
+			return err
+		}
+		if err := validateIncompatibility("--update-on-existing", true, "--no-workspace", noWorkspace); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -548,6 +563,8 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	execMode := strings.TrimSpace(cmd.String("exec-mode"))
 	query := cmd.String("query")
 	jsonOutput := cmd.Bool("json")
+
+	cfg.UpdateOnExisting = cmd.Bool("update-on-existing")
 
 	// Note metadata flags
 	noteText := cmd.String("note")

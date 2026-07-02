@@ -187,6 +187,9 @@ Carry over uncommitted changes to the new worktree. Works with current branch or
 Skip worktree creation entirely. Instead, creates a local branch and switches to it in the current working directory. Must be used with \-\-from\-pr, \-\-from\-pr\-interactive, \-\-from\-issue, or \-\-from\-issue\-interactive. Cannot be combined with \-\-with\-change, \-\-generate, or a positional name argument. Outputs the branch name rather than a worktree path.
 .
 .TP
+.B \-\-update\-on\-existing\fR, \fB\-U\fR
+If the target worktree path already exists and has no uncommitted changes, reset it to the latest source instead of failing. For PR/branch worktrees this fetches and hard\-resets to the remote head; for issue worktrees it returns the existing path. Exits with an error when the worktree has uncommitted changes. Cannot be combined with \-\-with\-change or \-\-no\-workspace.
+.TP
 .B \-\-silent
 Suppress all progress messages to stderr. Only the worktree path is written to stdout unless \-\-output\-selection is used. Useful for scripting and automation.
 .TP

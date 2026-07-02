@@ -105,6 +105,50 @@ func resolveWorktreeBaseDir(worktreeDir, mainWorktreePath, repoName string) stri
 	return filepath.Join(worktreeDir, repoName)
 }
 
+func updateExistingWorktreeToRef(ctx context.Context, gitSvc gitService, targetPath, ref string, silent bool) (string, error) {
+	statusOutput := gitSvc.RunGit(ctx, []string{"git", "status", "--porcelain"}, targetPath, []int{0}, true, false)
+	if strings.TrimSpace(statusOutput) != "" {
+		return "", fmt.Errorf("worktree has uncommitted changes at %s, cannot update", targetPath)
+	}
+	if !gitSvc.RunCommandChecked(ctx, []string{"git", "fetch", "origin"}, targetPath, "Failed to fetch from origin") {
+		return "", fmt.Errorf("failed to fetch latest changes")
+	}
+	resetTarget := ref
+	if !strings.Contains(ref, "/") {
+		resetTarget = "origin/" + ref
+	}
+	if !gitSvc.RunCommandChecked(ctx, []string{"git", "reset", "--hard", resetTarget}, targetPath, fmt.Sprintf("Failed to reset worktree to %s", resetTarget)) {
+		return "", fmt.Errorf("failed to reset worktree to %s", resetTarget)
+	}
+	if !silent {
+		fmt.Fprintf(os.Stderr, "Updated existing worktree at: %s\n", targetPath)
+	}
+	return targetPath, nil
+}
+
+func updateExistingWorktreeForPR(ctx context.Context, gitSvc gitService, targetPath string, prNumber int, remoteBranch string, silent bool) (string, error) {
+	statusOutput := gitSvc.RunGit(ctx, []string{"git", "status", "--porcelain"}, targetPath, []int{0}, true, false)
+	if strings.TrimSpace(statusOutput) != "" {
+		return "", fmt.Errorf("worktree has uncommitted changes at %s, cannot update", targetPath)
+	}
+	// Try fetching the branch directly; if that fails (e.g. fork PR), fetch via refs/pull/<N>/head.
+	prRef := fmt.Sprintf("refs/pull/%d/head", prNumber)
+	fetched := gitSvc.RunCommandChecked(ctx, []string{"git", "fetch", "origin", remoteBranch}, targetPath, "")
+	if !fetched {
+		if !gitSvc.RunCommandChecked(ctx, []string{"git", "fetch", "origin", prRef}, targetPath, fmt.Sprintf("Failed to fetch PR #%d", prNumber)) {
+			return "", fmt.Errorf("failed to fetch PR #%d", prNumber)
+		}
+	}
+	resetTarget := "FETCH_HEAD"
+	if !gitSvc.RunCommandChecked(ctx, []string{"git", "reset", "--hard", resetTarget}, targetPath, fmt.Sprintf("Failed to reset worktree to PR #%d head", prNumber)) {
+		return "", fmt.Errorf("failed to reset worktree to PR #%d head", prNumber)
+	}
+	if !silent {
+		fmt.Fprintf(os.Stderr, "Updated existing worktree at: %s (PR #%d)\n", targetPath, prNumber)
+	}
+	return targetPath, nil
+}
+
 // CreateFromBranch creates a worktree from a branch name.
 func CreateFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branchName, worktreeName string, withChange, silent bool) (string, error) {
 	return CreateFromBranchWithFS(ctx, gitSvc, cfg, branchName, worktreeName, withChange, silent, DefaultFS)
@@ -158,6 +202,9 @@ func CreateFromBranchWithFS(ctx context.Context, gitSvc gitService, cfg *config.
 
 	// Check for path conflicts
 	if _, err := fs.Stat(targetPath); err == nil {
+		if cfg.UpdateOnExisting {
+			return updateExistingWorktreeToRef(ctx, gitSvc, targetPath, branchName, silent)
+		}
 		return "", fmt.Errorf("path already exists: %s", targetPath)
 	} else if !os.IsNotExist(err) {
 		return "", fmt.Errorf("failed to check path %s: %w", targetPath, err)
@@ -304,14 +351,6 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 	}
 
 	localBranch := remoteBranch
-	worktrees, err := gitSvc.GetWorktrees(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to inspect worktrees for PR #%d: %w", selectedPR.Number, err)
-	}
-	if worktreePath, attached := findWorktreePathForBranch(worktrees, localBranch); attached {
-		return "", fmt.Errorf("branch %q is already checked out in worktree %q", localBranch, worktreePath)
-	}
-
 	mainWorktreePath := gitSvc.GetMainWorktreePath(ctx)
 	repoName := gitSvc.ResolveRepoName(ctx)
 
@@ -326,8 +365,21 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 	base := resolveWorktreeBaseDir(cfg.WorktreeDir, mainWorktreePath, repoName)
 	targetPath := filepath.Join(base, worktreeName)
 
+	worktrees, err := gitSvc.GetWorktrees(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect worktrees for PR #%d: %w", selectedPR.Number, err)
+	}
+	if worktreePath, attached := findWorktreePathForBranch(worktrees, localBranch); attached {
+		if !cfg.UpdateOnExisting || worktreePath != targetPath {
+			return "", fmt.Errorf("branch %q is already checked out in worktree %q", localBranch, worktreePath)
+		}
+	}
+
 	// Check for path conflicts
 	if _, err := fs.Stat(targetPath); err == nil {
+		if cfg.UpdateOnExisting {
+			return updateExistingWorktreeForPR(ctx, gitSvc, targetPath, selectedPR.Number, remoteBranch, silent)
+		}
 		return "", fmt.Errorf("path already exists: %s", targetPath)
 	} else if !os.IsNotExist(err) {
 		return "", fmt.Errorf("failed to check path %s: %w", targetPath, err)
@@ -452,6 +504,12 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 
 	// Check for path conflicts
 	if _, err := fs.Stat(targetPath); err == nil {
+		if cfg.UpdateOnExisting {
+			if !silent {
+				fmt.Fprintf(os.Stderr, "Worktree already exists at: %s\n", targetPath)
+			}
+			return targetPath, nil
+		}
 		return "", fmt.Errorf("path already exists: %s", targetPath)
 	} else if !os.IsNotExist(err) {
 		return "", fmt.Errorf("failed to check path %s: %w", targetPath, err)

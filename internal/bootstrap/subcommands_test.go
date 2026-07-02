@@ -309,6 +309,29 @@ func TestHandleCreateValidation(t *testing.T) {
 			expectError: true,
 			errorMsg:    "--query requires --from-pr-interactive or --from-issue-interactive",
 		},
+		// --update-on-existing tests
+		{
+			name:        "update-on-existing alone (valid)",
+			args:        []string{"lazyworktree", "create", "--update-on-existing"},
+			expectError: false,
+		},
+		{
+			name:        "update-on-existing with from-pr (valid)",
+			args:        []string{"lazyworktree", "create", "--update-on-existing", "--from-pr", "123"},
+			expectError: false,
+		},
+		{
+			name:        "update-on-existing with with-change (invalid)",
+			args:        []string{"lazyworktree", "create", "--update-on-existing", "--with-change"},
+			expectError: true,
+			errorMsg:    "--update-on-existing cannot be used with --with-change",
+		},
+		{
+			name:        "update-on-existing with no-workspace (invalid)",
+			args:        []string{"lazyworktree", "create", "-U", "--from-pr", "123", "--no-workspace"},
+			expectError: true,
+			errorMsg:    "--update-on-existing cannot be used with --no-workspace",
+		},
 	}
 
 	for _, tt := range tests {

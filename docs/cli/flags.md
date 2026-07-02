@@ -51,6 +51,7 @@ Run `make docs-sync` after changing flag definitions.
 | `--query`, `-q` | `string` | Pre-filter interactive selection (pre-fills fzf search or filters numbered list); requires --from-pr-interactive or --from-issue-interactive |
 | `--silent` | `bool` | Suppress progress messages |
 | `--tags` | `string` | Comma-separated tags for the new worktree |
+| `--update-on-existing`, `-U` | `bool` | If the target worktree already exists and is clean, reset it to the latest source instead of failing |
 | `--with-change` | `bool` | Carry over uncommitted changes to the new worktree |
 
 ### `delete`
