@@ -60,6 +60,7 @@ func Run(args []string) int {
 			createCommand(),
 			renameCommand(),
 			deleteCommand(),
+			cleanupCommand(),
 			listCommand(),
 			doctorCommand(),
 			worktreesCommand(),

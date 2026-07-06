@@ -232,7 +232,7 @@ func parseCommands(dir string) ([]commandSpec, error) {
 
 	var commands []commandSpec
 	allowedFuncs := map[string]struct{}{
-		"createCommand": {}, "deleteCommand": {}, "renameCommand": {}, "listCommand": {},
+		"createCommand": {}, "deleteCommand": {}, "cleanupCommand": {}, "renameCommand": {}, "listCommand": {},
 		"execCommand": {}, "noteCommand": {}, "describeCommand": {}, "doctorCommand": {},
 		"worktreesCommand": {}, "notesCommand": {},
 	}
@@ -291,8 +291,8 @@ func parseCommands(dir string) ([]commandSpec, error) {
 	}
 
 	order := map[string]int{
-		"list": 0, "create": 1, "delete": 2, "rename": 3, "doctor": 4,
-		"worktrees": 5, "notes": 6, "exec": 7, "note": 8, "describe": 9,
+		"list": 0, "create": 1, "delete": 2, "cleanup": 3, "rename": 4, "doctor": 5,
+		"worktrees": 6, "notes": 7, "exec": 8, "note": 9, "describe": 10,
 	}
 	sort.Slice(commands, func(i, j int) bool {
 		return order[commands[i].Name] < order[commands[j].Name]

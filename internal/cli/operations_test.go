@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -50,19 +51,22 @@ type fakeGitService struct {
 
 	currentBranch    string
 	currentBranchErr error
+	mainBranch       string
+	mergedBranches   []string
 
-	mainWorktreePath      string
-	executedCommands      error
-	lastExecutedEnv       map[string]string
-	lastExecutedCwd       string
-	lastExecutedCommands  []string
-	lastWorktreeAddPath   string
-	lastWorktreeAddBranch string
-	renameWorktreeCalled  bool
-	lastRenameOldPath     string
-	lastRenameNewPath     string
-	lastRenameOldBranch   string
-	lastRenameNewBranch   string
+	mainWorktreePath       string
+	executedCommands       error
+	lastExecutedEnv        map[string]string
+	lastExecutedCwd        string
+	lastExecutedCommands   []string
+	lastWorktreeAddPath    string
+	lastWorktreeAddBranch  string
+	renameWorktreeCalled   bool
+	lastRenameOldPath      string
+	lastRenameNewPath      string
+	lastRenameOldBranch    string
+	lastRenameNewBranch    string
+	runCommandCheckedCalls [][]string
 }
 
 func (f *fakeGitService) CheckoutPRBranch(_ context.Context, _ int, _, localBranch string) bool {
@@ -135,6 +139,14 @@ func (f *fakeGitService) GetMainWorktreePath(_ context.Context) string {
 	return f.mainWorktreePath
 }
 
+func (f *fakeGitService) GetMainBranch(_ context.Context) string {
+	return f.mainBranch
+}
+
+func (f *fakeGitService) GetMergedBranches(_ context.Context, _ string) []string {
+	return f.mergedBranches
+}
+
 func (f *fakeGitService) GetWorktrees(_ context.Context) ([]*models.WorktreeInfo, error) {
 	return f.worktrees, f.worktreesErr
 }
@@ -153,6 +165,7 @@ func (f *fakeGitService) ResolveRepoName(_ context.Context) string {
 }
 
 func (f *fakeGitService) RunCommandChecked(_ context.Context, args []string, _, _ string) bool {
+	f.runCommandCheckedCalls = append(f.runCommandCheckedCalls, slices.Clone(args))
 	// Capture worktree add commands for testing
 	if len(args) > 2 && args[0] == "git" && args[1] == "worktree" && args[2] == "add" {
 		// Find the path in the args (it's before the branch name)

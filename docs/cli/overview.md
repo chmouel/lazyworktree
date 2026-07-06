@@ -7,6 +7,7 @@ Use the CLI to manage worktrees non-interactively, in scripts, and from coding a
 - `lazyworktree list`
 - `lazyworktree create`
 - `lazyworktree delete`
+- `lazyworktree cleanup`
 - `lazyworktree rename`
 - `lazyworktree doctor`
 - `lazyworktree worktrees ...`
@@ -29,6 +30,7 @@ lazyworktree --config lw.theme=nord --config lw.sort_mode=active
 - [`list`](list.md)
 - [`create`](create.md)
 - [`delete`](delete.md)
+- [`cleanup`](cleanup.md)
 - [`rename`](rename.md)
 - [`exec`](exec.md)
 - [`commands` reference](commands.md)

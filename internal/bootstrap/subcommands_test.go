@@ -921,6 +921,43 @@ func TestHandleDeleteFlags(t *testing.T) {
 	}
 }
 
+func TestCleanupCommandFlags(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		all  bool
+	}{
+		{name: "interactive by default", args: []string{"lazyworktree", "cleanup"}},
+		{name: "all", args: []string{"lazyworktree", "cleanup", "--all"}, all: true},
+		{name: "non-interactive alias", args: []string{"lazyworktree", "cleanup", "--non-interactive"}, all: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := cleanupCommand()
+			var got bool
+			cmd.Action = func(_ context.Context, c *urfavecli.Command) error {
+				got = c.Bool("all")
+				return nil
+			}
+
+			app := &urfavecli.Command{
+				Name:     "lazyworktree",
+				Commands: []*urfavecli.Command{cmd},
+			}
+			require.NoError(t, app.Run(context.Background(), tt.args))
+			assert.Equal(t, tt.all, got)
+		})
+	}
+}
+
+func TestCleanupCommandCompletion(t *testing.T) {
+	out := runSubcommandCompletion(t, cleanupCommand(), []string{
+		"lazyworktree", "cleanup", "--generate-shell-completion",
+	})
+	assert.Contains(t, out, "--all:Clean up every candidate without prompting")
+}
+
 func TestHandleRenameFlags(t *testing.T) {
 	tests := []struct {
 		name     string

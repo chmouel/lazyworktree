@@ -390,6 +390,27 @@ func deleteCommand() *appiCli.Command {
 	}
 }
 
+func cleanupCommand() *appiCli.Command {
+	return &appiCli.Command{
+		Name:  "cleanup",
+		Usage: "Remove merged worktrees, stale branches, and orphaned directories",
+		Action: func(ctx context.Context, cmd *appiCli.Command) error {
+			if handleSubcommandCompletion(ctx, cmd) {
+				return nil
+			}
+			return handleCleanupAction(ctx, cmd)
+		},
+		ShellComplete: subcommandShellComplete,
+		Flags: []appiCli.Flag{
+			&appiCli.BoolFlag{
+				Name:    "all",
+				Aliases: []string{"non-interactive"},
+				Usage:   "Clean up every candidate without prompting",
+			},
+		},
+	}
+}
+
 func renameCommand() *appiCli.Command {
 	return &appiCli.Command{
 		Name:      "rename",
@@ -1235,6 +1256,29 @@ func handleDeleteAction(ctx context.Context, cmd *appiCli.Command) error {
 
 	_ = log.Close()
 	return nil
+}
+
+// handleCleanupAction handles the cleanup subcommand action.
+func handleCleanupAction(ctx context.Context, cmd *appiCli.Command) error {
+	if cmd.NArg() > 0 {
+		return fmt.Errorf("cleanup does not accept positional arguments")
+	}
+
+	cfg, err := loadCLIConfigFunc(
+		cmd.String("config-file"),
+		cmd.String("worktree-dir"),
+		cmd.String("debug-log"),
+		cmd.StringSlice("config"),
+	)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return err
+	}
+
+	gitSvc := newCLIGitServiceFunc(cfg)
+	err = cli.Cleanup(ctx, gitSvc, cfg, cmd.Bool("all"), os.Stdin, os.Stderr)
+	_ = log.Close()
+	return err
 }
 
 // handleRenameAction handles the rename subcommand action.

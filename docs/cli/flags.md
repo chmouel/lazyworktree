@@ -62,6 +62,12 @@ Run `make docs-sync` after changing flag definitions.
 | `--no-branch` | `bool` | Skip branch deletion |
 | `--silent` | `bool` | Suppress progress messages |
 
+### `cleanup`
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--all`, `--non-interactive` | `bool` | Clean up every candidate without prompting |
+
 ### `rename`
 
 | Flag | Type | Usage |
