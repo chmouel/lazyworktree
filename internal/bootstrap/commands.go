@@ -407,6 +407,10 @@ func cleanupCommand() *appiCli.Command {
 				Aliases: []string{"non-interactive"},
 				Usage:   "Clean up every candidate without prompting",
 			},
+			&appiCli.BoolFlag{
+				Name:  "json",
+				Usage: "Output result as JSON (requires --all)",
+			},
 		},
 	}
 }
@@ -1276,9 +1280,49 @@ func handleCleanupAction(ctx context.Context, cmd *appiCli.Command) error {
 	}
 
 	gitSvc := newCLIGitServiceFunc(cfg)
-	err = cli.Cleanup(ctx, gitSvc, cfg, cmd.Bool("all"), os.Stdin, os.Stderr)
+	all := cmd.Bool("all")
+	jsonOutput := cmd.Bool("json")
+	if jsonOutput && !all {
+		fmt.Fprintln(os.Stderr, "Error: --json requires --all")
+		_ = log.Close()
+		return fmt.Errorf("--json requires --all")
+	}
+
+	summary, err := cli.Cleanup(ctx, gitSvc, cfg, all, jsonOutput, os.Stdin, os.Stderr)
+	if jsonOutput {
+		if encErr := emitCleanupJSON(summary); encErr != nil {
+			_ = log.Close()
+			return encErr
+		}
+	}
 	_ = log.Close()
 	return err
+}
+
+// emitCleanupJSON writes the cleanup summary to stdout as JSON.
+func emitCleanupJSON(summary cli.CleanupSummary) error {
+	items := make([]cleanupItemJSON, 0, len(summary.Items))
+	for _, item := range summary.Items {
+		items = append(items, cleanupItemJSON{
+			Kind:          item.Kind,
+			Path:          item.Path,
+			Branch:        item.Branch,
+			Source:        item.Source,
+			BranchDeleted: item.BranchDeleted,
+			Failed:        item.Failed,
+			Error:         item.Error,
+		})
+	}
+	output := cleanupJSON{
+		Worktrees: summary.Worktrees,
+		Branches:  summary.Branches,
+		Orphans:   summary.Orphans,
+		Failures:  summary.Failures,
+		Items:     items,
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(output)
 }
 
 // handleRenameAction handles the rename subcommand action.

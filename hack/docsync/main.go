@@ -969,6 +969,7 @@ func renderCLIFlagsPage(global []flagSpec, commands []commandSpec) string {
 	b.WriteString("- `create`: `--query` requires `--from-pr-interactive` or `--from-issue-interactive`.\n")
 	b.WriteString("- `create`: `--no-workspace` requires PR/issue creation mode and cannot be combined with `--with-change` or `--generate`.\n")
 	b.WriteString("- `list`: `--pristine` and `--json` are mutually exclusive.\n")
+	b.WriteString("- `cleanup`: `--json` requires `--all`.\n")
 	b.WriteString("- `exec`: use either positional command or `--key`, never both.\n")
 	return b.String()
 }

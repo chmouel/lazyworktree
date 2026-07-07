@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chmouel/lazyworktree/internal/cli"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/git"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -926,18 +927,21 @@ func TestCleanupCommandFlags(t *testing.T) {
 		name string
 		args []string
 		all  bool
+		json bool
 	}{
 		{name: "interactive by default", args: []string{"lazyworktree", "cleanup"}},
 		{name: "all", args: []string{"lazyworktree", "cleanup", "--all"}, all: true},
 		{name: "non-interactive alias", args: []string{"lazyworktree", "cleanup", "--non-interactive"}, all: true},
+		{name: "all with json", args: []string{"lazyworktree", "cleanup", "--all", "--json"}, all: true, json: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := cleanupCommand()
-			var got bool
+			var gotAll, gotJSON bool
 			cmd.Action = func(_ context.Context, c *urfavecli.Command) error {
-				got = c.Bool("all")
+				gotAll = c.Bool("all")
+				gotJSON = c.Bool("json")
 				return nil
 			}
 
@@ -946,7 +950,8 @@ func TestCleanupCommandFlags(t *testing.T) {
 				Commands: []*urfavecli.Command{cmd},
 			}
 			require.NoError(t, app.Run(context.Background(), tt.args))
-			assert.Equal(t, tt.all, got)
+			assert.Equal(t, tt.all, gotAll)
+			assert.Equal(t, tt.json, gotJSON)
 		})
 	}
 }
@@ -956,6 +961,39 @@ func TestCleanupCommandCompletion(t *testing.T) {
 		"lazyworktree", "cleanup", "--generate-shell-completion",
 	})
 	assert.Contains(t, out, "--all:Clean up every candidate without prompting")
+	assert.Contains(t, out, "--json:Output result as JSON (requires --all)")
+}
+
+func TestEmitCleanupJSON(t *testing.T) {
+	summary := cli.CleanupSummary{
+		Worktrees: 1,
+		Branches:  1,
+		Orphans:   0,
+		Failures:  1,
+		Items: []cli.CleanupItem{
+			{Kind: cli.CleanupKindWorktree, Path: "/wt/feature", Branch: "feature", Source: "pr", BranchDeleted: true},
+			{Kind: cli.CleanupKindBranch, Branch: "stale", Source: "git", BranchDeleted: true},
+			{Kind: cli.CleanupKindOrphan, Path: "/wt/orphan", Failed: true, Error: "could not be revalidated safely"},
+		},
+	}
+
+	out := captureStdout(t, func() {
+		require.NoError(t, emitCleanupJSON(summary))
+	})
+
+	var decoded cleanupJSON
+	require.NoError(t, json.Unmarshal([]byte(out), &decoded))
+	assert.Equal(t, 1, decoded.Worktrees)
+	assert.Equal(t, 1, decoded.Branches)
+	assert.Equal(t, 1, decoded.Failures)
+	require.Len(t, decoded.Items, 3)
+	assert.Equal(t, "worktree", decoded.Items[0].Kind)
+	assert.Equal(t, "/wt/feature", decoded.Items[0].Path)
+	assert.Equal(t, "feature", decoded.Items[0].Branch)
+	assert.True(t, decoded.Items[0].BranchDeleted)
+	assert.Equal(t, "stale", decoded.Items[1].Branch)
+	assert.True(t, decoded.Items[2].Failed)
+	assert.Equal(t, "could not be revalidated safely", decoded.Items[2].Error)
 }
 
 func TestHandleRenameFlags(t *testing.T) {

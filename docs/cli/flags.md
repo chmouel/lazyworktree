@@ -67,6 +67,7 @@ Run `make docs-sync` after changing flag definitions.
 | Flag | Type | Usage |
 | --- | --- | --- |
 | `--all`, `--non-interactive` | `bool` | Clean up every candidate without prompting |
+| `--json` | `bool` | Output result as JSON (requires --all) |
 
 ### `rename`
 
@@ -118,4 +119,5 @@ These runtime rules are enforced in `internal/bootstrap/*.go`:
 - `create`: `--query` requires `--from-pr-interactive` or `--from-issue-interactive`.
 - `create`: `--no-workspace` requires PR/issue creation mode and cannot be combined with `--with-change` or `--generate`.
 - `list`: `--pristine` and `--json` are mutually exclusive.
+- `cleanup`: `--json` requires `--all`.
 - `exec`: use either positional command or `--key`, never both.

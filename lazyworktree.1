@@ -288,6 +288,10 @@ Terminate commands run before merged worktrees are removed. Orphaned directories
 .B \-\-all\fR, \fB\-\-non\-interactive
 Remove every candidate without prompting. This includes dirty merged worktrees and orphaned directories. Any failed candidate removal causes a non-zero exit.
 .
+.TP
+.B \-\-json
+Emit a JSON object to standard output describing the cleanup result, including aggregate counts and a per-item list recording each worktree, its branch, the detection source, and whether removal succeeded. Requires \fB\-\-all\fR. Progress messages, including terminate command notices, are suppressed.
+.
 .SS exec
 Run a command or trigger a custom command key action in a worktree from the CLI.
 .

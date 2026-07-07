@@ -71,6 +71,7 @@ Remove merged worktrees, stale branches, and orphaned directories
 | Flag | Type | Usage |
 | --- | --- | --- |
 | `--all`, `--non-interactive` | `bool` | Clean up every candidate without prompting |
+| `--json` | `bool` | Output result as JSON (requires --all) |
 
 ## `rename`
 

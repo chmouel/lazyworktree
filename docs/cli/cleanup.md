@@ -29,6 +29,47 @@ lazyworktree cleanup --non-interactive # Alias for --all
 includes dirty merged worktrees and orphaned directories, so inspect with the
 interactive command first if the repository state is uncertain.
 
+## JSON output
+
+```bash
+lazyworktree cleanup --all --json
+```
+
+`--json` emits a single JSON object to standard output describing the result. It
+requires `--all`, since the interactive prompt cannot coexist with machine
+output. Progress messages, including terminate command notices, are suppressed.
+
+The object reports aggregate counts alongside a per-item list. Each item records
+its `kind` (`worktree`, `branch`, or `orphan`), the worktree `path`, its
+`branch`, the detection `source` (`pr`, `git`, or `both`), whether the branch was
+deleted, and whether the removal failed.
+
+```json
+{
+  "worktrees": 1,
+  "branches": 1,
+  "orphans": 0,
+  "failures": 0,
+  "items": [
+    {
+      "kind": "worktree",
+      "path": "/home/you/worktrees/repo/feature",
+      "branch": "feature",
+      "source": "pr",
+      "branch_deleted": true,
+      "failed": false
+    },
+    {
+      "kind": "branch",
+      "branch": "stale",
+      "source": "git",
+      "branch_deleted": true,
+      "failed": false
+    }
+  ]
+}
+```
+
 ## Candidate detection
 
 Cleanup considers:

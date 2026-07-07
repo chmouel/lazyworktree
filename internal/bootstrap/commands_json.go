@@ -48,6 +48,26 @@ type renameJSON struct {
 	NewPath string `json:"new_path"`
 }
 
+// cleanupItemJSON is a single candidate acted upon during cleanup.
+type cleanupItemJSON struct {
+	Kind          string `json:"kind"`
+	Path          string `json:"path,omitempty"`
+	Branch        string `json:"branch,omitempty"`
+	Source        string `json:"source,omitempty"`
+	BranchDeleted bool   `json:"branch_deleted"`
+	Failed        bool   `json:"failed"`
+	Error         string `json:"error,omitempty"`
+}
+
+// cleanupJSON is the JSON output for the cleanup subcommand.
+type cleanupJSON struct {
+	Worktrees int               `json:"worktrees"`
+	Branches  int               `json:"branches"`
+	Orphans   int               `json:"orphans"`
+	Failures  int               `json:"failures"`
+	Items     []cleanupItemJSON `json:"items"`
+}
+
 // noteShowJSON is the JSON output for the note show subcommand.
 type noteShowJSON struct {
 	WorktreeName string   `json:"worktree_name"`

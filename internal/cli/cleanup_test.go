@@ -77,7 +77,7 @@ func TestCleanupInteractiveSelection(t *testing.T) {
 	cfg.PruneStaleBranches = true
 
 	var stderr bytes.Buffer
-	err := Cleanup(context.Background(), svc, cfg, false, strings.NewReader("1,3\n"), &stderr)
+	_, err := Cleanup(context.Background(), svc, cfg, false, false, strings.NewReader("1,3\n"), &stderr)
 	require.NoError(t, err)
 
 	assert.Contains(t, stderr.String(), "[1] worktree feature")
@@ -118,7 +118,7 @@ func TestCleanupAllIncludesEveryCandidate(t *testing.T) {
 	cfg.PruneStaleBranches = true
 
 	var stderr bytes.Buffer
-	err := Cleanup(context.Background(), svc, cfg, true, strings.NewReader(""), &stderr)
+	summary, err := Cleanup(context.Background(), svc, cfg, true, false, strings.NewReader(""), &stderr)
 	require.NoError(t, err)
 
 	assert.NotContains(t, stderr.String(), "Select items")
@@ -127,6 +127,21 @@ func TestCleanupAllIncludesEveryCandidate(t *testing.T) {
 	assert.Contains(t, stderr.String(), "1 orphaned directory removed")
 	assert.True(t, commandWasRun(svc.runCommandCheckedCalls, "git", "branch", "-D", "stale"))
 	assert.NoDirExists(t, orphanPath)
+
+	assert.Equal(t, 1, summary.Worktrees)
+	assert.Equal(t, 1, summary.Branches)
+	assert.Equal(t, 1, summary.Orphans)
+	assert.Equal(t, 0, summary.Failures)
+	require.Len(t, summary.Items, 3)
+	worktreeItem := findCleanupItem(summary.Items, CleanupKindWorktree)
+	require.NotNil(t, worktreeItem)
+	assert.Equal(t, featurePath, worktreeItem.Path)
+	assert.Equal(t, "feature", worktreeItem.Branch)
+	assert.True(t, worktreeItem.BranchDeleted)
+	assert.False(t, worktreeItem.Failed)
+	branchItem := findCleanupItem(summary.Items, CleanupKindBranch)
+	require.NotNil(t, branchItem)
+	assert.Equal(t, "stale", branchItem.Branch)
 }
 
 func TestCleanupCancelled(t *testing.T) {
@@ -148,7 +163,7 @@ func TestCleanupCancelled(t *testing.T) {
 	cfg.DisablePR = true
 
 	var stderr bytes.Buffer
-	err := Cleanup(context.Background(), svc, cfg, false, strings.NewReader("\n"), &stderr)
+	_, err := Cleanup(context.Background(), svc, cfg, false, false, strings.NewReader("\n"), &stderr)
 	require.NoError(t, err)
 	assert.Contains(t, stderr.String(), "Cleanup cancelled.")
 	assert.Empty(t, svc.runCommandCheckedCalls)
@@ -197,9 +212,79 @@ func TestCleanupReportsFailures(t *testing.T) {
 	cfg.DisablePR = true
 
 	var stderr bytes.Buffer
-	err := Cleanup(context.Background(), svc, cfg, true, strings.NewReader(""), &stderr)
+	summary, err := Cleanup(context.Background(), svc, cfg, true, false, strings.NewReader(""), &stderr)
 	require.ErrorContains(t, err, "cleanup completed with 1 failure")
 	assert.Contains(t, stderr.String(), "1 failure")
+
+	require.Len(t, summary.Items, 1)
+	assert.True(t, summary.Items[0].Failed)
+	assert.NotEmpty(t, summary.Items[0].Error)
+	assert.Equal(t, 1, summary.Failures)
+}
+
+func TestCleanupJSONRequiresAll(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeGitService{
+		resolveRepoName:  "repo",
+		mainWorktreePath: "/main",
+		mainBranch:       "main",
+	}
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = t.TempDir()
+	cfg.DisablePR = true
+
+	var stderr bytes.Buffer
+	_, err := Cleanup(context.Background(), svc, cfg, false, true, strings.NewReader(""), &stderr)
+	require.ErrorContains(t, err, "--json requires --all")
+	assert.Empty(t, svc.runCommandCheckedCalls)
+}
+
+func TestCleanupJSONSuppressesSummaryAndTerminateNoise(t *testing.T) {
+	t.Parallel()
+
+	worktreeDir := t.TempDir()
+	repoDir := filepath.Join(worktreeDir, "repo")
+	featurePath := filepath.Join(repoDir, "feature")
+	require.NoError(t, os.MkdirAll(featurePath, 0o750))
+
+	svc := &fakeGitService{
+		resolveRepoName:     "repo",
+		mainWorktreePath:    "/main",
+		mainBranch:          "main",
+		mergedBranches:      []string{"feature"},
+		runCommandCheckedOK: true,
+		worktrees: []*models.WorktreeInfo{
+			{Path: "/main", Branch: "main", IsMain: true},
+			{Path: featurePath, Branch: "feature"},
+		},
+	}
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = worktreeDir
+	cfg.DisablePR = true
+	cfg.TerminateCommands = []string{"true"}
+
+	var stderr bytes.Buffer
+	summary, err := Cleanup(context.Background(), svc, cfg, true, true, strings.NewReader(""), &stderr)
+	require.NoError(t, err)
+
+	assert.NotContains(t, stderr.String(), "Cleanup complete")
+	assert.NotContains(t, stderr.String(), "Running terminate commands")
+
+	require.Len(t, summary.Items, 1)
+	assert.Equal(t, CleanupKindWorktree, summary.Items[0].Kind)
+	assert.Equal(t, "feature", summary.Items[0].Branch)
+	assert.Equal(t, featurePath, summary.Items[0].Path)
+	assert.True(t, summary.Items[0].BranchDeleted)
+}
+
+func findCleanupItem(items []CleanupItem, kind string) *CleanupItem {
+	for i := range items {
+		if items[i].Kind == kind {
+			return &items[i]
+		}
+	}
+	return nil
 }
 
 func commandWasRun(calls [][]string, want ...string) bool {

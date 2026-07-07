@@ -43,45 +43,93 @@ type cleanupResult struct {
 	branches  int
 	orphans   int
 	failures  int
+	items     []CleanupItem
+}
+
+// Cleanup item kinds as emitted in the structured summary.
+const (
+	CleanupKindWorktree = "worktree"
+	CleanupKindBranch   = "branch"
+	CleanupKindOrphan   = "orphan"
+)
+
+// CleanupItem describes a single candidate acted upon during cleanup.
+type CleanupItem struct {
+	Kind          string
+	Path          string
+	Branch        string
+	Source        string
+	BranchDeleted bool
+	Failed        bool
+	Error         string
+}
+
+// CleanupSummary reports the aggregate counts and per-item detail of a cleanup
+// run so callers can render human-readable or machine-readable output.
+type CleanupSummary struct {
+	Worktrees int
+	Branches  int
+	Orphans   int
+	Failures  int
+	Items     []CleanupItem
 }
 
 // Cleanup finds merged worktrees, configured stale branches, and orphaned
 // worktree directories. It prompts for a numbered selection unless all is true.
+// When jsonOutput is true it requires all (non-interactive) and returns a
+// structured summary for machine-readable rendering while suppressing progress
+// messages such as terminate command notices.
 func Cleanup(
 	ctx context.Context,
 	gitSvc cleanupGitService,
 	cfg *config.AppConfig,
 	all bool,
+	jsonOutput bool,
 	stdin io.Reader,
 	stderr io.Writer,
-) error {
+) (CleanupSummary, error) {
+	if jsonOutput && !all {
+		return CleanupSummary{}, fmt.Errorf("--json requires --all")
+	}
+
 	candidates, repoDir, err := findCleanupCandidates(ctx, gitSvc, cfg, stderr)
 	if err != nil {
-		return err
+		return CleanupSummary{}, err
 	}
 	if len(candidates) == 0 {
-		fmt.Fprintln(stderr, "Nothing to clean up.")
-		return nil
+		if !jsonOutput {
+			fmt.Fprintln(stderr, "Nothing to clean up.")
+		}
+		return CleanupSummary{}, nil
 	}
 
 	selected := candidates
 	if !all {
 		selected, err = promptCleanupSelection(candidates, stdin, stderr)
 		if err != nil {
-			return err
+			return CleanupSummary{}, err
 		}
 		if len(selected) == 0 {
 			fmt.Fprintln(stderr, "Cleanup cancelled.")
-			return nil
+			return CleanupSummary{}, nil
 		}
 	}
 
-	result := executeCleanup(ctx, gitSvc, cfg, repoDir, selected, stderr)
-	fmt.Fprintln(stderr, formatCleanupResult(result))
-	if result.failures > 0 {
-		return fmt.Errorf("cleanup completed with %d failure(s)", result.failures)
+	result := executeCleanup(ctx, gitSvc, cfg, repoDir, selected, jsonOutput, stderr)
+	summary := CleanupSummary{
+		Worktrees: result.worktrees,
+		Branches:  result.branches,
+		Orphans:   result.orphans,
+		Failures:  result.failures,
+		Items:     result.items,
 	}
-	return nil
+	if !jsonOutput {
+		fmt.Fprintln(stderr, formatCleanupResult(result))
+	}
+	if result.failures > 0 {
+		return summary, fmt.Errorf("cleanup completed with %d failure(s)", result.failures)
+	}
+	return summary, nil
 }
 
 func findCleanupCandidates(
@@ -289,6 +337,7 @@ func executeCleanup(
 	cfg *config.AppConfig,
 	repoDir string,
 	candidates []cleanupCandidate,
+	silent bool,
 	stderr io.Writer,
 ) cleanupResult {
 	gitSvc.RunGit(ctx, []string{"git", "worktree", "prune"}, "", []int{0}, true, true)
@@ -298,7 +347,7 @@ func executeCleanup(
 	for _, candidate := range candidates {
 		switch candidate.kind {
 		case cleanupWorktree:
-			runCleanupTerminateCommands(ctx, gitSvc, cfg, candidate.worktree, stderr)
+			runCleanupTerminateCommands(ctx, gitSvc, cfg, candidate.worktree, silent, stderr)
 			removed := gitSvc.RunCommandChecked(
 				ctx,
 				[]string{"git", "worktree", "remove", "--force", candidate.worktree.Path},
@@ -311,37 +360,79 @@ func executeCleanup(
 				"",
 				fmt.Sprintf("Failed to delete branch %s", candidate.branch),
 			)
+			item := CleanupItem{
+				Kind:          CleanupKindWorktree,
+				Path:          candidate.worktree.Path,
+				Branch:        candidate.branch,
+				Source:        candidate.source,
+				BranchDeleted: branchDeleted,
+			}
 			if removed && branchDeleted {
 				result.worktrees++
 			} else {
 				result.failures++
+				item.Failed = true
+				item.Error = worktreeCleanupError(removed, branchDeleted)
 			}
+			result.items = append(result.items, item)
 		case cleanupBranch:
-			if gitSvc.RunCommandChecked(
+			deleted := gitSvc.RunCommandChecked(
 				ctx,
 				[]string{"git", "branch", "-D", candidate.branch},
 				"",
 				fmt.Sprintf("Failed to delete branch %s", candidate.branch),
-			) {
+			)
+			item := CleanupItem{
+				Kind:          CleanupKindBranch,
+				Branch:        candidate.branch,
+				Source:        candidate.source,
+				BranchDeleted: deleted,
+			}
+			if deleted {
 				result.branches++
 			} else {
 				result.failures++
+				item.Failed = true
+				item.Error = fmt.Sprintf("failed to delete branch %s", candidate.branch)
 			}
+			result.items = append(result.items, item)
 		case cleanupOrphan:
+			item := CleanupItem{
+				Kind: CleanupKindOrphan,
+				Path: candidate.orphanPath,
+			}
 			if !validPathsOK || !safeCleanupOrphan(candidate.orphanPath, repoDir, validPaths) {
 				fmt.Fprintf(stderr, "Warning: skipped orphaned directory %s because it could not be revalidated safely\n", candidate.orphanPath)
 				result.failures++
+				item.Failed = true
+				item.Error = "could not be revalidated safely"
+				result.items = append(result.items, item)
 				continue
 			}
 			if err := os.RemoveAll(candidate.orphanPath); err != nil {
 				fmt.Fprintf(stderr, "Warning: failed to remove orphaned directory %s: %v\n", candidate.orphanPath, err)
 				result.failures++
+				item.Failed = true
+				item.Error = err.Error()
 			} else {
 				result.orphans++
 			}
+			result.items = append(result.items, item)
 		}
 	}
 	return result
+}
+
+// worktreeCleanupError describes which step of a worktree cleanup failed.
+func worktreeCleanupError(removed, branchDeleted bool) string {
+	switch {
+	case !removed && !branchDeleted:
+		return "failed to remove worktree and delete branch"
+	case !removed:
+		return "failed to remove worktree"
+	default:
+		return "failed to delete branch"
+	}
 }
 
 func runCleanupTerminateCommands(
@@ -349,6 +440,7 @@ func runCleanupTerminateCommands(
 	gitSvc cleanupGitService,
 	cfg *config.AppConfig,
 	wt *models.WorktreeInfo,
+	silent bool,
 	stderr io.Writer,
 ) {
 	var lazyCtxProvider func() appservices.LazyWorktreeContext
@@ -357,7 +449,7 @@ func runCleanupTerminateCommands(
 			return lazyWorktreeContextForWorktree(ctx, gitSvc, wt)
 		}
 	}
-	if err := runTerminateCommands(ctx, gitSvc, cfg, wt.Branch, wt.Path, lazyCtxProvider, false); err != nil {
+	if err := runTerminateCommands(ctx, gitSvc, cfg, wt.Branch, wt.Path, lazyCtxProvider, silent); err != nil {
 		fmt.Fprintf(stderr, "Warning: terminate commands failed for %s: %v\n", wt.Branch, err)
 	}
 }
