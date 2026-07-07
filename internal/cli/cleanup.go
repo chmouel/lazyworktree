@@ -520,8 +520,19 @@ func sourceDescription(source string) string {
 
 func formatCleanupResult(result cleanupResult) string {
 	parts := make([]string, 0, 4)
+	var wtLines []string
 	if result.worktrees > 0 {
 		parts = append(parts, fmt.Sprintf("%d merged %s removed", result.worktrees, pluralise(result.worktrees, "worktree", "worktrees")))
+		for _, item := range result.items {
+			if item.Kind == CleanupKindWorktree && !item.Failed {
+				name := filepath.Base(item.Path)
+				if name != item.Branch {
+					wtLines = append(wtLines, fmt.Sprintf("  • %s (%s)", name, item.Branch))
+				} else {
+					wtLines = append(wtLines, fmt.Sprintf("  • %s", name))
+				}
+			}
+		}
 	}
 	if result.branches > 0 {
 		parts = append(parts, fmt.Sprintf("%d stale %s deleted", result.branches, pluralise(result.branches, "branch", "branches")))
@@ -535,7 +546,11 @@ func formatCleanupResult(result cleanupResult) string {
 	if len(parts) == 0 {
 		return "Nothing was cleaned up."
 	}
-	return "Cleanup complete: " + strings.Join(parts, ", ") + "."
+	msg := "Cleanup complete: " + strings.Join(parts, ", ") + "."
+	if len(wtLines) > 0 {
+		msg += "\n" + strings.Join(wtLines, "\n")
+	}
+	return msg
 }
 
 func pluralise(count int, singular, plural string) string {
