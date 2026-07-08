@@ -51,6 +51,7 @@ Run `make docs-sync` after changing flag definitions.
 | `--query`, `-q` | `string` | Pre-filter interactive selection (pre-fills fzf search or filters numbered list); requires --from-pr-interactive or --from-issue-interactive |
 | `--silent` | `bool` | Suppress progress messages |
 | `--tags` | `string` | Comma-separated tags for the new worktree |
+| `--update-on-existing`, `-U` | `bool` | If the target worktree already exists and is clean, reset it to the latest source instead of failing |
 | `--with-change` | `bool` | Carry over uncommitted changes to the new worktree |
 
 ### `delete`
@@ -60,6 +61,13 @@ Run `make docs-sync` after changing flag definitions.
 | `--json` | `bool` | Output result as JSON |
 | `--no-branch` | `bool` | Skip branch deletion |
 | `--silent` | `bool` | Suppress progress messages |
+
+### `cleanup`
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--all`, `--non-interactive` | `bool` | Clean up every candidate without prompting |
+| `--json` | `bool` | Output result as JSON (requires --all) |
 
 ### `rename`
 
@@ -111,4 +119,5 @@ These runtime rules are enforced in `internal/bootstrap/*.go`:
 - `create`: `--query` requires `--from-pr-interactive` or `--from-issue-interactive`.
 - `create`: `--no-workspace` requires PR/issue creation mode and cannot be combined with `--with-change` or `--generate`.
 - `list`: `--pristine` and `--json` are mutually exclusive.
+- `cleanup`: `--json` requires `--all`.
 - `exec`: use either positional command or `--key`, never both.

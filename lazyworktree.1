@@ -18,6 +18,9 @@ lazyworktree \- A TUI tool to manage git worktrees
 .br
 .B lazyworktree wt\-delete
 [\-\-no\-branch] [\-\-silent]
+.br
+.B lazyworktree cleanup
+[\-\-all]
 .
 .SH DESCRIPTION
 lazyworktree is a BubbleTea-based Terminal User Interface (TUI) designed for efficient Git worktree management. It enables you to visualise the repository's status, oversee branches, and navigate between worktrees with ease.
@@ -187,6 +190,9 @@ Carry over uncommitted changes to the new worktree. Works with current branch or
 Skip worktree creation entirely. Instead, creates a local branch and switches to it in the current working directory. Must be used with \-\-from\-pr, \-\-from\-pr\-interactive, \-\-from\-issue, or \-\-from\-issue\-interactive. Cannot be combined with \-\-with\-change, \-\-generate, or a positional name argument. Outputs the branch name rather than a worktree path.
 .
 .TP
+.B \-\-update\-on\-existing\fR, \fB\-U\fR
+If the target worktree path already exists and has no uncommitted changes, reset it to the latest source instead of failing. For PR/branch worktrees this fetches and hard\-resets to the remote head; for issue worktrees it returns the existing path. Exits with an error when the worktree has uncommitted changes. Cannot be combined with \-\-with\-change or \-\-no\-workspace.
+.TP
 .B \-\-silent
 Suppress all progress messages to stderr. Only the worktree path is written to stdout unless \-\-output\-selection is used. Useful for scripting and automation.
 .TP
@@ -265,6 +271,26 @@ Suppress all progress messages to stderr. Useful for scripting and automation.
 .TP
 .B \-\-json
 Output the delete result as JSON to stdout. The JSON object contains name, path, and branch_deleted fields. Progress messages are written to stderr.
+.
+.SS cleanup
+Remove merged worktrees, stale branches, and orphaned worktree directories without launching the TUI.
+.
+.PP
+By default, displays a numbered menu. Select entries with individual numbers, comma-separated numbers, ranges, or \fBall\fR. Press Enter without a selection to cancel.
+Merged local branches without worktrees are included when \fBprune_stale_branches\fR is enabled.
+.
+.PP
+Terminate commands run before merged worktrees are removed. Orphaned directories are revalidated against Git immediately before deletion.
+.
+.PP
+.B Options:
+.TP
+.B \-\-all\fR, \fB\-\-non\-interactive
+Remove every candidate without prompting. This includes dirty merged worktrees and orphaned directories. Any failed candidate removal causes a non-zero exit.
+.
+.TP
+.B \-\-json
+Emit a JSON object to standard output describing the cleanup result, including aggregate counts and a per-item list recording each worktree, its branch, the detection source, and whether removal succeeded. Requires \fB\-\-all\fR. Progress messages, including terminate command notices, are suppressed.
 .
 .SS exec
 Run a command or trigger a custom command key action in a worktree from the CLI.
@@ -520,6 +546,16 @@ Delete worktree (and branch if name matches):
 Delete worktree without deleting branch:
 .br
 .B lazyworktree delete \-\-no\-branch
+.
+.PP
+Choose merged worktrees and other stale entries from a numbered menu:
+.br
+.B lazyworktree cleanup
+.
+.PP
+Clean up every candidate without prompting:
+.br
+.B lazyworktree cleanup \-\-all
 .
 .PP
 Rename the current worktree (detected from cwd):

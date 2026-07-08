@@ -314,6 +314,11 @@ func createCommand() *appiCli.Command {
 				Name:  "silent",
 				Usage: "Suppress progress messages",
 			},
+			&appiCli.BoolFlag{
+				Name:    "update-on-existing",
+				Aliases: []string{"U"},
+				Usage:   "If the target worktree already exists and is clean, reset it to the latest source instead of failing",
+			},
 			&appiCli.StringFlag{
 				Name:  "output-selection",
 				Usage: "Write created worktree path to a file",
@@ -380,6 +385,31 @@ func deleteCommand() *appiCli.Command {
 			&appiCli.BoolFlag{
 				Name:  "json",
 				Usage: "Output result as JSON",
+			},
+		},
+	}
+}
+
+func cleanupCommand() *appiCli.Command {
+	return &appiCli.Command{
+		Name:  "cleanup",
+		Usage: "Remove merged worktrees, stale branches, and orphaned directories",
+		Action: func(ctx context.Context, cmd *appiCli.Command) error {
+			if handleSubcommandCompletion(ctx, cmd) {
+				return nil
+			}
+			return handleCleanupAction(ctx, cmd)
+		},
+		ShellComplete: subcommandShellComplete,
+		Flags: []appiCli.Flag{
+			&appiCli.BoolFlag{
+				Name:    "all",
+				Aliases: []string{"non-interactive"},
+				Usage:   "Clean up every candidate without prompting",
+			},
+			&appiCli.BoolFlag{
+				Name:  "json",
+				Usage: "Output result as JSON (requires --all)",
 			},
 		},
 	}
@@ -500,6 +530,16 @@ func validateCreateFlags(ctx context.Context, cmd *appiCli.Command) error {
 		}
 	}
 
+	updateOnExisting := cmd.Bool("update-on-existing")
+	if updateOnExisting {
+		if err := validateIncompatibility("--update-on-existing", true, "--with-change", withChange); err != nil {
+			return err
+		}
+		if err := validateIncompatibility("--update-on-existing", true, "--no-workspace", noWorkspace); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -548,6 +588,8 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	execMode := strings.TrimSpace(cmd.String("exec-mode"))
 	query := cmd.String("query")
 	jsonOutput := cmd.Bool("json")
+
+	cfg.UpdateOnExisting = cmd.Bool("update-on-existing")
 
 	// Note metadata flags
 	noteText := cmd.String("note")
@@ -1218,6 +1260,69 @@ func handleDeleteAction(ctx context.Context, cmd *appiCli.Command) error {
 
 	_ = log.Close()
 	return nil
+}
+
+// handleCleanupAction handles the cleanup subcommand action.
+func handleCleanupAction(ctx context.Context, cmd *appiCli.Command) error {
+	if cmd.NArg() > 0 {
+		return fmt.Errorf("cleanup does not accept positional arguments")
+	}
+
+	cfg, err := loadCLIConfigFunc(
+		cmd.String("config-file"),
+		cmd.String("worktree-dir"),
+		cmd.String("debug-log"),
+		cmd.StringSlice("config"),
+	)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return err
+	}
+
+	gitSvc := newCLIGitServiceFunc(cfg)
+	all := cmd.Bool("all")
+	jsonOutput := cmd.Bool("json")
+	if jsonOutput && !all {
+		fmt.Fprintln(os.Stderr, "Error: --json requires --all")
+		_ = log.Close()
+		return fmt.Errorf("--json requires --all")
+	}
+
+	summary, err := cli.Cleanup(ctx, gitSvc, cfg, all, jsonOutput, os.Stdin, os.Stderr)
+	if jsonOutput {
+		if encErr := emitCleanupJSON(summary); encErr != nil {
+			_ = log.Close()
+			return encErr
+		}
+	}
+	_ = log.Close()
+	return err
+}
+
+// emitCleanupJSON writes the cleanup summary to stdout as JSON.
+func emitCleanupJSON(summary cli.CleanupSummary) error {
+	items := make([]cleanupItemJSON, 0, len(summary.Items))
+	for _, item := range summary.Items {
+		items = append(items, cleanupItemJSON{
+			Kind:          item.Kind,
+			Path:          item.Path,
+			Branch:        item.Branch,
+			Source:        item.Source,
+			BranchDeleted: item.BranchDeleted,
+			Failed:        item.Failed,
+			Error:         item.Error,
+		})
+	}
+	output := cleanupJSON{
+		Worktrees: summary.Worktrees,
+		Branches:  summary.Branches,
+		Orphans:   summary.Orphans,
+		Failures:  summary.Failures,
+		Items:     items,
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(output)
 }
 
 // handleRenameAction handles the rename subcommand action.

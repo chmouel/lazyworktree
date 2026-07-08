@@ -1,4 +1,4 @@
-![Go](https://img.shields.io/badge/go-1.25%2B-blue) ![Coverage](https://img.shields.io/badge/Coverage-62.9%25-yellow)
+![Go](https://img.shields.io/badge/go-1.25%2B-blue) ![Coverage](https://img.shields.io/badge/Coverage-63.3%25-yellow)
 
 # LazyWorktree
 
@@ -17,7 +17,7 @@ _[You can see more screenshots here](https://chmouel.github.io/lazyworktree/#scr
 
 ## Main Features
 
-- Worktree management - Create worktrees from branches, PRs/MRs, or issues; delete, list, and switch between them
+- Worktree management - Create worktrees from branches, PRs/MRs, or issues; clean up, delete, list, and switch between them
 - CI & PR/MR status - See GitHub Actions and GitLab CI results, check PR/MR details, view logs and more.
 - Agent sessions pane - See confirmed active Claude and pi sessions attached to the selected worktree.
 - Command palette - Quick access to all actions and custom commands with `?`.

@@ -232,7 +232,7 @@ func parseCommands(dir string) ([]commandSpec, error) {
 
 	var commands []commandSpec
 	allowedFuncs := map[string]struct{}{
-		"createCommand": {}, "deleteCommand": {}, "renameCommand": {}, "listCommand": {},
+		"createCommand": {}, "deleteCommand": {}, "cleanupCommand": {}, "renameCommand": {}, "listCommand": {},
 		"execCommand": {}, "noteCommand": {}, "describeCommand": {}, "doctorCommand": {},
 		"worktreesCommand": {}, "notesCommand": {},
 	}
@@ -291,8 +291,8 @@ func parseCommands(dir string) ([]commandSpec, error) {
 	}
 
 	order := map[string]int{
-		"list": 0, "create": 1, "delete": 2, "rename": 3, "doctor": 4,
-		"worktrees": 5, "notes": 6, "exec": 7, "note": 8, "describe": 9,
+		"list": 0, "create": 1, "delete": 2, "cleanup": 3, "rename": 4, "doctor": 5,
+		"worktrees": 6, "notes": 7, "exec": 8, "note": 9, "describe": 10,
 	}
 	sort.Slice(commands, func(i, j int) bool {
 		return order[commands[i].Name] < order[commands[j].Name]
@@ -973,6 +973,7 @@ func renderCLIFlagsPage(global []flagSpec, commands []commandSpec) string {
 	b.WriteString("- `create`: `--query` requires `--from-pr-interactive` or `--from-issue-interactive`.\n")
 	b.WriteString("- `create`: `--no-workspace` requires PR/issue creation mode and cannot be combined with `--with-change` or `--generate`.\n")
 	b.WriteString("- `list`: `--pristine` and `--json` are mutually exclusive.\n")
+	b.WriteString("- `cleanup`: `--json` requires `--all`.\n")
 	b.WriteString("- `exec`: use either positional command or `--key`, never both.\n")
 	return b.String()
 }

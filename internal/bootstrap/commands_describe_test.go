@@ -23,6 +23,7 @@ func buildTestApp() *appiCli.Command {
 			createCommand(),
 			renameCommand(),
 			deleteCommand(),
+			cleanupCommand(),
 			listCommand(),
 			doctorCommand(),
 			worktreesCommand(),
@@ -75,6 +76,7 @@ func TestDescribeRootEmitsAllCommands(t *testing.T) {
 	}
 	assert.Contains(t, names, "create")
 	assert.Contains(t, names, "delete")
+	assert.Contains(t, names, "cleanup")
 	assert.Contains(t, names, "rename")
 	assert.Contains(t, names, "list")
 	assert.Contains(t, names, "doctor")

@@ -35,7 +35,6 @@ ownership across subsystems.
 - If you change shell integration helpers or completion behaviour, update:
   - `shell/README.md`
   - the relevant helper in `shell/functions.bash`, `shell/functions.zsh`, or `shell/functions.fish`
-- Do not add to README.md unless important to ask the human to approve.
 - Don't ever do commit unless you are being explicitly asked for it.
 - If you get asked to commit then use this rules:
   - Follow Conventional Commits 1.0.0.
@@ -44,6 +43,9 @@ ownership across subsystems.
   - Use bullet points only if necessary for clarity.
   - Past tense.
   - State **what** and **why** only (no “how”).
+
+!important
+> Do not add to README.md unless important to ask the human to approve.
 
 ## Documentation
 

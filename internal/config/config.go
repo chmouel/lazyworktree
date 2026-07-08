@@ -80,6 +80,7 @@ type AppConfig struct {
 	ConfigPath              string                  `yaml:"-"` // Path to the configuration file
 	DeprecationWarnings     []string                `yaml:"-"` // Warnings about deprecated config keys detected at load time
 	Commit                  CommitConfig            `yaml:"commit"`
+	UpdateOnExisting        bool                    `yaml:"-" json:"-"`
 }
 
 // RepoConfig represents repository-scoped commands from .wt

@@ -235,7 +235,13 @@ func (s *worktreeService) Absorb(ctx context.Context, wt, mainWorktree *models.W
 
 func (s *worktreeService) GetPruneCandidates(ctx context.Context, worktrees []*models.WorktreeInfo, includeStaleBranches bool) ([]PruneCandidate, error) {
 	mainBranch := s.git.GetMainBranch(ctx)
+	mergedBranches := s.git.GetMergedBranches(ctx, mainBranch)
+	return FindPruneCandidates(worktrees, mergedBranches, includeStaleBranches), nil
+}
 
+// FindPruneCandidates identifies merged worktrees and merged branches without
+// worktrees from already-fetched repository state.
+func FindPruneCandidates(worktrees []*models.WorktreeInfo, mergedBranches []string, includeStaleBranches bool) []PruneCandidate {
 	wtBranches := make(map[string]*models.WorktreeInfo)
 	checkedOutBranches := make(map[string]struct{})
 	for _, wt := range worktrees {
@@ -260,7 +266,6 @@ func (s *worktreeService) GetPruneCandidates(ctx context.Context, worktrees []*m
 	}
 
 	// 2. Git-based detection
-	mergedBranches := s.git.GetMergedBranches(ctx, mainBranch)
 	for _, branch := range mergedBranches {
 		if wt, exists := wtBranches[branch]; exists {
 			if existing, found := candidateMap[branch]; found {
@@ -291,7 +296,7 @@ func (s *worktreeService) GetPruneCandidates(ctx context.Context, worktrees []*m
 		candidates = append(candidates, c)
 	}
 
-	return candidates, nil
+	return candidates
 }
 
 func (s *worktreeService) ExecuteCommands(ctx context.Context, commands []string, cwd string, env map[string]string) error {

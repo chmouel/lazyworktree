@@ -8,6 +8,7 @@ This page is generated from `internal/bootstrap/*.go`. Run `make docs-sync` afte
 | `list` | List all worktrees | `-` | `ls` | [`list`](list.md) |
 | `create` | Create a new worktree | `[worktree-name]` | - | [`create`](create.md) |
 | `delete` | Delete a worktree | `[worktree-path]` | - | [`delete`](delete.md) |
+| `cleanup` | Remove merged worktrees, stale branches, and orphaned directories | `-` | - | [`cleanup`](cleanup.md) |
 | `rename` | Rename a worktree | `<new-name> \| <worktree> <new-name>` | - | [`rename`](rename.md) |
 | `doctor` | Report CLI, repository, and tooling health for automation | `-` | - | [`doctor`](doctor.md) |
 | `worktrees` | Discover and inspect worktrees with stable machine-readable output | `-` | - | [`worktrees`](worktrees.md) |
@@ -50,6 +51,7 @@ Create a new worktree
 | `--query`, `-q` | `string` | Pre-filter interactive selection (pre-fills fzf search or filters numbered list); requires --from-pr-interactive or --from-issue-interactive |
 | `--silent` | `bool` | Suppress progress messages |
 | `--tags` | `string` | Comma-separated tags for the new worktree |
+| `--update-on-existing`, `-U` | `bool` | If the target worktree already exists and is clean, reset it to the latest source instead of failing |
 | `--with-change` | `bool` | Carry over uncommitted changes to the new worktree |
 
 ## `delete`
@@ -61,6 +63,15 @@ Delete a worktree
 | `--json` | `bool` | Output result as JSON |
 | `--no-branch` | `bool` | Skip branch deletion |
 | `--silent` | `bool` | Suppress progress messages |
+
+## `cleanup`
+
+Remove merged worktrees, stale branches, and orphaned directories
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--all`, `--non-interactive` | `bool` | Clean up every candidate without prompting |
+| `--json` | `bool` | Output result as JSON (requires --all) |
 
 ## `rename`
 

@@ -3,7 +3,7 @@
 The CLI supports both human-first worktree lifecycle commands and machine-first read commands without launching the full TUI.
 
 <div class="lw-callout">
-  <p><strong>Quick command cookbook:</strong> <code>lazyworktree list</code>, <code>lazyworktree create ...</code>, <code>lazyworktree delete ...</code>, and <code>lazyworktree exec ...</code>.</p>
+  <p><strong>Quick command cookbook:</strong> <code>lazyworktree list</code>, <code>lazyworktree create ...</code>, <code>lazyworktree delete ...</code>, <code>lazyworktree cleanup</code>, and <code>lazyworktree exec ...</code>.</p>
 </div>
 
 For coding agents and scripts, start with:
@@ -110,6 +110,21 @@ lazyworktree rename /path/to/worktree new-worktree-name
 ```
 
 During rename, the branch is renamed only if the current worktree directory name matches the branch name.
+
+## Cleaning Up Worktrees
+
+```bash
+lazyworktree cleanup              # Choose candidates from a numbered menu
+lazyworktree cleanup --all        # Remove every candidate without prompting
+lazyworktree cleanup --all --json # Emit the result as JSON
+```
+
+The interactive menu accepts comma-separated numbers and ranges. `--all`
+(also available as `--non-interactive`) includes dirty merged worktrees and
+orphaned directories. Merged branches without worktrees are included when
+`prune_stale_branches` is enabled. Add `--json` (which requires `--all`) to
+emit the aggregate counts and a per-item list of each worktree, its branch, and
+whether removal succeeded.
 
 ## Running Commands in Worktrees
 

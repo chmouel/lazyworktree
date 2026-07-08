@@ -12,4 +12,4 @@ lazyworktree delete --no-branch # Delete worktree only
 ## Notes
 
 - Use `--no-branch` when branch preservation is required.
-- For bulk stale cleanup, use TUI prune (`X`) in interactive mode.
+- For bulk stale cleanup, use `lazyworktree cleanup` or TUI prune (`X`).

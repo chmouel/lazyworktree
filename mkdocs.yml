@@ -124,6 +124,7 @@ nav:
       - list: cli/list.md
       - create: cli/create.md
       - delete: cli/delete.md
+      - cleanup: cli/cleanup.md
       - rename: cli/rename.md
       - exec: cli/exec.md
       - note: cli/note.md
