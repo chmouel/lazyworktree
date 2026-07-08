@@ -18,7 +18,7 @@ func (s *Service) DetectHost(ctx context.Context) string {
 			return
 		}
 		s.gitHost = gitHostUnknown
-		remoteURL := s.getRemoteURL(ctx)
+		remoteURL := s.getOriginRemoteURL(ctx)
 		if remoteURL != "" {
 			re := regexp.MustCompile(`(?:git@|https?://|ssh://|git://)(?:[^@]+@)?([^/:]+)`)
 			matches := re.FindStringSubmatch(remoteURL)
@@ -47,12 +47,8 @@ func (s *Service) IsGitHub(ctx context.Context) bool {
 	return s.DetectHost(ctx) == gitHostGithub
 }
 
-// ResolveRepoName resolves the repository name using various methods.
-// ResolveRepoName returns the repository identifier for caching purposes.
-func (s *Service) ResolveRepoName(ctx context.Context) string {
+func repoNameFromRemoteURL(remoteURL string) string {
 	var repoName string
-
-	remoteURL := s.getRemoteURL(ctx)
 
 	if remoteURL != "" {
 		if strings.Contains(remoteURL, "github.com") {
@@ -69,6 +65,14 @@ func (s *Service) ResolveRepoName(ctx context.Context) string {
 			}
 		}
 	}
+
+	return strings.TrimSuffix(repoName, ".git")
+}
+
+// resolveRepoNameFromRemoteURL resolves the repository name from a specific remote URL,
+// falling back to gh/glab/local discovery when the URL cannot be parsed.
+func (s *Service) resolveRepoNameFromRemoteURL(ctx context.Context, remoteURL string) string {
+	repoName := repoNameFromRemoteURL(remoteURL)
 
 	if repoName == "" {
 		if out := s.RunGit(ctx, []string{"gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"}, "", []int{0}, true, true); out != "" {
@@ -112,17 +116,29 @@ func (s *Service) ResolveRepoName(ctx context.Context) string {
 	return repoName
 }
 
+// ResolveRepoName returns the repository identifier for caching and local state.
+// It uses the origin remote when available so CI/PR remote selection does not
+// change the repository identity used by worktrees, notes, and caches.
+func (s *Service) ResolveRepoName(ctx context.Context) string {
+	return s.resolveRepoNameFromRemoteURL(ctx, s.getOriginRemoteURL(ctx))
+}
+
+// ResolveCITargetRepoName returns the repository identifier targeted by CI/PR queries.
+func (s *Service) ResolveCITargetRepoName(ctx context.Context) string {
+	return s.resolveRepoNameFromRemoteURL(ctx, s.getRemoteURL(ctx))
+}
+
 // ghRepoArgs returns "--repo <owner/repo>" flags targeting the resolved CI/PR
 // remote, so gh queries the intended repository (e.g. upstream) rather than
-// whatever gh would default to. It returns nil when the resolved remote is
-// origin (preserving gh's own default resolution) or when no usable owner/repo
-// can be determined.
+// whatever gh would default to. It preserves gh's own default resolution when
+// automatic mode resolves to origin, but pins origin explicitly when the user
+// requested it.
 func (s *Service) ghRepoArgs(ctx context.Context) []string {
-	if s.resolveRemoteName(ctx) == "origin" {
+	repo := s.ResolveCITargetRepoName(ctx)
+	if repo == "" || repo == "unknown" || strings.HasPrefix(repo, "local-") {
 		return nil
 	}
-	repo := s.ResolveRepoName(ctx)
-	if repo == "" || repo == "unknown" || strings.HasPrefix(repo, "local-") {
+	if s.ciRemote == "" && s.resolveRemoteName(ctx) == "origin" {
 		return nil
 	}
 	return []string{"--repo", repo}

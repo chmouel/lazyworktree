@@ -125,7 +125,7 @@ func TestParseConfigCIRemote(t *testing.T) {
 	}{
 		{name: "unset defaults to empty (auto)", input: map[string]any{}, want: ""},
 		{name: "explicit remote name", input: map[string]any{"ci_remote": "upstream"}, want: "upstream"},
-		{name: "auto is stored verbatim", input: map[string]any{"ci_remote": "auto"}, want: "auto"},
+		{name: "auto sentinel normalised to empty", input: map[string]any{"ci_remote": "auto"}, want: ""},
 		{name: "origin", input: map[string]any{"ci_remote": "origin"}, want: "origin"},
 		{name: "trims whitespace", input: map[string]any{"ci_remote": "  upstream  "}, want: "upstream"},
 	}

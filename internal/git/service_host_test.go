@@ -37,6 +37,19 @@ func TestDetectHost(t *testing.T) {
 	}
 }
 
+func TestDetectHostUsesOriginRemote(t *testing.T) {
+	ctx := context.Background()
+	repo := t.TempDir()
+	runGit(t, repo, "init")
+	runGit(t, repo, "remote", "add", "origin", "https://gitlab.com/group/repo.git")
+	runGit(t, repo, "remote", "add", "upstream", "https://github.com/canonical/repo.git")
+	withCwd(t, repo)
+
+	service := NewService(func(string, string) {}, func(string, string, string) {})
+	assert.Equal(t, "upstream", service.resolveRemoteName(ctx))
+	assert.Equal(t, gitHostGitLab, service.DetectHost(ctx))
+}
+
 func TestIsGitHubOrGitLab(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {

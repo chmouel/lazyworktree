@@ -47,7 +47,7 @@ type AppConfig struct {
 	DebugLog                string
 	Pager                   string
 	CIScriptPager           string // Pager for CI check logs, implicitly interactive
-	CIRemote                string // Preferred remote for CI/PR queries: "" (auto: prefer upstream), or a remote name (e.g. "upstream", "origin")
+	CIRemote                string // Preferred remote for CI/PR queries (GitHub only): "" (auto: prefer upstream), or a remote name (e.g. "upstream", "origin"); does not change repository identity
 	Editor                  string
 	AutoRefresh             bool
 	CIAutoRefresh           bool // Periodically refresh CI status (GitHub only, uses API rate limits)
@@ -177,7 +177,11 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 		}
 	}
 	if ciRemote, ok := data["ci_remote"].(string); ok {
-		cfg.CIRemote = strings.TrimSpace(ciRemote)
+		ciRemote = strings.TrimSpace(ciRemote)
+		if ciRemote == "auto" {
+			ciRemote = ""
+		}
+		cfg.CIRemote = ciRemote
 	}
 	if editor, ok := data["editor"].(string); ok {
 		editor = strings.TrimSpace(editor)

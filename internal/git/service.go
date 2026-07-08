@@ -51,12 +51,14 @@ type Service struct {
 	mainBranch           string
 	gitHost              string
 	ciRemote             string // configured preferred remote for CI/PR queries ("" = auto: prefer upstream)
-	remoteName           string // resolved remote name (upstream/origin) used for host, repo, and CI/PR queries
-	remoteURL            string
+	remoteName           string // resolved remote name (upstream/origin) used for host detection and CI/PR queries
+	remoteURL            string // resolved CI/PR remote URL
+	originRemoteURL      string
 	mainWorktreePath     string
 	mainBranchOnce       sync.Once
 	remoteNameOnce       sync.Once
 	remoteURLOnce        sync.Once
+	originRemoteURLOnce  sync.Once
 	gitHostOnce          sync.Once
 	mainWorktreePathOnce sync.Once
 	notifiedSet          map[string]bool

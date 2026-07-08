@@ -20,6 +20,7 @@ func (s *Service) fetchPRRefInfo(ctx context.Context, prNumber int, remoteBranch
 	host := s.DetectHost(ctx)
 	switch host {
 	case gitHostGithub:
+		remoteName := s.resolveRemoteName(ctx)
 		prViewArgs := []string{
 			"gh", "pr", "view", fmt.Sprintf("%d", prNumber),
 			"--json", "headRefOid,headRepository",
@@ -47,13 +48,13 @@ func (s *Service) fetchPRRefInfo(ctx context.Context, prNumber int, remoteBranch
 		if repoURL == "" {
 			repoURL = s.getRemoteURL(ctx)
 		}
-		if !s.RunCommandChecked(ctx, []string{"git", "fetch", "origin", fmt.Sprintf("refs/pull/%d/head", prNumber)}, "", fmt.Sprintf("Failed to fetch PR #%d", prNumber)) {
+		if !s.RunCommandChecked(ctx, []string{"git", "fetch", remoteName, fmt.Sprintf("refs/pull/%d/head", prNumber)}, "", fmt.Sprintf("Failed to fetch PR #%d", prNumber)) {
 			return nil, false
 		}
 		return &prRefInfo{
 			headCommit: headCommit,
 			repoURL:    repoURL,
-			remoteName: "origin",
+			remoteName: remoteName,
 			mergeRef:   fmt.Sprintf("refs/pull/%d/head", prNumber),
 		}, true
 

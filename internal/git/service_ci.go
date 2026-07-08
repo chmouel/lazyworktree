@@ -30,7 +30,7 @@ func (s *Service) FetchCIStatusByCommit(ctx context.Context, commitSHA, worktree
 		return nil, nil
 	}
 
-	repoName := s.ResolveRepoName(ctx)
+	repoName := s.ResolveCITargetRepoName(ctx)
 	if repoName == "" || repoName == "unknown" || strings.HasPrefix(repoName, "local-") {
 		return nil, nil
 	}

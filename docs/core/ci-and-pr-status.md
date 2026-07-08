@@ -54,7 +54,9 @@ ci_auto_refresh: true  # default: false
 
 ## Remote Selection
 
-CI and PR/MR status are queried against a single remote. By default (`ci_remote` unset) an `upstream` remote is preferred when present, otherwise `origin`. This suits fork workflows where pull requests live on the upstream repository rather than your fork.
+CI and PR status are queried against a selectable remote for GitHub lookups and PR checkout. By default (`ci_remote` unset) an `upstream` remote is preferred when present, otherwise `origin`. This suits fork workflows where pull requests live on the upstream repository rather than your fork.
+
+This setting only changes the CI/PR target on GitHub; GitLab MR and CI queries continue to use `glab`'s own repository resolution. Worktree identity, notes, and caches continue to use the repository's own origin/default discovery.
 
 To pin a specific remote, set a remote name:
 
