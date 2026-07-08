@@ -48,10 +48,11 @@ refresh_interval: 10
 # (5,000 requests/hour for authenticated users).
 ci_auto_refresh: false
 
-# Git remote to query for CI and PR/MR status.
-# When unset (default), an "upstream" remote is preferred when present,
-# otherwise "origin". Set a remote name to target a specific remote. Useful for
-# fork workflows where pull requests live on the upstream repository.
+# Git remote to target for CI and PR status queries on GitHub.
+# When unset or set to "auto", an "upstream" remote is preferred when present,
+# otherwise "origin". Set a remote name to target a specific remote without
+# changing repository identity. GitLab MR/CI queries use glab's own repository
+# resolution.
 # ci_remote: origin
 
 # Start with fuzzy finder input focused in selection screens

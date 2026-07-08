@@ -1221,16 +1221,20 @@ Default: false
 .
 .TP
 .B ci_remote
-Git remote to query for CI and PR/MR status. When unset, an
+Git remote to target for CI and PR status queries on GitHub. When unset or set
+to
+.IR auto ,
+an
 .I upstream
 remote is preferred when present, otherwise
 .IR origin .
 Set to a remote name (for example
 .IR origin )
-to target a specific remote. Useful for fork workflows where pull requests live
-on the upstream repository.
+to target a specific remote without changing repository identity. GitLab MR/CI
+queries continue to use glab's own repository resolution. Useful for fork
+workflows where pull requests live on the upstream repository.
 .br
-Default: unset (prefer upstream, then origin)
+Default: auto
 .
 .TP
 .B disable_pr

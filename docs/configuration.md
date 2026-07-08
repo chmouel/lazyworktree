@@ -147,7 +147,7 @@ git config --local --get-regexp "^lw\."
 - `layout_sizes`: adjust pane size weights for `worktrees`, `info`, `git_status`, `commit`, `agent_sessions`, and `notes`.
 - `auto_refresh`: background refresh of git metadata (default: true).
 - `ci_auto_refresh`: periodically refresh CI status for GitHub repositories (default: false).
-- `ci_remote`: git remote to query for CI and PR/MR status. When unset (default), an `upstream` remote is preferred when present, otherwise `origin`; set a remote name to override (for example `ci_remote: origin`). Useful for fork workflows where pull requests live on the upstream repository.
+- `ci_remote`: git remote to target for CI and PR status queries on GitHub. When unset or set to `auto`, an `upstream` remote is preferred when present, otherwise `origin`; set a remote name to override (for example `ci_remote: origin`). This setting does not change repository identity, and GitLab MR/CI queries continue to use `glab`'s own repository resolution.
 - `refresh_interval`: refresh frequency in seconds (default: 10).
 - `icon_set`: choose icon set (`nerd-font-v3`, `text`).
 - `avatar_badges`: show PR/MR author avatar badges in the Info pane on Kitty-compatible terminals (`auto`, `never`, `always`).

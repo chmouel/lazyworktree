@@ -57,6 +57,13 @@ func (s *Service) getRemoteURL(ctx context.Context) string {
 	return s.remoteURL
 }
 
+func (s *Service) getOriginRemoteURL(ctx context.Context) string {
+	s.originRemoteURLOnce.Do(func() {
+		s.originRemoteURL = strings.TrimSpace(s.RunGit(ctx, []string{"git", "remote", "get-url", "origin"}, "", []int{0, 1, 2, 128}, true, true))
+	})
+	return s.originRemoteURL
+}
+
 // GetCurrentBranch returns the current branch name from the current working directory.
 // Returns an error if not in a git repository or if HEAD is detached.
 func (s *Service) GetCurrentBranch(ctx context.Context) (string, error) {
