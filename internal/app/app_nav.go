@@ -372,8 +372,10 @@ func (m *Model) updateDetailsView() tea.Cmd {
 		}
 		return nil
 	}
+	// Capture on the UI thread; the returned command runs in a goroutine.
+	allowRevalidate := m.gitWatcherActive()
 	return func() tea.Msg {
-		statusRaw, logRaw, unpushed, unmerged := m.getCachedDetails(wt)
+		statusRaw, logRaw, unpushed, unmerged := m.getCachedDetails(wt, allowRevalidate)
 
 		// Parse log
 		logEntries := []commitLogEntry{}

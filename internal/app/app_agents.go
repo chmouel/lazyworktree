@@ -31,6 +31,26 @@ func (m *Model) agentSessionsEnabled() bool {
 	return m.config == nil || !m.config.AgentSessionsDisabled
 }
 
+// agentSessionsEqual reports whether two session snapshots carry identical
+// data, letting periodic refreshes skip state churn when nothing changed.
+func agentSessionsEqual(a, b []*models.AgentSession) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] == nil || b[i] == nil {
+			if a[i] != b[i] {
+				return false
+			}
+			continue
+		}
+		if *a[i] != *b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (m *Model) refreshAgentSessions() tea.Cmd {
 	if !m.agentSessionsEnabled() {
 		return nil

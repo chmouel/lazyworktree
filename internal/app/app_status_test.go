@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -186,7 +187,7 @@ func TestGetCachedDetailsCachesResults(t *testing.T) {
 		}
 	})
 
-	statusRaw, logRaw, unpushedSHAs, unmergedSHAs := m.getCachedDetails(wt)
+	statusRaw, logRaw, unpushedSHAs, unmergedSHAs := m.getCachedDetails(wt, false)
 	if statusRaw != "" {
 		t.Fatalf("expected empty status raw, got %q", statusRaw)
 	}
@@ -200,7 +201,7 @@ func TestGetCachedDetailsCachesResults(t *testing.T) {
 		t.Fatalf("expected unmerged SHA to be tracked, got %v", unmergedSHAs)
 	}
 
-	_, _, _, _ = m.getCachedDetails(wt)
+	_, _, _, _ = m.getCachedDetails(wt, false)
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -453,4 +454,113 @@ func TestRestyleLogRowsAuthorColor(t *testing.T) {
 	// Now row 0 should have colour restored, row 1 should be plain
 	assert.Contains(t, rows[0][1], "\x1b[", "previous cursor row should regain author colour")
 	assert.NotContains(t, rows[1][1], "\x1b[", "new cursor row should be plain")
+}
+
+func newDetailsRunnerModel(t *testing.T, headSHA string) (*Model, map[string]int, *sync.Mutex) {
+	t.Helper()
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	var mu sync.Mutex
+	callCounts := map[string]int{}
+	// #nosec G702 -- test helper with fixed command arguments
+	m.state.services.git.SetCommandRunner(func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		key := name + " " + strings.Join(args, " ")
+		mu.Lock()
+		callCounts[key]++
+		mu.Unlock()
+
+		switch key {
+		case "git symbolic-ref --short refs/remotes/origin/HEAD":
+			return exec.CommandContext(ctx, "echo", "-n", "origin/main") //nolint:gosec
+		case "git status --porcelain=v2":
+			return exec.CommandContext(ctx, "echo", "-n", "") //nolint:gosec
+		case "git rev-parse HEAD":
+			return exec.CommandContext(ctx, "echo", "-n", headSHA) //nolint:gosec
+		case "git log -50 --pretty=format:%H%x09%an%x09%s":
+			return exec.CommandContext(ctx, "echo", "-n", "abc123\talice\tCommit title") //nolint:gosec
+		default:
+			return exec.CommandContext(ctx, "echo", "-n", "") //nolint:gosec
+		}
+	})
+	return m, callCounts, &mu
+}
+
+func TestGetCachedDetailsRevalidatesStaleEntry(t *testing.T) {
+	m, callCounts, mu := newDetailsRunnerModel(t, "headsha")
+	wt := &models.WorktreeInfo{Path: t.TempDir()}
+
+	m.setDetailsCache(wt.Path, &detailsCacheEntry{
+		statusRaw:    "",
+		logRaw:       "cachedsha\talice\tCached title",
+		headSHA:      "headsha",
+		unpushedSHAs: map[string]bool{"cachedsha": true},
+		fetchedAt:    time.Now().Add(-detailsCacheTTL - time.Second),
+	})
+
+	_, logRaw, unpushed, _ := m.getCachedDetails(wt, true)
+	if logRaw != "cachedsha\talice\tCached title" {
+		t.Fatalf("expected cached log to be reused, got %q", logRaw)
+	}
+	if !unpushed["cachedsha"] {
+		t.Fatalf("expected cached unpushed SHAs to be reused, got %v", unpushed)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if callCounts["git status --porcelain=v2"] != 1 {
+		t.Fatalf("expected one status call, got %d", callCounts["git status --porcelain=v2"])
+	}
+	if callCounts["git rev-parse HEAD"] != 1 {
+		t.Fatalf("expected one rev-parse call, got %d", callCounts["git rev-parse HEAD"])
+	}
+	if callCounts["git log -50 --pretty=format:%H%x09%an%x09%s"] != 0 {
+		t.Fatalf("expected log fetch to be skipped, got %d", callCounts["git log -50 --pretty=format:%H%x09%an%x09%s"])
+	}
+	if callCounts["git rev-list -100 HEAD --not --remotes"] != 0 {
+		t.Fatalf("expected rev-list fetch to be skipped, got %d", callCounts["git rev-list -100 HEAD --not --remotes"])
+	}
+}
+
+func TestGetCachedDetailsRevalidationMismatchRefetches(t *testing.T) {
+	m, callCounts, mu := newDetailsRunnerModel(t, "newhead")
+	wt := &models.WorktreeInfo{Path: t.TempDir()}
+
+	m.setDetailsCache(wt.Path, &detailsCacheEntry{
+		statusRaw: "",
+		logRaw:    "cachedsha\talice\tCached title",
+		headSHA:   "oldhead",
+		fetchedAt: time.Now().Add(-detailsCacheTTL - time.Second),
+	})
+
+	_, logRaw, _, _ := m.getCachedDetails(wt, true)
+	if logRaw != "abc123\talice\tCommit title" {
+		t.Fatalf("expected fresh log after HEAD change, got %q", logRaw)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if callCounts["git log -50 --pretty=format:%H%x09%an%x09%s"] != 1 {
+		t.Fatalf("expected full refetch after mismatch, got %d log calls", callCounts["git log -50 --pretty=format:%H%x09%an%x09%s"])
+	}
+}
+
+func TestGetCachedDetailsSkipsRevalidationWithoutWatcher(t *testing.T) {
+	m, callCounts, mu := newDetailsRunnerModel(t, "headsha")
+	wt := &models.WorktreeInfo{Path: t.TempDir()}
+
+	m.setDetailsCache(wt.Path, &detailsCacheEntry{
+		statusRaw: "",
+		logRaw:    "cachedsha\talice\tCached title",
+		headSHA:   "headsha",
+		fetchedAt: time.Now().Add(-detailsCacheTTL - time.Second),
+	})
+
+	_, _, _, _ = m.getCachedDetails(wt, false)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if callCounts["git log -50 --pretty=format:%H%x09%an%x09%s"] != 1 {
+		t.Fatalf("expected full refetch without watcher, got %d log calls", callCounts["git log -50 --pretty=format:%H%x09%an%x09%s"])
+	}
 }

@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
@@ -74,9 +76,10 @@ func TestRefreshDetails(t *testing.T) {
 		cmd := m.refreshDetails()
 		// Command may or may not be nil depending on updateDetailsView implementation
 		_ = cmd
-		// Cache should be cleared
-		if _, ok := m.getDetailsCache(wtPath); ok {
-			t.Error("expected details cache to be cleared")
+		// Cache entry is retained; freshness is governed by the TTL and
+		// watcher-driven invalidation rather than the periodic tick.
+		if _, ok := m.getDetailsCache(wtPath); !ok {
+			t.Error("expected details cache entry to be retained")
 		}
 	}
 }
@@ -257,5 +260,43 @@ func TestShouldRefreshGitEventDebounce(t *testing.T) {
 	}
 	if !m.state.services.watch.ShouldRefresh(now.Add(services.GitWatchDebounce + time.Millisecond)) {
 		t.Fatal("expected refresh after debounce window")
+	}
+}
+
+func TestAutoRefreshTickSuspendsWhenUnfocused(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir(), AutoRefresh: true, RefreshIntervalSeconds: 10}
+	m := NewModel(cfg, "")
+	m.autoRefreshStarted = true
+	m.state.view.TerminalFocused = false
+
+	_, cmd := m.Update(autoRefreshTickMsg{})
+	if cmd != nil {
+		t.Fatal("expected no command while unfocused")
+	}
+	if m.autoRefreshStarted {
+		t.Fatal("expected tick loop to suspend while unfocused")
+	}
+
+	_, cmd = m.Update(tea.FocusMsg{})
+	if !m.autoRefreshStarted {
+		t.Fatal("expected tick loop to resume on focus")
+	}
+	if cmd == nil {
+		t.Fatal("expected focus to schedule work")
+	}
+}
+
+func TestAutoRefreshTickKeepsRunningWhenFocused(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir(), AutoRefresh: true, RefreshIntervalSeconds: 10}
+	m := NewModel(cfg, "")
+	m.autoRefreshStarted = true
+	m.state.view.TerminalFocused = true
+
+	_, cmd := m.Update(autoRefreshTickMsg{})
+	if cmd == nil {
+		t.Fatal("expected the focused tick to reschedule itself")
+	}
+	if !m.autoRefreshStarted {
+		t.Fatal("expected tick loop to stay running while focused")
 	}
 }

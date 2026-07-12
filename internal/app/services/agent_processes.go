@@ -27,10 +27,11 @@ type AgentProcess struct {
 
 // AgentProcessService snapshots live Claude/pi processes.
 type AgentProcessService struct {
-	mu      sync.RWMutex
-	process []*AgentProcess
-	runCmd  agentProcessRunner
-	logf    func(string, ...any)
+	mu           sync.RWMutex
+	process      []*AgentProcess
+	detailsValid bool
+	runCmd       agentProcessRunner
+	logf         func(string, ...any)
 }
 
 // NewAgentProcessService builds a process service with the default command runner.
@@ -62,9 +63,23 @@ func (s *AgentProcessService) Refresh() ([]*AgentProcess, error) {
 	if err != nil {
 		return nil, err
 	}
+	detailsValid := false
 	if len(processes) > 0 {
-		if err := s.populateProcessDetails(processes); err != nil && s.logf != nil {
-			s.logf("agent processes: detail lookup failed: %v", err)
+		s.mu.RLock()
+		previous := s.process
+		previousValid := s.detailsValid
+		s.mu.RUnlock()
+		// lsof is expensive (especially on macOS); when the process set is
+		// unchanged since the last scan, reuse the cached details instead.
+		// Per-process cwd/open-file changes may lag one refresh interval.
+		if previousValid && reuseAgentProcessDetails(processes, previous) {
+			detailsValid = true
+		} else if err := s.populateProcessDetails(processes); err != nil {
+			if s.logf != nil {
+				s.logf("agent processes: detail lookup failed: %v", err)
+			}
+		} else {
+			detailsValid = true
 		}
 	}
 
@@ -77,8 +92,41 @@ func (s *AgentProcessService) Refresh() ([]*AgentProcess, error) {
 
 	s.mu.Lock()
 	s.process = cloneAgentProcesses(processes)
+	s.detailsValid = detailsValid
 	s.mu.Unlock()
 	return cloneAgentProcesses(processes), nil
+}
+
+// reuseAgentProcessDetails copies cached lsof details onto the fresh snapshot
+// when it describes the exact same set of processes as the previous one.
+// It reports false without modifying anything when the sets differ.
+func reuseAgentProcessDetails(processes, previous []*AgentProcess) bool {
+	if len(processes) != len(previous) {
+		return false
+	}
+	byPID := make(map[int]*AgentProcess, len(previous))
+	for _, prev := range previous {
+		if prev != nil {
+			byPID[prev.PID] = prev
+		}
+	}
+	for _, process := range processes {
+		if process == nil {
+			return false
+		}
+		prev, ok := byPID[process.PID]
+		if !ok || prev.Command != process.Command || prev.Args != process.Args {
+			return false
+		}
+	}
+	for _, process := range processes {
+		prev := byPID[process.PID]
+		process.CWD = prev.CWD
+		if len(prev.OpenFiles) > 0 {
+			process.OpenFiles = append([]string(nil), prev.OpenFiles...)
+		}
+	}
+	return true
 }
 
 // Processes returns the last live-process snapshot.

@@ -251,3 +251,49 @@ func TestRenderAgentSessionMarkerUsesTextGlyphForClaude(t *testing.T) {
 		t.Fatalf("expected text Claude marker, got %q", marker)
 	}
 }
+
+func TestAgentSessionsEqual(t *testing.T) {
+	now := time.Now()
+	a := &models.AgentSession{ID: "one", CWD: "/tmp/wt", Status: models.AgentSessionStatusWaitingForUser, LastActivity: now}
+	b := &models.AgentSession{ID: "one", CWD: "/tmp/wt", Status: models.AgentSessionStatusWaitingForUser, LastActivity: now}
+	c := &models.AgentSession{ID: "two", CWD: "/tmp/wt"}
+
+	if !agentSessionsEqual(nil, nil) {
+		t.Fatal("expected nil slices to be equal")
+	}
+	if !agentSessionsEqual([]*models.AgentSession{a}, []*models.AgentSession{b}) {
+		t.Fatal("expected identical session values to be equal")
+	}
+	if agentSessionsEqual([]*models.AgentSession{a}, []*models.AgentSession{c}) {
+		t.Fatal("expected differing sessions to be unequal")
+	}
+	if agentSessionsEqual([]*models.AgentSession{a}, nil) {
+		t.Fatal("expected differing lengths to be unequal")
+	}
+	if !agentSessionsEqual([]*models.AgentSession{nil}, []*models.AgentSession{nil}) {
+		t.Fatal("expected nil entries to be equal")
+	}
+	if agentSessionsEqual([]*models.AgentSession{nil}, []*models.AgentSession{a}) {
+		t.Fatal("expected nil versus value entry to be unequal")
+	}
+}
+
+func TestAgentSessionsUpdatedMsgSkipsUnchangedSnapshot(t *testing.T) {
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	m := NewModel(cfg, "")
+
+	current := []*models.AgentSession{{ID: "one", CWD: "/tmp/wt"}}
+	m.state.data.agentSessionsSnapshot = current
+
+	clone := []*models.AgentSession{{ID: "one", CWD: "/tmp/wt"}}
+	_, _ = m.Update(agentSessionsUpdatedMsg{sessions: clone})
+	if &m.state.data.agentSessionsSnapshot[0] != &current[0] {
+		t.Fatal("expected unchanged snapshot to keep existing state")
+	}
+
+	changed := []*models.AgentSession{{ID: "two", CWD: "/tmp/wt"}}
+	_, _ = m.Update(agentSessionsUpdatedMsg{sessions: changed})
+	if m.state.data.agentSessionsSnapshot[0].ID != "two" {
+		t.Fatal("expected changed snapshot to replace state")
+	}
+}
