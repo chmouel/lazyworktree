@@ -1,6 +1,7 @@
 package services
 
 import (
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -208,4 +209,107 @@ func TestClassifyAgentProcessMatchesShellExecWrapper(t *testing.T) {
 
 func stringsJoin(lines ...string) string {
 	return strings.Join(lines, "\n")
+}
+
+func TestRefreshReusesLSOFDetailsWhenProcessesUnchanged(t *testing.T) {
+	psOut := "101 claude claude --continue"
+	lsofOut := "p101\nfcwd\nn/tmp/worktree"
+	lsofCalls := 0
+	runner := func(name string, args ...string) *exec.Cmd {
+		switch name {
+		case "ps":
+			return exec.Command("printf", "%s", psOut)
+		case "lsof":
+			lsofCalls++
+			return exec.Command("printf", "%s", lsofOut)
+		default:
+			return exec.Command("true")
+		}
+	}
+	s := NewAgentProcessServiceWithRunner(runner, nil)
+
+	first, err := s.Refresh()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(first) != 1 || first[0].CWD != "/tmp/worktree" {
+		t.Fatalf("expected cwd from lsof, got %#v", first)
+	}
+	if lsofCalls != 1 {
+		t.Fatalf("expected 1 lsof call, got %d", lsofCalls)
+	}
+
+	second, err := s.Refresh()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if lsofCalls != 1 {
+		t.Fatalf("expected lsof to be skipped for unchanged processes, got %d calls", lsofCalls)
+	}
+	if len(second) != 1 || second[0].CWD != "/tmp/worktree" {
+		t.Fatalf("expected cached cwd to be reused, got %#v", second)
+	}
+}
+
+func TestRefreshRerunsLSOFWhenProcessSetChanges(t *testing.T) {
+	psOut := "101 claude claude --continue"
+	lsofCalls := 0
+	runner := func(name string, args ...string) *exec.Cmd {
+		switch name {
+		case "ps":
+			return exec.Command("printf", "%s", psOut)
+		case "lsof":
+			lsofCalls++
+			return exec.Command("printf", "%s", "p101\nfcwd\nn/tmp/worktree")
+		default:
+			return exec.Command("true")
+		}
+	}
+	s := NewAgentProcessServiceWithRunner(runner, nil)
+
+	if _, err := s.Refresh(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	psOut = "101 claude claude --continue\n202 pi pi --continue"
+	if _, err := s.Refresh(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if lsofCalls != 2 {
+		t.Fatalf("expected lsof to run again after process set change, got %d calls", lsofCalls)
+	}
+}
+
+func TestRefreshRetriesLSOFAfterFailure(t *testing.T) {
+	lsofFails := true
+	lsofCalls := 0
+	runner := func(name string, args ...string) *exec.Cmd {
+		switch name {
+		case "ps":
+			return exec.Command("printf", "%s", "101 claude claude --continue")
+		case "lsof":
+			lsofCalls++
+			if lsofFails {
+				return exec.Command("false")
+			}
+			return exec.Command("printf", "%s", "p101\nfcwd\nn/tmp/worktree")
+		default:
+			return exec.Command("true")
+		}
+	}
+	s := NewAgentProcessServiceWithRunner(runner, nil)
+
+	if _, err := s.Refresh(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	lsofFails = false
+	processes, err := s.Refresh()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if lsofCalls != 2 {
+		t.Fatalf("expected lsof retry after failure, got %d calls", lsofCalls)
+	}
+	if len(processes) != 1 || processes[0].CWD != "/tmp/worktree" {
+		t.Fatalf("expected cwd after successful retry, got %#v", processes)
+	}
 }

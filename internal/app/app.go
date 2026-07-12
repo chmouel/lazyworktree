@@ -109,6 +109,7 @@ type (
 	detailsCacheEntry struct {
 		statusRaw    string
 		logRaw       string
+		headSHA      string
 		unpushedSHAs map[string]bool
 		unmergedSHAs map[string]bool
 		fetchedAt    time.Time
@@ -308,17 +309,18 @@ type uiState struct {
 }
 
 type dataState struct {
-	worktrees         []*models.WorktreeInfo
-	filteredWts       []*models.WorktreeInfo
-	selectedIndex     int
-	accessHistory     map[string]int64 // worktree path -> last access timestamp
-	statusFiles       []StatusFile     // parsed list of files from git status (kept for compatibility)
-	statusFilesAll    []StatusFile     // full list of files from git status
-	statusFileIndex   int              // currently selected file index in status pane
-	agentSessions     []*models.AgentSession
-	agentSessionIndex int
-	logEntries        []commitLogEntry
-	logEntriesAll     []commitLogEntry
+	worktrees             []*models.WorktreeInfo
+	filteredWts           []*models.WorktreeInfo
+	selectedIndex         int
+	accessHistory         map[string]int64 // worktree path -> last access timestamp
+	statusFiles           []StatusFile     // parsed list of files from git status (kept for compatibility)
+	statusFilesAll        []StatusFile     // full list of files from git status
+	statusFileIndex       int              // currently selected file index in status pane
+	agentSessions         []*models.AgentSession
+	agentSessionsSnapshot []*models.AgentSession // last full refresh result, for change detection
+	agentSessionIndex     int
+	logEntries            []commitLogEntry
+	logEntriesAll         []commitLogEntry
 }
 
 type servicesState struct {
@@ -686,7 +688,9 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.FocusMsg:
 		m.state.view.TerminalFocused = true
 		m.debugf("terminal focused")
-		return m, m.refreshWorktrees()
+		// Resume the auto-refresh tick loop if it suspended itself while
+		// the terminal was unfocused.
+		return m, tea.Batch(m.refreshWorktrees(), m.startAutoRefresh())
 
 	case tea.BlurMsg:
 		m.state.view.TerminalFocused = false
@@ -730,8 +734,10 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleWorktreeMessages(msg)
 
 	case agentSessionsUpdatedMsg:
-		if msg.err == nil {
-			m.state.data.agentSessions = msg.sessions
+		// Skip the pane rebuild when the refresh produced an identical
+		// snapshot, which is the common case on idle ticks.
+		if msg.err == nil && !agentSessionsEqual(m.state.data.agentSessionsSnapshot, msg.sessions) {
+			m.state.data.agentSessionsSnapshot = msg.sessions
 			m.refreshSelectedWorktreeAgentSessionsPane()
 		}
 		return m, nil
@@ -1074,12 +1080,15 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.updateDetailsView()
 
 	case autoRefreshTickMsg:
-		// Keep scheduling ticks but skip git work when terminal is unfocused
+		// Suspend the tick loop entirely while the terminal is unfocused;
+		// the FocusMsg handler restarts it. Terminals without focus
+		// reporting never blur, so they keep the loop running.
+		if !m.state.view.TerminalFocused {
+			m.autoRefreshStarted = false
+			return m, nil
+		}
 		if cmd := m.autoRefreshTick(); cmd != nil {
 			cmds = append(cmds, cmd)
-		}
-		if !m.state.view.TerminalFocused {
-			return m, tea.Batch(cmds...)
 		}
 		if cmd := m.refreshDetails(); cmd != nil {
 			cmds = append(cmds, cmd)
@@ -1099,6 +1108,9 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.services.watch.ResetWaiting()
 		cmds = append(cmds, m.waitForGitWatchEvent())
 		if m.shouldRefreshGitEvent(time.Now()) {
+			// Ref/log changes invalidate cached details (log, unpushed,
+			// unmerged), so force full refetches instead of revalidation.
+			m.resetDetailsCache()
 			cmds = append(cmds, m.refreshWorktrees())
 		}
 		return m, tea.Batch(cmds...)

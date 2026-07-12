@@ -376,21 +376,46 @@ func (m *Model) resetDetailsCache() {
 	m.cache.detailsCache = make(map[string]*detailsCacheEntry)
 }
 
-func (m *Model) getCachedDetails(wt *models.WorktreeInfo) (string, string, map[string]bool, map[string]bool) {
+func (m *Model) getCachedDetails(wt *models.WorktreeInfo, allowRevalidate bool) (string, string, map[string]bool, map[string]bool) {
 	if wt == nil || strings.TrimSpace(wt.Path) == "" {
 		return "", "", nil, nil
 	}
 
 	cacheKey := wt.Path
-	if cached, ok := m.getDetailsCache(cacheKey); ok {
-		if time.Since(cached.fetchedAt) < detailsCacheTTL {
-			return cached.statusRaw, cached.logRaw, cached.unpushedSHAs, cached.unmergedSHAs
+	cached, haveCached := m.getDetailsCache(cacheKey)
+	if haveCached && time.Since(cached.fetchedAt) < detailsCacheTTL {
+		return cached.statusRaw, cached.logRaw, cached.unpushedSHAs, cached.unmergedSHAs
+	}
+
+	// With the git watcher active, ref/log changes arrive as watcher events
+	// that drop this cache entry. An entry that merely expired can therefore
+	// be revalidated with two cheap commands (status + HEAD) instead of the
+	// full fetch, sparing the log and rev-list subprocesses on idle ticks.
+	if haveCached && allowRevalidate {
+		var statusRaw, headSHA string
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			statusRaw = m.state.services.git.RunGit(m.ctx, []string{"git", "status", "--porcelain=v2"}, wt.Path, []int{0}, true, false)
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			headSHA = strings.TrimSpace(m.state.services.git.RunGit(m.ctx, []string{"git", "rev-parse", "HEAD"}, wt.Path, []int{0}, true, false))
+		}()
+		wg.Wait()
+		if statusRaw == cached.statusRaw && headSHA != "" && headSHA == cached.headSHA {
+			refreshed := *cached
+			refreshed.fetchedAt = time.Now()
+			m.setDetailsCache(cacheKey, &refreshed)
+			return refreshed.statusRaw, refreshed.logRaw, refreshed.unpushedSHAs, refreshed.unmergedSHAs
 		}
 	}
 
 	mainBranch := m.state.services.git.GetMainBranch(m.ctx)
 
-	var statusRaw, logRaw, unpushedRaw, unmergedRaw string
+	var statusRaw, logRaw, headSHA, unpushedRaw, unmergedRaw string
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -403,6 +428,11 @@ func (m *Model) getCachedDetails(wt *models.WorktreeInfo) (string, string, map[s
 		defer wg.Done()
 		// Use %H for full SHA to ensure reliable matching
 		logRaw = m.state.services.git.RunGit(m.ctx, []string{"git", "log", "-50", "--pretty=format:%H%x09%an%x09%s"}, wt.Path, []int{0}, true, false)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		headSHA = strings.TrimSpace(m.state.services.git.RunGit(m.ctx, []string{"git", "rev-parse", "HEAD"}, wt.Path, []int{0}, true, false))
 	}()
 	wg.Add(1)
 	go func() {
@@ -439,6 +469,7 @@ func (m *Model) getCachedDetails(wt *models.WorktreeInfo) (string, string, map[s
 	m.setDetailsCache(cacheKey, &detailsCacheEntry{
 		statusRaw:    statusRaw,
 		logRaw:       logRaw,
+		headSHA:      headSHA,
 		unpushedSHAs: unpushedSHAs,
 		unmergedSHAs: unmergedSHAs,
 		fetchedAt:    time.Now(),

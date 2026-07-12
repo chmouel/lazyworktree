@@ -52,8 +52,13 @@ func (m *Model) refreshDetails() tea.Cmd {
 	if idx < 0 || idx >= len(m.state.data.filteredWts) {
 		return nil
 	}
-	m.deleteDetailsCache(m.state.data.filteredWts[idx].Path)
+	// Rely on the cache TTL (and watcher-driven invalidation) rather than
+	// dropping the entry outright, so an idle tick can revalidate cheaply.
 	return m.updateDetailsView()
+}
+
+func (m *Model) gitWatcherActive() bool {
+	return m.state.services.watch != nil && m.state.services.watch.Started
 }
 
 func (m *Model) startGitWatcher() tea.Cmd {
