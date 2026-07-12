@@ -21,10 +21,11 @@ func TestParseAgentProcessesPS(t *testing.T) {
 		"505 zsh zsh -lc claude --print",
 		"606 npm npm exec @anthropic-ai/claude-code -- --print",
 		"707 bash bash -lc echo claude",
+		"808 codex codex --yolo",
 	))
 
-	if len(processes) != 6 {
-		t.Fatalf("expected 6 agent processes, got %d", len(processes))
+	if len(processes) != 7 {
+		t.Fatalf("expected 7 agent processes, got %d", len(processes))
 	}
 	if processes[0].Agent != models.AgentKindClaude || processes[0].Source != "cli" {
 		t.Fatalf("expected first process to be Claude CLI, got %#v", processes[0])
@@ -39,6 +40,9 @@ func TestParseAgentProcessesPS(t *testing.T) {
 		if processes[idx].Agent != models.AgentKindClaude || processes[idx].Source != "cli" {
 			t.Fatalf("expected wrapped process %d to be Claude CLI, got %#v", idx, processes[idx])
 		}
+	}
+	if processes[6].Agent != models.AgentKindCodex || processes[6].Source != "cli" {
+		t.Fatalf("expected Codex CLI process, got %#v", processes[6])
 	}
 }
 
@@ -311,5 +315,37 @@ func TestRefreshRetriesLSOFAfterFailure(t *testing.T) {
 	}
 	if len(processes) != 1 || processes[0].CWD != "/tmp/worktree" {
 		t.Fatalf("expected cwd after successful retry, got %#v", processes)
+	}
+}
+
+func TestClassifyAgentProcessCopilot(t *testing.T) {
+	cases := []struct {
+		command string
+		args    string
+		want    bool
+	}{
+		{"copilot", "copilot --banner", true},
+		{"/usr/local/bin/copilot", "copilot", true},
+		{"node", "node /usr/lib/node_modules/@github/copilot/index.js", true},
+		{"node.exe", `node.exe C:\Users\me\AppData\Roaming\npm\node_modules\@github\copilot\index.js`, true},
+		{"npx", "npx @github/copilot", true},
+		{"node", "node /srv/app/server.js", false},
+	}
+	for _, tc := range cases {
+		kind, source, ok := classifyAgentProcess(tc.command, tc.args)
+		if ok != tc.want {
+			t.Fatalf("classify(%q, %q) matched=%v, want %v", tc.command, tc.args, ok, tc.want)
+		}
+		if tc.want && (kind != models.AgentKindCopilot || source != "cli") {
+			t.Fatalf("classify(%q, %q) = %v/%v, want copilot/cli", tc.command, tc.args, kind, source)
+		}
+	}
+}
+
+func TestClassifyAgentProcessWindowsCodexWrapper(t *testing.T) {
+	args := `node.exe C:\Users\me\AppData\Roaming\npm\node_modules\@openai\codex\bin\codex.js`
+	kind, source, ok := classifyAgentProcess("node.exe", args)
+	if !ok || kind != models.AgentKindCodex || source != "cli" {
+		t.Fatalf("classify Windows Codex wrapper = %v/%v/%v, want codex/cli/true", kind, source, ok)
 	}
 }

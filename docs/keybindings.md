@@ -92,7 +92,7 @@ Press `T` to open Taskboard (Kanban-lite grouped by worktree notes).
 
 ## Agent Sessions Pane
 
-Shows Claude and pi sessions whose working directory is inside the selected worktree. By default it shows only confirmed active sessions, then lets you expand to recent and heuristic matches.
+Shows Claude, Codex, Copilot, and pi sessions whose working directory is inside the selected worktree. By default it shows only confirmed active sessions, then lets you expand to recent and heuristic matches.
 
 | Key | Action |
 | --- | --- |

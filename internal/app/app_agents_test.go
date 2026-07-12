@@ -201,7 +201,7 @@ func TestRenderAgentSessionCardShowsApprovalBadge(t *testing.T) {
 	}
 }
 
-func TestAgentSessionsForSelectedWorktreeIncludesSuspectByDefault(t *testing.T) {
+func TestAgentSessionsForSelectedWorktreeIncludesSuspectWithoutTechnicalBadge(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
 
@@ -227,8 +227,11 @@ func TestAgentSessionsForSelectedWorktreeIncludesSuspectByDefault(t *testing.T) 
 	visible := []*models.AgentSession{suspect}
 	content := m.buildAgentSessionsContent(visible)
 	plain := ansi.Strip(content)
-	if !strings.Contains(plain, "CWD") {
-		t.Fatalf("expected suspect session badge to render by default, got %q", plain)
+	if !strings.Contains(plain, "editing internal/app/app_agents.go") {
+		t.Fatalf("expected suspect session to render by default, got %q", plain)
+	}
+	if strings.Contains(plain, "CWD") {
+		t.Fatalf("expected technical liveness source to stay hidden, got %q", plain)
 	}
 }
 

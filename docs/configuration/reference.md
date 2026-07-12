@@ -51,7 +51,7 @@ This page is generated from `internal/config/config.go`. Run `make docs-sync` af
 | `custom_create_menus` | `[]object` | `none` | Custom create menu entries. |
 | `custom_themes` | `map[string]object` | `none` | Custom theme definitions. |
 | `debug_log` | `string` | `none` | Debug log file path. |
-| `agent_sessions` | `object` | `none` | Agent-session pane settings. Nested options: `claude_root` and `pi_root` (custom transcript base directories); `disabled` (`bool`, default `false`) to turn off transcript watching and hide the Agent Sessions pane; `refresh_debounce_ms` (`int`, default `600`) to throttle transcript re-parsing — raise it to lower CPU while an agent is actively writing, set `0` to disable throttling. |
+| `agent_sessions` | `object` | `none` | Agent-session pane settings. Nested options: `claude_root` and `pi_root` (custom transcript base directories); `disabled` (`bool`, default `false`) to turn off transcript watching and hide the Agent Sessions pane; `refresh_debounce_ms` (`int`, default `600`) to throttle transcript re-parsing — raise it to lower CPU while an agent is actively writing, set `0` to disable throttling; `process_scan` (`bool`, default `false`, deprecated) to re-enable the ps/lsof process-table liveness scan — prefer `lazyworktree setup-hooks` instead. |
 | `layout_sizes` | `object` | `none` | Configurable baseline layout weights for panes (`worktrees`, `info`, `git_status`, `commit`, `agent_sessions`, `notes`). Relative weights are normalised at runtime. |
 | `worktree_note_type` | `enum(onejson\|splitted)` | `onejson` | Note storage format strategy. Use `onejson` (default) for a single shared JSON file, or `splitted` for individual markdown files with YAML frontmatter. |
 <!-- END GENERATED:config-reference -->

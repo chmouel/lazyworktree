@@ -10,6 +10,10 @@ const (
 	AgentKindClaude AgentKind = "claude"
 	// AgentKindPi marks a transcript produced by pi.
 	AgentKindPi AgentKind = "pi"
+	// AgentKindCodex marks a session produced by the OpenAI Codex CLI.
+	AgentKindCodex AgentKind = "codex"
+	// AgentKindCopilot marks a session produced by the GitHub Copilot CLI.
+	AgentKindCopilot AgentKind = "copilot"
 )
 
 // AgentSessionStatus describes the last observable state of a transcript.
@@ -98,11 +102,13 @@ const (
 	AgentSessionLivenessSourceExactFile AgentSessionLivenessSource = "exact_file"
 	// AgentSessionLivenessSourceCWDHeuristic means the match came only from a working-directory heuristic.
 	AgentSessionLivenessSourceCWDHeuristic AgentSessionLivenessSource = "cwd_heuristic"
+	// AgentSessionLivenessSourceHook means an agent lifecycle hook reported the session.
+	AgentSessionLivenessSourceHook AgentSessionLivenessSource = "hook"
 	// AgentSessionLivenessSourceNone means no evidence was available.
 	AgentSessionLivenessSourceNone AgentSessionLivenessSource = "none"
 )
 
-// AgentSession summarises a Claude or pi transcript attached to a worktree.
+// AgentSession summarises a coding-agent session attached to a worktree.
 type AgentSession struct {
 	ID             string
 	SessionKey     string
@@ -130,6 +136,8 @@ type AgentSession struct {
 	LivenessSource AgentSessionLivenessSource
 	ResumeHint     string
 	SchemaVersion  string
+	// PID is the agent process id reported by a lifecycle hook, when known.
+	PID            int
 	IsOpen         bool
 	OpenConfidence AgentOpenConfidence
 }

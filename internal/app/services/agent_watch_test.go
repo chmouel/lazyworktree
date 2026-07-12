@@ -1,9 +1,44 @@
 package services
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/chmouel/lazyworktree/internal/models"
 )
+
+func TestAgentWatcherSeesFirstHookEvent(t *testing.T) {
+	spool := filepath.Join(t.TempDir(), "missing", "agent-events")
+	hooks := NewAgentHookService(spool, nil)
+	if err := hooks.EnsureDir(); err != nil {
+		t.Fatalf("ensure spool dir: %v", err)
+	}
+
+	watcher := NewAgentWatchService([]string{spool}, 0, nil)
+	watcher.SpoolRoots = []string{spool}
+	started, err := watcher.Start()
+	if err != nil || !started {
+		t.Fatalf("start watcher: started=%v err=%v", started, err)
+	}
+	t.Cleanup(watcher.Stop)
+	events := watcher.NextEvent()
+
+	if err := WriteAgentHookEvent(spool, models.AgentHookEvent{
+		Agent:         models.AgentKindCodex,
+		HookEventName: models.AgentHookUserPromptSubmit,
+		SessionID:     "first",
+		Timestamp:     time.Now(),
+	}); err != nil {
+		t.Fatalf("write first hook event: %v", err)
+	}
+
+	select {
+	case <-events:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first hook event did not notify watcher")
+	}
+}
 
 func TestAgentWatchPlanRefresh(t *testing.T) {
 	base := time.Date(2026, 6, 24, 12, 0, 0, 0, time.UTC)

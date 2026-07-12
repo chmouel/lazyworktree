@@ -406,6 +406,29 @@ Emit the CLI command structure as machine-readable JSON. Designed for coding age
 .B \-\-all
 Describe all commands and their flags (equivalent to no arguments).
 .
+.SS setup-hooks
+Install agent session hooks for Claude Code, the Codex CLI, and the Copilot CLI.
+.
+.PP
+.B Synopsis:
+.PP
+.B lazyworktree setup\-hooks \fR[\fB\-\-dry\-run\fR]
+.
+.PP
+The setup\-hooks command adds lifecycle hooks to \fB~/.claude/settings.json\fR, \fB$CODEX_HOME/hooks.json\fR (or \fB~/.codex/hooks.json\fR when \fBCODEX_HOME\fR is unset), and \fB$COPILOT_HOME/hooks/lazyworktree.json\fR (or \fB~/.copilot/hooks/lazyworktree.json\fR when \fBCOPILOT_HOME\fR is unset) so that agent sessions report their state directly to lazyworktree. Hook events provide precise, low\-cost session tracking and enable Codex CLI and Copilot CLI sessions to appear in the agents pane. Claude Code and Copilot CLI hooks also report question dialogs, allowing lazyworktree to show when an agent is waiting for user input rather than thinking. Codex CLI does not currently expose an equivalent question\-dialog hook. Existing settings are preserved and a timestamped backup is written before any modification. The command is idempotent.
+.
+.PP
+Hook events are the default liveness source. The former process\-table scan (ps/lsof) is deprecated and disabled by default; it may be re\-enabled with the \fBagent_sessions.process_scan\fR configuration key.
+.
+.PP
+The Codex CLI requires newly installed hooks to be approved with the \fB/hooks\fR command inside a Codex session. The Copilot CLI loads hook files at startup, so restart any running copilot session after installing.
+.
+.PP
+.B Options:
+.TP
+.B \-\-dry\-run
+Show the configuration changes without writing any files.
+.
 .SH EXAMPLES
 .SS Worktree Management
 List worktrees (table format):
@@ -696,7 +719,7 @@ selected worktree has a note.
 .TP
 .B 6
 Switch to Agent Sessions pane (toggle zoom if already focused). Only visible
-when open Claude or pi sessions are attached to the selected worktree by
+when open Claude, Codex, Copilot, or pi sessions are attached to the selected worktree by
 default. Pressing \fB6\fR also reveals historical matching sessions when nothing
 is currently open; pressing \fBA\fR inside the pane toggles between open-only
 and all matching sessions. Tab cycling includes this pane last when visible.

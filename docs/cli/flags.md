@@ -30,6 +30,12 @@ Run `make docs-sync` after changing flag definitions.
 | `--no-agent` | `bool` | Skip agent session data in JSON output (faster for scripting) |
 | `--pristine`, `-p` | `bool` | Output paths only (one per line, suitable for scripting) |
 
+### `setup-hooks`
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--dry-run` | `bool` | Show the changes without writing any files |
+
 ### `create`
 
 | Flag | Type | Usage |

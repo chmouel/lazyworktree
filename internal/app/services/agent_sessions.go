@@ -75,6 +75,7 @@ type AgentSessionService struct {
 	piRoot     string
 	adapters   []AgentAdapter
 	store      SessionRegistryStore
+	hooks      *AgentHookService
 	logf       func(string, ...any)
 }
 
@@ -167,8 +168,20 @@ func (s *AgentSessionService) RefreshWithProcesses(processes []*AgentProcess) ([
 	}
 
 	s.pruneCache(seen)
-	sessions = s.mergeWithRegistryFallbacks(sessions, previous, seen)
-	sessions = s.classifySessionLiveness(sessions, processes, previous, time.Now())
+	now := time.Now()
+	sessions = s.mergeWithRegistryFallbacks(sessions, previous, seen, now)
+	var hookStates []AgentHookState
+	hooks := s.hookService()
+	if hooks != nil {
+		hooks.Drain()
+		hooks.RestoreSessions(previous)
+		hookStates = hooks.States()
+		sessions = s.applyHookSessions(sessions, hookStates, now)
+	}
+	sessions = s.classifySessionLiveness(sessions, processes, previous, now)
+	if hooks != nil {
+		s.applyHookLiveness(sessions, hooks, hookStates, now)
+	}
 	sort.Slice(sessions, func(i, j int) bool {
 		if agentLivenessRank(sessions[i].LivenessState) != agentLivenessRank(sessions[j].LivenessState) {
 			return agentLivenessRank(sessions[i].LivenessState) > agentLivenessRank(sessions[j].LivenessState)
@@ -1120,6 +1133,7 @@ func (s *AgentSessionService) mergeWithRegistryFallbacks(
 	observed []*models.AgentSession,
 	previous map[string]*models.AgentSession,
 	seen map[string]struct{},
+	now time.Time,
 ) []*models.AgentSession {
 	if len(previous) == 0 {
 		return observed
@@ -1150,14 +1164,25 @@ func (s *AgentSessionService) mergeWithRegistryFallbacks(
 	}
 
 	for _, session := range previous {
-		if session == nil || strings.TrimSpace(session.JSONLPath) == "" {
+		if session == nil {
+			continue
+		}
+		hookBacked := session.SchemaVersion == models.AgentHookEventSchemaVersion
+		if hookBacked {
+			observation := sessionObservationTime(session)
+			if observation.IsZero() || now.Sub(observation) > agentHookStaleAfter {
+				continue
+			}
+		} else if strings.TrimSpace(session.JSONLPath) == "" {
 			continue
 		}
 		cleanPath := filepath.Clean(session.JSONLPath)
-		if _, ok := seen[cleanPath]; !ok {
-			continue
+		if !hookBacked {
+			if _, ok := seen[cleanPath]; !ok {
+				continue
+			}
 		}
-		if _, ok := byPath[cleanPath]; ok {
+		if _, ok := byPath[cleanPath]; ok && cleanPath != "." {
 			continue
 		}
 		fallback := cloneAgentSession(session)

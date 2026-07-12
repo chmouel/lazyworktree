@@ -156,11 +156,12 @@ git config --local --get-regexp "^lw\."
 
 ### Agent sessions
 
-The Agent Sessions pane surfaces live AI coding-agent transcripts (Claude Code, pi) per worktree. Settings are grouped under `agent_sessions`:
+The Agent Sessions pane surfaces live Claude Code, Codex CLI, Copilot CLI, and pi sessions per worktree. Settings are grouped under `agent_sessions`:
 
 - `disabled`: set to `true` to turn off transcript watching entirely and hide the pane (default: `false`).
 - `refresh_debounce_ms`: debounce window in milliseconds for transcript-driven refreshes (default: `600`). Raise it to lower CPU while an agent is actively writing; set to `0` to disable throttling.
 - `claude_root`, `pi_root`: override the base directories searched for transcripts (defaults: `~/.claude/projects` and `~/.pi/agent/sessions`).
+- `process_scan` (deprecated): set to `true` to re-enable the ps/lsof process-table scan for session liveness (default: `false`). Prefer `lazyworktree setup-hooks`, which provides precise hook-based tracking instead.
 
 ```yaml
 agent_sessions:
@@ -168,6 +169,7 @@ agent_sessions:
   refresh_debounce_ms: 600
   claude_root: ~/.claude/projects
   pi_root: ~/.pi/agent/sessions
+  process_scan: false
 ```
 
 See [AI integration](guides/ai-integration.md) for transcript discovery details.

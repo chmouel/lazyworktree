@@ -331,6 +331,7 @@ type servicesState struct {
 	watch          *services.GitWatchService
 	agentSessions  *services.AgentSessionService
 	agentProcesses *services.AgentProcessService
+	agentHooks     *services.AgentHookService
 	agentWatch     *services.AgentWatchService
 	filter         *services.FilterService
 }
@@ -389,6 +390,9 @@ type Model struct {
 
 	// Auto refresh
 	autoRefreshStarted bool
+
+	// Agent process scanning cadence when hooks provide coverage
+	lastAgentProcessScan time.Time
 
 	// Trust / repo commands
 	repoConfig     *config.RepoConfig
@@ -601,12 +605,21 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	m.state.services.agentSessions = services.NewAgentSessionServiceFromConfig(
 		cfg.AgentSessionClaudeRoot, cfg.AgentSessionPiRoot, m.debugf,
 	)
-	m.state.services.agentProcesses = services.NewAgentProcessService(m.debugf)
-	m.state.services.agentWatch = services.NewAgentWatchService(
-		m.state.services.agentSessions.WatchRoots(),
+	m.state.services.agentHooks = services.NewAgentHookService(services.AgentHookSpoolDir(), m.debugf)
+	m.state.services.agentSessions.SetHookService(m.state.services.agentHooks)
+	// The ps/lsof process scan is deprecated and opt-in; hook events installed
+	// via `lazyworktree setup-hooks` are the default liveness source.
+	if cfg.AgentProcessScan {
+		m.state.services.agentProcesses = services.NewAgentProcessService(m.debugf)
+	}
+	spoolDir := m.state.services.agentHooks.Dir()
+	agentWatch := services.NewAgentWatchService(
+		append(m.state.services.agentSessions.WatchRoots(), spoolDir),
 		time.Duration(cfg.AgentRefreshDebounceMs)*time.Millisecond,
 		m.debugf,
 	)
+	agentWatch.SpoolRoots = []string{spoolDir}
+	m.state.services.agentWatch = agentWatch
 	m.state.services.filter = services.NewFilterService(initialFilter)
 
 	gitService.SetCommandRunner(func(ctx context.Context, name string, args ...string) *exec.Cmd {

@@ -6,6 +6,7 @@ This page is generated from `internal/bootstrap/*.go`. Run `make docs-sync` afte
 | Command | Usage | Args | Aliases | Guide |
 | --- | --- | --- | --- | --- |
 | `list` | List all worktrees | `-` | `ls` | [`list`](list.md) |
+| `setup-hooks` | Install agent session hooks for Claude Code, Codex CLI, and Copilot CLI | `-` | - | [`setup-hooks`](setup-hooks.md) |
 | `create` | Create a new worktree | `[worktree-name]` | - | [`create`](create.md) |
 | `delete` | Delete a worktree | `[worktree-path]` | - | [`delete`](delete.md) |
 | `cleanup` | Remove merged worktrees, stale branches, and orphaned directories | `-` | - | [`cleanup`](cleanup.md) |
@@ -27,6 +28,14 @@ List all worktrees
 | `--main`, `-m` | `bool` | Show only the main branch worktree |
 | `--no-agent` | `bool` | Skip agent session data in JSON output (faster for scripting) |
 | `--pristine`, `-p` | `bool` | Output paths only (one per line, suitable for scripting) |
+
+## `setup-hooks`
+
+Install agent session hooks for Claude Code, Codex CLI, and Copilot CLI
+
+| Flag | Type | Usage |
+| --- | --- | --- |
+| `--dry-run` | `bool` | Show the changes without writing any files |
 
 ## `create`
 

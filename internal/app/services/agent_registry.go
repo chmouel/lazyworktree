@@ -285,5 +285,11 @@ func deriveAgentSessionTitle(session *models.AgentSession) string {
 	if session.Agent == models.AgentKindPi {
 		return "pi session"
 	}
+	if session.Agent == models.AgentKindCodex {
+		return "Codex session"
+	}
+	if session.Agent == models.AgentKindCopilot {
+		return "Copilot session"
+	}
 	return "Claude session"
 }
