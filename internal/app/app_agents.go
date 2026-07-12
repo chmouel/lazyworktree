@@ -3,6 +3,7 @@ package app
 import (
 	"image/color"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -51,6 +52,10 @@ func agentSessionsEqual(a, b []*models.AgentSession) bool {
 	return true
 }
 
+// agentProcessScanInterval is the minimum gap between ps/lsof scans while
+// hook-tracked sessions provide live PID coverage.
+const agentProcessScanInterval = 30 * time.Second
+
 func (m *Model) refreshAgentSessions() tea.Cmd {
 	if !m.agentSessionsEnabled() {
 		return nil
@@ -60,14 +65,28 @@ func (m *Model) refreshAgentSessions() tea.Cmd {
 		return nil
 	}
 	processService := m.state.services.agentProcesses
+	// While hook events cover live sessions, PID probes are enough between
+	// full ps/lsof scans; decide on the UI thread to keep the timestamp safe.
+	skipProcessScan := false
+	if hooks := m.state.services.agentHooks; hooks != nil && processService != nil &&
+		time.Since(m.lastAgentProcessScan) < agentProcessScanInterval && hooks.HasLiveSessions() {
+		skipProcessScan = true
+	}
+	if !skipProcessScan {
+		m.lastAgentProcessScan = time.Now()
+	}
 	return func() tea.Msg {
 		var processes []*services.AgentProcess
 		if processService != nil {
-			snapshot, err := processService.Refresh()
-			if err != nil {
-				m.debugf("agent sessions: process refresh failed: %v", err)
+			if skipProcessScan {
+				processes = processService.Processes()
 			} else {
-				processes = snapshot
+				snapshot, err := processService.Refresh()
+				if err != nil {
+					m.debugf("agent sessions: process refresh failed: %v", err)
+				} else {
+					processes = snapshot
+				}
 			}
 		}
 		sessions, err := service.RefreshWithProcesses(processes)
@@ -78,6 +97,11 @@ func (m *Model) refreshAgentSessions() tea.Cmd {
 func (m *Model) startAgentWatcher() tea.Cmd {
 	if !m.agentSessionsEnabled() {
 		return nil
+	}
+	if hooks := m.state.services.agentHooks; hooks != nil {
+		if err := hooks.EnsureDir(); err != nil {
+			return func() tea.Msg { return errMsg{err: err} }
+		}
 	}
 	watcher := m.state.services.agentWatch
 	if watcher == nil || watcher.Started {
@@ -281,10 +305,14 @@ func (m *Model) renderAgentSessionSeparator(width int) string {
 func (m *Model) renderAgentSessionMarker(session *models.AgentSession) string {
 	letter := "C"
 	fg := m.theme.Accent
-	if session != nil && session.Agent == models.AgentKindPi {
+	switch {
+	case session != nil && session.Agent == models.AgentKindPi:
 		letter = "P"
 		fg = m.theme.Cyan
-	} else if m.config != nil && strings.EqualFold(strings.TrimSpace(m.config.IconSet), "nerd-font-v3") {
+	case session != nil && session.Agent == models.AgentKindCodex:
+		letter = "X"
+		fg = m.theme.SuccessFg
+	case m.config != nil && strings.EqualFold(strings.TrimSpace(m.config.IconSet), "nerd-font-v3"):
 		letter = "✻"
 	}
 	return lipgloss.NewStyle().Foreground(fg).Bold(true).Render(letter)
@@ -296,9 +324,6 @@ func (m *Model) renderAgentSessionRight(session *models.AgentSession) string {
 	}
 	styles := m.agentRenderStyles()
 	parts := []string{m.renderAgentSessionActivityBadge(session)}
-	if badge := m.renderAgentSessionLivenessBadge(session); badge != "" {
-		parts = append(parts, badge)
-	}
 	parts = append(parts, styles.muted.Render(formatRelativeTime(session.LastActivity)))
 	return strings.Join(parts, " ")
 }
@@ -336,41 +361,6 @@ func (m *Model) renderAgentSessionBadge(label string, bg, fg color.Color) string
 	return badgeStyle.Render(strings.ToUpper(label))
 }
 
-func (m *Model) renderAgentSessionLivenessBadge(session *models.AgentSession) string {
-	if session == nil {
-		return ""
-	}
-	label := string(session.LivenessState)
-	if label == "" {
-		return ""
-	}
-	var bg, fg color.Color
-	switch session.LivenessState {
-	case models.AgentSessionLivenessActive:
-		bg = m.theme.SuccessFg
-		fg = m.theme.AccentFg
-		switch session.LivenessSource {
-		case models.AgentSessionLivenessSourceExactFile:
-			label = "exact"
-		case models.AgentSessionLivenessSourceNative:
-			label = "native"
-		}
-	case models.AgentSessionLivenessRecent:
-		bg = m.theme.Cyan
-		fg = m.theme.AccentFg
-	case models.AgentSessionLivenessSuspect:
-		bg = m.theme.WarnFg
-		fg = m.theme.AccentFg
-		if session.LivenessSource == models.AgentSessionLivenessSourceCWDHeuristic {
-			label = "cwd"
-		}
-	default:
-		bg = m.theme.BorderDim
-		fg = m.theme.TextFg
-	}
-	return m.renderAgentSessionBadge(label, bg, fg)
-}
-
 func (m *Model) agentSessionTitle(session *models.AgentSession) string {
 	if session == nil {
 		return ""
@@ -386,6 +376,9 @@ func (m *Model) agentSessionTitle(session *models.AgentSession) string {
 	}
 	if session.Agent == models.AgentKindPi {
 		return "pi session"
+	}
+	if session.Agent == models.AgentKindCodex {
+		return "Codex session"
 	}
 	return "Claude session"
 }

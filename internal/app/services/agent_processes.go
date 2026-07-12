@@ -14,7 +14,7 @@ import (
 
 type agentProcessRunner func(name string, args ...string) *exec.Cmd
 
-// AgentProcess describes a live Claude or pi process that may map to a session.
+// AgentProcess describes a live agent process that may map to a session.
 type AgentProcess struct {
 	PID       int
 	Agent     models.AgentKind
@@ -25,7 +25,10 @@ type AgentProcess struct {
 	OpenFiles []string
 }
 
-// AgentProcessService snapshots live Claude/pi processes.
+// AgentProcessService snapshots live agent CLI processes (Claude, Codex,
+// Copilot, and pi). The ps/lsof process scan is deprecated and opt-in via
+// the agent_sessions.process_scan configuration key; hook events installed
+// with `lazyworktree setup-hooks` are the default liveness source.
 type AgentProcessService struct {
 	mu           sync.RWMutex
 	process      []*AgentProcess
@@ -50,7 +53,7 @@ func NewAgentProcessServiceWithRunner(runCmd agentProcessRunner, logf func(strin
 	}
 }
 
-// Refresh discovers live Claude and pi processes.
+// Refresh discovers live Claude, Codex, and pi processes.
 func (s *AgentProcessService) Refresh() ([]*AgentProcess, error) {
 	if runtime.GOOS == "windows" {
 		s.mu.Lock()
@@ -194,16 +197,75 @@ func parseAgentProcessesPS(out string) []*AgentProcess {
 
 func classifyAgentProcess(command, args string) (models.AgentKind, string, bool) {
 	base := filepath.Base(strings.TrimSpace(command))
+	if strings.EqualFold(filepath.Ext(base), ".exe") {
+		base = strings.TrimSuffix(base, filepath.Ext(base))
+	}
 	switch {
 	case strings.Contains(args, "Claude.app") || base == "Claude":
 		return models.AgentKindClaude, "desktop", true
 	case isClaudeCLIProcess(base, args):
 		return models.AgentKindClaude, "cli", true
+	case isCodexCLIProcess(base, args):
+		return models.AgentKindCodex, "cli", true
+	case isCopilotCLIProcess(base, args):
+		return models.AgentKindCopilot, "cli", true
 	case strings.EqualFold(base, "pi"):
 		return models.AgentKindPi, "cli", true
 	default:
 		return "", "", false
 	}
+}
+
+func isCodexCLIProcess(commandBase, args string) bool {
+	base := strings.ToLower(filepath.Base(strings.TrimSpace(commandBase)))
+	if base == "codex" {
+		return true
+	}
+
+	tokens := splitCommandTokens(args)
+	switch base {
+	case "node", "bun":
+		for _, token := range tokens {
+			normalized := strings.ReplaceAll(strings.ToLower(token), `\`, "/")
+			if strings.Contains(normalized, "/@openai/codex/") ||
+				strings.EqualFold(filepath.Base(token), "codex") {
+				return true
+			}
+		}
+	case "npm", "npx", "pnpm", "yarn":
+		for _, token := range tokens {
+			if strings.EqualFold(token, "@openai/codex") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func isCopilotCLIProcess(commandBase, args string) bool {
+	base := strings.ToLower(filepath.Base(strings.TrimSpace(commandBase)))
+	if base == "copilot" {
+		return true
+	}
+
+	tokens := splitCommandTokens(args)
+	switch base {
+	case "node", "bun":
+		for _, token := range tokens {
+			normalized := strings.ReplaceAll(strings.ToLower(token), `\`, "/")
+			if strings.Contains(normalized, "/@github/copilot/") ||
+				strings.EqualFold(filepath.Base(token), "copilot") {
+				return true
+			}
+		}
+	case "npm", "npx", "pnpm", "yarn":
+		for _, token := range tokens {
+			if strings.EqualFold(token, "@github/copilot") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func isClaudeCLIProcess(commandBase, args string) bool {

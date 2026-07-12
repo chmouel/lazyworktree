@@ -89,10 +89,38 @@ lazyworktree worktrees context my-feature --json | jq '.agent_sessions[] | selec
 | `source` value | Meaning |
 |---|---|
 | `"native"` | Session reported itself as active (e.g. Claude Code's own status) |
+| `"hook"` | An agent lifecycle hook reported the session and its process is alive |
 | `"exact_file"` | Live process has the session transcript file open |
 | `"cwd_heuristic"` | Live process working directory matches the worktree path |
 | `"registry"` | Recovered from the persistent registry after a parse failure |
 | `"none"` | No liveness signal found |
+
+### Precise session tracking with lifecycle hooks
+
+For the most accurate and lowest-cost session tracking, install the agent
+lifecycle hooks:
+
+```bash
+lazyworktree setup-hooks --dry-run   # preview the changes
+lazyworktree setup-hooks             # install
+```
+
+This wires Claude Code (`~/.claude/settings.json`), the Codex CLI
+(`$CODEX_HOME/hooks.json`, or `~/.codex/hooks.json` when `CODEX_HOME` is
+unset), and the Copilot CLI (`$COPILOT_HOME/hooks/lazyworktree.json`, or
+`~/.copilot/hooks/lazyworktree.json` when `COPILOT_HOME` is unset) to report
+session lifecycle events directly to lazyworktree. Hook-tracked sessions
+carry the agent process id, so liveness is confirmed with a cheap PID probe,
+and Codex CLI and Copilot CLI sessions become visible in the agents pane. See
+[setup-hooks](../cli/setup-hooks.md) for details, including the Codex `/hooks`
+approval step. Claude Code and Copilot CLI hooks also report when a question
+dialog opens and when its answer returns, so the pane switches from
+**thinking** to **waiting** while the agent needs your input. Codex CLI does
+not currently expose an equivalent question-dialog hook.
+
+Hooks are the default liveness source. The former process-table scan
+(ps/lsof) is deprecated and disabled by default; set
+`agent_sessions.process_scan: true` in the configuration to opt back in.
 
 ### 5. Use `exec --json` for command automation
 

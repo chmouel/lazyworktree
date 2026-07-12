@@ -13,7 +13,7 @@ The TUI is organised into six panes:
 | Git Status | `3` | Changed files in the selected worktree (collapsible tree view) |
 | Commit Log | `4` | Commit history for the selected branch |
 | Notes | `5` | Per-worktree notes (visible only when a note exists) |
-| Agent Sessions | `6` | Open Claude and pi sessions attached to the selected worktree by default; historical sessions can be revealed on demand |
+| Agent Sessions | `6` | Open Claude, Codex, Copilot, and pi sessions attached to the selected worktree by default; historical sessions can be revealed on demand |
 
 ![LazyWorktree pane layout](../assets/screenshot-main.png)
 
@@ -51,7 +51,7 @@ Press `=` to toggle zoom for the focused pane, expanding it to fill the entire s
 | `L` | Toggle layout (`default` / `top`) |
 
 Agent Sessions is the final pane in the Tab cycle when visible, even though it is rendered above Notes.
-By default the pane shows only sessions with a live Claude/pi process match; press `A` in the pane to include offline history, and press `6` to reveal historical matches when nothing is currently open.
+By default the pane shows only sessions with confirmed live agent processes; press `A` in the pane to include offline history, and press `6` to reveal historical matches when nothing is currently open.
 
 ## Pane-Specific Actions
 

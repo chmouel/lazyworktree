@@ -81,13 +81,14 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands config.CustomCommands
 - Tab reaches pane 5 before the final agent sessions pane when both are visible
 
 **Agent Sessions Pane (pane 6, visible when sessions exist)**
-- j / k: Move between matching Claude / pi sessions
+- j / k: Move between matching Claude / Codex / Copilot / pi sessions
 - Ctrl+D / Ctrl+U: Half page down / up
 - g / G: Jump to top / bottom
 - A: Toggle between active sessions only and all matching sessions
 - 6: Focus agent sessions pane (or toggle zoom if already focused)
 - When no active session is open, pressing 6 reveals recent and historical matching sessions
 - Tab includes pane 6 at the end of the cycle when visible
+- Run lazyworktree setup-hooks to install Claude Code, Codex CLI, and Copilot CLI lifecycle hooks for precise, low-cost status tracking, including questions awaiting your input
 
 **{{HELP_CI_CHECKS}}Git Status Pane (when focused)**
 - j / k: Navigate files and directories

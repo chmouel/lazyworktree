@@ -1291,6 +1291,26 @@ func TestParseConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "agent_sessions process_scan opt-in parsed",
+			data: map[string]interface{}{
+				"agent_sessions": map[string]any{
+					"process_scan": true,
+				},
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.True(t, cfg.AgentProcessScan)
+			},
+		},
+		{
+			name: "agent_sessions process_scan defaults to false",
+			data: map[string]interface{}{
+				"agent_sessions": map[string]any{},
+			},
+			validate: func(t *testing.T, cfg *AppConfig) {
+				assert.False(t, cfg.AgentProcessScan)
+			},
+		},
+		{
 			name: "agent_sessions absent defaults to empty",
 			data: map[string]interface{}{},
 			validate: func(t *testing.T, cfg *AppConfig) {

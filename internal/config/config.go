@@ -73,6 +73,7 @@ type AppConfig struct {
 	AgentSessionClaudeRoot  string // Custom root for Claude transcript discovery (default: ~/.claude/projects)
 	AgentSessionPiRoot      string // Custom root for pi transcript discovery (default: ~/.pi/agent/sessions)
 	AgentSessionsDisabled   bool   // Disable the Agent Sessions pane and transcript watching (default: false)
+	AgentProcessScan        bool   // Deprecated: opt in to ps/lsof process scanning for agent liveness (default: false; prefer setup-hooks)
 	AgentRefreshDebounceMs  int    // Debounce window (ms) for agent transcript refreshes (default: 600; 0 disables throttling)
 	CustomCreateMenus       []*CustomCreateMenu
 	CustomThemes            map[string]*CustomTheme // User-defined custom themes
@@ -224,6 +225,7 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 			}
 		}
 		cfg.AgentSessionsDisabled = coerceBool(agentData["disabled"], cfg.AgentSessionsDisabled)
+		cfg.AgentProcessScan = coerceBool(agentData["process_scan"], cfg.AgentProcessScan)
 		cfg.AgentRefreshDebounceMs = coerceInt(agentData["refresh_debounce_ms"], cfg.AgentRefreshDebounceMs)
 	}
 
@@ -629,6 +631,9 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	}
 	if overrideNestedData(overrideData, "agent_sessions", "disabled") {
 		cfg.AgentSessionsDisabled = overrideCfg.AgentSessionsDisabled
+	}
+	if overrideNestedData(overrideData, "agent_sessions", "process_scan") {
+		cfg.AgentProcessScan = overrideCfg.AgentProcessScan
 	}
 	if overrideNestedData(overrideData, "agent_sessions", "refresh_debounce_ms") {
 		cfg.AgentRefreshDebounceMs = overrideCfg.AgentRefreshDebounceMs

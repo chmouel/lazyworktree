@@ -16,11 +16,14 @@ type AgentWatchService struct {
 	Started bool
 	Waiting bool
 	Roots   []string
-	Events  chan struct{}
-	Done    chan struct{}
-	Paths   map[string]struct{}
-	Mu      sync.Mutex
-	Watcher *fsnotify.Watcher
+	// SpoolRoots is the subset of Roots that contain hook spool .json files.
+	// .json events are only accepted from these roots; all roots accept .jsonl.
+	SpoolRoots []string
+	Events     chan struct{}
+	Done       chan struct{}
+	Paths      map[string]struct{}
+	Mu         sync.Mutex
+	Watcher    *fsnotify.Watcher
 	// Debounce throttles how often transcript-write bursts trigger a refresh.
 	// A value <= 0 disables throttling. See PlanRefresh.
 	Debounce    time.Duration
@@ -154,10 +157,11 @@ func (w *AgentWatchService) run() {
 			if event.Op&fsnotify.Create != 0 {
 				w.maybeWatchNewDir(event.Name)
 			}
-			if !strings.HasSuffix(event.Name, ".jsonl") {
-				continue
+			if strings.HasSuffix(event.Name, ".jsonl") {
+				w.signal()
+			} else if strings.HasSuffix(event.Name, ".json") && w.isUnderSpoolRoot(event.Name) {
+				w.signal()
 			}
-			w.signal()
 		case err, ok := <-w.Watcher.Errors:
 			if !ok {
 				return
@@ -226,6 +230,15 @@ func (w *AgentWatchService) signal() {
 
 func (w *AgentWatchService) isUnderRoot(path string) bool {
 	for _, root := range w.Roots {
+		if path == root || strings.HasPrefix(path, root+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (w *AgentWatchService) isUnderSpoolRoot(path string) bool {
+	for _, root := range w.SpoolRoots {
 		if path == root || strings.HasPrefix(path, root+string(filepath.Separator)) {
 			return true
 		}

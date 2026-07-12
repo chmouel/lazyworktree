@@ -129,6 +129,7 @@ nav:
       - exec: cli/exec.md
       - note: cli/note.md
       - describe: cli/describe.md
+      - setup-hooks: cli/setup-hooks.md
 extra:
   generator: false
   social:

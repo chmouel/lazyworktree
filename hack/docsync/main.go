@@ -234,7 +234,7 @@ func parseCommands(dir string) ([]commandSpec, error) {
 	allowedFuncs := map[string]struct{}{
 		"createCommand": {}, "deleteCommand": {}, "cleanupCommand": {}, "renameCommand": {}, "listCommand": {},
 		"execCommand": {}, "noteCommand": {}, "describeCommand": {}, "doctorCommand": {},
-		"worktreesCommand": {}, "notesCommand": {},
+		"worktreesCommand": {}, "notesCommand": {}, "setupHooksCommand": {},
 	}
 	for _, file := range files {
 		for _, decl := range file.Decls {
@@ -457,7 +457,7 @@ func parseConfigKeys(path string) ([]configKeySpec, error) {
 		"custom_create_menus":          "Custom create menu entries.",
 		"custom_themes":                "Custom theme definitions.",
 		"worktree_note_type":           "Note storage format strategy. Use `onejson` (default) for a single shared JSON file, or `splitted` for individual markdown files with YAML frontmatter.",
-		"agent_sessions":               "Agent-session pane settings. Nested options: `claude_root` and `pi_root` (custom transcript base directories); `disabled` (`bool`, default `false`) to turn off transcript watching and hide the Agent Sessions pane; `refresh_debounce_ms` (`int`, default `600`) to throttle transcript re-parsing — raise it to lower CPU while an agent is actively writing, set `0` to disable throttling.",
+		"agent_sessions":               "Agent-session pane settings. Nested options: `claude_root` and `pi_root` (custom transcript base directories); `disabled` (`bool`, default `false`) to turn off transcript watching and hide the Agent Sessions pane; `refresh_debounce_ms` (`int`, default `600`) to throttle transcript re-parsing — raise it to lower CPU while an agent is actively writing, set `0` to disable throttling; `process_scan` (`bool`, default `false`, deprecated) to re-enable the ps/lsof process-table liveness scan — prefer `lazyworktree setup-hooks` instead.",
 		"layout_sizes":                 "Configurable baseline layout weights for panes (`worktrees`, `info`, `git_status`, `commit`, `agent_sessions`, `notes`). Relative weights are normalised at runtime.",
 	}
 

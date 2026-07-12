@@ -68,6 +68,8 @@ func Run(args []string) int {
 			execCommand(),
 			noteCommand(),
 			describeCommand(),
+			setupHooksCommand(),
+			agentEventCommand(),
 		},
 
 		Action: func(ctx context.Context, cmd *cli.Command) error {
