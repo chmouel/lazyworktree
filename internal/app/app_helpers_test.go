@@ -270,19 +270,30 @@ func TestBuildNonInteractiveGitEnv(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
 
+	t.Setenv("GIT_OPTIONAL_LOCKS", "1")
 	t.Setenv("GIT_TERMINAL_PROMPT", "1")
 	t.Setenv("GIT_SSH_COMMAND", "ssh -F ~/.ssh/config")
 
 	env := m.buildNonInteractiveGitEnv("feature", "/tmp/wt")
 
 	values := map[string]string{}
+	optionalLocksCount := 0
 	for _, entry := range env {
 		key, value, ok := strings.Cut(entry, "=")
 		if ok {
 			values[key] = value
+			if key == "GIT_OPTIONAL_LOCKS" {
+				optionalLocksCount++
+			}
 		}
 	}
 
+	if got := values["GIT_OPTIONAL_LOCKS"]; got != "0" {
+		t.Fatalf("expected GIT_OPTIONAL_LOCKS=0, got %q", got)
+	}
+	if optionalLocksCount != 1 {
+		t.Fatalf("expected one GIT_OPTIONAL_LOCKS entry, got %d", optionalLocksCount)
+	}
 	if got := values["GIT_TERMINAL_PROMPT"]; got != "0" {
 		t.Fatalf("expected GIT_TERMINAL_PROMPT=0, got %q", got)
 	}

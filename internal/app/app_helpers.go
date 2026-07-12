@@ -135,10 +135,11 @@ func nonInteractiveSSHCommand(existing, fallback string) string {
 
 func (m *Model) buildNonInteractiveGitEnv(branch, wtPath string) []string {
 	envVars := filterWorktreeEnvVars(os.Environ())
-	envVars = filterEnvVars(envVars, "GIT_TERMINAL_PROMPT", "GIT_SSH_COMMAND")
+	envVars = filterEnvVars(envVars, "GIT_OPTIONAL_LOCKS", "GIT_TERMINAL_PROMPT", "GIT_SSH_COMMAND")
 	envVars = append(envVars, envMapToList(m.buildCommandEnv(branch, wtPath))...)
 	envVars = append(
 		envVars,
+		"GIT_OPTIONAL_LOCKS=0",
 		"GIT_TERMINAL_PROMPT=0",
 		fmt.Sprintf("GIT_SSH_COMMAND=%s", nonInteractiveSSHCommand(os.Getenv("GIT_SSH_COMMAND"), os.Getenv("GIT_SSH"))),
 	)

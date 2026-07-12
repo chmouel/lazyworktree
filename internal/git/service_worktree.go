@@ -307,7 +307,7 @@ func (s *Service) CherryPickCommit(ctx context.Context, commitSHA, targetPath st
 		return false, fmt.Errorf("target worktree has uncommitted changes")
 	}
 
-	cmd, err := s.prepareAllowedCommand(ctx, []string{"git", "cherry-pick", commitSHA})
+	cmd, err := s.prepareAllowedCommand(ctx, []string{"git", "cherry-pick", commitSHA}, nil)
 	if err != nil {
 		return false, err
 	}
