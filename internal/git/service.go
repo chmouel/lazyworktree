@@ -22,6 +22,8 @@ const (
 	gitHostGithub  = "github"
 	gitHostUnknown = "unknown"
 
+	gitOptionalLocksEnv = "GIT_OPTIONAL_LOCKS=0"
+
 	// CI conclusion constants
 	ciSuccess   = "success"
 	ciFailure   = "failure"
@@ -105,14 +107,27 @@ func (s *Service) SetCommandRunner(runner func(ctx context.Context, name string,
 	s.commandRunner = runner
 }
 
-func (s *Service) prepareAllowedCommand(ctx context.Context, args []string) (*exec.Cmd, error) {
+func (s *Service) prepareAllowedCommand(ctx context.Context, args []string, env map[string]string) (*exec.Cmd, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("no command provided")
 	}
 
 	switch args[0] {
 	case "git", "glab", "gh":
-		return s.commandRunner(ctx, args[0], args[1:]...), nil
+		cmd := s.commandRunner(ctx, args[0], args[1:]...)
+		if len(env) > 0 {
+			if cmd.Env == nil {
+				cmd.Env = os.Environ()
+			}
+			cmd.Env = append(cmd.Env, formatEnv(env)...)
+		}
+		if args[0] == "git" {
+			if cmd.Env == nil {
+				cmd.Env = os.Environ()
+			}
+			cmd.Env = disableGitOptionalLocks(cmd.Env)
+		}
+		return cmd, nil
 	default:
 		return nil, fmt.Errorf("unsupported command %q", args[0])
 	}
@@ -235,6 +250,17 @@ func formatEnv(env map[string]string) []string {
 	return formatted
 }
 
+func disableGitOptionalLocks(env []string) []string {
+	filtered := make([]string, 0, len(env)+1)
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "GIT_OPTIONAL_LOCKS=") {
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+	return append(filtered, gitOptionalLocksEnv)
+}
+
 func (s *Service) acquireSemaphore() {
 	<-s.semaphore
 }
@@ -251,7 +277,7 @@ func (s *Service) RunGit(ctx context.Context, args []string, cwd string, okRetur
 	}
 	s.debugf("run: %s (cwd=%s)", command, cwd)
 
-	cmd, err := s.prepareAllowedCommand(ctx, args)
+	cmd, err := s.prepareAllowedCommand(ctx, args, nil)
 	if err != nil {
 		key := fmt.Sprintf("unsupported_cmd:%s", command)
 		s.notifyOnce(key, fmt.Sprintf("Unsupported command: %s", command), "error")
@@ -314,7 +340,7 @@ func (s *Service) RunCommandChecked(ctx context.Context, args []string, cwd, err
 	}
 	s.debugf("run: %s (cwd=%s)", command, cwd)
 
-	cmd, err := s.prepareAllowedCommand(ctx, args)
+	cmd, err := s.prepareAllowedCommand(ctx, args, nil)
 	if err != nil {
 		message := fmt.Sprintf("%s: %v", errorPrefix, err)
 		if errorPrefix == "" {
@@ -350,15 +376,12 @@ func (s *Service) RunGitWithCombinedOutput(ctx context.Context, args []string, c
 	command := strings.Join(args, " ")
 	s.debugf("run: %s (cwd=%s)", command, cwd)
 
-	cmd, err := s.prepareAllowedCommand(ctx, args)
+	cmd, err := s.prepareAllowedCommand(ctx, args, env)
 	if err != nil {
 		return nil, err
 	}
 	if cwd != "" {
 		cmd.Dir = cwd
-	}
-	if len(env) > 0 {
-		cmd.Env = append(os.Environ(), formatEnv(env)...)
 	}
 
 	return cmd.CombinedOutput()
