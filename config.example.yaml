@@ -218,14 +218,14 @@ pr_branch_name_template: "pr-{number}-{title}"
 #
 # Examples:
 #   # Simple title generation for issues/PRs
-#   branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title for this issue or PR. Output only the title.'"
+#   branch_name_script: "aichat -m gemini:gemini-3.5-flash-lite 'Generate a short title for this issue or PR. Output only the title.'"
 #
 #   # Different behaviour for diffs vs issues/PRs
 #   branch_name_script: |
 #     if [ "$LAZYWORKTREE_TYPE" = "diff" ]; then
-#       aichat -m gemini:gemini-2.5-flash-lite 'Generate a complete branch name for this diff'
+#       aichat -m gemini:gemini-3.5-flash-lite 'Generate a complete branch name for this diff'
 #     else
-#       aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title (no issue-/pr- prefix). Output only the title.'
+#       aichat -m gemini:gemini-3.5-flash-lite 'Generate a short title (no issue-/pr- prefix). Output only the title.'
 #     fi
 #
 # branch_name_script: ""
@@ -243,7 +243,7 @@ pr_branch_name_template: "pr-{number}-{title}"
 # If the script fails or outputs nothing, creation continues without writing a note.
 #
 # Example:
-#   worktree_note_script: "aichat -m gemini:gemini-2.5-flash-lite 'Summarise this ticket as concise implementation notes.'"
+#   worktree_note_script: "aichat -m gemini:gemini-3.5-flash-lite 'Summarise this ticket as concise implementation notes.'"
 #
 # worktree_note_script: ""
 

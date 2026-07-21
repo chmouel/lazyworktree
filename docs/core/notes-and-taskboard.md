@@ -75,7 +75,7 @@ Example checkbox syntax in notes:
 You can prefill notes for PR/issue-based worktrees using `worktree_note_script`. When creating a worktree from a PR or issue, the script receives the title and description on stdin and outputs a note to stdout.
 
 ```yaml
-worktree_note_script: "aichat -m gemini:gemini-2.5-flash-lite 'Summarise this ticket into practical implementation notes.'"
+worktree_note_script: "aichat -m gemini:gemini-3.5-flash-lite 'Summarise this ticket into practical implementation notes.'"
 ```
 
 If the script fails or outputs nothing, worktree creation continues normally without saving a note.

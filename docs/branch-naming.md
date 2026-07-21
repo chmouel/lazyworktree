@@ -19,13 +19,13 @@ Configure `branch_name_script` to generate names via tools like [aichat](https:/
 
 ```yaml
 # For PRs/issues: generate a title (available via {generated} placeholder)
-branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title for this PR or issue. Output only the title (like feat-session-manager), nothing else.'"
+branch_name_script: "aichat -m gemini:gemini-3.5-flash-lite 'Generate a short title for this PR or issue. Output only the title (like feat-session-manager), nothing else.'"
 
 # Use the generated title in PR branch/worktree naming
 pr_branch_name_template: "pr-{number}-{generated}"
 
 # For diffs: generate a complete branch name
-# branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short git branch name (no spaces, use hyphens) for this diff. Output only the branch name, nothing else.'"
+# branch_name_script: "aichat -m gemini:gemini-3.5-flash-lite 'Generate a short git branch name (no spaces, use hyphens) for this diff. Output only the branch name, nothing else.'"
 ```
 
 ### Template Placeholders
@@ -60,12 +60,12 @@ Receives content on stdin, outputs branch name on stdout (first line). Timeout: 
 # Different prompts for different types
 branch_name_script: |
   if [ "$LAZYWORKTREE_TYPE" = "diff" ]; then
-    aichat -m gemini:gemini-2.5-flash-lite 'Generate a complete branch name for this diff'
+    aichat -m gemini:gemini-3.5-flash-lite 'Generate a complete branch name for this diff'
   else
-    aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title (no issue-/pr- prefix) for this issue or PR'
+    aichat -m gemini:gemini-3.5-flash-lite 'Generate a short title (no issue-/pr- prefix) for this issue or PR'
   fi
 
 # Use issue/PR number in the prompt
 branch_name_script: |
-  aichat -m gemini:gemini-2.5-flash-lite "Generate a title for item #$LAZYWORKTREE_NUMBER. Output only the title."
+  aichat -m gemini:gemini-3.5-flash-lite "Generate a title for item #$LAZYWORKTREE_NUMBER. Output only the title."
 ```

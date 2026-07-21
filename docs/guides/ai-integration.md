@@ -151,7 +151,7 @@ When creating worktrees from PRs, issues, or uncommitted diffs, LazyWorktree can
 For PRs and issues:
 
 ```yaml
-branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title for this PR or issue. Output only the title (like feat-session-manager), nothing else.'"
+branch_name_script: "aichat -m gemini:gemini-3.5-flash-lite 'Generate a short title for this PR or issue. Output only the title (like feat-session-manager), nothing else.'"
 pr_branch_name_template: "pr-{number}-{generated}"
 issue_branch_name_template: "issue-{number}-{generated}"
 ```
@@ -159,7 +159,7 @@ issue_branch_name_template: "issue-{number}-{generated}"
 For uncommitted diffs:
 
 ```yaml
-branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short git branch name (no spaces, use hyphens) for this diff. Output only the branch name, nothing else.'"
+branch_name_script: "aichat -m gemini:gemini-3.5-flash-lite 'Generate a short git branch name (no spaces, use hyphens) for this diff. Output only the branch name, nothing else.'"
 ```
 
 ### Template Placeholders
@@ -208,9 +208,9 @@ You can use these variables to vary behaviour by context:
 ```bash
 branch_name_script: |
   if [ "$LAZYWORKTREE_TYPE" = "diff" ]; then
-    aichat -m gemini:gemini-2.5-flash-lite 'Generate a complete branch name for this diff'
+    aichat -m gemini:gemini-3.5-flash-lite 'Generate a complete branch name for this diff'
   else
-    aichat -m gemini:gemini-2.5-flash-lite 'Generate a short title (no issue-/pr- prefix) for this issue or PR'
+    aichat -m gemini:gemini-3.5-flash-lite 'Generate a short title (no issue-/pr- prefix) for this issue or PR'
   fi
 ```
 
@@ -221,7 +221,7 @@ When creating worktrees from PRs or issues, AI can summarise the description int
 ### Configuration
 
 ```yaml
-worktree_note_script: "aichat -m gemini:gemini-2.5-flash-lite 'Summarise this ticket into practical implementation notes.'"
+worktree_note_script: "aichat -m gemini:gemini-3.5-flash-lite 'Summarise this ticket into practical implementation notes.'"
 ```
 
 The script receives the PR/issue title and body on stdin and outputs the worktree note to stdout.
@@ -253,8 +253,8 @@ cargo install aichat
 LazyWorktree configuration:
 
 ```yaml
-branch_name_script: "aichat -m gemini:gemini-2.5-flash-lite 'Generate a short branch name. Output only the name.'"
-worktree_note_script: "aichat -m gemini:gemini-2.5-flash-lite 'Summarise into practical notes.'"
+branch_name_script: "aichat -m gemini:gemini-3.5-flash-lite 'Generate a short branch name. Output only the name.'"
+worktree_note_script: "aichat -m gemini:gemini-3.5-flash-lite 'Summarise into practical notes.'"
 ```
 
 ### Using Claude Code
@@ -282,11 +282,11 @@ curl -s https://api.your-ai-service.com/generate \
 
 ## Performance Tips
 
-- **Use smaller models** — branch naming does not require powerful models. `gemini-2.5-flash-lite`, `gpt-3.5-turbo`, or similar fast models complete in under 2 seconds
+- **Use smaller models** — branch naming does not require powerful models. `gemini-3.5-flash-lite`, `gpt-3.5-turbo`, or similar fast models complete in under 2 seconds
 - **Limit context** — if PR descriptions are very long, truncate in your script:
 
     ```bash
-    head -n 50 | aichat -m gemini:gemini-2.5-flash-lite 'Generate name'
+    head -n 50 | aichat -m gemini:gemini-3.5-flash-lite 'Generate name'
     ```
 
 ## Troubleshooting
@@ -300,7 +300,7 @@ Your AI provider may be too slow. Try a faster model (e.g., flash variants), red
 Your script is failing. Test it manually:
 
 ```bash
-echo "Test PR title\n\nTest description" | aichat -m gemini:gemini-2.5-flash-lite 'Generate a branch name'
+echo "Test PR title\n\nTest description" | aichat -m gemini:gemini-3.5-flash-lite 'Generate a branch name'
 ```
 
 Check for API authentication issues, network errors, or model availability.

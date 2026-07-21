@@ -34,7 +34,7 @@ Keep the note brief and practical, for example:
 ## Auto-generating notes with `worktree_note_script`
 
 ```yaml
-worktree_note_script: "aichat -m gemini:gemini-2.5-flash-lite 'Summarise this ticket into practical implementation notes.'"
+worktree_note_script: "aichat -m gemini:gemini-3.5-flash-lite 'Summarise this ticket into practical implementation notes.'"
 ```
 
 To store notes in a single synchronisable JSON file rather than git config:
@@ -94,7 +94,7 @@ set -euo pipefail
 PR_CONTENT=$(cat)
 
 printf '%s\n' "$PR_CONTENT" | aichat \
-  -m gemini:gemini-2.5-flash-lite \
+  -m gemini:gemini-3.5-flash-lite \
   'Create concise developer worktree notes with context, done items, and next actions.'
 ```
 
