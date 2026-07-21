@@ -499,16 +499,18 @@ func TestSplittedWorktreeNotesSavingEmptyNotesSkips(t *testing.T) {
 	}
 }
 
-func TestSplittedWorktreeNotesSaveRemovesStaleFiles(t *testing.T) {
+func TestSplittedWorktreeNotesSavePreservesUnknownFiles(t *testing.T) {
 	baseDir := t.TempDir()
 	pathTemplate := filepath.Join(baseDir, "$WORKTREE_NAME", "note.md")
 	env := map[string]string{}
 
 	require.NoError(t, SaveWorktreeNotes("repo", "", pathTemplate, "splitted", map[string]models.WorktreeNote{
 		"feat-a": {Note: "keep", UpdatedAt: 1},
-		"feat-b": {Note: "remove", UpdatedAt: 1},
+		"feat-b": {Note: "written by another process", UpdatedAt: 1},
 	}, env))
 
+	// A save from a stale in-memory map (missing feat-b) must not delete
+	// feat-b's file: deletions only happen via DeleteSplittedNoteFile.
 	require.NoError(t, SaveWorktreeNotes("repo", "", pathTemplate, "splitted", map[string]models.WorktreeNote{
 		"feat-a": {Note: "keep", UpdatedAt: 2},
 	}, env))
@@ -516,9 +518,102 @@ func TestSplittedWorktreeNotesSaveRemovesStaleFiles(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(baseDir, "feat-a", "note.md")); err != nil {
 		t.Fatalf("expected feat-a note to remain: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(baseDir, "feat-b", "note.md")); !os.IsNotExist(err) {
-		t.Fatalf("expected feat-b note removed, got err=%v", err)
+	if _, err := os.Stat(filepath.Join(baseDir, "feat-b", "note.md")); err != nil {
+		t.Fatalf("expected feat-b note to survive stale save: %v", err)
 	}
+
+	require.NoError(t, DeleteSplittedNoteFile(pathTemplate, "feat-b", env))
+	if _, err := os.Stat(filepath.Join(baseDir, "feat-b", "note.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected feat-b note removed after explicit delete, got err=%v", err)
+	}
+}
+
+func TestSplittedWorktreeNotesSavePreservesUnparseableFiles(t *testing.T) {
+	baseDir := t.TempDir()
+	pathTemplate := filepath.Join(baseDir, "$WORKTREE_NAME", "note.md")
+	env := map[string]string{}
+
+	// Simulate a note file that fails to parse on load (e.g. mid-sync).
+	brokenDir := filepath.Join(baseDir, "feat-broken")
+	require.NoError(t, os.MkdirAll(brokenDir, 0o750))
+	brokenPath := filepath.Join(brokenDir, "note.md")
+	require.NoError(t, os.WriteFile(brokenPath, []byte("---\n: bad frontmatter\n"), 0o600))
+
+	loaded, err := LoadWorktreeNotes("repo", "", pathTemplate, "splitted", env)
+	require.NoError(t, err)
+
+	loaded["feat-new"] = models.WorktreeNote{Note: "hello", UpdatedAt: 1}
+	require.NoError(t, SaveWorktreeNotes("repo", "", pathTemplate, "splitted", loaded, env))
+
+	if _, err := os.Stat(brokenPath); err != nil {
+		t.Fatalf("expected unparseable note file to be preserved: %v", err)
+	}
+}
+
+func TestSaveWorktreeNoteEntrySplitted(t *testing.T) {
+	baseDir := t.TempDir()
+	pathTemplate := filepath.Join(baseDir, "$WORKTREE_NAME", "note.md")
+	env := map[string]string{}
+
+	require.NoError(t, SaveWorktreeNotes("repo", "", pathTemplate, "splitted", map[string]models.WorktreeNote{
+		"feat-other": {Note: "other", UpdatedAt: 1},
+	}, env))
+	otherPath := filepath.Join(baseDir, "feat-other", "note.md")
+	otherBefore, err := os.ReadFile(otherPath) // #nosec G304 -- test-controlled path
+	require.NoError(t, err)
+
+	// Saving a single entry from a map that lacks feat-other must only
+	// touch feat-a's file.
+	notes := map[string]models.WorktreeNote{
+		"feat-a": {Note: "mine", UpdatedAt: 2},
+	}
+	require.NoError(t, SaveWorktreeNoteEntry("repo", "", pathTemplate, "splitted", "feat-a", notes, env))
+
+	if _, err := os.Stat(filepath.Join(baseDir, "feat-a", "note.md")); err != nil {
+		t.Fatalf("expected feat-a note written: %v", err)
+	}
+	otherAfter, err := os.ReadFile(otherPath) // #nosec G304 -- test-controlled path
+	require.NoError(t, err)
+	require.Equal(t, string(otherBefore), string(otherAfter))
+
+	// An absent or empty entry removes only that worktree's file.
+	delete(notes, "feat-a")
+	require.NoError(t, SaveWorktreeNoteEntry("repo", "", pathTemplate, "splitted", "feat-a", notes, env))
+	if _, err := os.Stat(filepath.Join(baseDir, "feat-a", "note.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected feat-a note removed, got err=%v", err)
+	}
+	if _, err := os.Stat(otherPath); err != nil {
+		t.Fatalf("expected feat-other note to remain: %v", err)
+	}
+}
+
+func TestLoadRepoWorktreeNotesPropagatesReadErrors(t *testing.T) {
+	baseDir := t.TempDir()
+	notesPath := filepath.Join(baseDir, "repo", models.WorktreeNotesFilename)
+
+	// Missing file is not an error.
+	notes, err := LoadWorktreeNotes("repo", baseDir, "", "", nil)
+	require.NoError(t, err)
+	require.Empty(t, notes)
+
+	// A directory in place of the file must surface an error rather than
+	// being treated as "no notes" (which a later save would persist).
+	require.NoError(t, os.MkdirAll(notesPath, 0o750))
+	_, err = LoadWorktreeNotes("repo", baseDir, "", "", nil)
+	require.Error(t, err)
+}
+
+func TestLoadSharedWorktreeNotesPropagatesReadErrors(t *testing.T) {
+	baseDir := t.TempDir()
+	sharedPath := filepath.Join(baseDir, "notes.json")
+
+	notes, err := LoadWorktreeNotes("repo", "", sharedPath, "", nil)
+	require.NoError(t, err)
+	require.Empty(t, notes)
+
+	require.NoError(t, os.MkdirAll(sharedPath, 0o750))
+	_, err = LoadWorktreeNotes("repo", "", sharedPath, "", nil)
+	require.Error(t, err)
 }
 
 func TestSplitRepoKey(t *testing.T) {

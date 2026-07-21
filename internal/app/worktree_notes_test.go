@@ -216,6 +216,72 @@ func TestPruneStaleWorktreeNotes(t *testing.T) {
 	}
 }
 
+func TestSplittedWorktreeNoteDeletionFailurePreservesState(t *testing.T) {
+	newModel := func(t *testing.T, key string) *Model {
+		t.Helper()
+		baseDir := t.TempDir()
+		notesPath := filepath.Join(baseDir, "$WORKTREE_NAME", "note.md")
+		notePath := filepath.Join(baseDir, key, "note.md")
+		if err := os.MkdirAll(notePath, 0o750); err != nil {
+			t.Fatalf("create note directory: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(notePath, "child"), []byte("keep directory non-empty"), 0o600); err != nil {
+			t.Fatalf("create note directory child: %v", err)
+		}
+
+		m := NewModel(&config.AppConfig{
+			WorktreeDir:       baseDir,
+			WorktreeNotesPath: notesPath,
+			WorktreeNoteType:  config.NoteTypeSplitted,
+		}, "")
+		m.repoKey = testRepoKey
+		m.worktreeNotes = map[string]models.WorktreeNote{
+			key: {Note: "keep me", UpdatedAt: 1},
+		}
+		return m
+	}
+
+	t.Run("delete", func(t *testing.T) {
+		const key = "feature-delete"
+		m := newModel(t, key)
+
+		m.deleteWorktreeNote(filepath.Join("worktrees", key))
+
+		if _, ok := m.worktreeNotes[key]; !ok {
+			t.Fatal("expected note to remain after file deletion failed")
+		}
+	})
+
+	t.Run("migrate", func(t *testing.T) {
+		const oldKey = "feature-old"
+		const newKey = "feature-new"
+		m := newModel(t, oldKey)
+
+		m.migrateWorktreeNote(
+			filepath.Join("worktrees", oldKey),
+			filepath.Join("worktrees", newKey),
+		)
+
+		if _, ok := m.worktreeNotes[oldKey]; !ok {
+			t.Fatal("expected old note to remain after file deletion failed")
+		}
+		if _, ok := m.worktreeNotes[newKey]; ok {
+			t.Fatal("did not expect new note after old file deletion failed")
+		}
+	})
+
+	t.Run("prune", func(t *testing.T) {
+		const key = "feature-stale"
+		m := newModel(t, key)
+
+		m.pruneStaleWorktreeNotes(nil)
+
+		if _, ok := m.worktreeNotes[key]; !ok {
+			t.Fatal("expected stale note to remain after file deletion failed")
+		}
+	})
+}
+
 func TestShowAnnotateWorktreeOpensTextareaWhenNoNote(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
