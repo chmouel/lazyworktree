@@ -1,4 +1,4 @@
-version: 2
+version: "2"
 
 run:
   timeout: 5m
@@ -54,6 +54,6 @@ linters:
         - nestingReduce
     gosec:
       excludes:
-        - G122  # Filesystem operation in filepath.Walk/WalkDir callback
-        - G306  # Expect WriteFile permissions to be less permissive
-        - G703  # Path traversal via taint analysis (safe when paths are from known roots)
+        - G122 # Filesystem operation in filepath.Walk/WalkDir callback
+        - G306 # Expect WriteFile permissions to be less permissive
+        - G703 # Path traversal via taint analysis (safe when paths are from known roots)
