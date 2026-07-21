@@ -75,6 +75,10 @@ Supports **markdown**.
 
 This makes notes easy to browse, search, and edit with external tools.
 
+#### Concurrent edits in splitted mode
+
+Splitted mode is safe for concurrent access from multiple processes or clones. Saving a note writes or removes only that worktree's file — other note files on disk are left untouched, even if they were created after lazyworktree last read the directory. This means a stale in-memory view in one process cannot delete or overwrite a note written by another. Removing a note is always an explicit action rather than an implicit side effect of a batch save.
+
 ## Example script: PR details to LLM note
 
 For more control, point `worktree_note_script` to your own script. The script can receive PR title/body on stdin, call your preferred LLM, and return a concise note.

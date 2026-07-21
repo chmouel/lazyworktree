@@ -405,10 +405,7 @@ func SaveWorktreeNotes(repoKey, worktreeDir, worktreeNotesPath, noteType string,
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(worktreeNotesPath, data, defaultFilePerms); err != nil {
-		return err
-	}
-	return nil
+	return writeAtomically(worktreeNotesPath, data)
 }
 
 func normalizeWorktreeNotes(notes map[string]models.WorktreeNote) map[string]models.WorktreeNote {
@@ -418,10 +415,7 @@ func normalizeWorktreeNotes(notes map[string]models.WorktreeNote) map[string]mod
 
 	normalized := make(map[string]models.WorktreeNote, len(notes))
 	for noteKey, note := range notes {
-		note.Note = strings.TrimSpace(note.Note)
-		note.Icon = strings.TrimSpace(note.Icon)
-		note.Color = worktreecolor.Normalize(note.Color)
-		note.Tags = models.NormalizeTags(note.Tags)
+		note = normalizeWorktreeNote(note)
 		if note.IsEmpty() {
 			continue
 		}
@@ -430,11 +424,40 @@ func normalizeWorktreeNotes(notes map[string]models.WorktreeNote) map[string]mod
 	return normalized
 }
 
+func normalizeWorktreeNote(note models.WorktreeNote) models.WorktreeNote {
+	note.Note = strings.TrimSpace(note.Note)
+	note.Icon = strings.TrimSpace(note.Icon)
+	note.Color = worktreecolor.Normalize(note.Color)
+	note.Tags = models.NormalizeTags(note.Tags)
+	return note
+}
+
+// SaveWorktreeNoteEntry persists a single note entry identified by key.
+// For splitted mode it writes or removes only that worktree's file, leaving
+// other note files untouched so concurrent writers cannot be clobbered by a
+// stale in-memory map. For other modes it saves the full map.
+func SaveWorktreeNoteEntry(repoKey, worktreeDir, worktreeNotesPath, noteType, key string, notes map[string]models.WorktreeNote, env map[string]string) error {
+	if noteType == config.NoteTypeSplitted {
+		note, ok := notes[key]
+		if ok {
+			note = normalizeWorktreeNote(note)
+		}
+		if !ok || note.IsEmpty() {
+			return DeleteSplittedNoteFile(worktreeNotesPath, key, env)
+		}
+		return writeSplittedNoteFile(worktreeNotesPath, key, note, env)
+	}
+	return SaveWorktreeNotes(repoKey, worktreeDir, worktreeNotesPath, noteType, notes, env)
+}
+
 func loadRepoWorktreeNotes(notesPath string) (map[string]models.WorktreeNote, error) {
 	// #nosec G304 -- notesPath is constructed from vetted directory and constant filename
 	data, err := os.ReadFile(notesPath)
 	if err != nil {
-		return map[string]models.WorktreeNote{}, nil
+		if errors.Is(err, os.ErrNotExist) {
+			return map[string]models.WorktreeNote{}, nil
+		}
+		return nil, err
 	}
 
 	var notes map[string]models.WorktreeNote
@@ -463,17 +486,17 @@ func saveRepoWorktreeNotes(notesPath string, notes map[string]models.WorktreeNot
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(notesPath, data, defaultFilePerms); err != nil {
-		return err
-	}
-	return nil
+	return writeAtomically(notesPath, data)
 }
 
 func loadSharedWorktreeNotes(repoKey, worktreeNotesPath string) (map[string]map[string]models.WorktreeNote, error) {
 	// #nosec G304 -- path is user-configured and intentionally read for persistence
 	data, err := os.ReadFile(worktreeNotesPath)
 	if err != nil {
-		return map[string]map[string]models.WorktreeNote{}, nil
+		if errors.Is(err, os.ErrNotExist) {
+			return map[string]map[string]models.WorktreeNote{}, nil
+		}
+		return nil, err
 	}
 
 	var allNotes map[string]map[string]models.WorktreeNote
@@ -572,36 +595,29 @@ func extractWorktreeNameFromParts(matched, prefix, suffix string) string {
 }
 
 // saveSplittedWorktreeNotes saves individual note files for each worktree.
+// It never removes files for notes absent from the map: the in-memory map may
+// be stale (another process may have created notes since it was loaded), so
+// deletions must only happen explicitly via DeleteSplittedNoteFile.
 func saveSplittedWorktreeNotes(pathTemplate string, notes map[string]models.WorktreeNote, env map[string]string) error {
 	normalized := normalizeWorktreeNotes(notes)
 
-	existingPaths, err := findSplittedNotePaths(pathTemplate, env)
-	if err != nil {
-		return err
-	}
-	for wtName, notePath := range existingPaths {
-		if _, ok := normalized[wtName]; ok {
-			continue
-		}
-		if err := os.Remove(notePath); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-	}
-
 	// Write each note as an individual file.
 	for wtName, note := range normalized {
-		notePath := ExpandWithEnv(pathTemplate, cloneEnvWith(env, "WORKTREE_NAME", wtName))
-
-		if err := os.MkdirAll(filepath.Dir(notePath), utils.DefaultDirPerms); err != nil {
-			return err
-		}
-		data := FormatNoteFile(note)
-		if err := os.WriteFile(notePath, data, defaultFilePerms); err != nil {
+		if err := writeSplittedNoteFile(pathTemplate, wtName, note, env); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func writeSplittedNoteFile(pathTemplate, wtName string, note models.WorktreeNote, env map[string]string) error {
+	notePath := ExpandWithEnv(pathTemplate, cloneEnvWith(env, "WORKTREE_NAME", wtName))
+
+	if err := os.MkdirAll(filepath.Dir(notePath), utils.DefaultDirPerms); err != nil {
+		return err
+	}
+	return writeAtomically(notePath, FormatNoteFile(note))
 }
 
 // DeleteSplittedNoteFile removes the note file for a specific worktree.

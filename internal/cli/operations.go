@@ -1198,7 +1198,7 @@ func NoteEdit(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, wor
 		nc.notes[nc.key] = parsed
 	}
 
-	return appservices.SaveWorktreeNotes(nc.repoKey, cfg.WorktreeDir, cfg.WorktreeNotesPath, cfg.WorktreeNoteType, nc.notes, nc.env)
+	return appservices.SaveWorktreeNoteEntry(nc.repoKey, cfg.WorktreeDir, cfg.WorktreeNotesPath, cfg.WorktreeNoteType, nc.key, nc.notes, nc.env)
 }
 
 // editNoteInEditor opens the note in an editor and returns the parsed result.
@@ -1297,5 +1297,5 @@ func NoteSet(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, work
 	}
 	nc.notes[nc.key] = merged
 
-	return appservices.SaveWorktreeNotes(nc.repoKey, cfg.WorktreeDir, cfg.WorktreeNotesPath, cfg.WorktreeNoteType, nc.notes, nc.env)
+	return appservices.SaveWorktreeNoteEntry(nc.repoKey, cfg.WorktreeDir, cfg.WorktreeNotesPath, cfg.WorktreeNoteType, nc.key, nc.notes, nc.env)
 }

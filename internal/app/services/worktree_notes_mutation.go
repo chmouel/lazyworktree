@@ -43,5 +43,5 @@ func SaveWorktreeNote(repoKey, worktreeDir, worktreeNotesPath, noteType, worktre
 		// Migrate old full-path keys when switching to shared note storage.
 		delete(notes, trimmedPath)
 	}
-	return SaveWorktreeNotes(repoKey, worktreeDir, worktreeNotesPath, noteType, notes, env)
+	return SaveWorktreeNoteEntry(repoKey, worktreeDir, worktreeNotesPath, noteType, key, notes, env)
 }

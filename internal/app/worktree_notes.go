@@ -91,6 +91,25 @@ func (m *Model) saveWorktreeNotes() {
 	}
 }
 
+// saveWorktreeNoteEntry persists only the note identified by key. In splitted
+// mode this touches a single file, so notes created by other processes since
+// the in-memory map was loaded are never rewritten or removed.
+func (m *Model) saveWorktreeNoteEntry(key string) {
+	noteType := m.getWorktreeNoteType()
+	env := m.buildNoteEnv()
+	if err := services.SaveWorktreeNoteEntry(m.getRepoKey(), m.getWorktreeDir(), m.getWorktreeNotesPath(), noteType, key, m.worktreeNotes, env); err != nil {
+		m.debugf("failed to write worktree note: %v", err)
+	}
+}
+
+func (m *Model) deleteSplittedWorktreeNoteFile(key string) bool {
+	if err := services.DeleteSplittedNoteFile(m.getWorktreeNotesPath(), key, m.buildNoteEnv()); err != nil {
+		m.debugf("failed to delete worktree note: %v", err)
+		return false
+	}
+	return true
+}
+
 func (m *Model) getWorktreeNote(path string) (models.WorktreeNote, bool) {
 	if strings.TrimSpace(path) == "" {
 		return models.WorktreeNote{}, false
@@ -132,7 +151,7 @@ func (m *Model) updateWorktreeNoteField(path string, updater func(existing model
 			delete(m.worktreeNotes, filepath.Clean(path))
 		}
 	}
-	m.saveWorktreeNotes()
+	m.saveWorktreeNoteEntry(key)
 	m.refreshSelectedWorktreeNotesPane()
 }
 
@@ -191,11 +210,16 @@ func (m *Model) deleteWorktreeNote(path string) {
 	if _, ok := m.worktreeNotes[key]; !ok {
 		return
 	}
-	delete(m.worktreeNotes, key)
 	if m.getWorktreeNoteType() == config.NoteTypeSplitted {
-		_ = services.DeleteSplittedNoteFile(m.getWorktreeNotesPath(), key, m.buildNoteEnv())
+		if !m.deleteSplittedWorktreeNoteFile(key) {
+			return
+		}
+	} else {
+		delete(m.worktreeNotes, key)
+		m.saveWorktreeNotes()
+		return
 	}
-	m.saveWorktreeNotes()
+	delete(m.worktreeNotes, key)
 }
 
 func (m *Model) migrateWorktreeNote(oldPath, newPath string) {
@@ -208,13 +232,16 @@ func (m *Model) migrateWorktreeNote(oldPath, newPath string) {
 		return
 	}
 
-	delete(m.worktreeNotes, oldKey)
 	if m.getWorktreeNoteType() == config.NoteTypeSplitted {
-		_ = services.DeleteSplittedNoteFile(m.getWorktreeNotesPath(), oldKey, m.buildNoteEnv())
+		if !m.deleteSplittedWorktreeNoteFile(oldKey) {
+			return
+		}
 	}
+	delete(m.worktreeNotes, oldKey)
 	note.UpdatedAt = time.Now().Unix()
-	m.worktreeNotes[m.worktreeNoteKey(newPath)] = note
-	m.saveWorktreeNotes()
+	newKey := m.worktreeNoteKey(newPath)
+	m.worktreeNotes[newKey] = note
+	m.saveWorktreeNoteEntry(newKey)
 }
 
 func (m *Model) hasNoteForSelectedWorktree() bool {
@@ -333,14 +360,16 @@ func (m *Model) pruneStaleWorktreeNotes(worktrees []*models.WorktreeInfo) {
 	changed := false
 	for key := range m.worktreeNotes {
 		if !validPaths[key] {
-			if isSplitted {
-				_ = services.DeleteSplittedNoteFile(m.getWorktreeNotesPath(), key, m.buildNoteEnv())
+			if isSplitted && !m.deleteSplittedWorktreeNoteFile(key) {
+				continue
 			}
 			delete(m.worktreeNotes, key)
 			changed = true
 		}
 	}
-	if changed {
+	// Splitted note files are removed individually above; a full save would
+	// rewrite every file from the in-memory map, clobbering concurrent edits.
+	if changed && !isSplitted {
 		m.saveWorktreeNotes()
 	}
 }
