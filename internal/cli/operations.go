@@ -57,6 +57,7 @@ type gitService interface {
 	RenameWorktree(ctx context.Context, oldPath, newPath, oldBranch, newBranch string) bool
 	ResolveRepoName(ctx context.Context) string
 	RunCommandChecked(ctx context.Context, args []string, cwd string, errorMsg string) bool
+	RunCommandQuiet(ctx context.Context, args []string, cwd string) bool
 	RunGit(ctx context.Context, args []string, cwd string, exitCodes []int, silent bool, ignoreErrors bool) string
 }
 
@@ -132,8 +133,10 @@ func updateExistingWorktreeForPR(ctx context.Context, gitSvc gitService, targetP
 		return "", fmt.Errorf("worktree has uncommitted changes at %s, cannot update", targetPath)
 	}
 	// Try fetching the branch directly; if that fails (e.g. fork PR), fetch via refs/pull/<N>/head.
+	// The direct attempt failing is expected for fork PRs, so it's checked quietly to avoid
+	// surfacing a spurious error when the fallback below succeeds.
 	prRef := fmt.Sprintf("refs/pull/%d/head", prNumber)
-	fetched := gitSvc.RunCommandChecked(ctx, []string{"git", "fetch", "origin", remoteBranch}, targetPath, "")
+	fetched := gitSvc.RunCommandQuiet(ctx, []string{"git", "fetch", "origin", remoteBranch}, targetPath)
 	if !fetched {
 		if !gitSvc.RunCommandChecked(ctx, []string{"git", "fetch", "origin", prRef}, targetPath, fmt.Sprintf("Failed to fetch PR #%d", prNumber)) {
 			return "", fmt.Errorf("failed to fetch PR #%d", prNumber)

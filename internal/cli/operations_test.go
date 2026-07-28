@@ -67,6 +67,8 @@ type fakeGitService struct {
 	lastRenameOldBranch    string
 	lastRenameNewBranch    string
 	runCommandCheckedCalls [][]string
+	runCommandQuietOK      bool
+	runCommandQuietCalls   [][]string
 }
 
 func (f *fakeGitService) CheckoutPRBranch(_ context.Context, _ int, _, localBranch string) bool {
@@ -182,6 +184,11 @@ func (f *fakeGitService) RunCommandChecked(_ context.Context, args []string, _, 
 		}
 	}
 	return f.runCommandCheckedOK
+}
+
+func (f *fakeGitService) RunCommandQuiet(_ context.Context, args []string, _ string) bool {
+	f.runCommandQuietCalls = append(f.runCommandQuietCalls, slices.Clone(args))
+	return f.runCommandQuietOK
 }
 
 func (f *fakeGitService) RunGit(_ context.Context, args []string, _ string, _ []int, _, _ bool) string {
@@ -693,6 +700,56 @@ func TestUpdateOnExistingPR(t *testing.T) {
 		_, err := CreateFromPRWithFS(ctx, svc, cfg, 42, false, true, DefaultFS)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "already checked out")
+	})
+
+	t.Run("fork PR falls back to refs/pull/N/head without erroring", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		repoName := testRepoName
+		prBranch := "SRVKP-12884-api-retry"
+		worktreeName := "pr-2854-fork-branch"
+		targetPath := filepath.Join(tmpDir, repoName, worktreeName)
+		require.NoError(t, os.MkdirAll(targetPath, 0o750))
+
+		svc := &fakeGitService{
+			resolveRepoName:     repoName,
+			mainWorktreePath:    filepath.Join(tmpDir, "main"),
+			runCommandCheckedOK: true,
+			// The direct branch fetch fails (as it would for a fork PR branch
+			// not present on origin); only the refs/pull/<N>/head fallback works.
+			runCommandQuietOK: false,
+			prs: []*models.PRInfo{
+				{Number: 2854, Title: "Fork branch", Branch: prBranch},
+			},
+			worktrees: []*models.WorktreeInfo{
+				{Path: targetPath, Branch: prBranch},
+			},
+			runGitOutput: map[string]string{
+				filepath.Join("git", "status", "--porcelain"): "",
+			},
+		}
+
+		cfg := &config.AppConfig{
+			WorktreeDir:      tmpDir,
+			UpdateOnExisting: true,
+		}
+
+		outputPath, err := CreateFromPRWithFS(ctx, svc, cfg, 2854, false, true, DefaultFS)
+		require.NoError(t, err)
+		assert.Equal(t, targetPath, outputPath)
+
+		// The direct branch fetch must go through the quiet path (no error notification),
+		// and the fallback refs/pull/<N>/head fetch must go through the checked path.
+		require.NotEmpty(t, svc.runCommandQuietCalls)
+		assert.Equal(t, []string{"git", "fetch", "origin", prBranch}, svc.runCommandQuietCalls[0])
+
+		foundFallback := false
+		for _, call := range svc.runCommandCheckedCalls {
+			if slices.Contains(call, "refs/pull/2854/head") {
+				foundFallback = true
+				break
+			}
+		}
+		assert.True(t, foundFallback, "expected fallback fetch of refs/pull/2854/head via RunCommandChecked")
 	})
 }
 

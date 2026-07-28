@@ -246,6 +246,10 @@ func (m *mockGitServiceForInteractive) RunCommandChecked(context.Context, []stri
 	return true
 }
 
+func (m *mockGitServiceForInteractive) RunCommandQuiet(context.Context, []string, string) bool {
+	return true
+}
+
 func (m *mockGitServiceForInteractive) RunGit(context.Context, []string, string, []int, bool, bool) string {
 	return ""
 }

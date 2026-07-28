@@ -371,6 +371,35 @@ func (s *Service) RunCommandChecked(ctx context.Context, args []string, cwd, err
 	return true
 }
 
+// RunCommandQuiet runs the provided git command and reports whether it succeeded,
+// without notifying on failure. Use this for expected, silently-handled fallback
+// attempts (e.g. trying a direct branch fetch before falling back to a PR ref)
+// where a failure is not itself noteworthy to the user.
+func (s *Service) RunCommandQuiet(ctx context.Context, args []string, cwd string) bool {
+	command := strings.Join(args, " ")
+	if command == "" {
+		command = "<empty>"
+	}
+	s.debugf("run (quiet): %s (cwd=%s)", command, cwd)
+
+	cmd, err := s.prepareAllowedCommand(ctx, args, nil)
+	if err != nil {
+		s.debugf("error (quiet): %v", err)
+		return false
+	}
+	if cwd != "" {
+		cmd.Dir = cwd
+	}
+
+	if _, err := cmd.CombinedOutput(); err != nil {
+		s.debugf("error (quiet): %s: %v", command, err)
+		return false
+	}
+
+	s.debugf("ok (quiet): %s", command)
+	return true
+}
+
 // RunGitWithCombinedOutput executes a git command with environment variables and returns its combined output and error.
 func (s *Service) RunGitWithCombinedOutput(ctx context.Context, args []string, cwd string, env map[string]string) ([]byte, error) {
 	command := strings.Join(args, " ")
