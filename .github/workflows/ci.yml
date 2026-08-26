@@ -39,7 +39,7 @@ jobs:
         with:
           go-version-file: "go.mod"
 
-      - uses: alexellis/setup-arkade@v3
+      - uses: alexellis/setup-arkade@v4
       - name: Install golangci-lint
         run: |
           arkade get golangci-lint
