@@ -8,6 +8,18 @@ Special characters are converted to hyphens for Git compatibility. Leading/trail
 | `bug fix here` | `bug-fix-here` |
 | `feature:test` | `feature-test` |
 
+## Suggested Branch Names
+
+When a worktree is created without an explicit name, the branch name prompt is pre-filled with a random `adjective-noun` suggestion that you may override.
+
+Suggestions come from curated lists of more than 200 adjectives and more than 250 nouns, giving over 58,000 pairings, so repeats are rare. Every word is lowercase ASCII without punctuation, which keeps a suggestion safe to use as both a Git ref and a worktree directory name.
+
+| Example suggestion |
+|--------------------|
+| `scrupulous-stable` |
+| `heedful-foxglove` |
+| `winsome-meadow` |
+
 ## Automatically Generated Branch Names
 
 Configure `branch_name_script` to generate names via tools like [aichat](https://github.com/sigoden/aichat/) or [claude code](https://claude.com/product/claude-code). Issues/PRs output to `{generated}` placeholder; diffs output complete names.
