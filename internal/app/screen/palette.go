@@ -131,8 +131,19 @@ func (s *CommandPaletteScreen) Type() Type {
 }
 
 // Update handles keyboard input for the command palette.
-func (s *CommandPaletteScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *CommandPaletteScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
 	const maxVisible = 12
+
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		if s.FilterActive {
+			var cmd tea.Cmd
+			s.FilterInput, cmd = s.FilterInput.Update(raw)
+			s.applyFilter()
+			return s, cmd
+		}
+		return s, nil
+	}
 	keyStr := msg.String()
 
 	if !s.FilterActive {

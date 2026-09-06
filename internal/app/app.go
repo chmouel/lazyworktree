@@ -743,6 +743,10 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.handleKeyMsg(msg)
 
+	case tea.PasteMsg:
+		m.debugf("paste: %d bytes screen=%s filter=%t search=%t", len(msg.Content), m.state.ui.screenManager.Type().String(), m.state.view.ShowingFilter, m.state.view.ShowingSearch)
+		return m.handlePasteMsg(msg)
+
 	case worktreesLoadedMsg, cachedWorktreesMsg, pruneResultMsg, absorbMergeResultMsg:
 		return m.handleWorktreeMessages(msg)
 

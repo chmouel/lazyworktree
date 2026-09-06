@@ -7,9 +7,10 @@ import (
 
 // Screen represents a modal screen overlay that can handle input and render itself.
 type Screen interface {
-	// Update processes a key message and returns the updated screen and any command.
-	// Returning nil for the Screen signals that this screen should be closed.
-	Update(msg tea.KeyPressMsg) (Screen, tea.Cmd)
+	// Update processes a key press or paste message and returns the updated
+	// screen and any command. Returning nil for the Screen signals that this
+	// screen should be closed.
+	Update(msg tea.Msg) (Screen, tea.Cmd)
 
 	// View renders the screen's content.
 	View() string

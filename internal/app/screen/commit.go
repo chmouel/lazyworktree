@@ -54,7 +54,11 @@ func (s *CommitScreen) Type() Type {
 
 // Update handles scrolling and closing events for the commit screen.
 // Returns nil to signal that the screen should be closed.
-func (s *CommitScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *CommitScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		return s, nil
+	}
 	switch msg.String() {
 	case keyQ, keyEsc, keyEscRaw, keyCtrlC:
 		return nil, nil

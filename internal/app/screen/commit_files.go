@@ -315,7 +315,30 @@ func (s *CommitFilesScreen) ToggleCollapse(path string) {
 }
 
 // Update handles key events for the commit files screen.
-func (s *CommitFilesScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *CommitFilesScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		var cmd tea.Cmd
+		switch {
+		case s.ShowingFilter:
+			s.FilterInput, cmd = s.FilterInput.Update(raw)
+			newQuery := s.FilterInput.Value()
+			if newQuery != s.FilterQuery {
+				s.FilterQuery = newQuery
+				s.ApplyFilter()
+			}
+		case s.ShowingSearch:
+			s.FilterInput, cmd = s.FilterInput.Update(raw)
+			newQuery := s.FilterInput.Value()
+			if newQuery != s.SearchQuery {
+				s.SearchQuery = newQuery
+				if s.SearchQuery != "" {
+					s.SearchNext(true)
+				}
+			}
+		}
+		return s, cmd
+	}
 	maxVisible := s.Height - 8 // Account for header, footer, borders
 	keyStr := msg.String()
 

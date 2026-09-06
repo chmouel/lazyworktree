@@ -127,8 +127,18 @@ func (s *ListSelectionScreen) Type() Type {
 }
 
 // Update handles keyboard input and returns nil to signal the screen should close.
-func (s *ListSelectionScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *ListSelectionScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
+
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		if s.FilterActive {
+			s.FilterInput, cmd = s.FilterInput.Update(raw)
+			s.applyFilter()
+			return s, cmd
+		}
+		return s, nil
+	}
 	maxVisible := s.maxVisible()
 	keyStr := msg.String()
 

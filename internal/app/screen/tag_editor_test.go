@@ -74,3 +74,52 @@ func TestTagEditorScreenEnterSubmitsCurrentTags(t *testing.T) {
 		t.Fatalf("unexpected submitted tags: %q", got)
 	}
 }
+
+func TestTagEditorScreenPasteGoesToFocusedInput(t *testing.T) {
+	scr := NewTagEditorScreen(
+		"Set worktree tags",
+		nil,
+		[]TagEditorOption{{Tag: "bug", Count: 2}},
+		120,
+		40,
+		theme.Dracula(),
+		false,
+	)
+
+	// Input is focused by default.
+	next, _ := scr.Update(tea.PasteMsg{Content: "pasted-tag"})
+	tagScr, ok := next.(*TagEditorScreen)
+	if !ok || tagScr == nil {
+		t.Fatal("expected tag editor screen after paste")
+	}
+	if got := tagScr.Input.Value(); got != "pasted-tag" {
+		t.Fatalf("expected pasted content in input, got %q", got)
+	}
+}
+
+func TestTagEditorScreenPasteIgnoredWhenListFocused(t *testing.T) {
+	scr := NewTagEditorScreen(
+		"Set worktree tags",
+		nil,
+		[]TagEditorOption{{Tag: "bug", Count: 2}},
+		120,
+		40,
+		theme.Dracula(),
+		false,
+	)
+
+	next, _ := scr.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	tagScr, ok := next.(*TagEditorScreen)
+	if !ok || tagScr == nil {
+		t.Fatal("expected tag editor screen after Tab")
+	}
+
+	next, _ = tagScr.Update(tea.PasteMsg{Content: "pasted-tag"})
+	tagScr, ok = next.(*TagEditorScreen)
+	if !ok || tagScr == nil {
+		t.Fatal("expected tag editor screen after paste")
+	}
+	if got := tagScr.Input.Value(); got != "" {
+		t.Fatalf("expected paste to be ignored while list is focused, got %q", got)
+	}
+}

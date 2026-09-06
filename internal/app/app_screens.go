@@ -25,7 +25,7 @@ func (m *Model) showInfo(message string, action tea.Cmd) {
 	m.state.ui.screenManager.Push(infoScreen)
 }
 
-func (m *Model) handleScreenKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleScreenKey(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !m.state.ui.screenManager.IsActive() {
 		return m, nil
 	}

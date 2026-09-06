@@ -6,10 +6,46 @@ import (
 	"github.com/chmouel/lazyworktree/internal/config"
 )
 
+// handlePasteMsg routes bracketed-paste content to the focused text input:
+// a modal screen, the search box, or the filter box. Paste with nothing
+// focused is dropped, like a stray key press.
+func (m *Model) handlePasteMsg(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
+	if m.state.ui.screenManager.IsActive() {
+		return m.handleScreenKey(msg)
+	}
+
+	if m.state.view.ShowingSearch {
+		return m.handleSearchInput(msg)
+	}
+
+	if m.state.view.ShowingFilter {
+		return m.applyFilterInputUpdate(msg)
+	}
+
+	return m, nil
+}
+
+// applyFilterInputUpdate feeds a message into the filter box and reapplies
+// the resulting query to whichever pane is currently being filtered.
+func (m *Model) applyFilterInputUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	m.state.ui.filterInput, cmd = m.state.ui.filterInput.Update(msg)
+	switch m.state.view.FilterTarget {
+	case filterTargetWorktrees:
+		m.setFilterQuery(filterTargetWorktrees, m.state.ui.filterInput.Value())
+		m.updateTable()
+	case filterTargetStatus, filterTargetGitStatus:
+		m.setFilterQuery(filterTargetGitStatus, m.state.ui.filterInput.Value())
+		m.applyStatusFilter()
+	case filterTargetLog:
+		m.setFilterQuery(filterTargetLog, m.state.ui.filterInput.Value())
+		m.applyLogFilter(false)
+	}
+	return m, cmd
+}
+
 // handleKeyMsg processes keyboard input when not in a modal screen.
 func (m *Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-
 	if m.state.view.ShowingSearch {
 		return m.handleSearchInput(msg)
 	}
@@ -29,28 +65,13 @@ func (m *Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if keyStr == keyUp || keyStr == keyDown || keyStr == keyCtrlK || keyStr == keyCtrlJ {
 				return m.handleFilterNavigation(keyStr, false)
 			}
-			m.state.ui.filterInput, cmd = m.state.ui.filterInput.Update(msg)
-			m.setFilterQuery(filterTargetWorktrees, m.state.ui.filterInput.Value())
-			m.updateTable()
-			return m, cmd
-		case filterTargetStatus, filterTargetGitStatus:
+			return m.applyFilterInputUpdate(msg)
+		case filterTargetStatus, filterTargetGitStatus, filterTargetLog:
 			if keyStr == keyEnter || isEscKey(keyStr) || keyStr == keyCtrlC {
 				m.exitFilter()
 				return m, nil
 			}
-			m.state.ui.filterInput, cmd = m.state.ui.filterInput.Update(msg)
-			m.setFilterQuery(filterTargetGitStatus, m.state.ui.filterInput.Value())
-			m.applyStatusFilter()
-			return m, cmd
-		case filterTargetLog:
-			if keyStr == keyEnter || isEscKey(keyStr) || keyStr == keyCtrlC {
-				m.exitFilter()
-				return m, nil
-			}
-			m.state.ui.filterInput, cmd = m.state.ui.filterInput.Update(msg)
-			m.setFilterQuery(filterTargetLog, m.state.ui.filterInput.Value())
-			m.applyLogFilter(false)
-			return m, cmd
+			return m.applyFilterInputUpdate(msg)
 		}
 	}
 

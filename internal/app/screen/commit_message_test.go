@@ -77,6 +77,41 @@ func TestCommitMessageScreenEnterMovesFocusToBody(t *testing.T) {
 	}
 }
 
+func TestCommitMessageScreenPasteGoesToSubjectByDefault(t *testing.T) {
+	s := NewCommitMessageScreen("Commit", "Body", "", 120, 40, theme.Dracula(), false, false)
+
+	next, _ := s.Update(tea.PasteMsg{Content: "pasted subject"})
+	updated, ok := next.(*CommitMessageScreen)
+	if !ok || updated == nil {
+		t.Fatal("expected commit message screen after paste")
+	}
+	if got := updated.SubjectInput.Value(); got != "pasted subject" {
+		t.Fatalf("expected pasted content in subject, got %q", got)
+	}
+	if updated.BodyInput.Value() != "" {
+		t.Fatalf("expected body to stay empty, got %q", updated.BodyInput.Value())
+	}
+}
+
+func TestCommitMessageScreenPasteGoesToBodyAfterFocusMoves(t *testing.T) {
+	s := NewCommitMessageScreen("Commit", "Body", "", 120, 40, theme.Dracula(), false, false)
+
+	next, _ := s.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	updated := next.(*CommitMessageScreen)
+
+	next, _ = updated.Update(tea.PasteMsg{Content: "pasted body"})
+	updated, ok := next.(*CommitMessageScreen)
+	if !ok || updated == nil {
+		t.Fatal("expected commit message screen after paste")
+	}
+	if got := updated.BodyInput.Value(); got != "pasted body" {
+		t.Fatalf("expected pasted content in body, got %q", got)
+	}
+	if updated.SubjectInput.Value() != "" {
+		t.Fatalf("expected subject to stay empty, got %q", updated.SubjectInput.Value())
+	}
+}
+
 func TestCommitMessageScreenCtrlXEditExternal(t *testing.T) {
 	s := NewCommitMessageScreen("Commit", "Body", "subject\n\nbody", 120, 40, theme.Dracula(), false, false)
 	called := false

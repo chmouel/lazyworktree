@@ -100,10 +100,21 @@ func (s *InputScreen) Type() Type {
 	return TypeInput
 }
 
-// Update handles keyboard input for the input screen.
+// Update handles keyboard input and pasted text for the input screen.
 // Returns nil to signal the screen should be closed.
-func (s *InputScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *InputScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
+
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		if s.CheckboxEnabled && s.CheckboxFocused {
+			return s, nil
+		}
+		// Pasting exits history browsing, same as typing a character.
+		s.HistoryIndex = -1
+		s.Input, cmd = s.Input.Update(raw)
+		return s, cmd
+	}
 	keyStr := msg.String()
 
 	switch keyStr {
@@ -193,6 +204,10 @@ func (s *InputScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
 			}
 			return s, nil
 		}
+	}
+
+	if s.CheckboxEnabled && s.CheckboxFocused {
+		return s, nil
 	}
 
 	// Reset history browsing when user types

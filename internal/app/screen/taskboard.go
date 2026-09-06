@@ -111,8 +111,19 @@ func (s *TaskboardScreen) SetItems(items []TaskboardItem, preferredID string) {
 }
 
 // Update handles keyboard input.
-func (s *TaskboardScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *TaskboardScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
+
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		if s.FilterActive {
+			s.FilterInput, cmd = s.FilterInput.Update(raw)
+			s.applyFilter()
+			s.ensureCursorVisible()
+			return s, cmd
+		}
+		return s, nil
+	}
 	keyStr := msg.String()
 
 	if !s.FilterActive {

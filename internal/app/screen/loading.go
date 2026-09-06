@@ -207,7 +207,7 @@ func (s *LoadingScreen) Type() Type {
 }
 
 // Update handles key events. Loading screen does not respond to keys.
-func (s *LoadingScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *LoadingScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	// Loading screen ignores key input
 	return s, nil
 }

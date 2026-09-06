@@ -81,9 +81,9 @@ func (s *PRSelectionScreen) Type() Type {
 }
 
 // Update handles updates for the PR selection screen.
-func (s *PRSelectionScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *PRSelectionScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	// PR screen accepts 'q' as quit in both filtered and unfiltered modes
-	if msg.String() == keyQ {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == keyQ {
 		if s.OnCancel != nil {
 			return nil, s.OnCancel()
 		}
