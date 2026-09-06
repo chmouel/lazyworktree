@@ -48,7 +48,11 @@ func (s *TrustScreen) Type() Type {
 
 // Update handles trust decisions and delegates viewport input updates.
 // Returns nil to signal that the screen should be closed.
-func (s *TrustScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *TrustScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		return s, nil
+	}
 	keyStr := msg.String()
 	switch keyStr {
 	case "t", "T":

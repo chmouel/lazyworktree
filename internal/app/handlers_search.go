@@ -32,20 +32,23 @@ func (m *Model) handleSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) 
 	}
 }
 
-func (m *Model) handleSearchInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	keyStr := msg.String()
-	if keyStr == keyEnter {
-		m.state.view.ShowingSearch = false
-		m.state.ui.filterInput.Blur()
-		m.restoreFocusAfterSearch()
-		return m, nil
-	}
-	if isEscKey(keyStr) || keyStr == keyCtrlC {
-		m.clearSearchQuery()
-		m.state.view.ShowingSearch = false
-		m.state.ui.filterInput.Blur()
-		m.restoreFocusAfterSearch()
-		return m, nil
+// handleSearchInput feeds a key press or pasted text into the search box.
+func (m *Model) handleSearchInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+		keyStr := keyMsg.String()
+		if keyStr == keyEnter {
+			m.state.view.ShowingSearch = false
+			m.state.ui.filterInput.Blur()
+			m.restoreFocusAfterSearch()
+			return m, nil
+		}
+		if isEscKey(keyStr) || keyStr == keyCtrlC {
+			m.clearSearchQuery()
+			m.state.view.ShowingSearch = false
+			m.state.ui.filterInput.Blur()
+			m.restoreFocusAfterSearch()
+			return m, nil
+		}
 	}
 
 	var cmd tea.Cmd

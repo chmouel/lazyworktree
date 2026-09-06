@@ -403,8 +403,22 @@ func (s *HelpScreen) Type() Type {
 }
 
 // Update handles scrolling and search input for the help screen.
-func (s *HelpScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *HelpScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
+
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		if s.Searching {
+			s.SearchInput, cmd = s.SearchInput.Update(raw)
+			newQuery := strings.TrimSpace(s.SearchInput.Value())
+			if newQuery != s.SearchQuery {
+				s.SearchQuery = newQuery
+				s.refreshContent()
+			}
+			return s, cmd
+		}
+		return s, nil
+	}
 	key := msg.String()
 
 	switch key {

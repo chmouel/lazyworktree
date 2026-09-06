@@ -32,7 +32,11 @@ func (s *InfoScreen) Type() Type {
 
 // Update processes keyboard events for the info dialog.
 // Returns nil to signal that the screen should be closed.
-func (s *InfoScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *InfoScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		return s, nil
+	}
 	switch msg.String() {
 	case keyEnter, keyEsc, keyQ, keyCtrlC:
 		if s.OnClose != nil {

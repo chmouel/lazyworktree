@@ -92,8 +92,18 @@ func (s *TagEditorScreen) Type() Type {
 	return TypeTagEditor
 }
 
-// Update handles keyboard input for the tag editor.
-func (s *TagEditorScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+// Update handles keyboard input and pasted text for the tag editor.
+func (s *TagEditorScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		if s.focus != tagEditorFocusList {
+			var cmd tea.Cmd
+			s.Input, cmd = s.Input.Update(raw)
+			s.ErrorMsg = ""
+			return s, cmd
+		}
+		return s, nil
+	}
 	keyStr := msg.String()
 
 	switch keyStr {

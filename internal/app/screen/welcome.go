@@ -35,7 +35,11 @@ func (s *WelcomeScreen) Type() Type {
 
 // Update processes keyboard events for the welcome screen.
 // Returns nil to signal that the screen should be closed.
-func (s *WelcomeScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *WelcomeScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		return s, nil
+	}
 	keyStr := msg.String()
 	switch keyStr {
 	case "r", "R":

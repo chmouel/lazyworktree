@@ -60,7 +60,11 @@ func (s *NoteViewScreen) Resize(maxWidth, maxHeight int) {
 }
 
 // Update handles navigation, close, and edit actions.
-func (s *NoteViewScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *NoteViewScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		return s, nil
+	}
 	switch msg.String() {
 	case keyQ, keyEsc, keyEscRaw, keyCtrlC:
 		if s.OnClose != nil {

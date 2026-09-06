@@ -85,10 +85,16 @@ func (s *TextareaScreen) Type() Type {
 	return TypeTextarea
 }
 
-// Update handles keyboard input for the textarea screen.
+// Update handles keyboard input and pasted text for the textarea screen.
 // Returns nil to signal the screen should be closed.
-func (s *TextareaScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *TextareaScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
+
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		s.Input, cmd = s.Input.Update(raw)
+		return s, cmd
+	}
 	keyStr := msg.String()
 
 	switch keyStr {

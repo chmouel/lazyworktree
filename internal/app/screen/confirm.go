@@ -55,7 +55,11 @@ func (s *ConfirmScreen) Type() Type {
 
 // Update processes keyboard events for the confirmation dialog.
 // Returns nil to signal that the screen should be closed.
-func (s *ConfirmScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *ConfirmScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		return s, nil
+	}
 	key := msg.String()
 	switch key {
 	case keyTab, "right", "l":

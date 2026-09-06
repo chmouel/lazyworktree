@@ -120,67 +120,68 @@ func (s *CommitMessageScreen) Type() Type {
 	return TypeCommitMessage
 }
 
-// Update handles keyboard input for the commit message screen.
-func (s *CommitMessageScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+// Update handles keyboard input and pasted text for the commit message screen.
+func (s *CommitMessageScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
-	keyStr := msg.String()
 
-	switch keyStr {
-	case keyTab, keyShiftTab:
-		s.toggleFocus()
-		return s, nil
-
-	case keyEnter:
-		if s.focus == commitMessageFocusSubject {
-			s.focus = commitMessageFocusBody
-			s.syncFocus()
+	if msg, ok := raw.(tea.KeyPressMsg); ok {
+		switch msg.String() {
+		case keyTab, keyShiftTab:
+			s.toggleFocus()
 			return s, nil
-		}
 
-	case "ctrl+s":
-		value := s.Value()
-		if strings.TrimSpace(s.SubjectInput.Value()) == "" {
-			s.ErrorMsg = "Commit subject cannot be empty."
-			return s, nil
-		}
-		if s.Validate != nil {
-			if errMsg := strings.TrimSpace(s.Validate(value)); errMsg != "" {
-				s.ErrorMsg = errMsg
+		case keyEnter:
+			if s.focus == commitMessageFocusSubject {
+				s.focus = commitMessageFocusBody
+				s.syncFocus()
 				return s, nil
 			}
-		}
-		s.ErrorMsg = ""
-		if s.OnSubmit != nil {
-			cmd = s.OnSubmit(value)
-			if s.ErrorMsg != "" {
-				return s, cmd
+
+		case "ctrl+s":
+			value := s.Value()
+			if strings.TrimSpace(s.SubjectInput.Value()) == "" {
+				s.ErrorMsg = "Commit subject cannot be empty."
+				return s, nil
 			}
-		}
-		return nil, cmd
-
-	case "ctrl+o":
-		if s.HasAutoGenerate && s.OnAutoGenerate != nil {
-			return s, s.OnAutoGenerate()
-		}
-
-	case "ctrl+x":
-		if s.OnEditExternal != nil {
+			if s.Validate != nil {
+				if errMsg := strings.TrimSpace(s.Validate(value)); errMsg != "" {
+					s.ErrorMsg = errMsg
+					return s, nil
+				}
+			}
 			s.ErrorMsg = ""
-			return s, s.OnEditExternal(s.Value())
-		}
-		return s, nil
+			if s.OnSubmit != nil {
+				cmd = s.OnSubmit(value)
+				if s.ErrorMsg != "" {
+					return s, cmd
+				}
+			}
+			return nil, cmd
 
-	case keyEsc, keyCtrlC:
-		if s.OnCancel != nil {
-			return nil, s.OnCancel()
+		case "ctrl+o":
+			if s.HasAutoGenerate && s.OnAutoGenerate != nil {
+				return s, s.OnAutoGenerate()
+			}
+
+		case "ctrl+x":
+			if s.OnEditExternal != nil {
+				s.ErrorMsg = ""
+				return s, s.OnEditExternal(s.Value())
+			}
+			return s, nil
+
+		case keyEsc, keyCtrlC:
+			if s.OnCancel != nil {
+				return nil, s.OnCancel()
+			}
+			return nil, nil
 		}
-		return nil, nil
 	}
 
 	if s.focus == commitMessageFocusSubject {
-		s.SubjectInput, cmd = s.SubjectInput.Update(msg)
+		s.SubjectInput, cmd = s.SubjectInput.Update(raw)
 	} else {
-		s.BodyInput, cmd = s.BodyInput.Update(msg)
+		s.BodyInput, cmd = s.BodyInput.Update(raw)
 	}
 	s.applySubjectStyles()
 	return s, cmd

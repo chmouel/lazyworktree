@@ -97,8 +97,18 @@ func (s *ChecklistScreen) Type() Type {
 
 // Update handles keyboard input for the checklist screen.
 // Returns nil to signal the screen should close.
-func (s *ChecklistScreen) Update(msg tea.KeyPressMsg) (Screen, tea.Cmd) {
+func (s *ChecklistScreen) Update(raw tea.Msg) (Screen, tea.Cmd) {
 	var cmd tea.Cmd
+
+	msg, ok := raw.(tea.KeyPressMsg)
+	if !ok {
+		if s.FilterActive {
+			s.FilterInput, cmd = s.FilterInput.Update(raw)
+			s.applyFilter()
+			return s, cmd
+		}
+		return s, nil
+	}
 	maxVisibleLines := s.Height - 6
 	if !s.FilterActive {
 		maxVisibleLines += 2
