@@ -969,10 +969,12 @@ func TestEmitCleanupJSON(t *testing.T) {
 		Worktrees: 1,
 		Branches:  1,
 		Orphans:   0,
+		Skipped:   1,
 		Failures:  1,
 		Items: []cli.CleanupItem{
 			{Kind: cli.CleanupKindWorktree, Path: "/wt/feature", Branch: "feature", Source: "pr", BranchDeleted: true},
 			{Kind: cli.CleanupKindBranch, Branch: "stale", Source: "git", BranchDeleted: true},
+			{Kind: cli.CleanupKindWorktree, Path: "/wt/dirty", Branch: "dirty", Source: "git", Skipped: true, SkipReason: "uncommitted changes"},
 			{Kind: cli.CleanupKindOrphan, Path: "/wt/orphan", Failed: true, Error: "could not be revalidated safely"},
 		},
 	}
@@ -985,15 +987,18 @@ func TestEmitCleanupJSON(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(out), &decoded))
 	assert.Equal(t, 1, decoded.Worktrees)
 	assert.Equal(t, 1, decoded.Branches)
+	assert.Equal(t, 1, decoded.Skipped)
 	assert.Equal(t, 1, decoded.Failures)
-	require.Len(t, decoded.Items, 3)
+	require.Len(t, decoded.Items, 4)
 	assert.Equal(t, "worktree", decoded.Items[0].Kind)
 	assert.Equal(t, "/wt/feature", decoded.Items[0].Path)
 	assert.Equal(t, "feature", decoded.Items[0].Branch)
 	assert.True(t, decoded.Items[0].BranchDeleted)
 	assert.Equal(t, "stale", decoded.Items[1].Branch)
-	assert.True(t, decoded.Items[2].Failed)
-	assert.Equal(t, "could not be revalidated safely", decoded.Items[2].Error)
+	assert.True(t, decoded.Items[2].Skipped)
+	assert.Equal(t, "uncommitted changes", decoded.Items[2].SkipReason)
+	assert.True(t, decoded.Items[3].Failed)
+	assert.Equal(t, "could not be revalidated safely", decoded.Items[3].Error)
 }
 
 func TestHandleRenameFlags(t *testing.T) {

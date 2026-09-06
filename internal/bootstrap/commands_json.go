@@ -55,6 +55,8 @@ type cleanupItemJSON struct {
 	Branch        string `json:"branch,omitempty"`
 	Source        string `json:"source,omitempty"`
 	BranchDeleted bool   `json:"branch_deleted"`
+	Skipped       bool   `json:"skipped"`
+	SkipReason    string `json:"skip_reason,omitempty"`
 	Failed        bool   `json:"failed"`
 	Error         string `json:"error,omitempty"`
 }
@@ -64,6 +66,7 @@ type cleanupJSON struct {
 	Worktrees int               `json:"worktrees"`
 	Branches  int               `json:"branches"`
 	Orphans   int               `json:"orphans"`
+	Skipped   int               `json:"skipped"`
 	Failures  int               `json:"failures"`
 	Items     []cleanupItemJSON `json:"items"`
 }

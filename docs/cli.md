@@ -115,16 +115,18 @@ During rename, the branch is renamed only if the current worktree directory name
 
 ```bash
 lazyworktree cleanup              # Choose candidates from a numbered menu
-lazyworktree cleanup --all        # Remove every candidate without prompting
+lazyworktree cleanup --all        # Attempt every candidate without prompting
 lazyworktree cleanup --all --json # Emit the result as JSON
 ```
 
-The interactive menu accepts comma-separated numbers and ranges. `--all`
-(also available as `--non-interactive`) includes dirty merged worktrees and
-orphaned directories. Merged branches without worktrees are included when
+The interactive menu accepts comma-separated numbers and ranges. Dirty merged
+worktrees remain visible with a warning but are skipped if selected. `--all`
+(also available as `--non-interactive`) likewise skips registered worktrees
+with uncommitted changes while continuing with safe candidates and orphaned
+directories. Merged branches without worktrees are included when
 `prune_stale_branches` is enabled. Add `--json` (which requires `--all`) to
-emit the aggregate counts and a per-item list of each worktree, its branch, and
-whether removal succeeded.
+emit aggregate counts and a per-item list including skipped items and their
+reasons.
 
 ## Running Commands in Worktrees
 

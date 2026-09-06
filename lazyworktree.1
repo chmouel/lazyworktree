@@ -278,19 +278,20 @@ Remove merged worktrees, stale branches, and orphaned worktree directories witho
 .PP
 By default, displays a numbered menu. Select entries with individual numbers, comma-separated numbers, ranges, or \fBall\fR. Press Enter without a selection to cancel.
 Merged local branches without worktrees are included when \fBprune_stale_branches\fR is enabled.
+Dirty merged worktrees remain visible with a warning and are skipped if selected.
 .
 .PP
-Terminate commands run before merged worktrees are removed. Orphaned directories are revalidated against Git immediately before deletion.
+Terminate commands run only before eligible clean merged worktrees are removed. Orphaned directories are revalidated against Git immediately before deletion.
 .
 .PP
 .B Options:
 .TP
 .B \-\-all\fR, \fB\-\-non\-interactive
-Remove every candidate without prompting. This includes dirty merged worktrees and orphaned directories. Any failed candidate removal causes a non-zero exit.
+Attempt every candidate without prompting. Registered worktrees with uncommitted changes are reported and skipped; clean worktrees, stale branches, and orphaned directories remain eligible for cleanup. Worktree status is rechecked immediately before removal. Actual candidate failures cause a non-zero exit, while safety skips do not.
 .
 .TP
 .B \-\-json
-Emit a JSON object to standard output describing the cleanup result, including aggregate counts and a per-item list recording each worktree, its branch, the detection source, and whether removal succeeded. Requires \fB\-\-all\fR. Progress messages, including terminate command notices, are suppressed.
+Emit a JSON object to standard output describing the cleanup result, including aggregate counts and a per-item list recording each worktree, its branch, the detection source, whether it was skipped, and whether removal succeeded. Skipped worktrees include a reason. Requires \fB\-\-all\fR. Progress messages, including terminate command notices, are suppressed.
 .
 .SS exec
 Run a command or trigger a custom command key action in a worktree from the CLI.

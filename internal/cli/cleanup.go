@@ -20,6 +20,7 @@ type cleanupGitService interface {
 	gitService
 	GetMainBranch(ctx context.Context) string
 	GetMergedBranches(ctx context.Context, baseBranch string) []string
+	RunGitWithCombinedOutput(ctx context.Context, args []string, cwd string, env map[string]string) ([]byte, error)
 }
 
 type cleanupCandidateKind int
@@ -42,6 +43,7 @@ type cleanupResult struct {
 	worktrees int
 	branches  int
 	orphans   int
+	skipped   int
 	failures  int
 	items     []CleanupItem
 }
@@ -60,6 +62,8 @@ type CleanupItem struct {
 	Branch        string
 	Source        string
 	BranchDeleted bool
+	Skipped       bool
+	SkipReason    string
 	Failed        bool
 	Error         string
 }
@@ -70,6 +74,7 @@ type CleanupSummary struct {
 	Worktrees int
 	Branches  int
 	Orphans   int
+	Skipped   int
 	Failures  int
 	Items     []CleanupItem
 }
@@ -120,6 +125,7 @@ func Cleanup(
 		Worktrees: result.worktrees,
 		Branches:  result.branches,
 		Orphans:   result.orphans,
+		Skipped:   result.skipped,
 		Failures:  result.failures,
 		Items:     result.items,
 	}
@@ -347,6 +353,19 @@ func executeCleanup(
 	for _, candidate := range candidates {
 		switch candidate.kind {
 		case cleanupWorktree:
+			hasChanges, err := cleanupWorktreeHasUncommittedChanges(ctx, gitSvc, candidate.worktree.Path)
+			if err != nil {
+				appendSkippedCleanupItem(&result, candidate, "could not verify worktree status")
+				if !silent {
+					fmt.Fprintf(stderr, "Warning: skipped worktree %s because its status could not be verified: %v\n", candidate.worktree.Path, err)
+				}
+				continue
+			}
+			if hasChanges {
+				appendSkippedCleanupItem(&result, candidate, "uncommitted changes")
+				continue
+			}
+
 			runCleanupTerminateCommands(ctx, gitSvc, cfg, candidate.worktree, silent, stderr)
 			removed := gitSvc.RunCommandChecked(
 				ctx,
@@ -423,6 +442,31 @@ func executeCleanup(
 	return result
 }
 
+func appendSkippedCleanupItem(result *cleanupResult, candidate cleanupCandidate, reason string) {
+	result.skipped++
+	result.items = append(result.items, CleanupItem{
+		Kind:       CleanupKindWorktree,
+		Path:       candidate.worktree.Path,
+		Branch:     candidate.branch,
+		Source:     candidate.source,
+		Skipped:    true,
+		SkipReason: reason,
+	})
+}
+
+func cleanupWorktreeHasUncommittedChanges(ctx context.Context, gitSvc cleanupGitService, path string) (bool, error) {
+	output, err := gitSvc.RunGitWithCombinedOutput(
+		ctx,
+		[]string{"git", "status", "--porcelain", "--untracked-files=all", "--ignore-submodules=none"},
+		path,
+		nil,
+	)
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(string(output)) != "", nil
+}
+
 // worktreeCleanupError describes which step of a worktree cleanup failed.
 func worktreeCleanupError(removed, branchDeleted bool) string {
 	switch {
@@ -496,8 +540,8 @@ func (c cleanupCandidate) description() string {
 	switch c.kind {
 	case cleanupWorktree:
 		status := sourceDescription(c.source)
-		if c.worktree.Dirty || c.worktree.Untracked > 0 || c.worktree.Modified > 0 || c.worktree.Staged > 0 {
-			status += "; HAS UNCOMMITTED CHANGES"
+		if cleanupWorktreeInfoHasUncommittedChanges(c.worktree) {
+			status += "; HAS UNCOMMITTED CHANGES (will be skipped)"
 		}
 		return fmt.Sprintf("worktree %s (branch %s; %s)", filepath.Base(c.worktree.Path), c.branch, status)
 	case cleanupBranch:
@@ -505,6 +549,10 @@ func (c cleanupCandidate) description() string {
 	default:
 		return fmt.Sprintf("orphaned directory %s", c.orphanPath)
 	}
+}
+
+func cleanupWorktreeInfoHasUncommittedChanges(wt *models.WorktreeInfo) bool {
+	return wt != nil && (wt.Dirty || wt.Untracked > 0 || wt.Modified > 0 || wt.Staged > 0)
 }
 
 func sourceDescription(source string) string {
@@ -521,16 +569,26 @@ func sourceDescription(source string) string {
 func formatCleanupResult(result cleanupResult) string {
 	parts := make([]string, 0, 4)
 	var wtLines []string
+	var skippedLines []string
 	if result.worktrees > 0 {
 		parts = append(parts, fmt.Sprintf("%d merged %s removed", result.worktrees, pluralise(result.worktrees, "worktree", "worktrees")))
 		for _, item := range result.items {
-			if item.Kind == CleanupKindWorktree && !item.Failed {
+			if item.Kind == CleanupKindWorktree && !item.Failed && !item.Skipped {
 				name := filepath.Base(item.Path)
 				if name != item.Branch {
 					wtLines = append(wtLines, fmt.Sprintf("  • %s (%s)", name, item.Branch))
 				} else {
 					wtLines = append(wtLines, fmt.Sprintf("  • %s", name))
 				}
+			}
+		}
+	}
+	if result.skipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d merged %s skipped", result.skipped, pluralise(result.skipped, "worktree", "worktrees")))
+		for _, item := range result.items {
+			if item.Skipped {
+				name := filepath.Base(item.Path)
+				skippedLines = append(skippedLines, fmt.Sprintf("  • %s (%s)", name, item.SkipReason))
 			}
 		}
 	}
@@ -547,8 +605,9 @@ func formatCleanupResult(result cleanupResult) string {
 		return "Nothing was cleaned up."
 	}
 	msg := "Cleanup complete: " + strings.Join(parts, ", ") + "."
-	if len(wtLines) > 0 {
-		msg += "\n" + strings.Join(wtLines, "\n")
+	detailLines := slices.Concat(wtLines, skippedLines)
+	if len(detailLines) > 0 {
+		msg += "\n" + strings.Join(detailLines, "\n")
 	}
 	return msg
 }
