@@ -69,6 +69,8 @@ type fakeGitService struct {
 	runCommandCheckedCalls [][]string
 	runCommandQuietOK      bool
 	runCommandQuietCalls   [][]string
+	runGitCombinedOutputs  map[string][]byte
+	runGitCombinedErrors   map[string]error
 }
 
 func (f *fakeGitService) CheckoutPRBranch(_ context.Context, _ int, _, localBranch string) bool {
@@ -196,6 +198,18 @@ func (f *fakeGitService) RunGit(_ context.Context, args []string, _ string, _ []
 		return ""
 	}
 	return f.runGitOutput[filepath.Join(args...)]
+}
+
+func (f *fakeGitService) RunGitWithCombinedOutput(_ context.Context, _ []string, cwd string, _ map[string]string) ([]byte, error) {
+	if f.runGitCombinedErrors != nil {
+		if err, ok := f.runGitCombinedErrors[cwd]; ok {
+			return nil, err
+		}
+	}
+	if f.runGitCombinedOutputs != nil {
+		return f.runGitCombinedOutputs[cwd], nil
+	}
+	return nil, nil
 }
 
 func contains(s, substr string) bool {

@@ -1309,6 +1309,8 @@ func emitCleanupJSON(summary cli.CleanupSummary) error {
 			Branch:        item.Branch,
 			Source:        item.Source,
 			BranchDeleted: item.BranchDeleted,
+			Skipped:       item.Skipped,
+			SkipReason:    item.SkipReason,
 			Failed:        item.Failed,
 			Error:         item.Error,
 		})
@@ -1317,6 +1319,7 @@ func emitCleanupJSON(summary cli.CleanupSummary) error {
 		Worktrees: summary.Worktrees,
 		Branches:  summary.Branches,
 		Orphans:   summary.Orphans,
+		Skipped:   summary.Skipped,
 		Failures:  summary.Failures,
 		Items:     items,
 	}
