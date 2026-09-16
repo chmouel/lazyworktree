@@ -88,26 +88,64 @@ func TestPRReviewersEnabled(t *testing.T) {
 	}
 }
 
+// withGitHubRepo makes the working directory a repository whose origin is on
+// GitHub. Without it the forge check fails and every gating case below returns
+// nil for that reason alone, which would let a permanently shut gate pass.
+func withGitHubRepo(t *testing.T) {
+	t.Helper()
+	repo := t.TempDir()
+	runGit(t, repo, "init")
+	runGit(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
+	withCwd(t, repo)
+}
+
+// TestMaybeFetchPRReviewersIssuesLookup is the counterpart to the gating cases:
+// it proves the gate actually opens, so those cases are testing their own
+// condition rather than a repository that could never be looked up.
+func TestMaybeFetchPRReviewersIssuesLookup(t *testing.T) {
+	withGitHubRepo(t)
+	wt := reviewerWorktree(t, "feature", 1)
+	m := newReviewerModel(t, &config.AppConfig{}, wt)
+
+	assert.NotNil(t, m.maybeFetchPRReviewers(), "a lookup must be issued for an open PR on GitHub")
+	assert.False(t, m.cache.reviewerCache.ShouldFetch("feature#1", time.Minute, time.Minute),
+		"the key is claimed whilst the lookup runs")
+}
+
 func TestMaybeFetchPRReviewersGating(t *testing.T) {
+	t.Run("nothing is fetched on a forge we cannot query", func(t *testing.T) {
+		repo := t.TempDir()
+		runGit(t, repo, "init")
+		runGit(t, repo, "remote", "add", "origin", "https://gitea.example.com/acme/repo.git")
+		withCwd(t, repo)
+		wt := reviewerWorktree(t, "feature", 1)
+		m := newReviewerModel(t, &config.AppConfig{}, wt)
+		assert.Nil(t, m.maybeFetchPRReviewers())
+	})
+
 	t.Run("nothing is fetched when the option is off", func(t *testing.T) {
+		withGitHubRepo(t)
 		wt := reviewerWorktree(t, "feature", 1)
 		m := newReviewerModel(t, &config.AppConfig{PRReviewers: "never"}, wt)
 		assert.Nil(t, m.maybeFetchPRReviewers())
 	})
 
 	t.Run("nothing is fetched when PRs are disabled", func(t *testing.T) {
+		withGitHubRepo(t)
 		wt := reviewerWorktree(t, "feature", 1)
 		m := newReviewerModel(t, &config.AppConfig{DisablePR: true}, wt)
 		assert.Nil(t, m.maybeFetchPRReviewers())
 	})
 
 	t.Run("nothing is fetched without a change request", func(t *testing.T) {
+		withGitHubRepo(t)
 		wt := &models.WorktreeInfo{Path: t.TempDir(), Branch: "feature"}
 		m := newReviewerModel(t, &config.AppConfig{}, wt)
 		assert.Nil(t, m.maybeFetchPRReviewers())
 	})
 
 	t.Run("nothing is fetched when the PR section is hidden", func(t *testing.T) {
+		withGitHubRepo(t)
 		wt := reviewerWorktree(t, "main", 1)
 		wt.IsMain = true
 		wt.PR.State = prStateMerged
@@ -116,6 +154,7 @@ func TestMaybeFetchPRReviewersGating(t *testing.T) {
 	})
 
 	t.Run("nothing is fetched while a lookup is in flight", func(t *testing.T) {
+		withGitHubRepo(t)
 		wt := reviewerWorktree(t, "feature", 1)
 		m := newReviewerModel(t, &config.AppConfig{}, wt)
 		_, ok := m.cache.reviewerCache.MarkFetching("feature#1")
@@ -124,6 +163,7 @@ func TestMaybeFetchPRReviewersGating(t *testing.T) {
 	})
 
 	t.Run("nothing is fetched when the cached result is fresh", func(t *testing.T) {
+		withGitHubRepo(t)
 		wt := reviewerWorktree(t, "feature", 1)
 		m := newReviewerModel(t, &config.AppConfig{}, wt)
 		cacheReviewers(m, "feature#1", &models.PRReviewerSummary{Total: 1})
@@ -131,6 +171,7 @@ func TestMaybeFetchPRReviewersGating(t *testing.T) {
 	})
 
 	t.Run("nothing is fetched during the backoff after a failure", func(t *testing.T) {
+		withGitHubRepo(t)
 		wt := reviewerWorktree(t, "feature", 1)
 		m := newReviewerModel(t, &config.AppConfig{}, wt)
 		token, _ := m.cache.reviewerCache.MarkFetching("feature#1")
