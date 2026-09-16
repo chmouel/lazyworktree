@@ -313,6 +313,7 @@ func (m *Model) fetchPRDataWithState() tea.Cmd {
 		return nil
 	}
 	m.cache.ciCache.Clear()
+	m.invalidateReviewerCache()
 	m.loading.prDataLoaded = false
 	m.updateTable()
 	m.updateTableColumns(m.state.ui.worktreeTable.Width())
@@ -436,7 +437,7 @@ func (m *Model) UpdateTheme(themeName string) {
 
 	// Re-render info content with new theme
 	if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
-		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex], m.infoContentWidth)
 	}
 }
 

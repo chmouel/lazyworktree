@@ -77,8 +77,10 @@ func (m *Model) infoSectionDivider(width int) string {
 	return m.renderStyles.infoDividerStyle.Render(strings.Repeat("─", w))
 }
 
-// buildInfoContent builds the info content string for a worktree.
-func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
+// buildInfoContent builds the info content string for a worktree. It is pure:
+// some callers run it from a background command, so it must not touch the
+// model. The width it should lay out for is passed in by the caller.
+func (m *Model) buildInfoContent(wt *models.WorktreeInfo, contentWidth int) string {
 	if wt == nil {
 		return errNoWorktreeSelected
 	}
@@ -163,6 +165,9 @@ func (m *Model) buildInfoContent(wt *models.WorktreeInfo) string {
 		infoLines = append(infoLines, fmt.Sprintf("  %s ", wt.PR.Title))
 		// // URL styled with cyan for consistency
 		infoLines = append(infoLines, fmt.Sprintf("  %s", wt.PR.URL))
+		if reviewers := m.renderReviewersLine(wt, contentWidth); reviewers != "" {
+			infoLines = append(infoLines, reviewers)
+		}
 	} else if wt.PR == nil && !m.config.DisablePR && wt.HasUpstream {
 		// Skip the PR section entirely when there is nothing actionable to show:
 		// - confirmed no PR exists, or

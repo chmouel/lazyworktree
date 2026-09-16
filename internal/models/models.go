@@ -47,6 +47,32 @@ func (p *PRInfo) EnsureAuthorAvatarURL() {
 	}
 }
 
+// Review states reported for a PR/MR reviewer.
+const (
+	ReviewStateApproved         = "APPROVED"
+	ReviewStateChangesRequested = "CHANGES_REQUESTED"
+	ReviewStateCommented        = "COMMENTED"
+	ReviewStateDismissed        = "DISMISSED"
+)
+
+// PRReviewer captures a reviewer who submitted a review on a PR/MR.
+type PRReviewer struct {
+	Login     string
+	Name      string
+	AvatarURL string
+	IsBot     bool
+	State     string
+}
+
+// PRReviewerSummary pairs the reviewer count reported by the forge with the
+// reviewers whose identity could be resolved. The two differ when a review was
+// submitted by a since-deleted account, or when the forge reports more reviews
+// than the page we requested.
+type PRReviewerSummary struct {
+	Total     int
+	Reviewers []*PRReviewer
+}
+
 // IssueInfo captures the relevant metadata for an issue.
 type IssueInfo struct {
 	Number      int

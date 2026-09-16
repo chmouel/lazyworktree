@@ -73,9 +73,14 @@ theme: dracula
 # Options: "nerd-font-v3", "text"
 icon_set: nerd-font-v3
 
-# Tiny PR/MR author avatar badges in the Info pane.
+# Tiny PR/MR author and reviewer avatar badges in the Info pane.
 # Options: "auto" (Kitty-compatible terminals), "never", "always"
 avatar_badges: auto
+
+# Reviewers who have submitted a review on the selected PR/MR, shown in the
+# Info pane along with their review state.
+# Options: "auto", "never"
+pr_reviewers: auto
 
 # Start with the filter focused and automatically select the first match when you press Enter
 search_auto_select: false

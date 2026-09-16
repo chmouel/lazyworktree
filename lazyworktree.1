@@ -35,7 +35,9 @@ Commit Log Details: Commit pane shows author initials alongside commit subjects
 .IP \(bu 2
 Base Selection: Select a base branch or commit from a list, or enter a reference when creating a worktree
 .IP \(bu 2
-Forge Integration: Fetch and display associated Pull Request (GitHub) or Merge Request (GitLab) status and CI checks with icons from the selected icon set when enabled, including optional author avatar badges on Kitty-compatible terminals
+Forge Integration: Fetch and display associated Pull Request (GitHub) or Merge Request (GitLab) status and CI checks with icons from the selected icon set when enabled, including optional author and reviewer avatar badges on Kitty-compatible terminals
+.IP \(bu 2
+Reviewers: Show how many people have submitted a review on the selected pull or merge request, who they are, and what each of them decided; see \fBpr_reviewers\fR under CONFIGURATION
 .IP \(bu 2
 Create from PR/MR: Establish worktrees directly from open pull or merge requests via the create worktree menu (c)
 .IP \(bu 2
@@ -116,7 +118,7 @@ Override config values from the command line (repeatable).
 .br
 Format: \fB--config=lw.key=value\fR
 .br
-Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_refresh\fR, \fBdisable_pr\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBavatar_badges\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBgit_pager_command_mode\fR, \fBpager\fR, \fBeditor\fR, \fBcommit.auto_generate_command\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBworktree_note_script\fR, \fBworktree_notes_path\fR, \fBworktree_note_type\fR, \fBissue_branch_name_template\fR, \fBpr_branch_name_template\fR, \fBsession_prefix\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
+Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_refresh\fR, \fBdisable_pr\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBavatar_badges\fR, \fBpr_reviewers\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBgit_pager_command_mode\fR, \fBpager\fR, \fBeditor\fR, \fBcommit.auto_generate_command\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBworktree_note_script\fR, \fBworktree_notes_path\fR, \fBworktree_note_type\fR, \fBissue_branch_name_template\fR, \fBpr_branch_name_template\fR, \fBsession_prefix\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
 .br
 Examples: \fB--config=lw.theme=nord\fR, \fB--config=lw.sort_mode=active\fR
 .br
@@ -1297,6 +1299,22 @@ The text set uses plain labels.
 If icons render as placeholder glyphs, set icon_set to text or install a font patched with Nerd Font.
 .br
 Default: "nerd-font-v3"
+.
+.TP
+.B pr_reviewers
+Controls the reviewer line in the Info pane. Options: "auto", "never".
+.br
+With "auto", the Info pane reports how many people have submitted a review on the selected pull or merge request and lists them, each marked as approved, changes requested, or reviewed without a verdict.
+.br
+Reviewers who have been asked but have not yet responded are not counted.
+.br
+Bots carry a bot icon; everyone else carries an avatar where avatar badges are available.
+.br
+With "never", the line is omitted along with the forge request that populates it.
+.br
+Reviewers are fetched for the selected worktree only, from GitHub or GitLab, and the result is reused for a minute.
+.br
+Default: "auto"
 .
 .TP
 .B fuzzy_finder_input

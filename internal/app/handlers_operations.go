@@ -67,6 +67,7 @@ func (m *Model) handleOperationKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, boo
 		cmds := []tea.Cmd{m.refreshWorktrees()}
 		if !m.config.DisablePR && m.state.services.git.IsGitHubOrGitLab(m.ctx) {
 			m.cache.ciCache.Clear()
+			m.invalidateReviewerCache()
 			if cmd := m.refreshCurrentWorktreePR(); cmd != nil {
 				cmds = append(cmds, cmd)
 			}

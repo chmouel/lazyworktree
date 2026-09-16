@@ -81,14 +81,14 @@ func (m *Model) navigateCICheckDown() (tea.Model, tea.Cmd) {
 	}
 	if m.ciCheckIndex >= len(ciChecks) {
 		m.ciCheckIndex = -1
-		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex], m.infoContentWidth)
 	}
 	if m.ciCheckIndex == -1 {
 		m.ciCheckIndex = 0
 	} else if m.ciCheckIndex < len(ciChecks)-1 {
 		m.ciCheckIndex++
 	}
-	m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+	m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex], m.infoContentWidth)
 	return m, nil
 }
 
@@ -100,7 +100,7 @@ func (m *Model) navigateCICheckUp() (tea.Model, tea.Cmd) {
 	}
 	if m.ciCheckIndex >= len(ciChecks) {
 		m.ciCheckIndex = -1
-		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex], m.infoContentWidth)
 	}
 	switch {
 	case m.ciCheckIndex > 0:
@@ -108,6 +108,6 @@ func (m *Model) navigateCICheckUp() (tea.Model, tea.Cmd) {
 	case m.ciCheckIndex == -1:
 		m.ciCheckIndex = len(ciChecks) - 1
 	}
-	m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+	m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex], m.infoContentWidth)
 	return m, nil
 }

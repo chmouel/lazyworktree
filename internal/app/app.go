@@ -88,6 +88,10 @@ type (
 		statusFiles []StatusFile
 		log         []commitLogEntry
 		path        string
+		// infoWidth is the pane width info was laid out for. A response that
+		// arrives after the pane has been resized is rebuilt rather than shown
+		// at the width it was built for.
+		infoWidth int
 	}
 	refreshCompleteMsg      struct{}
 	fetchRemotesCompleteMsg struct{}
@@ -144,6 +148,11 @@ type (
 	}
 	avatarRegisteredMsg struct {
 		url string
+	}
+	prReviewersLoadedMsg struct {
+		token   services.ReviewerToken
+		summary *models.PRReviewerSummary
+		err     error
 	}
 	singlePRLoadedMsg struct {
 		worktreePath string
@@ -350,13 +359,16 @@ type Model struct {
 	theme  *theme.Theme
 
 	// State
-	state                modelState
-	sortMode             int // sortModePath, sortModeLastActive, or sortModeLastSwitched
-	repoKey              string
-	repoKeyOnce          sync.Once
-	repoWebURL           string
-	repoWebURLOnce       sync.Once
-	infoContent          string
+	state          modelState
+	sortMode       int // sortModePath, sortModeLastActive, or sortModeLastSwitched
+	repoKey        string
+	repoKeyOnce    sync.Once
+	repoWebURL     string
+	repoWebURLOnce sync.Once
+	infoContent    string
+	// infoContentWidth records the pane width infoContent was laid out for, so
+	// the pane can be rebuilt when the available width changes.
+	infoContentWidth     int
 	statusContent        string
 	notesContent         string
 	agentSessionsContent string
@@ -370,6 +382,7 @@ type Model struct {
 		divergenceCache map[string]string
 		notifiedErrors  map[string]bool
 		ciCache         services.CICheckCache // branch -> CI checks cache
+		reviewerCache   services.PRReviewerCache
 		detailsCache    map[string]*detailsCacheEntry
 		detailsCacheMu  sync.RWMutex
 	}
@@ -585,6 +598,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	m.cache.divergenceCache = make(map[string]string)
 	m.cache.notifiedErrors = make(map[string]bool)
 	m.cache.ciCache = services.NewCICheckCache()
+	m.cache.reviewerCache = services.NewPRReviewerCache()
 	m.cache.detailsCache = make(map[string]*detailsCacheEntry)
 
 	m.state.ui.worktreeTable = t
@@ -970,7 +984,7 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
-	case prDataLoadedMsg, singlePRLoadedMsg, ciStatusLoadedMsg:
+	case prDataLoadedMsg, singlePRLoadedMsg, ciStatusLoadedMsg, prReviewersLoadedMsg:
 		return m.handlePRMessages(msg)
 
 	case avatarLoadedMsg:
@@ -981,7 +995,11 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case statusUpdatedMsg:
 		if msg.info != "" {
-			m.infoContent = msg.info
+			if msg.infoWidth == m.infoContentWidth {
+				m.infoContent = msg.info
+			} else if wt := m.selectedWorktree(); wt != nil {
+				m.infoContent = m.buildInfoContent(wt, m.infoContentWidth)
+			}
 		}
 		m.setStatusFiles(msg.statusFiles)
 		m.updateWorktreeStatus(msg.path, msg.statusFiles)
@@ -995,8 +1013,12 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.refreshSelectedWorktreeNotesPane()
 		m.refreshSelectedWorktreeAgentSessionsPane()
-		// Trigger CI fetch if worktree has a PR and cache is stale
-		return m, m.maybeFetchCIStatus()
+		// Trigger CI and reviewer fetches if the worktree has a PR and the
+		// cached results are stale.
+		// Avatars are queued here too: a reviewer summary cached whilst another
+		// worktree was selected is fresh on return, so no lookup completes to
+		// queue them.
+		return m, tea.Batch(m.maybeFetchCIStatus(), m.maybeFetchPRReviewers(), m.queuePRAvatarFetches())
 
 	case debouncedDetailsMsg:
 		// Only update if the index matches and is still valid

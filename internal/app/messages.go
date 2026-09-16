@@ -184,7 +184,7 @@ func (m *Model) handleCachedWorktrees(msg cachedWorktreesMsg) (tea.Model, tea.Cm
 	}
 	m.updateTable()
 	if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
-		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex], m.infoContentWidth)
 	}
 	m.refreshSelectedWorktreeAgentSessionsPane()
 	m.statusContent = loadingRefreshWorktrees
@@ -250,6 +250,8 @@ func (m *Model) handlePRMessages(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleSinglePRLoaded(msg)
 	case ciStatusLoadedMsg:
 		return m.handleCIStatusLoaded(msg)
+	case prReviewersLoadedMsg:
+		return m.handlePRReviewersLoaded(msg)
 	default:
 		return m, nil
 	}
@@ -345,7 +347,7 @@ func (m *Model) handleCIStatusLoaded(msg ciStatusLoadedMsg) (tea.Model, tea.Cmd)
 		if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
 			wt := m.state.data.filteredWts[m.state.data.selectedIndex]
 			if wt.Branch == msg.branch {
-				m.infoContent = m.buildInfoContent(wt)
+				m.infoContent = m.buildInfoContent(wt, m.infoContentWidth)
 			}
 		}
 	}
@@ -384,12 +386,12 @@ func (m *Model) handleSinglePRLoaded(msg singlePRLoadedMsg) (tea.Model, tea.Cmd)
 
 	// Refresh info content for currently selected worktree
 	if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
-		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+		m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex], m.infoContentWidth)
 	}
 
 	// Trigger CI fetch for the current worktree, and queue any avatar badge
 	// downloads now that this worktree's PR (and its author avatar URL) exists.
-	return m, tea.Batch(m.maybeFetchCIStatus(), m.queuePRAvatarFetches())
+	return m, tea.Batch(m.maybeFetchCIStatus(), m.maybeFetchPRReviewers(), m.queuePRAvatarFetches())
 }
 
 // handleOpenPRsLoaded handles the result of fetching open PRs.

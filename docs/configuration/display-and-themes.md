@@ -57,10 +57,22 @@ You can also resize the worktree pane at runtime with `h` (shrink) and `l` (grow
 
 If glyphs render incorrectly, use `text` or install a patched Nerd Font.
 
-`avatar_badges: auto` shows tiny PR/MR author avatars in the Info pane only
-when LazyWorktree detects a Kitty-compatible terminal, such as Kitty, WezTerm,
-or Ghostty. Use `never` to keep plain text everywhere, or `always` to force the
-Kitty graphics path for a compatible terminal that is not detected automatically.
+`avatar_badges: auto` shows tiny avatars in the Info pane — for the PR/MR
+author and for each reviewer — only when LazyWorktree detects a
+Kitty-compatible terminal, such as Kitty, WezTerm, or Ghostty. Use `never` to
+keep plain text everywhere, or `always` to force the Kitty graphics path for a
+compatible terminal that is not detected automatically.
+
+## Reviewers
+
+- `pr_reviewers`: `auto` or `never`
+
+`pr_reviewers: auto` adds a reviewer line to the Info pane for the selected
+worktree, listing how many people have submitted a review and who they are.
+Bots are marked with a bot icon, and everyone else is shown with their avatar
+when avatar badges are available. Each name carries the outcome of its review:
+approved, changes requested, or simply commented. Set `never` to omit the line
+and the forge request that populates it.
 
 ## Commit Log Indicators
 

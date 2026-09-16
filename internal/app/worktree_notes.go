@@ -288,7 +288,7 @@ func (m *Model) showSetWorktreeDescription() tea.Cmd {
 		m.setWorktreeDescription(wt.Path, value)
 		m.updateTable()
 		if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
-			m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+			m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex], m.infoContentWidth)
 		}
 		return nil
 	}
@@ -328,7 +328,7 @@ func (m *Model) showSetWorktreeTags() tea.Cmd {
 		m.setWorktreeTags(wt.Path, tags)
 		m.updateTable()
 		if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
-			m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+			m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex], m.infoContentWidth)
 		}
 		return nil
 	}

@@ -144,7 +144,7 @@ func TestBuildInfoContentAvatarBadgeFallbackWhenDisabled(t *testing.T) {
 		},
 	}
 
-	info := m.buildInfoContent(wt)
+	info := m.buildInfoContent(wt, 60)
 
 	assert.Contains(t, stripTerminalSequences(info), "PR #42 by alice")
 	assert.NotContains(t, info, kittyPlaceholderRune)
@@ -172,7 +172,7 @@ func TestBuildInfoContentRendersAvatarBadgeWhenLoaded(t *testing.T) {
 		},
 	}
 
-	info := m.buildInfoContent(wt)
+	info := m.buildInfoContent(wt, 60)
 
 	assert.Contains(t, info, kittyPlaceholderRune)
 	assert.Contains(t, stripTerminalSequences(info), "alice")
@@ -289,7 +289,7 @@ func TestBuildInfoContent_NilWorktree(t *testing.T) {
 	t.Parallel()
 	m := newModelForRenderTest(t)
 
-	result := m.buildInfoContent(nil)
+	result := m.buildInfoContent(nil, 60)
 
 	assert.Equal(t, errNoWorktreeSelected, result)
 }
@@ -302,7 +302,7 @@ func TestBuildInfoContent_BasicWorktree(t *testing.T) {
 		Branch: "feature/test",
 	}
 
-	result := m.buildInfoContent(wt)
+	result := m.buildInfoContent(wt, 60)
 
 	assert.Contains(t, result, "/tmp/wt-basic")
 	assert.Contains(t, result, "feature/test")
@@ -322,7 +322,7 @@ func TestBuildInfoContent_PRDetailsExcludeHeaderStateBadge(t *testing.T) {
 		},
 	}
 
-	result := stripTerminalSequences(m.buildInfoContent(wt))
+	result := stripTerminalSequences(m.buildInfoContent(wt, 60))
 
 	assert.Contains(t, result, "PR #42")
 	assert.Contains(t, result, "Show status badge")
@@ -342,7 +342,7 @@ func TestBuildInfoContent_NoPRHidesPRStateBadge(t *testing.T) {
 		PRFetchStatus: models.PRFetchStatusNoPR,
 	}
 
-	result := stripTerminalSequences(m.buildInfoContent(wt))
+	result := stripTerminalSequences(m.buildInfoContent(wt, 60))
 
 	assert.NotContains(t, result, "PR/MR")
 	assert.NotContains(t, result, " Open ")
@@ -363,7 +363,7 @@ func TestRenderInfoBoxShowsPRStateBadgeInHeader(t *testing.T) {
 	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
 	m.state.data.selectedIndex = 0
 	m.state.ui.worktreeTable.SetCursor(0)
-	m.infoContent = m.buildInfoContent(wt)
+	m.infoContent = m.buildInfoContent(wt, 60)
 
 	result := stripTerminalSequences(m.renderInfoBox(80, 10))
 
@@ -381,7 +381,7 @@ func TestRenderInfoBoxHidesPRStateBadgeWhenNoPRExists(t *testing.T) {
 	m.state.data.filteredWts = []*models.WorktreeInfo{wt}
 	m.state.data.selectedIndex = 0
 	m.state.ui.worktreeTable.SetCursor(0)
-	m.infoContent = m.buildInfoContent(wt)
+	m.infoContent = m.buildInfoContent(wt, 60)
 
 	result := stripTerminalSequences(m.renderInfoBox(80, 10))
 
@@ -401,7 +401,7 @@ func TestBuildInfoContent_UsesInlineCIStatusChip(t *testing.T) {
 		{Name: "build", Status: "completed", Conclusion: "success"},
 	})
 
-	result := stripTerminalSequences(m.buildInfoContent(wt))
+	result := stripTerminalSequences(m.buildInfoContent(wt, 60))
 
 	assert.Contains(t, result, "CI Checks: S Passed")
 	assert.NotContains(t, result, "\ue0b6")

@@ -71,6 +71,7 @@ When a worktree branch has an associated pull or merge request, the status pane 
 - PR/MR title and number
 - The author's username, with a small round avatar badge on Kitty-compatible terminals
 - PR/MR state as a coloured badge (`Open`, `Merged`, or `Closed`)
+- The reviewers who have submitted a review, and what each of them decided
 - CI check results
 - Divergence from upstream
 
@@ -80,6 +81,26 @@ When a worktree branch has an associated pull or merge request, the status pane 
 
 Rows without a linked PR/MR do not show a PR/MR state badge.
 For the primary worktree, details for a linked merged or closed PR/MR, including the state badge, are hidden.
+
+### Reviewers
+
+The Info pane reports how many people have submitted a review on the selected
+PR/MR, followed by the reviewers themselves:
+
+```
+Reviewers: 3   @alice ✓   @bob ✗   copilot ~
+```
+
+A tick marks an approval, a cross marks changes requested, and the remaining
+glyph marks a review that carried no verdict, whether because it only left
+comments or because an earlier approval has since been dismissed or withdrawn.
+Reviewers who have been asked but have not yet responded are not counted. Bots carry a bot icon; everybody else
+carries their avatar where avatar badges are available. Longer lists are
+shortened to fit the pane, with the remainder shown as a trailing `+N`.
+
+Reviewers are fetched for the selected worktree only, from GitHub or GitLab, and
+the result is reused for a minute. Set `pr_reviewers: never` to omit the line
+along with the request that populates it.
 
 ### Creating Worktrees from PRs/MRs
 

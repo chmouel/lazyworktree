@@ -3,6 +3,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -398,6 +399,40 @@ func (s *Service) RunCommandQuiet(ctx context.Context, args []string, cwd string
 
 	s.debugf("ok (quiet): %s", command)
 	return true
+}
+
+// runForgeJSON executes a forge CLI command and returns its standard output.
+// Unlike RunGit, which reports failures as empty output, this surfaces the
+// error so callers can tell "the request failed" apart from "there is nothing
+// to report". Standard error is folded into the returned error rather than the
+// output, keeping the JSON payload clean.
+func (s *Service) runForgeJSON(ctx context.Context, args []string) ([]byte, error) {
+	command := strings.Join(args, " ")
+	s.debugf("run: %s", command)
+
+	cmd, err := s.prepareAllowedCommand(ctx, args, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	output, err := cmd.Output()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			stderr := strings.TrimSpace(string(exitErr.Stderr))
+			if stderr != "" {
+				// gh and glab already prefix their own name, so only add it
+				// when it is missing.
+				if strings.HasPrefix(stderr, args[0]+":") {
+					return nil, errors.New(stderr)
+				}
+				return nil, fmt.Errorf("%s: %s", args[0], stderr)
+			}
+			return nil, fmt.Errorf("%s exited with code %d", args[0], exitErr.ExitCode())
+		}
+		return nil, fmt.Errorf("run %s: %w", args[0], err)
+	}
+	return output, nil
 }
 
 // RunGitWithCombinedOutput executes a git command with environment variables and returns its combined output and error.

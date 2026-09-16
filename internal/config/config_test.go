@@ -117,6 +117,34 @@ func TestParseConfigAvatarBadges(t *testing.T) {
 	}
 }
 
+func TestParseConfigPRReviewers(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   map[string]any
+		want    string
+		wantErr bool
+	}{
+		{name: "unset defaults to auto", input: map[string]any{}, want: "auto"},
+		{name: "auto", input: map[string]any{"pr_reviewers": "auto"}, want: "auto"},
+		{name: "never", input: map[string]any{"pr_reviewers": "never"}, want: "never"},
+		{name: "empty maps to auto", input: map[string]any{"pr_reviewers": ""}, want: "auto"},
+		{name: "case and whitespace are ignored", input: map[string]any{"pr_reviewers": "  Never "}, want: "never"},
+		{name: "invalid", input: map[string]any{"pr_reviewers": "sometimes"}, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := parseConfig(tt.input)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.PRReviewers)
+		})
+	}
+}
+
 func TestParseConfigCIRemote(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -1827,10 +1855,13 @@ func TestApplyCLIOverrides(t *testing.T) {
 		"lw.worktree_note_script=echo note",
 		"lw.worktree_notes_path=/tmp/lazyworktree-notes.json",
 		"lw.pr_branch_name_template=review-{number}-{generated}",
+		"lw.pr_reviewers=never",
 	}
 
 	err := cfg.ApplyCLIOverrides(overrides)
 	require.NoError(t, err)
+
+	assert.Equal(t, "never", cfg.PRReviewers)
 
 	assert.Equal(t, "gruvbox-dark", cfg.Theme)
 	assert.True(t, cfg.AutoFetchPRs)
@@ -2089,4 +2120,16 @@ func TestParseConfigAgentSessions(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, cfg.AgentRefreshDebounceMs)
 	})
+}
+
+// TestApplyCLIOverridesRejectsInvalidPRReviewers keeps a typo from silently
+// turning the reviewer line off.
+func TestApplyCLIOverridesRejectsInvalidPRReviewers(t *testing.T) {
+	cfg := DefaultConfig()
+
+	err := cfg.ApplyCLIOverrides([]string{"lw.pr_reviewers=sometimes"})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "pr_reviewers")
+	assert.Equal(t, "auto", cfg.PRReviewers, "the default survives a rejected override")
 }

@@ -38,7 +38,7 @@ func TestBuildInfoContentPRNumberWithURLUsesPlainText(t *testing.T) {
 		},
 	}
 
-	info := m.buildInfoContent(wt)
+	info := m.buildInfoContent(wt, 60)
 	if !strings.Contains(info, "#2446") {
 		t.Fatalf("expected PR number text, got %q", info)
 	}
@@ -62,7 +62,7 @@ func TestBuildInfoContentPRNumberWithoutURLUsesPlainText(t *testing.T) {
 		},
 	}
 
-	info := m.buildInfoContent(wt)
+	info := m.buildInfoContent(wt, 60)
 	if !strings.Contains(info, "#88") {
 		t.Fatalf("expected plain PR number, got %q", info)
 	}
@@ -92,7 +92,7 @@ func TestBuildInfoContentMainBranchWithoutPRHidesFetchHint(t *testing.T) {
 	}
 	m.state.data.worktrees = []*models.WorktreeInfo{mainWt}
 
-	info := m.buildInfoContent(mainWt)
+	info := m.buildInfoContent(mainWt, 60)
 	if strings.Contains(info, "Press 'r' to refresh and fetch PR data") {
 		t.Fatalf("did not expect fetch hint on main branch, got %q", info)
 	}
@@ -124,7 +124,7 @@ func TestBuildInfoContentFeatureBranchShowsFetchHint(t *testing.T) {
 	}
 	m.state.data.worktrees = []*models.WorktreeInfo{mainWt, featureWt}
 
-	info := m.buildInfoContent(featureWt)
+	info := m.buildInfoContent(featureWt, 60)
 	if !strings.Contains(info, "Press 'p' to fetch PR data") {
 		t.Fatalf("expected fetch hint for feature branch, got %q", info)
 	}
@@ -144,7 +144,7 @@ func TestBuildInfoContentNoUpstreamHidesPRSection(t *testing.T) {
 	}
 	m.state.data.worktrees = []*models.WorktreeInfo{wt}
 
-	info := m.buildInfoContent(wt)
+	info := m.buildInfoContent(wt, 60)
 	if strings.Contains(info, "PR:") {
 		t.Fatalf("did not expect PR section for branch without upstream, got %q", info)
 	}
@@ -167,7 +167,7 @@ func TestBuildInfoContentShowsWorktreeTagsWhenPresent(t *testing.T) {
 		Tags:        []string{" bug ", "frontend"},
 	}
 
-	info := stripTerminalSequences(m.buildInfoContent(wt))
+	info := stripTerminalSequences(m.buildInfoContent(wt, 60))
 	if !strings.Contains(info, "Description:") || !strings.Contains(info, "Tagged worktree") {
 		t.Fatalf("expected description in info pane, got %q", info)
 	}
@@ -192,7 +192,7 @@ func TestBuildInfoContentHidesWorktreeTagsWhenEmpty(t *testing.T) {
 		Tags: []string{" ", "\t"},
 	}
 
-	info := stripTerminalSequences(m.buildInfoContent(wt))
+	info := stripTerminalSequences(m.buildInfoContent(wt, 60))
 	if strings.Contains(info, "Tags:") {
 		t.Fatalf("did not expect empty tags row in info pane, got %q", info)
 	}

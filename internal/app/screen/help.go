@@ -69,7 +69,8 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands config.CustomCommands
 - n / p: Navigate CI checks (when visible)
 - Enter: Open selected CI check URL in browser
 - PR number in the info panel is clickable in terminals that support OSC-8 hyperlinks
-- PR/MR author avatars can appear in the info panel on Kitty-compatible terminals when avatar_badges is enabled
+- PR/MR author and reviewer avatars can appear in the info panel on Kitty-compatible terminals when avatar_badges is enabled
+- Reviewers who have submitted a review on the PR/MR are listed with their decision, unless pr_reviewers is set to never
 - Ctrl+v: View selected CI check logs in pager (when CI check is selected)
 
 **Notes Pane (pane 5, visible when worktree has a note)**

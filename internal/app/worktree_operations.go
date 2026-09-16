@@ -706,6 +706,7 @@ func (m *Model) showPruneMerged() tea.Cmd {
 
 	m.loading.checkMergedAfterPR = true
 	m.cache.ciCache.Clear()
+	m.invalidateReviewerCache()
 	m.loading.prDataLoaded = false
 	m.updateTable()
 	m.updateTableColumns(m.state.ui.worktreeTable.Width())
