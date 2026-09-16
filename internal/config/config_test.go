@@ -117,6 +117,34 @@ func TestParseConfigAvatarBadges(t *testing.T) {
 	}
 }
 
+func TestParseConfigPRReviewers(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   map[string]any
+		want    string
+		wantErr bool
+	}{
+		{name: "unset defaults to auto", input: map[string]any{}, want: "auto"},
+		{name: "auto", input: map[string]any{"pr_reviewers": "auto"}, want: "auto"},
+		{name: "never", input: map[string]any{"pr_reviewers": "never"}, want: "never"},
+		{name: "empty maps to auto", input: map[string]any{"pr_reviewers": ""}, want: "auto"},
+		{name: "case and whitespace are ignored", input: map[string]any{"pr_reviewers": "  Never "}, want: "never"},
+		{name: "invalid", input: map[string]any{"pr_reviewers": "sometimes"}, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := parseConfig(tt.input)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.PRReviewers)
+		})
+	}
+}
+
 func TestParseConfigCIRemote(t *testing.T) {
 	tests := []struct {
 		name  string

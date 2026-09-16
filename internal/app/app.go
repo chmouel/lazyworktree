@@ -145,6 +145,11 @@ type (
 	avatarRegisteredMsg struct {
 		url string
 	}
+	prReviewersLoadedMsg struct {
+		token   services.ReviewerToken
+		summary *models.PRReviewerSummary
+		err     error
+	}
 	singlePRLoadedMsg struct {
 		worktreePath string
 		pr           *models.PRInfo
@@ -350,13 +355,16 @@ type Model struct {
 	theme  *theme.Theme
 
 	// State
-	state                modelState
-	sortMode             int // sortModePath, sortModeLastActive, or sortModeLastSwitched
-	repoKey              string
-	repoKeyOnce          sync.Once
-	repoWebURL           string
-	repoWebURLOnce       sync.Once
-	infoContent          string
+	state          modelState
+	sortMode       int // sortModePath, sortModeLastActive, or sortModeLastSwitched
+	repoKey        string
+	repoKeyOnce    sync.Once
+	repoWebURL     string
+	repoWebURLOnce sync.Once
+	infoContent    string
+	// infoContentWidth records the pane width infoContent was laid out for, so
+	// the pane can be rebuilt when the available width changes.
+	infoContentWidth     int
 	statusContent        string
 	notesContent         string
 	agentSessionsContent string
@@ -370,6 +378,7 @@ type Model struct {
 		divergenceCache map[string]string
 		notifiedErrors  map[string]bool
 		ciCache         services.CICheckCache // branch -> CI checks cache
+		reviewerCache   services.PRReviewerCache
 		detailsCache    map[string]*detailsCacheEntry
 		detailsCacheMu  sync.RWMutex
 	}
@@ -585,6 +594,7 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	m.cache.divergenceCache = make(map[string]string)
 	m.cache.notifiedErrors = make(map[string]bool)
 	m.cache.ciCache = services.NewCICheckCache()
+	m.cache.reviewerCache = services.NewPRReviewerCache()
 	m.cache.detailsCache = make(map[string]*detailsCacheEntry)
 
 	m.state.ui.worktreeTable = t
@@ -995,8 +1005,9 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.refreshSelectedWorktreeNotesPane()
 		m.refreshSelectedWorktreeAgentSessionsPane()
-		// Trigger CI fetch if worktree has a PR and cache is stale
-		return m, m.maybeFetchCIStatus()
+		// Trigger CI and reviewer fetches if the worktree has a PR and the
+		// cached results are stale.
+		return m, tea.Batch(m.maybeFetchCIStatus(), m.maybeFetchPRReviewers())
 
 	case debouncedDetailsMsg:
 		// Only update if the index matches and is still valid

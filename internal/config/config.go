@@ -63,6 +63,7 @@ type AppConfig struct {
 	FuzzyFinderInput        bool   // Enable fuzzy finder for input suggestions (default: false)
 	IconSet                 string // Icon set: "nerd-font-v3", "text" (default: "nerd-font-v3"). Legacy "emoji" and "none" map to "text".
 	AvatarBadges            string // PR/MR author avatar badges: "auto", "never", or "always" (default: "auto").
+	PRReviewers             string // PR/MR reviewers in the Info pane: "auto" or "never" (default: "auto").
 	IssueBranchNameTemplate string // Template for issue branch names with placeholders: {number}, {title} (default: "issue-{number}-{title}")
 	PRBranchNameTemplate    string // Template for PR branch names with placeholders: {number}, {title}, {generated}, {pr_author} (default: "pr-{number}-{title}")
 	SessionPrefix           string // Prefix for tmux/zellij session names (default: "wt-")
@@ -116,6 +117,7 @@ func DefaultConfig() *AppConfig {
 		PaletteMRULimit:         5,
 		IconSet:                 "nerd-font-v3",
 		AvatarBadges:            "auto",
+		PRReviewers:             "auto",
 		AgentRefreshDebounceMs:  600,
 		CustomThemes:            make(map[string]*CustomTheme),
 		Keybindings:             make(KeybindingsConfig),
@@ -281,6 +283,18 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 			cfg.AvatarBadges = avatarBadges
 		default:
 			return nil, fmt.Errorf("invalid avatar_badges %q (available: auto, never, always)", avatarBadges)
+		}
+	}
+
+	if prReviewers, ok := data["pr_reviewers"].(string); ok {
+		prReviewers = strings.ToLower(strings.TrimSpace(prReviewers))
+		switch prReviewers {
+		case "", "auto":
+			cfg.PRReviewers = "auto"
+		case "never":
+			cfg.PRReviewers = prReviewers
+		default:
+			return nil, fmt.Errorf("invalid pr_reviewers %q (available: auto, never)", prReviewers)
 		}
 	}
 
@@ -687,6 +701,9 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	}
 	if _, ok := overrideData["avatar_badges"]; ok {
 		cfg.AvatarBadges = overrideCfg.AvatarBadges
+	}
+	if _, ok := overrideData["pr_reviewers"]; ok {
+		cfg.PRReviewers = overrideCfg.PRReviewers
 	}
 	if _, ok := overrideData["palette_mru"]; ok {
 		cfg.PaletteMRU = overrideCfg.PaletteMRU

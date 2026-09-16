@@ -44,6 +44,7 @@ refresh_interval: 10  # Seconds
 disable_pr: false     # Disable all PR/MR fetching and display (default: false)
 icon_set: nerd-font-v3
 avatar_badges: auto   # PR/MR author avatar badges: auto, never, or always
+pr_reviewers: auto    # PR/MR reviewers in the Info pane: auto or never
 search_auto_select: false
 fuzzy_finder_input: false
 palette_mru: true         # Enable MRU (Most Recently Used) sorting for command palette
@@ -151,6 +152,7 @@ git config --local --get-regexp "^lw\."
 - `refresh_interval`: refresh frequency in seconds (default: 10).
 - `icon_set`: choose icon set (`nerd-font-v3`, `text`).
 - `avatar_badges`: show PR/MR author avatar badges in the Info pane on Kitty-compatible terminals (`auto`, `never`, `always`).
+- `pr_reviewers`: show the reviewers of the selected PR/MR, and their review state, in the Info pane (`auto`, `never`).
 - `max_untracked_diffs`, `max_diff_chars`: limits for diff display (0 disables).
 - `max_name_length`: maximum display length for worktree names (default: 95, 0 disables truncation).
 

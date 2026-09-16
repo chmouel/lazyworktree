@@ -71,24 +71,48 @@ func (m *Model) queuePRAvatarFetches() tea.Cmd {
 		return nil
 	}
 	cmds := make([]tea.Cmd, 0)
-	for _, wt := range m.state.data.worktrees {
-		if wt == nil || wt.PR == nil {
-			continue
-		}
-		url := strings.TrimSpace(wt.PR.AuthorAvatarURL)
+	queue := func(rawURL string) {
+		url := strings.TrimSpace(rawURL)
 		if url == "" {
-			continue
+			return
 		}
 		if m.avatarStates == nil {
 			m.avatarStates = make(map[string]*avatarRuntimeState)
 		}
 		if state, ok := m.avatarStates[url]; ok && state.status != "" {
-			continue
+			return
 		}
 		m.avatarStates[url] = &avatarRuntimeState{status: avatarStateFetching}
 		cmds = append(cmds, m.fetchAvatarCmd(url))
 	}
+	for _, wt := range m.state.data.worktrees {
+		if wt == nil || wt.PR == nil {
+			continue
+		}
+		queue(wt.PR.AuthorAvatarURL)
+	}
+	// Reviewers are only fetched for the worktree on screen, so only its
+	// reviewer avatars are worth downloading.
+	for _, url := range m.selectedReviewerAvatarURLs() {
+		queue(url)
+	}
 	return tea.Batch(cmds...)
+}
+
+// selectedReviewerAvatarURLs lists the avatar URLs of the reviewers currently
+// known for the selected worktree.
+func (m *Model) selectedReviewerAvatarURLs() []string {
+	summary := m.reviewersForWorktree(m.selectedWorktree())
+	if summary == nil {
+		return nil
+	}
+	urls := make([]string, 0, len(summary.Reviewers))
+	for _, reviewer := range summary.Reviewers {
+		if reviewer != nil && reviewer.AvatarURL != "" {
+			urls = append(urls, reviewer.AvatarURL)
+		}
+	}
+	return urls
 }
 
 func (m *Model) fetchAvatarCmd(rawURL string) tea.Cmd {
@@ -133,17 +157,40 @@ func (m *Model) handleAvatarRegistered(msg avatarRegisteredMsg) (tea.Model, tea.
 		return m, nil
 	}
 	state.registered = true
-	if wt := m.selectedWorktree(); wt != nil && wt.PR != nil && wt.PR.AuthorAvatarURL == msg.url {
-		m.infoContent = m.buildInfoContent(wt)
+	if wt := m.selectedWorktree(); wt != nil && m.selectedUsesAvatarURL(wt, msg.url) {
+		m.infoContent = m.buildInfoContent(wt, m.infoContentWidth)
 	}
 	return m, nil
 }
 
+// selectedUsesAvatarURL reports whether the Info pane for a worktree shows the
+// given avatar, either as the author or as one of the reviewers.
+func (m *Model) selectedUsesAvatarURL(wt *models.WorktreeInfo, url string) bool {
+	if wt != nil && wt.PR != nil && wt.PR.AuthorAvatarURL == url {
+		return true
+	}
+	for _, reviewerURL := range m.selectedReviewerAvatarURLs() {
+		if reviewerURL == url {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Model) renderAvatarBadge(pr *models.PRInfo) string {
-	if pr == nil || !m.avatarBadgesEnabled() {
+	if pr == nil {
 		return ""
 	}
-	url := strings.TrimSpace(pr.AuthorAvatarURL)
+	return m.renderAvatarBadgeForURL(pr.AuthorAvatarURL)
+}
+
+// renderAvatarBadgeForURL renders the round avatar for an already-downloaded
+// and registered image, or an empty string when there is nothing to show.
+func (m *Model) renderAvatarBadgeForURL(rawURL string) string {
+	if !m.avatarBadgesEnabled() {
+		return ""
+	}
+	url := strings.TrimSpace(rawURL)
 	if url == "" || m.avatarStates == nil {
 		return ""
 	}

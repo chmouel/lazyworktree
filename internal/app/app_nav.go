@@ -366,7 +366,7 @@ func (m *Model) updateDetailsView() tea.Cmd {
 	m.refreshSelectedWorktreeNotesPane()
 	m.refreshSelectedWorktreeAgentSessionsPane()
 	if !m.worktreesLoaded {
-		m.infoContent = m.buildInfoContent(wt)
+		m.infoContent = m.buildInfoContent(wt, m.infoContentWidth)
 		if m.statusContent == "" || m.statusContent == "Loading..." {
 			m.statusContent = loadingRefreshWorktrees
 		}
@@ -374,6 +374,7 @@ func (m *Model) updateDetailsView() tea.Cmd {
 	}
 	// Capture on the UI thread; the returned command runs in a goroutine.
 	allowRevalidate := m.gitWatcherActive()
+	infoWidth := m.infoContentWidth
 	return func() tea.Msg {
 		statusRaw, logRaw, unpushed, unmerged := m.getCachedDetails(wt, allowRevalidate)
 
@@ -400,7 +401,7 @@ func (m *Model) updateDetailsView() tea.Cmd {
 			})
 		}
 		return statusUpdatedMsg{
-			info:        m.buildInfoContent(wt),
+			info:        m.buildInfoContent(wt, infoWidth),
 			statusFiles: parseStatusFiles(statusRaw),
 			log:         logEntries,
 			path:        wt.Path,

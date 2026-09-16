@@ -58,7 +58,7 @@ func (m *Model) showTaskboard() tea.Cmd {
 
 		m.updateTable()
 		if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
-			m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+			m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex], m.infoContentWidth)
 		}
 
 		nextItems, nextRefs := m.buildTaskboardData()
@@ -79,7 +79,7 @@ func (m *Model) showTaskboard() tea.Cmd {
 			m.appendTaskToWorktreeNote(worktreePath, text)
 			m.updateTable()
 			if m.state.data.selectedIndex >= 0 && m.state.data.selectedIndex < len(m.state.data.filteredWts) {
-				m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex])
+				m.infoContent = m.buildInfoContent(m.state.data.filteredWts[m.state.data.selectedIndex], m.infoContentWidth)
 			}
 			nextItems, nextRefs := m.buildTaskboardData()
 			refs = nextRefs

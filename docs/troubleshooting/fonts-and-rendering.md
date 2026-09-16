@@ -65,18 +65,21 @@ Some terminals require additional configuration for true colour:
 - **screen**: true-colour support is limited; consider tmux instead
 - **SSH sessions**: ensure the remote `$TERM` is propagated correctly
 
-## Symptom: PR/MR Author Avatars Do Not Appear
+## Symptom: PR/MR Avatars Do Not Appear
 
 Avatar badges use the Kitty graphics protocol and are deliberately conservative.
-They only appear in the Info pane when PR/MR data includes an author avatar URL
-and `avatar_badges` is enabled. Each badge is rendered as a small, round avatar
+They only appear in the Info pane when PR/MR data includes an avatar URL for the
+author or a reviewer, and `avatar_badges` is enabled. Each badge is rendered as a small, round avatar
 with transparent corners so it blends into the surrounding pane.
 
 ```yaml
 avatar_badges: auto
 ```
 
-Use `avatar_badges: never` to keep plain-text author names everywhere. Use
+Reviewer avatars follow the same rules. A reviewer whose avatar URL the forge
+does not provide, or which is not a plain HTTPS address, is shown by name alone.
+
+Use `avatar_badges: never` to keep plain-text names everywhere. Use
 `avatar_badges: always` only when your terminal supports Kitty graphics but is
 not detected automatically.
 

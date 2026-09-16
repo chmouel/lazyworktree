@@ -652,6 +652,35 @@ func (m *Model) applyLayout(layout layoutDims) {
 	}
 
 	m.state.ui.filterInput.SetWidth(max(20, layout.width-18))
+	m.syncInfoContentWidth(layout)
+}
+
+// infoBoxWidth returns the width the Info box is given for a layout.
+func (m *Model) infoBoxWidth(layout layoutDims) int {
+	if layout.layoutMode == state.LayoutTop && m.state.view.ZoomedPane < 0 {
+		return layout.bottomLeftInnerWidth
+	}
+	return layout.rightInnerWidth
+}
+
+// syncInfoContentWidth rebuilds the Info pane whenever the width it was laid
+// out for changes. Every geometry change routes through applyLayout, so this is
+// the single place that needs to notice.
+func (m *Model) syncInfoContentWidth(layout layoutDims) {
+	width := m.infoContentWidthFor(m.infoBoxWidth(layout))
+	if width == m.infoContentWidth {
+		return
+	}
+	m.infoContentWidth = width
+	if wt := m.selectedWorktree(); wt != nil {
+		m.infoContent = m.buildInfoContent(wt, width)
+	}
+}
+
+// infoContentWidthFor converts an Info box width into the width available to
+// its content, matching how renderInfoBox sizes its viewport.
+func (m *Model) infoContentWidthFor(boxWidth int) int {
+	return max(1, boxWidth-m.baseInnerBoxStyle().GetHorizontalFrameSize())
 }
 
 // updateTableColumns updates the worktree table column widths based on available space.

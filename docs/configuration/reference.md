@@ -9,6 +9,7 @@ This page is generated from `internal/config/config.go`. Run `make docs-sync` af
 | `theme` | `string` | `auto-detect` | UI theme selection. |
 | `icon_set` | `enum(nerd-font-v3\|text)` | `nerd-font-v3` | Icon rendering mode for terminal compatibility. |
 | `avatar_badges` | `enum(auto\|never\|always)` | `auto` | Show tiny PR/MR author avatar badges in the Info pane on Kitty-compatible terminals. |
+| `pr_reviewers` | `enum(auto\|never)` | `auto` | Show the reviewers of the selected PR/MR, and their review state, in the Info pane. |
 | `layout` | `enum(default\|top)` | `default` | Pane layout strategy. |
 | `sort_mode` | `enum(path\|active\|switched)` | `switched` | Primary sort behaviour in the worktree list. |
 | `sort_by_active` | `bool (legacy)` | `none` | Compatibility key for older sort configuration. |
