@@ -191,16 +191,20 @@ func TestHandlePRReviewersLoaded(t *testing.T) {
 	})
 }
 
-func TestClearReviewerCache(t *testing.T) {
+// TestInvalidateReviewerCache covers a refresh: the lookup is due again, but
+// the reviewers already on screen stay there until a better answer arrives.
+func TestInvalidateReviewerCache(t *testing.T) {
 	wt := reviewerWorktree(t, "feature", 1)
 	m := newReviewerModel(t, &config.AppConfig{}, wt)
 	cacheReviewers(m, "feature#1", &models.PRReviewerSummary{Total: 1})
 
-	m.clearReviewerCache()
+	m.invalidateReviewerCache()
 
-	_, found := m.cache.reviewerCache.Get("feature#1")
-	assert.False(t, found)
-	assert.True(t, m.cache.reviewerCache.ShouldFetch("feature#1", time.Minute, time.Minute))
+	summary, found := m.cache.reviewerCache.Get("feature#1")
+	require.True(t, found, "the previous answer is kept")
+	assert.Equal(t, 1, summary.Total)
+	assert.True(t, m.cache.reviewerCache.ShouldFetch("feature#1", time.Minute, time.Minute),
+		"the lookup is due again straight away")
 }
 
 func TestRenderReviewersLine(t *testing.T) {

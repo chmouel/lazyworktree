@@ -431,7 +431,7 @@ func parseConfigKeys(path string) ([]configKeySpec, error) {
 		"search_auto_select":           "Focus filter and auto-select first match.",
 		"fuzzy_finder_input":           "Enable fuzzy helper input in selection dialogues.",
 		"icon_set":                     "Icon rendering mode for terminal compatibility.",
-		"avatar_badges":                "Show tiny PR/MR author avatar badges in the Info pane on Kitty-compatible terminals.",
+		"avatar_badges":                "Show tiny PR/MR author and reviewer avatar badges in the Info pane on Kitty-compatible terminals.",
 		"pr_reviewers":                 "Show the reviewers of the selected PR/MR, and their review state, in the Info pane.",
 		"max_untracked_diffs":          "Limit number of untracked file diffs rendered.",
 		"max_diff_chars":               "Maximum characters read from diff output.",

@@ -239,7 +239,7 @@ func (m *Model) saveCache() {
 func (m *Model) clearAllCaches() tea.Cmd {
 	m.resetDetailsCache()
 	m.cache.ciCache.Clear()
-	m.clearReviewerCache()
+	m.invalidateReviewerCache()
 	m.cache.dataCache = make(map[string]any)
 	_ = services.DeleteCache(m.getRepoKey(), m.getWorktreeDir())
 	return m.refreshWorktrees()

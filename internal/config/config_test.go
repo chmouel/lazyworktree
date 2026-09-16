@@ -1855,10 +1855,13 @@ func TestApplyCLIOverrides(t *testing.T) {
 		"lw.worktree_note_script=echo note",
 		"lw.worktree_notes_path=/tmp/lazyworktree-notes.json",
 		"lw.pr_branch_name_template=review-{number}-{generated}",
+		"lw.pr_reviewers=never",
 	}
 
 	err := cfg.ApplyCLIOverrides(overrides)
 	require.NoError(t, err)
+
+	assert.Equal(t, "never", cfg.PRReviewers)
 
 	assert.Equal(t, "gruvbox-dark", cfg.Theme)
 	assert.True(t, cfg.AutoFetchPRs)
@@ -2117,4 +2120,16 @@ func TestParseConfigAgentSessions(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, cfg.AgentRefreshDebounceMs)
 	})
+}
+
+// TestApplyCLIOverridesRejectsInvalidPRReviewers keeps a typo from silently
+// turning the reviewer line off.
+func TestApplyCLIOverridesRejectsInvalidPRReviewers(t *testing.T) {
+	cfg := DefaultConfig()
+
+	err := cfg.ApplyCLIOverrides([]string{"lw.pr_reviewers=sometimes"})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "pr_reviewers")
+	assert.Equal(t, "auto", cfg.PRReviewers, "the default survives a rejected override")
 }

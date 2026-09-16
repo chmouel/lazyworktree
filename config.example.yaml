@@ -73,7 +73,7 @@ theme: dracula
 # Options: "nerd-font-v3", "text"
 icon_set: nerd-font-v3
 
-# Tiny PR/MR author avatar badges in the Info pane.
+# Tiny PR/MR author and reviewer avatar badges in the Info pane.
 # Options: "auto" (Kitty-compatible terminals), "never", "always"
 avatar_badges: auto
 

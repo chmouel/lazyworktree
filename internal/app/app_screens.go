@@ -313,7 +313,7 @@ func (m *Model) fetchPRDataWithState() tea.Cmd {
 		return nil
 	}
 	m.cache.ciCache.Clear()
-	m.clearReviewerCache()
+	m.invalidateReviewerCache()
 	m.loading.prDataLoaded = false
 	m.updateTable()
 	m.updateTableColumns(m.state.ui.worktreeTable.Width())

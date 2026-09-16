@@ -78,6 +78,9 @@ avatar_badges: auto
 
 Reviewer avatars follow the same rules. A reviewer whose avatar URL the forge
 does not provide, or which is not a plain HTTPS address, is shown by name alone.
+Self-managed GitLab is the one exception: it reports avatars as paths relative
+to the instance itself, which are read against the merge request's own HTTPS
+address.
 
 Use `avatar_badges: never` to keep plain-text names everywhere. Use
 `avatar_badges: always` only when your terminal supports Kitty graphics but is

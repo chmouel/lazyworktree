@@ -45,11 +45,14 @@ type PRReviewerCache interface {
 
 	// Complete finishes the lookup a token was issued for, releasing the claim
 	// and recording the outcome. It does nothing when the token no longer owns
-	// the key, or when the cache has been cleared since the token was issued.
+	// the key, or when the cache has been invalidated since the token was
+	// issued.
 	Complete(token ReviewerToken, summary *models.PRReviewerSummary, err error)
 
-	// Clear discards every entry and invalidates outstanding tokens.
-	Clear()
+	// Invalidate makes every entry due for a fresh lookup and drops the results
+	// of anything still in flight. Summaries already fetched are kept, so a
+	// refresh that fails still has last known good reviewers to show.
+	Invalidate()
 }
 
 type reviewerCacheEntry struct {
@@ -161,11 +164,16 @@ func (c *prReviewerCache) Complete(token ReviewerToken, summary *models.PRReview
 	entry.lastFailedAt = time.Time{}
 }
 
-func (c *prReviewerCache) Clear() {
+func (c *prReviewerCache) Invalidate() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.entries = make(map[string]*reviewerCacheEntry)
+	// Entries are kept but aged out, so the next lookup runs immediately whilst
+	// the previous answer remains on screen until a better one arrives.
+	for _, entry := range c.entries {
+		entry.fetchedAt = time.Time{}
+		entry.lastFailedAt = time.Time{}
+	}
 	c.inFlight = make(map[string]uint64)
 	c.generation++
 }

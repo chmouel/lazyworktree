@@ -59,11 +59,12 @@ func (m *Model) reviewersForWorktree(wt *models.WorktreeInfo) *models.PRReviewer
 	return summary
 }
 
-// clearReviewerCache drops every cached reviewer lookup and invalidates any
-// request still in flight.
-func (m *Model) clearReviewerCache() {
+// invalidateReviewerCache makes every cached reviewer lookup due again and
+// drops the results of anything still in flight, whilst keeping what was
+// already fetched on screen until a fresh answer replaces it.
+func (m *Model) invalidateReviewerCache() {
 	if m.cache.reviewerCache != nil {
-		m.cache.reviewerCache.Clear()
+		m.cache.reviewerCache.Invalidate()
 	}
 }
 

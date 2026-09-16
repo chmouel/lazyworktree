@@ -143,7 +143,7 @@ func TestPRReviewerCacheTokens(t *testing.T) {
 		cache := NewPRReviewerCache()
 		first, _ := cache.MarkFetching("main#1")
 
-		cache.Clear()
+		cache.Invalidate()
 
 		second, ok := cache.MarkFetching("main#1")
 		require.True(t, ok)
@@ -158,17 +158,35 @@ func TestPRReviewerCacheTokens(t *testing.T) {
 		assert.Equal(t, 4, summary.Total)
 	})
 
-	t.Run("clearing drops entries and lets the next lookup start", func(t *testing.T) {
+	t.Run("invalidating keeps the answer but makes the lookup due", func(t *testing.T) {
 		t.Parallel()
 		cache := NewPRReviewerCache()
 		token, _ := cache.MarkFetching("main#1")
 		cache.Complete(token, &models.PRReviewerSummary{Total: 1}, nil)
 
-		cache.Clear()
+		cache.Invalidate()
 
-		_, found := cache.Get("main#1")
-		assert.False(t, found)
+		summary, found := cache.Get("main#1")
+		require.True(t, found, "a refresh must not blank the pane whilst it runs")
+		assert.Equal(t, 1, summary.Total)
 		assert.True(t, cache.ShouldFetch("main#1", time.Minute, time.Minute))
+	})
+
+	t.Run("a refresh that fails falls back on the previous answer", func(t *testing.T) {
+		t.Parallel()
+		cache := NewPRReviewerCache()
+		token, _ := cache.MarkFetching("main#1")
+		cache.Complete(token, &models.PRReviewerSummary{Total: 2}, nil)
+
+		cache.Invalidate()
+
+		retry, ok := cache.MarkFetching("main#1")
+		require.True(t, ok)
+		cache.Complete(retry, nil, errors.New("forge unreachable"))
+
+		summary, found := cache.Get("main#1")
+		require.True(t, found, "the reviewers stay on screen when the refresh fails")
+		assert.Equal(t, 2, summary.Total)
 	})
 
 	t.Run("keys are independent", func(t *testing.T) {
