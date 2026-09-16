@@ -182,3 +182,34 @@ func TestResolveRepoName(t *testing.T) {
 		assert.Equal(t, localRepoKey(top), service.ResolveRepoName(context.Background()))
 	})
 }
+
+// TestResolveCITargetHost covers a repository whose CI and PR lookups follow a
+// remote other than origin: the forge must be read from that same remote, since
+// the repository name already is.
+func TestResolveCITargetHost(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("the forge follows the remote the repository name comes from", func(t *testing.T) {
+		repo := t.TempDir()
+		runGit(t, repo, "init")
+		runGit(t, repo, "remote", "add", "origin", "ssh://example.com/mirror.git")
+		runGit(t, repo, "remote", "add", "upstream", "https://github.com/canonical/repo.git")
+		withCwd(t, repo)
+
+		service := NewService(func(string, string) {}, func(string, string, string) {})
+		assert.Equal(t, "canonical/repo", service.ResolveCITargetRepoName(ctx))
+		assert.Equal(t, gitHostGithub, service.ResolveCITargetHost(ctx))
+		assert.True(t, service.IsCITargetGitHubOrGitLab(ctx))
+	})
+
+	t.Run("an unrecognised forge is reported as such", func(t *testing.T) {
+		repo := t.TempDir()
+		runGit(t, repo, "init")
+		runGit(t, repo, "remote", "add", "origin", "https://gitea.example.com/owner/repo.git")
+		withCwd(t, repo)
+
+		service := NewService(func(string, string) {}, func(string, string, string) {})
+		assert.Equal(t, gitHostUnknown, service.ResolveCITargetHost(ctx))
+		assert.False(t, service.IsCITargetGitHubOrGitLab(ctx))
+	})
+}

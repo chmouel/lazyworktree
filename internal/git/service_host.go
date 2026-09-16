@@ -17,23 +17,48 @@ func (s *Service) DetectHost(ctx context.Context) string {
 		if s.gitHost != "" {
 			return
 		}
-		s.gitHost = gitHostUnknown
-		remoteURL := s.getOriginRemoteURL(ctx)
-		if remoteURL != "" {
-			re := regexp.MustCompile(`(?:git@|https?://|ssh://|git://)(?:[^@]+@)?([^/:]+)`)
-			matches := re.FindStringSubmatch(remoteURL)
-			if len(matches) > 1 {
-				hostname := strings.ToLower(matches[1])
-				if strings.Contains(hostname, gitHostGitLab) {
-					s.gitHost = gitHostGitLab
-				}
-				if strings.Contains(hostname, gitHostGithub) {
-					s.gitHost = gitHostGithub
-				}
-			}
-		}
+		s.gitHost = hostFromRemoteURL(s.getOriginRemoteURL(ctx))
 	})
 	return s.gitHost
+}
+
+var remoteHostPattern = regexp.MustCompile(`(?:git@|https?://|ssh://|git://)(?:[^@]+@)?([^/:]+)`)
+
+// hostFromRemoteURL identifies the forge a remote URL points at.
+func hostFromRemoteURL(remoteURL string) string {
+	if remoteURL == "" {
+		return gitHostUnknown
+	}
+	matches := remoteHostPattern.FindStringSubmatch(remoteURL)
+	if len(matches) <= 1 {
+		return gitHostUnknown
+	}
+	hostname := strings.ToLower(matches[1])
+	switch {
+	case strings.Contains(hostname, gitHostGithub):
+		return gitHostGithub
+	case strings.Contains(hostname, gitHostGitLab):
+		return gitHostGitLab
+	default:
+		return gitHostUnknown
+	}
+}
+
+// IsCITargetGitHubOrGitLab reports whether the remote that CI and PR lookups
+// target is hosted on GitHub or GitLab.
+func (s *Service) IsCITargetGitHubOrGitLab(ctx context.Context) bool {
+	host := s.ResolveCITargetHost(ctx)
+	return host == gitHostGithub || host == gitHostGitLab
+}
+
+// ResolveCITargetHost identifies the forge hosting the remote that CI and PR
+// lookups target. It can differ from DetectHost, which always reports origin,
+// when the configured or preferred remote lives on another forge.
+func (s *Service) ResolveCITargetHost(ctx context.Context) string {
+	if host := hostFromRemoteURL(s.getRemoteURL(ctx)); host != gitHostUnknown {
+		return host
+	}
+	return s.DetectHost(ctx)
 }
 
 // IsGitHubOrGitLab returns true if the repository is connected to GitHub or GitLab.

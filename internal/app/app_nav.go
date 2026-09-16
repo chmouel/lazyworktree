@@ -402,6 +402,7 @@ func (m *Model) updateDetailsView() tea.Cmd {
 		}
 		return statusUpdatedMsg{
 			info:        m.buildInfoContent(wt, infoWidth),
+			infoWidth:   infoWidth,
 			statusFiles: parseStatusFiles(statusRaw),
 			log:         logEntries,
 			path:        wt.Path,

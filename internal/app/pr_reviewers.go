@@ -78,7 +78,7 @@ func (m *Model) maybeFetchPRReviewers() tea.Cmd {
 	if !m.prSectionVisible(wt) {
 		return nil
 	}
-	if !m.state.services.git.IsGitHubOrGitLab(m.ctx) {
+	if !m.state.services.git.IsCITargetGitHubOrGitLab(m.ctx) {
 		return nil
 	}
 	key := prReviewerKey(wt)

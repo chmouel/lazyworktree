@@ -35,6 +35,16 @@ func (m *Model) renderReviewersLine(wt *models.WorktreeInfo, contentWidth int) s
 		available = defaultInfoContentWidth
 	}
 
+	// The remainder counts against the forge-reported total, so reviewers the
+	// forge did not name — a deleted account, or one beyond the page we asked
+	// for — are still accounted for rather than quietly dropped.
+	suffixFor := func(shown int) string {
+		if hidden := summary.Total - shown; hidden > 0 {
+			return fmt.Sprintf("  +%d", hidden)
+		}
+		return ""
+	}
+
 	line := label
 	shown := 0
 	for _, reviewer := range summary.Reviewers {
@@ -42,12 +52,8 @@ func (m *Model) renderReviewersLine(wt *models.WorktreeInfo, contentWidth int) s
 			break
 		}
 		entry := "  " + m.renderReviewerEntry(reviewer)
-		remaining := len(summary.Reviewers) - shown - 1
-		// Keep room for the "+N" that will be needed if anybody is left over.
-		reserved := 0
-		if remaining > 0 {
-			reserved = lipgloss.Width(fmt.Sprintf("  +%d", remaining))
-		}
+		// Keep room for the remainder this entry would leave behind.
+		reserved := lipgloss.Width(suffixFor(shown + 1))
 		if lipgloss.Width(line)+lipgloss.Width(entry)+reserved > available {
 			break
 		}
@@ -55,8 +61,10 @@ func (m *Model) renderReviewersLine(wt *models.WorktreeInfo, contentWidth int) s
 		shown++
 	}
 
-	if hidden := len(summary.Reviewers) - shown; hidden > 0 {
-		line += fmt.Sprintf("  +%d", hidden)
+	// A pane too narrow even for the remainder keeps the count on its own,
+	// rather than overflowing the pane.
+	if suffix := suffixFor(shown); suffix != "" && lipgloss.Width(line)+lipgloss.Width(suffix) <= available {
+		line += suffix
 	}
 	return line
 }
@@ -72,7 +80,10 @@ func (m *Model) renderReviewerEntry(reviewer *models.PRReviewer) string {
 	if badge := m.renderAvatarBadgeForURL(reviewer.AvatarURL); badge != "" {
 		b.WriteString(badge)
 		b.WriteString(" ")
-	} else if reviewer.IsBot {
+	}
+	// A bot keeps its marker even once its avatar arrives, so it is never
+	// mistaken for a person.
+	if reviewer.IsBot {
 		b.WriteString(iconPrefix(UIIconBot, m.config.IconsEnabled()))
 	}
 

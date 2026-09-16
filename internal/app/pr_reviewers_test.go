@@ -485,3 +485,152 @@ func TestRenderReviewStateGlyph(t *testing.T) {
 	assert.Empty(t, nerd.renderReviewStateGlyph("SOMETHING_ELSE"))
 	assert.Empty(t, nerd.renderReviewStateGlyph(""))
 }
+
+// TestUpdateDispatchesPRReviewersLoaded guards the wiring rather than the
+// handler: an earlier version handled the message correctly but never received
+// it, because the message type was missing from the top-level switch.
+func TestUpdateDispatchesPRReviewersLoaded(t *testing.T) {
+	t.Run("a successful lookup reaches the Info pane", func(t *testing.T) {
+		wt := reviewerWorktree(t, "feature", 7)
+		m := newReviewerModel(t, &config.AppConfig{IconSet: "text"}, wt)
+		m.infoContentWidth = 120
+		m.infoContent = "stale"
+		token, ok := m.cache.reviewerCache.MarkFetching("feature#7")
+		require.True(t, ok)
+
+		updated, _ := m.Update(prReviewersLoadedMsg{
+			token: token,
+			summary: &models.PRReviewerSummary{
+				Total:     1,
+				Reviewers: []*models.PRReviewer{{Login: "alice", State: models.ReviewStateApproved}},
+			},
+		})
+
+		content := stripTerminalSequences(updated.(*Model).infoContent)
+		assert.Contains(t, content, "Reviewers:")
+		assert.Contains(t, content, "@alice")
+
+		summary, cached := m.cache.reviewerCache.Get("feature#7")
+		require.True(t, cached, "the result must be cached")
+		assert.Equal(t, 1, summary.Total)
+	})
+
+	t.Run("a failed lookup releases its claim", func(t *testing.T) {
+		wt := reviewerWorktree(t, "feature", 7)
+		m := newReviewerModel(t, &config.AppConfig{IconSet: "text"}, wt)
+		token, ok := m.cache.reviewerCache.MarkFetching("feature#7")
+		require.True(t, ok)
+
+		m.Update(prReviewersLoadedMsg{token: token, err: errors.New("no credentials")})
+
+		next, ok := m.cache.reviewerCache.MarkFetching("feature#7")
+		assert.True(t, ok, "the key must not stay wedged as still fetching")
+		m.cache.reviewerCache.Complete(next, nil, nil)
+	})
+}
+
+func TestRenderReviewersLineRemainder(t *testing.T) {
+	newModel := func(t *testing.T, wt *models.WorktreeInfo) *Model {
+		t.Helper()
+		return newReviewerModel(t, &config.AppConfig{IconSet: "text"}, wt)
+	}
+
+	t.Run("the remainder counts reviewers the forge did not name", func(t *testing.T) {
+		wt := reviewerWorktree(t, "feature", 1)
+		m := newModel(t, wt)
+		// Nine reviews submitted, one identity resolved: the eight unnamed
+		// reviewers must still be reported.
+		cacheReviewers(m, "feature#1", &models.PRReviewerSummary{
+			Total:     9,
+			Reviewers: []*models.PRReviewer{{Login: "alice", State: models.ReviewStateApproved}},
+		})
+
+		line := stripTerminalSequences(m.renderReviewersLine(wt, 120))
+
+		assert.Contains(t, line, "Reviewers: 9")
+		assert.Contains(t, line, "@alice")
+		assert.Contains(t, line, "+8")
+	})
+
+	t.Run("the remainder is dropped rather than overflowing a narrow pane", func(t *testing.T) {
+		wt := reviewerWorktree(t, "feature", 1)
+		m := newModel(t, wt)
+		reviewers := make([]*models.PRReviewer, 0, 8)
+		for _, login := range []string{"alice", "bob", "carol", "dave", "erin", "frank", "grace", "heidi"} {
+			reviewers = append(reviewers, &models.PRReviewer{Login: login, State: models.ReviewStateApproved})
+		}
+		cacheReviewers(m, "feature#1", &models.PRReviewerSummary{Total: 8, Reviewers: reviewers})
+
+		for width := 14; width <= 80; width++ {
+			line := m.renderReviewersLine(wt, width)
+			assert.LessOrEqualf(t, lipgloss.Width(line), width, "line overflows at width %d: %q", width, line)
+		}
+	})
+
+	t.Run("a pane too narrow for anybody still reports the count", func(t *testing.T) {
+		wt := reviewerWorktree(t, "feature", 1)
+		m := newModel(t, wt)
+		cacheReviewers(m, "feature#1", &models.PRReviewerSummary{
+			Total:     3,
+			Reviewers: []*models.PRReviewer{{Login: "alice", State: models.ReviewStateApproved}},
+		})
+
+		line := stripTerminalSequences(m.renderReviewersLine(wt, 16))
+
+		assert.Contains(t, line, "Reviewers: 3")
+		assert.NotContains(t, line, "@alice")
+	})
+}
+
+// TestRenderReviewerEntryBotKeepsMarker mirrors the author treatment: an avatar
+// tells you who reviewed, the marker tells you it was not a person.
+func TestRenderReviewerEntryBotKeepsMarker(t *testing.T) {
+	wt := reviewerWorktree(t, "feature", 1)
+	m := newReviewerModel(t, &config.AppConfig{AvatarBadges: "always", IconSet: "text"}, wt)
+	avatarURL := "https://example.com/copilot.png"
+	m.avatarStates[avatarURL] = &avatarRuntimeState{
+		status:     avatarStateLoaded,
+		registered: true,
+		image:      &services.AvatarImage{URL: avatarURL, Key: "copilot", PNG: []byte("png")},
+	}
+
+	entry := m.renderReviewerEntry(&models.PRReviewer{
+		Login:     "copilot",
+		AvatarURL: avatarURL,
+		IsBot:     true,
+		State:     models.ReviewStateCommented,
+	})
+
+	assert.Contains(t, entry, kittyPlaceholderRune, "the avatar is drawn")
+	assert.Contains(t, stripTerminalSequences(entry), uiIcon(UIIconBot), "the bot marker is kept alongside it")
+}
+
+// TestStatusUpdateGuardsStaleWidth covers info content laid out in the
+// background for a pane width that has since changed.
+func TestStatusUpdateGuardsStaleWidth(t *testing.T) {
+	t.Run("content built for the current width is used as is", func(t *testing.T) {
+		wt := reviewerWorktree(t, "feature", 1)
+		m := newReviewerModel(t, &config.AppConfig{IconSet: "text"}, wt)
+		m.infoContentWidth = 80
+
+		updated, _ := m.Update(statusUpdatedMsg{info: "built at 80", infoWidth: 80, path: wt.Path})
+
+		assert.Equal(t, "built at 80", updated.(*Model).infoContent)
+	})
+
+	t.Run("content built for another width is rebuilt", func(t *testing.T) {
+		wt := reviewerWorktree(t, "feature", 1)
+		m := newReviewerModel(t, &config.AppConfig{IconSet: "text"}, wt)
+		m.infoContentWidth = 120
+		cacheReviewers(m, "feature#1", &models.PRReviewerSummary{
+			Total:     1,
+			Reviewers: []*models.PRReviewer{{Login: "alice", State: models.ReviewStateApproved}},
+		})
+
+		updated, _ := m.Update(statusUpdatedMsg{info: "built at 40", infoWidth: 40, path: wt.Path})
+
+		content := stripTerminalSequences(updated.(*Model).infoContent)
+		assert.NotEqual(t, "built at 40", content)
+		assert.Contains(t, content, "@alice")
+	})
+}

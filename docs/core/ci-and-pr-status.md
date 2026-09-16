@@ -92,8 +92,9 @@ Reviewers: 3   @alice ✓   @bob ✗   copilot ~
 ```
 
 A tick marks an approval, a cross marks changes requested, and the remaining
-glyph marks a review that only left comments. Reviewers who have been asked but
-have not yet responded are not counted. Bots carry a bot icon; everybody else
+glyph marks a review that carried no verdict, whether because it only left
+comments or because an earlier approval has since been dismissed or withdrawn.
+Reviewers who have been asked but have not yet responded are not counted. Bots carry a bot icon; everybody else
 carries their avatar where avatar badges are available. Longer lists are
 shortened to fit the pane, with the remainder shown as a trailing `+N`.
 

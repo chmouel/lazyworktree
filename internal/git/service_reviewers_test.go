@@ -315,3 +315,46 @@ func TestUsableForgeRepoName(t *testing.T) {
 	assert.False(t, usableForgeRepoName("  "))
 	assert.False(t, usableForgeRepoName("local-abc123"))
 }
+
+// TestParseGitHubReviewersExcludesPending guards the count: a pending review has
+// not been submitted, so it must not inflate the reported number of reviewers.
+func TestParseGitHubReviewersExcludesPending(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`{"data":{"repository":{"pullRequest":{"latestReviews":{
+		"totalCount":3,
+		"nodes":[
+			{"state":"APPROVED","author":{"__typename":"User","login":"alice"}},
+			{"state":"PENDING","author":{"__typename":"User","login":"bob"}},
+			{"state":"COMMENTED","author":{"__typename":"Bot","login":"copilot"}}
+		]}}}}}`)
+
+	summary, err := parseGitHubReviewers(payload)
+	require.NoError(t, err)
+
+	assert.Equal(t, 2, summary.Total, "the pending review is not counted")
+	require.Len(t, summary.Reviewers, 2)
+	assert.Equal(t, "alice", summary.Reviewers[0].Login)
+	assert.Equal(t, "copilot", summary.Reviewers[1].Login)
+}
+
+// TestParseGitHubReviewersCountsUnnamedReviewers covers reviews that were
+// genuinely submitted but whose author we cannot name.
+func TestParseGitHubReviewersCountsUnnamedReviewers(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`{"data":{"repository":{"pullRequest":{"latestReviews":{
+		"totalCount":4,
+		"nodes":[
+			{"state":"APPROVED","author":{"__typename":"User","login":"alice"}},
+			{"state":"PENDING","author":{"__typename":"User","login":"bob"}},
+			{"state":"COMMENTED","author":null}
+		]}}}}}`)
+
+	summary, err := parseGitHubReviewers(payload)
+	require.NoError(t, err)
+
+	assert.Equal(t, 3, summary.Total, "only the pending review is discounted")
+	require.Len(t, summary.Reviewers, 1)
+	assert.Equal(t, "alice", summary.Reviewers[0].Login)
+}

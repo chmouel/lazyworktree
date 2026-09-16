@@ -53,10 +53,12 @@ type PRReviewerCache interface {
 }
 
 type reviewerCacheEntry struct {
-	summary       *models.PRReviewerSummary
-	ok            bool
-	fetchedAt     time.Time
-	lastAttemptAt time.Time
+	summary   *models.PRReviewerSummary
+	ok        bool
+	fetchedAt time.Time
+	// lastFailedAt is zero unless the most recent attempt failed, so a failure
+	// that follows an earlier success still holds off the next attempt.
+	lastFailedAt time.Time
 }
 
 type prReviewerCache struct {
@@ -100,7 +102,7 @@ func (c *prReviewerCache) ShouldFetch(key string, ttl, retryBackoff time.Duratio
 	if entry.ok && time.Since(entry.fetchedAt) < ttl {
 		return false
 	}
-	if !entry.lastAttemptAt.IsZero() && !entry.ok && time.Since(entry.lastAttemptAt) < retryBackoff {
+	if !entry.lastFailedAt.IsZero() && time.Since(entry.lastFailedAt) < retryBackoff {
 		return false
 	}
 	return true
@@ -145,15 +147,18 @@ func (c *prReviewerCache) Complete(token ReviewerToken, summary *models.PRReview
 		entry = &reviewerCacheEntry{}
 		c.entries[token.key] = entry
 	}
-	entry.lastAttemptAt = now
 	if err != nil {
 		// A failed lookup must not erase a result we already have, nor be
-		// mistaken for "this change request has no reviewers".
+		// mistaken for "this change request has no reviewers". Recording when
+		// it failed keeps the retry backoff in force even when the entry still
+		// holds an earlier success.
+		entry.lastFailedAt = now
 		return
 	}
 	entry.summary = summary
 	entry.ok = true
 	entry.fetchedAt = now
+	entry.lastFailedAt = time.Time{}
 }
 
 func (c *prReviewerCache) Clear() {

@@ -55,7 +55,10 @@ func (s *Service) FetchPRReviewers(ctx context.Context, prNumber int) (*models.P
 		return nil, nil
 	}
 
-	switch s.DetectHost(ctx) {
+	// The host is taken from the remote the repository name is resolved from,
+	// so a repository whose PR remote lives on another forge is not queried
+	// with the wrong CLI.
+	switch s.ResolveCITargetHost(ctx) {
 	case gitHostGithub:
 		return s.fetchGitHubReviewers(ctx, prNumber)
 	case gitHostGitLab:
@@ -93,8 +96,8 @@ func parseGitHubReviewers(raw []byte) (*models.PRReviewerSummary, error) {
 			Message string `json:"message"`
 		} `json:"errors"`
 		Data struct {
-			Repository struct {
-				PullRequest struct {
+			Repository *struct {
+				PullRequest *struct {
 					LatestReviews struct {
 						TotalCount int `json:"totalCount"`
 						Nodes      []struct {
@@ -118,19 +121,27 @@ func parseGitHubReviewers(raw []byte) (*models.PRReviewerSummary, error) {
 		return nil, fmt.Errorf("fetch reviewers: %s", payload.Errors[0].Message)
 	}
 
+	if payload.Data.Repository == nil || payload.Data.Repository.PullRequest == nil {
+		// A null object without an errors array still means we did not get an
+		// answer, and must not be recorded as "nobody has reviewed this".
+		return nil, fmt.Errorf("fetch reviewers: pull request not found")
+	}
+
 	reviews := payload.Data.Repository.PullRequest.LatestReviews
 	summary := &models.PRReviewerSummary{
 		Total:     reviews.TotalCount,
 		Reviewers: make([]*models.PRReviewer, 0, len(reviews.Nodes)),
 	}
+	unsubmitted := 0
 	for _, node := range reviews.Nodes {
+		if normaliseGitHubReviewState(node.State) == "" {
+			// Not a submitted review, so it has no business in the count.
+			unsubmitted++
+			continue
+		}
 		// A review by a since-deleted account has no author, yet it was still
 		// submitted, so it keeps its place in the total.
 		if node.Author == nil || strings.TrimSpace(node.Author.Login) == "" {
-			continue
-		}
-		state := normaliseGitHubReviewState(node.State)
-		if state == "" {
 			continue
 		}
 		summary.Reviewers = append(summary.Reviewers, &models.PRReviewer{
@@ -138,9 +149,10 @@ func parseGitHubReviewers(raw []byte) (*models.PRReviewerSummary, error) {
 			Name:      node.Author.Name,
 			AvatarURL: sanitiseAvatarURL(node.Author.AvatarURL, ""),
 			IsBot:     node.Author.Typename == "Bot",
-			State:     state,
+			State:     normaliseGitHubReviewState(node.State),
 		})
 	}
+	summary.Total -= unsubmitted
 	if summary.Total < len(summary.Reviewers) {
 		summary.Total = len(summary.Reviewers)
 	}
@@ -191,8 +203,8 @@ func parseGitLabReviewers(raw []byte) (*models.PRReviewerSummary, error) {
 			Message string `json:"message"`
 		} `json:"errors"`
 		Data struct {
-			Project struct {
-				MergeRequest struct {
+			Project *struct {
+				MergeRequest *struct {
 					WebURL    string `json:"webUrl"`
 					Reviewers struct {
 						Nodes []struct {
@@ -214,6 +226,10 @@ func parseGitLabReviewers(raw []byte) (*models.PRReviewerSummary, error) {
 	}
 	if len(payload.Errors) > 0 {
 		return nil, fmt.Errorf("fetch reviewers: %s", payload.Errors[0].Message)
+	}
+
+	if payload.Data.Project == nil || payload.Data.Project.MergeRequest == nil {
+		return nil, fmt.Errorf("fetch reviewers: merge request not found")
 	}
 
 	mr := payload.Data.Project.MergeRequest

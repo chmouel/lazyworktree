@@ -192,3 +192,32 @@ func TestReviewerTokenKey(t *testing.T) {
 	assert.True(t, token.Valid())
 	assert.False(t, ReviewerToken{}.Valid())
 }
+
+// TestReviewerCacheBacksOffAfterStaleRevalidation covers a failure that follows
+// an earlier success: the good result is kept, but the backoff must still hold
+// off the next attempt, or a forge that is down is hammered once per tick.
+func TestReviewerCacheBacksOffAfterStaleRevalidation(t *testing.T) {
+	t.Parallel()
+
+	cache := NewPRReviewerCache()
+	summary := &models.PRReviewerSummary{Total: 1}
+
+	token, ok := cache.MarkFetching("feature#1")
+	require.True(t, ok)
+	cache.Complete(token, summary, nil)
+
+	// The success has aged past its freshness window, so it is revalidated.
+	require.True(t, cache.ShouldFetch("feature#1", time.Nanosecond, time.Minute))
+
+	retry, ok := cache.MarkFetching("feature#1")
+	require.True(t, ok)
+	cache.Complete(retry, nil, errors.New("forge unreachable"))
+
+	got, cached := cache.Get("feature#1")
+	require.True(t, cached, "the earlier result is kept")
+	assert.Equal(t, summary, got)
+	assert.False(t, cache.ShouldFetch("feature#1", time.Nanosecond, time.Minute),
+		"the backoff must hold even though an earlier success is still cached")
+	assert.True(t, cache.ShouldFetch("feature#1", time.Nanosecond, time.Nanosecond),
+		"once the backoff lapses the lookup is retried")
+}

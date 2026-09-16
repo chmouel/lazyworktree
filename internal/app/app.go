@@ -88,6 +88,10 @@ type (
 		statusFiles []StatusFile
 		log         []commitLogEntry
 		path        string
+		// infoWidth is the pane width info was laid out for. A response that
+		// arrives after the pane has been resized is rebuilt rather than shown
+		// at the width it was built for.
+		infoWidth int
 	}
 	refreshCompleteMsg      struct{}
 	fetchRemotesCompleteMsg struct{}
@@ -980,7 +984,7 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
-	case prDataLoadedMsg, singlePRLoadedMsg, ciStatusLoadedMsg:
+	case prDataLoadedMsg, singlePRLoadedMsg, ciStatusLoadedMsg, prReviewersLoadedMsg:
 		return m.handlePRMessages(msg)
 
 	case avatarLoadedMsg:
@@ -991,7 +995,11 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case statusUpdatedMsg:
 		if msg.info != "" {
-			m.infoContent = msg.info
+			if msg.infoWidth == m.infoContentWidth {
+				m.infoContent = msg.info
+			} else if wt := m.selectedWorktree(); wt != nil {
+				m.infoContent = m.buildInfoContent(wt, m.infoContentWidth)
+			}
 		}
 		m.setStatusFiles(msg.statusFiles)
 		m.updateWorktreeStatus(msg.path, msg.statusFiles)
@@ -1007,7 +1015,10 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refreshSelectedWorktreeAgentSessionsPane()
 		// Trigger CI and reviewer fetches if the worktree has a PR and the
 		// cached results are stale.
-		return m, tea.Batch(m.maybeFetchCIStatus(), m.maybeFetchPRReviewers())
+		// Avatars are queued here too: a reviewer summary cached whilst another
+		// worktree was selected is fresh on return, so no lookup completes to
+		// queue them.
+		return m, tea.Batch(m.maybeFetchCIStatus(), m.maybeFetchPRReviewers(), m.queuePRAvatarFetches())
 
 	case debouncedDetailsMsg:
 		// Only update if the index matches and is still valid
