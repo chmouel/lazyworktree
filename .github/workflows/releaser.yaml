@@ -15,6 +15,15 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
+      - name: Require automation token
+        env:
+          AUTOMATION_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          if [ -z "$AUTOMATION_TOKEN" ]; then
+            echo "GH_TOKEN is required."
+            echo "The default GITHUB_TOKEN cannot push the Homebrew cask to a protected main."
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -28,26 +37,46 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         id: goreleaser
-        continue-on-error: true
         with:
           distribution: goreleaser
           version: latest
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           AUR_PRIVATE_KEY: ${{ secrets.AUR_PRIVATE_KEY }}
-      - name: Verify release created
-        if: steps.goreleaser.outcome == 'failure'
+      - name: Report release state on failure
+        if: failure()
         run: |
           if gh release view "${{ github.ref_name }}" &>/dev/null; then
-            echo "::warning::GoReleaser reported failure (likely AUR push) but release was created successfully"
+            echo "::error::GoReleaser failed after creating the GitHub release; investigate the failing publisher step before re-running."
           else
             echo "::error::Release was not created"
-            exit 1
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify Homebrew cask was updated
+        run: |
+          expected="${GITHUB_REF_NAME#v}"
+          published=""
+          for attempt in 1 2 3; do
+            published=$(gh api -H "Accept: application/vnd.github.raw" \
+              "repos/${GITHUB_REPOSITORY}/contents/Casks/lazyworktree.rb?ref=${DEFAULT_BRANCH}" |
+              sed -n 's/^[[:space:]]*version "\(.*\)"$/\1/p' | head -1)
+            if [ "${published}" = "${expected}" ]; then
+              echo "Cask on ${DEFAULT_BRANCH} is at ${published}"
+              exit 0
+            fi
+            echo "Attempt ${attempt}: cask is at '${published}', expected '${expected}'"
+            sleep 10
+          done
+          echo "::error::Casks/lazyworktree.rb on ${DEFAULT_BRANCH} is still at '${published}' instead of '${expected}'"
+          exit 1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       - name: Update release notes
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

@@ -51,6 +51,7 @@ homebrew_casks:
     repository:
       owner: chmouel
       name: lazyworktree
+      token: "{{ .Env.GH_TOKEN }}"
     directory: Casks
     homepage: "https://github.com/chmouel/lazyworktree"
     description: "lazyworktree - A TUI tool to manage git worktrees"
