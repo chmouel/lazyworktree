@@ -41,4 +41,4 @@ Optional tools:
 
 Build-time requirement:
 
-- Go 1.25+
+- Go 1.26+

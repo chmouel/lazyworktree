@@ -8,7 +8,7 @@ Thank you for considering a contribution to LazyWorktree. This guide covers the 
 
 ## Prerequisites
 
-- **Go** 1.25 or later
+- **Go** 1.26 or later
 - **git** (used at runtime as well as for development)
 - **uv** — Python tooling for documentation (`brew install uv` on macOS)
 - **golangci-lint** — linting (`brew install golangci-lint` or see [installation docs](https://golangci-lint.run/usage/install/))
