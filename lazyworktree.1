@@ -193,7 +193,7 @@ Skip worktree creation entirely. Instead, creates a local branch and switches to
 .
 .TP
 .B \-\-update\-on\-existing\fR, \fB\-U\fR
-If the target worktree path already exists and has no uncommitted changes, reset it to the latest source instead of failing. For PR/branch worktrees this fetches and hard\-resets to the remote head; for issue worktrees it returns the existing path. Exits with an error when the worktree has uncommitted changes. Cannot be combined with \-\-with\-change or \-\-no\-workspace.
+If the target worktree path already exists, fast\-forward it to the latest source when that is safe. Worktrees with uncommitted or untracked changes, local commits ahead of the source, or diverged histories are left unchanged and a message is printed to stderr; the path is still returned. Local commits are never discarded. For PR/branch worktrees this fetches the remote head and fast\-forwards; for issue worktrees it returns the existing path. Cannot be combined with \-\-with\-change or \-\-no\-workspace.
 .TP
 .B \-\-silent
 Suppress all progress messages to stderr. Only the worktree path is written to stdout unless \-\-output\-selection is used. Useful for scripting and automation.

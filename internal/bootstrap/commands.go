@@ -317,7 +317,7 @@ func createCommand() *appiCli.Command {
 			&appiCli.BoolFlag{
 				Name:    "update-on-existing",
 				Aliases: []string{"U"},
-				Usage:   "If the target worktree already exists and is clean, reset it to the latest source instead of failing",
+				Usage:   "If the target worktree already exists, fast-forward it to the latest source when safe. Dirty, ahead or diverged worktrees are left unchanged with a message, and the path is still returned",
 			},
 			&appiCli.StringFlag{
 				Name:  "output-selection",

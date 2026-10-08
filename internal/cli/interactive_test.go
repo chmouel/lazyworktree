@@ -254,6 +254,10 @@ func (m *mockGitServiceForInteractive) RunGit(context.Context, []string, string,
 	return ""
 }
 
+func (m *mockGitServiceForInteractive) RunGitWithCombinedOutput(context.Context, []string, string, map[string]string) ([]byte, error) {
+	return nil, nil
+}
+
 func TestSelectIssueInteractive_NoIssues(t *testing.T) {
 	gitSvc := &mockGitServiceForInteractive{issues: []*models.IssueInfo{}}
 	stderr := &bytes.Buffer{}

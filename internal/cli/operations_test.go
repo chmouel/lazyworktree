@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -71,6 +72,9 @@ type fakeGitService struct {
 	runCommandQuietCalls   [][]string
 	runGitCombinedOutputs  map[string][]byte
 	runGitCombinedErrors   map[string]error
+	gitArgOutputs          map[string]string
+	gitArgErrors           map[string]error
+	checkedFailOn          string
 }
 
 func (f *fakeGitService) CheckoutPRBranch(_ context.Context, _ int, _, localBranch string) bool {
@@ -170,6 +174,9 @@ func (f *fakeGitService) ResolveRepoName(_ context.Context) string {
 
 func (f *fakeGitService) RunCommandChecked(_ context.Context, args []string, _, _ string) bool {
 	f.runCommandCheckedCalls = append(f.runCommandCheckedCalls, slices.Clone(args))
+	if f.checkedFailOn != "" && strings.Contains(strings.Join(args, " "), f.checkedFailOn) {
+		return false
+	}
 	// Capture worktree add commands for testing
 	if len(args) > 2 && args[0] == "git" && args[1] == "worktree" && args[2] == "add" {
 		// Find the path in the args (it's before the branch name)
@@ -200,7 +207,14 @@ func (f *fakeGitService) RunGit(_ context.Context, args []string, _ string, _ []
 	return f.runGitOutput[filepath.Join(args...)]
 }
 
-func (f *fakeGitService) RunGitWithCombinedOutput(_ context.Context, _ []string, cwd string, _ map[string]string) ([]byte, error) {
+func (f *fakeGitService) RunGitWithCombinedOutput(_ context.Context, args []string, cwd string, _ map[string]string) ([]byte, error) {
+	key := filepath.Join(args...)
+	if err, ok := f.gitArgErrors[key]; ok {
+		return nil, err
+	}
+	if out, ok := f.gitArgOutputs[key]; ok {
+		return []byte(out), nil
+	}
 	if f.runGitCombinedErrors != nil {
 		if err, ok := f.runGitCombinedErrors[cwd]; ok {
 			return nil, err
@@ -531,240 +545,236 @@ func TestCreateFromPRWithFSDisabledPRDoesNotFetch(t *testing.T) {
 	}
 }
 
+func updateFakeOutputs(targetPath, status, counts string) map[string]string {
+	remoteFeatureCommitRef := "refs/remotes/origin/feature^{commit}"
+	return map[string]string{
+		filepath.Join("git", "rev-parse", "--verify", "feature"):                                         "abc123\n",
+		filepath.Join("git", "rev-parse", "--show-toplevel"):                                             targetPath + "\n",
+		filepath.Join("git", "rev-parse", "--path-format=absolute", "--git-common-dir"):                  "/repo/.git\n",
+		filepath.Join("git", "status", "--porcelain", "--untracked-files=all"):                           status,
+		filepath.Join("git", "rev-parse", "--verify", "--quiet", remoteFeatureCommitRef): "abc123\n",
+		filepath.Join("git", "rev-parse", "--verify", "--quiet", "FETCH_HEAD^{commit}"):                  "def456\n",
+		filepath.Join("git", "rev-list", "--left-right", "--count", "HEAD...abc123"):                     counts,
+		filepath.Join("git", "rev-list", "--left-right", "--count", "HEAD...def456"):                     counts,
+	}
+}
+
+func countCalls(calls [][]string, substr string) int {
+	n := 0
+	for _, call := range calls {
+		if strings.Contains(strings.Join(call, " "), substr) {
+			n++
+		}
+	}
+	return n
+}
+
 func TestUpdateOnExistingBranch(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	t.Run("clean worktree resets to branch", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		repoName := testRepoName
-		branchName := "feature"
-		worktreeName := "feature-wt"
-		targetPath := filepath.Join(tmpDir, repoName, worktreeName)
-		require.NoError(t, os.MkdirAll(targetPath, 0o750))
+	remoteFeatureCommitRef := "refs/remotes/origin/feature^{commit}"
+	statusKey := filepath.Join("git", "status", "--porcelain", "--untracked-files=all")
+	revListKey := filepath.Join("git", "rev-list", "--left-right", "--count", "HEAD...abc123")
+	resolveKey := filepath.Join("git", "rev-parse", "--verify", "--quiet", remoteFeatureCommitRef)
+	topKey := filepath.Join("git", "rev-parse", "--show-toplevel")
 
-		svc := &fakeGitService{
-			resolveRepoName:     repoName,
-			runCommandCheckedOK: true,
-			runGitOutput: map[string]string{
-				filepath.Join("git", "rev-parse", "--verify", branchName): "abc123\n",
-				filepath.Join("git", "status", "--porcelain"):             "",
+	tests := []struct {
+		name        string
+		status      string
+		counts      string
+		mutate      func(*fakeGitService)
+		checkedOK   bool
+		checkedFail string
+		wantFetch   bool
+		wantMerge   bool
+		wantErr     string
+	}{
+		{name: "up to date is a no-op", counts: "0 0\n", checkedOK: true, wantFetch: true},
+		{name: "behind only fast-forwards", counts: "0 2\n", checkedOK: true, wantFetch: true, wantMerge: true},
+		{name: "ahead only is left untouched", counts: "1 0\n", checkedOK: true, wantFetch: true},
+		{name: "diverged is left untouched", counts: "1 2\n", checkedOK: true, wantFetch: true},
+		{name: "dirty is left untouched without fetching", status: " M dirty.go\n", checkedOK: true},
+		{name: "untracked is left untouched without fetching", status: "?? new.go\n", checkedOK: true},
+		{
+			name:      "status failure errors without fetching",
+			checkedOK: true,
+			mutate: func(f *fakeGitService) {
+				f.gitArgErrors = map[string]error{statusKey: errors.New("boom")}
 			},
-		}
-
-		cfg := &config.AppConfig{
-			WorktreeDir:      tmpDir,
-			UpdateOnExisting: true,
-		}
-
-		outputPath, err := CreateFromBranch(ctx, svc, cfg, branchName, worktreeName, false, true)
-		require.NoError(t, err)
-		assert.Equal(t, targetPath, outputPath)
-	})
-
-	t.Run("dirty worktree returns error", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		repoName := testRepoName
-		branchName := "feature"
-		worktreeName := "feature-wt"
-		targetPath := filepath.Join(tmpDir, repoName, worktreeName)
-		require.NoError(t, os.MkdirAll(targetPath, 0o750))
-
-		svc := &fakeGitService{
-			resolveRepoName:     repoName,
-			runCommandCheckedOK: true,
-			runGitOutput: map[string]string{
-				filepath.Join("git", "rev-parse", "--verify", branchName): "abc123\n",
-				filepath.Join("git", "status", "--porcelain"):             " M dirty.go\n",
+			wantErr: "failed to inspect worktree",
+		},
+		{name: "fetch failure errors", counts: "0 1\n", checkedOK: true, checkedFail: "fetch", wantFetch: true, wantErr: "failed to fetch feature from origin"},
+		{
+			name:      "unresolvable target errors",
+			counts:    "0 1\n",
+			checkedOK: true,
+			wantFetch: true,
+			mutate: func(f *fakeGitService) {
+				delete(f.gitArgOutputs, resolveKey)
 			},
-		}
-
-		cfg := &config.AppConfig{
-			WorktreeDir:      tmpDir,
-			UpdateOnExisting: true,
-		}
-
-		_, err := CreateFromBranch(ctx, svc, cfg, branchName, worktreeName, false, true)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "uncommitted changes")
-	})
-
-	t.Run("flag not set still errors on existing path", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		repoName := testRepoName
-		branchName := "feature"
-		worktreeName := "feature-wt"
-		targetPath := filepath.Join(tmpDir, repoName, worktreeName)
-		require.NoError(t, os.MkdirAll(targetPath, 0o750))
-
-		svc := &fakeGitService{
-			resolveRepoName: repoName,
-			runGitOutput: map[string]string{
-				filepath.Join("git", "rev-parse", "--verify", branchName): "abc123\n",
+			wantErr: "failed to resolve",
+		},
+		{
+			name:      "rev-list failure errors",
+			checkedOK: true,
+			wantFetch: true,
+			mutate: func(f *fakeGitService) {
+				f.gitArgErrors = map[string]error{revListKey: errors.New("boom")}
 			},
-		}
+			wantErr: "failed to compare worktree",
+		},
+		{name: "malformed rev-list output errors", counts: "garbage\n", checkedOK: true, wantFetch: true, wantErr: "failed to compare worktree"},
+		{name: "merge failure errors", counts: "0 1\n", checkedOK: true, checkedFail: "merge", wantFetch: true, wantMerge: true, wantErr: "failed to fast-forward"},
+		{
+			name:      "non-root directory errors before fetching",
+			counts:    "0 1\n",
+			checkedOK: true,
+			mutate: func(f *fakeGitService) {
+				f.gitArgOutputs[topKey] = "/elsewhere\n"
+			},
+			wantErr: "is not the root of a git worktree",
+		},
+	}
 
-		cfg := &config.AppConfig{
-			WorktreeDir:      tmpDir,
-			UpdateOnExisting: false,
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tmpDir := t.TempDir()
+			repoName := testRepoName
+			worktreeName := "feature-wt"
+			targetPath := filepath.Join(tmpDir, repoName, worktreeName)
+			require.NoError(t, os.MkdirAll(targetPath, 0o750))
 
-		_, err := CreateFromBranch(ctx, svc, cfg, branchName, worktreeName, false, true)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "path already exists")
-	})
+			svc := &fakeGitService{
+				resolveRepoName:     repoName,
+				runGitOutput:        map[string]string{filepath.Join("git", "rev-parse", "--verify", "feature"): "abc123\n"},
+				runCommandCheckedOK: tt.checkedOK,
+				checkedFailOn:       tt.checkedFail,
+				gitArgOutputs:       updateFakeOutputs(targetPath, tt.status, tt.counts),
+			}
+			if tt.mutate != nil {
+				tt.mutate(svc)
+			}
+
+			cfg := &config.AppConfig{WorktreeDir: tmpDir, UpdateOnExisting: true}
+			outputPath, err := CreateFromBranch(ctx, svc, cfg, "feature", worktreeName, false, true)
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, targetPath, outputPath)
+			}
+			assert.Equal(t, tt.wantFetch, countCalls(svc.runCommandCheckedCalls, "fetch") > 0, "fetch called")
+			assert.Equal(t, tt.wantMerge, countCalls(svc.runCommandCheckedCalls, "merge") > 0, "merge called")
+			if tt.wantMerge {
+				assert.Contains(t, svc.runCommandCheckedCalls[len(svc.runCommandCheckedCalls)-1], "abc123")
+			}
+		})
+	}
 }
 
 func TestUpdateOnExistingPR(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	t.Run("clean worktree resets to PR head", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		repoName := testRepoName
-		prBranch := "fix-bug"
-		worktreeName := "pr-42-fix-bug"
-		targetPath := filepath.Join(tmpDir, repoName, worktreeName)
-		require.NoError(t, os.MkdirAll(targetPath, 0o750))
+	statusKey := filepath.Join("git", "status", "--porcelain", "--untracked-files=all")
 
-		svc := &fakeGitService{
-			resolveRepoName:     repoName,
+	newPRSvc := func(tmpDir, targetPath, prBranch, status, counts string) *fakeGitService {
+		return &fakeGitService{
+			resolveRepoName:     testRepoName,
 			mainWorktreePath:    filepath.Join(tmpDir, "main"),
 			runCommandCheckedOK: true,
+			runCommandQuietOK:   true,
 			prs: []*models.PRInfo{
 				{Number: 42, Title: "Fix bug", Branch: prBranch},
 			},
 			worktrees: []*models.WorktreeInfo{
 				{Path: targetPath, Branch: prBranch},
 			},
-			runGitOutput: map[string]string{
-				filepath.Join("git", "status", "--porcelain"): "",
-			},
+			gitArgOutputs: updateFakeOutputs(targetPath, status, counts),
 		}
+	}
 
-		cfg := &config.AppConfig{
-			WorktreeDir:      tmpDir,
-			UpdateOnExisting: true,
-		}
+	t.Run("behind only fast-forwards to PR head", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		targetPath := filepath.Join(tmpDir, testRepoName, "pr-42-fix-bug")
+		require.NoError(t, os.MkdirAll(targetPath, 0o750))
+
+		svc := newPRSvc(tmpDir, targetPath, "fix-bug", "", "0 1\n")
+		cfg := &config.AppConfig{WorktreeDir: tmpDir, UpdateOnExisting: true}
 
 		outputPath, err := CreateFromPRWithFS(ctx, svc, cfg, 42, false, true, DefaultFS)
 		require.NoError(t, err)
 		assert.Equal(t, targetPath, outputPath)
+		require.NotEmpty(t, svc.runCommandQuietCalls)
+		assert.Equal(t, []string{"git", "fetch", "origin", "refs/pull/42/head"}, svc.runCommandQuietCalls[0])
+		assert.Equal(t, 1, countCalls(svc.runCommandCheckedCalls, "merge"))
 	})
 
-	t.Run("dirty worktree returns error", func(t *testing.T) {
+	t.Run("dirty worktree is left untouched without fetching", func(t *testing.T) {
+		t.Parallel()
 		tmpDir := t.TempDir()
-		repoName := testRepoName
-		prBranch := "fix-bug"
-		worktreeName := "pr-42-fix-bug"
-		targetPath := filepath.Join(tmpDir, repoName, worktreeName)
+		targetPath := filepath.Join(tmpDir, testRepoName, "pr-42-fix-bug")
 		require.NoError(t, os.MkdirAll(targetPath, 0o750))
 
-		svc := &fakeGitService{
-			resolveRepoName:     repoName,
-			mainWorktreePath:    filepath.Join(tmpDir, "main"),
-			runCommandCheckedOK: true,
-			prs: []*models.PRInfo{
-				{Number: 42, Title: "Fix bug", Branch: prBranch},
-			},
-			worktrees: []*models.WorktreeInfo{
-				{Path: targetPath, Branch: prBranch},
-			},
-			runGitOutput: map[string]string{
-				filepath.Join("git", "status", "--porcelain"): " M dirty.go\n",
-			},
-		}
-
-		cfg := &config.AppConfig{
-			WorktreeDir:      tmpDir,
-			UpdateOnExisting: true,
-		}
-
-		_, err := CreateFromPRWithFS(ctx, svc, cfg, 42, false, true, DefaultFS)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "uncommitted changes")
-	})
-
-	t.Run("branch checked out in different worktree errors even with flag", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		repoName := testRepoName
-		prBranch := "fix-bug"
-		worktreeName := "pr-42-fix-bug"
-		targetPath := filepath.Join(tmpDir, repoName, worktreeName)
-		otherPath := filepath.Join(tmpDir, "other-worktree")
-		require.NoError(t, os.MkdirAll(targetPath, 0o750))
-
-		svc := &fakeGitService{
-			resolveRepoName:     repoName,
-			mainWorktreePath:    filepath.Join(tmpDir, "main"),
-			runCommandCheckedOK: true,
-			prs: []*models.PRInfo{
-				{Number: 42, Title: "Fix bug", Branch: prBranch},
-			},
-			worktrees: []*models.WorktreeInfo{
-				{Path: otherPath, Branch: prBranch},
-			},
-		}
-
-		cfg := &config.AppConfig{
-			WorktreeDir:      tmpDir,
-			UpdateOnExisting: true,
-		}
+		svc := newPRSvc(tmpDir, targetPath, "fix-bug", " M dirty.go\n", "0 1\n")
+		cfg := &config.AppConfig{WorktreeDir: tmpDir, UpdateOnExisting: true}
 
 		outputPath, err := CreateFromPRWithFS(ctx, svc, cfg, 42, false, true, DefaultFS)
 		require.NoError(t, err)
-		assert.Equal(t, otherPath, outputPath)
+		assert.Equal(t, targetPath, outputPath)
+		assert.Empty(t, svc.runCommandQuietCalls)
 		assert.Empty(t, svc.runCommandCheckedCalls)
 	})
 
-	t.Run("fork PR falls back to refs/pull/N/head without erroring", func(t *testing.T) {
+	t.Run("ahead worktree is left untouched", func(t *testing.T) {
+		t.Parallel()
 		tmpDir := t.TempDir()
-		repoName := testRepoName
-		prBranch := "SRVKP-12884-api-retry"
-		worktreeName := "pr-2854-fork-branch"
-		targetPath := filepath.Join(tmpDir, repoName, worktreeName)
+		targetPath := filepath.Join(tmpDir, testRepoName, "pr-42-fix-bug")
 		require.NoError(t, os.MkdirAll(targetPath, 0o750))
 
-		svc := &fakeGitService{
-			resolveRepoName:     repoName,
-			mainWorktreePath:    filepath.Join(tmpDir, "main"),
-			runCommandCheckedOK: true,
-			// The direct branch fetch fails (as it would for a fork PR branch
-			// not present on origin); only the refs/pull/<N>/head fallback works.
-			runCommandQuietOK: false,
-			prs: []*models.PRInfo{
-				{Number: 2854, Title: "Fork branch", Branch: prBranch},
-			},
-			worktrees: []*models.WorktreeInfo{
-				{Path: targetPath, Branch: prBranch},
-			},
-			runGitOutput: map[string]string{
-				filepath.Join("git", "status", "--porcelain"): "",
-			},
-		}
+		svc := newPRSvc(tmpDir, targetPath, "fix-bug", "", "2 0\n")
+		cfg := &config.AppConfig{WorktreeDir: tmpDir, UpdateOnExisting: true}
 
-		cfg := &config.AppConfig{
-			WorktreeDir:      tmpDir,
-			UpdateOnExisting: true,
-		}
-
-		outputPath, err := CreateFromPRWithFS(ctx, svc, cfg, 2854, false, true, DefaultFS)
+		outputPath, err := CreateFromPRWithFS(ctx, svc, cfg, 42, false, true, DefaultFS)
 		require.NoError(t, err)
 		assert.Equal(t, targetPath, outputPath)
+		assert.Equal(t, 0, countCalls(svc.runCommandCheckedCalls, "merge"))
+	})
 
-		// The direct branch fetch must go through the quiet path (no error notification),
-		// and the fallback refs/pull/<N>/head fetch must go through the checked path.
-		require.NotEmpty(t, svc.runCommandQuietCalls)
-		assert.Equal(t, []string{"git", "fetch", "origin", prBranch}, svc.runCommandQuietCalls[0])
+	t.Run("status failure errors", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		targetPath := filepath.Join(tmpDir, testRepoName, "pr-42-fix-bug")
+		require.NoError(t, os.MkdirAll(targetPath, 0o750))
 
-		foundFallback := false
-		for _, call := range svc.runCommandCheckedCalls {
-			if slices.Contains(call, "refs/pull/2854/head") {
-				foundFallback = true
-				break
-			}
-		}
-		assert.True(t, foundFallback, "expected fallback fetch of refs/pull/2854/head via RunCommandChecked")
+		svc := newPRSvc(tmpDir, targetPath, "fix-bug", "", "0 1\n")
+		svc.gitArgErrors = map[string]error{statusKey: errors.New("boom")}
+		cfg := &config.AppConfig{WorktreeDir: tmpDir, UpdateOnExisting: true}
+
+		_, err := CreateFromPRWithFS(ctx, svc, cfg, 42, false, true, DefaultFS)
+		require.ErrorContains(t, err, "failed to inspect worktree")
+		assert.Empty(t, svc.runCommandQuietCalls)
+	})
+
+	t.Run("fork PR falls back to branch fetch when refs/pull is unavailable", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		targetPath := filepath.Join(tmpDir, testRepoName, "pr-42-fix-bug")
+		require.NoError(t, os.MkdirAll(targetPath, 0o750))
+
+		svc := newPRSvc(tmpDir, targetPath, "fork-branch", "", "0 1\n")
+		svc.runCommandQuietOK = false
+		cfg := &config.AppConfig{WorktreeDir: tmpDir, UpdateOnExisting: true}
+
+		outputPath, err := CreateFromPRWithFS(ctx, svc, cfg, 42, false, true, DefaultFS)
+		require.NoError(t, err)
+		assert.Equal(t, targetPath, outputPath)
+		assert.Equal(t, 1, countCalls(svc.runCommandCheckedCalls, "fork-branch"))
+		assert.Equal(t, 1, countCalls(svc.runCommandCheckedCalls, "merge"))
 	})
 }
 

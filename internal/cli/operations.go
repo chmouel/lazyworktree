@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,6 +60,7 @@ type gitService interface {
 	RunCommandChecked(ctx context.Context, args []string, cwd string, errorMsg string) bool
 	RunCommandQuiet(ctx context.Context, args []string, cwd string) bool
 	RunGit(ctx context.Context, args []string, cwd string, exitCodes []int, silent bool, ignoreErrors bool) string
+	RunGitWithCombinedOutput(ctx context.Context, args []string, cwd string, env map[string]string) ([]byte, error)
 }
 
 var _ gitService = (*git.Service)(nil)
@@ -106,50 +108,142 @@ func resolveWorktreeBaseDir(worktreeDir, mainWorktreePath, repoName string) stri
 	return filepath.Join(worktreeDir, repoName)
 }
 
+// updateExistingWorktreeToRef fast-forwards an existing worktree to origin/<ref> when it is safe.
 func updateExistingWorktreeToRef(ctx context.Context, gitSvc gitService, targetPath, ref string, silent bool) (string, error) {
-	statusOutput := gitSvc.RunGit(ctx, []string{"git", "status", "--porcelain"}, targetPath, []int{0}, true, false)
-	if strings.TrimSpace(statusOutput) != "" {
-		return "", fmt.Errorf("worktree has uncommitted changes at %s, cannot update", targetPath)
+	branch := strings.TrimPrefix(ref, "origin/")
+	remoteRef := "refs/remotes/origin/" + branch
+	fetch := func() (string, error) {
+		refspec := fmt.Sprintf("+refs/heads/%s:%s", branch, remoteRef)
+		if !gitSvc.RunCommandChecked(ctx, []string{"git", "fetch", "origin", refspec}, targetPath, fmt.Sprintf("Failed to fetch %s from origin", branch)) {
+			return "", fmt.Errorf("failed to fetch %s from origin", branch)
+		}
+		return resolveCommitForUpdate(ctx, gitSvc, targetPath, remoteRef)
 	}
-	if !gitSvc.RunCommandChecked(ctx, []string{"git", "fetch", "origin"}, targetPath, "Failed to fetch from origin") {
-		return "", fmt.Errorf("failed to fetch latest changes")
+	return fastForwardExistingWorktree(ctx, gitSvc, targetPath, "", fetch, silent)
+}
+
+// updateExistingWorktreeForPR fast-forwards an existing worktree to the PR head when it is safe.
+func updateExistingWorktreeForPR(ctx context.Context, gitSvc gitService, targetPath string, prNumber int, remoteBranch string, silent bool) (string, error) {
+	fetch := func() (string, error) {
+		prRef := fmt.Sprintf("refs/pull/%d/head", prNumber)
+		if !gitSvc.RunCommandQuiet(ctx, []string{"git", "fetch", "origin", prRef}, targetPath) {
+			if !gitSvc.RunCommandChecked(ctx, []string{"git", "fetch", "origin", remoteBranch}, targetPath, fmt.Sprintf("Failed to fetch PR #%d", prNumber)) {
+				return "", fmt.Errorf("failed to fetch PR #%d", prNumber)
+			}
+		}
+		return resolveCommitForUpdate(ctx, gitSvc, targetPath, "FETCH_HEAD")
 	}
-	resetTarget := ref
-	if !strings.Contains(ref, "/") {
-		resetTarget = "origin/" + ref
+	return fastForwardExistingWorktree(ctx, gitSvc, targetPath, fmt.Sprintf(" (PR #%d)", prNumber), fetch, silent)
+}
+
+// fastForwardExistingWorktree updates an existing worktree only when it can be fast-forwarded.
+// Dirty, ahead, and diverged worktrees are left untouched and returned as-is. The fetch callback
+// runs only after the worktree has been validated and found clean, and returns the target commit.
+func fastForwardExistingWorktree(ctx context.Context, gitSvc gitService, targetPath, label string, fetch func() (string, error), silent bool) (string, error) {
+	if err := validateExistingWorktreeForUpdate(ctx, gitSvc, targetPath); err != nil {
+		return "", err
 	}
-	if !gitSvc.RunCommandChecked(ctx, []string{"git", "reset", "--hard", resetTarget}, targetPath, fmt.Sprintf("Failed to reset worktree to %s", resetTarget)) {
-		return "", fmt.Errorf("failed to reset worktree to %s", resetTarget)
+
+	status, err := gitSvc.RunGitWithCombinedOutput(ctx, []string{"git", "status", "--porcelain", "--untracked-files=all"}, targetPath, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect worktree at %s: %w", targetPath, err)
+	}
+	if strings.TrimSpace(string(status)) != "" {
+		notifyUpdateSkipped(silent, "Worktree %s has uncommitted changes, left untouched", targetPath)
+		return targetPath, nil
+	}
+
+	targetOID, err := fetch()
+	if err != nil {
+		return "", err
+	}
+
+	counts, err := gitSvc.RunGitWithCombinedOutput(ctx, []string{"git", "rev-list", "--left-right", "--count", "HEAD..." + targetOID}, targetPath, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to compare worktree at %s with upstream: %w", targetPath, err)
+	}
+	ahead, behind, err := parseAheadBehind(string(counts))
+	if err != nil {
+		return "", fmt.Errorf("failed to compare worktree at %s with upstream: %w", targetPath, err)
+	}
+
+	switch {
+	case ahead == 0 && behind == 0:
+		notifyUpdateSkipped(silent, "Existing worktree is already up to date: %s", targetPath)
+		return targetPath, nil
+	case ahead > 0 && behind == 0:
+		notifyUpdateSkipped(silent, "Existing worktree has %d unpushed commit(s), left untouched: %s", ahead, targetPath)
+		return targetPath, nil
+	case ahead > 0 && behind > 0:
+		notifyUpdateSkipped(silent, "Existing worktree has diverged from upstream (%d local, %d upstream), left untouched: %s", ahead, behind, targetPath)
+		return targetPath, nil
+	}
+
+	if !gitSvc.RunCommandChecked(ctx, []string{"git", "merge", "--ff-only", "--no-overwrite-ignore", "--no-autostash", targetOID}, targetPath, fmt.Sprintf("Failed to fast-forward worktree at %s", targetPath)) {
+		return "", fmt.Errorf("failed to fast-forward worktree at %s", targetPath)
 	}
 	if !silent {
-		fmt.Fprintf(os.Stderr, "Updated existing worktree at: %s\n", targetPath)
+		fmt.Fprintf(os.Stderr, "Updated existing worktree at: %s%s\n", targetPath, label)
 	}
 	return targetPath, nil
 }
 
-func updateExistingWorktreeForPR(ctx context.Context, gitSvc gitService, targetPath string, prNumber int, remoteBranch string, silent bool) (string, error) {
-	statusOutput := gitSvc.RunGit(ctx, []string{"git", "status", "--porcelain"}, targetPath, []int{0}, true, false)
-	if strings.TrimSpace(statusOutput) != "" {
-		return "", fmt.Errorf("worktree has uncommitted changes at %s, cannot update", targetPath)
+// validateExistingWorktreeForUpdate ensures targetPath is the root of a worktree of the main repository,
+// so that a subdirectory or unrelated repository is never fetched or merged into.
+func validateExistingWorktreeForUpdate(ctx context.Context, gitSvc gitService, targetPath string) error {
+	top, err := gitSvc.RunGitWithCombinedOutput(ctx, []string{"git", "rev-parse", "--show-toplevel"}, targetPath, nil)
+	if err != nil {
+		return fmt.Errorf("%s is not a git worktree: %w", targetPath, err)
 	}
-	// Try fetching the branch directly; if that fails (e.g. fork PR), fetch via refs/pull/<N>/head.
-	// The direct attempt failing is expected for fork PRs, so it's checked quietly to avoid
-	// surfacing a spurious error when the fallback below succeeds.
-	prRef := fmt.Sprintf("refs/pull/%d/head", prNumber)
-	fetched := gitSvc.RunCommandQuiet(ctx, []string{"git", "fetch", "origin", remoteBranch}, targetPath)
-	if !fetched {
-		if !gitSvc.RunCommandChecked(ctx, []string{"git", "fetch", "origin", prRef}, targetPath, fmt.Sprintf("Failed to fetch PR #%d", prNumber)) {
-			return "", fmt.Errorf("failed to fetch PR #%d", prNumber)
-		}
+	topPath, errTop := filepath.EvalSymlinks(strings.TrimSpace(string(top)))
+	wantPath, errWant := filepath.EvalSymlinks(targetPath)
+	if errTop != nil || errWant != nil || topPath != wantPath {
+		return fmt.Errorf("%s is not the root of a git worktree", targetPath)
 	}
-	resetTarget := "FETCH_HEAD"
-	if !gitSvc.RunCommandChecked(ctx, []string{"git", "reset", "--hard", resetTarget}, targetPath, fmt.Sprintf("Failed to reset worktree to PR #%d head", prNumber)) {
-		return "", fmt.Errorf("failed to reset worktree to PR #%d head", prNumber)
+
+	mainPath := gitSvc.GetMainWorktreePath(ctx)
+	targetCommon, err := gitSvc.RunGitWithCombinedOutput(ctx, []string{"git", "rev-parse", "--path-format=absolute", "--git-common-dir"}, targetPath, nil)
+	if err != nil {
+		return fmt.Errorf("failed to resolve git directory for %s: %w", targetPath, err)
 	}
+	mainCommon, err := gitSvc.RunGitWithCombinedOutput(ctx, []string{"git", "rev-parse", "--path-format=absolute", "--git-common-dir"}, mainPath, nil)
+	if err != nil {
+		return fmt.Errorf("failed to resolve git directory for %s: %w", mainPath, err)
+	}
+	if strings.TrimSpace(string(targetCommon)) != strings.TrimSpace(string(mainCommon)) {
+		return fmt.Errorf("%s belongs to a different repository", targetPath)
+	}
+	return nil
+}
+
+// resolveCommitForUpdate resolves ref to a commit object ID, failing on missing refs.
+func resolveCommitForUpdate(ctx context.Context, gitSvc gitService, targetPath, ref string) (string, error) {
+	out, err := gitSvc.RunGitWithCombinedOutput(ctx, []string{"git", "rev-parse", "--verify", "--quiet", ref + "^{commit}"}, targetPath, nil)
+	oid := strings.TrimSpace(string(out))
+	if err != nil || oid == "" {
+		return "", fmt.Errorf("failed to resolve %s", ref)
+	}
+	return oid, nil
+}
+
+// parseAheadBehind parses the output of `git rev-list --left-right --count HEAD...<oid>`.
+func parseAheadBehind(output string) (int, int, error) {
+	fields := strings.Fields(output)
+	if len(fields) != 2 {
+		return 0, 0, fmt.Errorf("unexpected rev-list output %q", strings.TrimSpace(output))
+	}
+	ahead, errAhead := strconv.Atoi(fields[0])
+	behind, errBehind := strconv.Atoi(fields[1])
+	if errAhead != nil || errBehind != nil || ahead < 0 || behind < 0 {
+		return 0, 0, fmt.Errorf("unexpected rev-list output %q", strings.TrimSpace(output))
+	}
+	return ahead, behind, nil
+}
+
+func notifyUpdateSkipped(silent bool, format string, args ...any) {
 	if !silent {
-		fmt.Fprintf(os.Stderr, "Updated existing worktree at: %s (PR #%d)\n", targetPath, prNumber)
+		fmt.Fprintf(os.Stderr, format+"\n", args...)
 	}
-	return targetPath, nil
 }
 
 // CreateFromBranch creates a worktree from a branch name.
