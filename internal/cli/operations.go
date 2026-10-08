@@ -280,12 +280,30 @@ func CreateFromBranchWithFS(ctx context.Context, gitSvc gitService, cfg *config.
 	mainWorktreePath := gitSvc.GetMainWorktreePath(ctx)
 	repoName := gitSvc.ResolveRepoName(ctx)
 
-	// Generate random name if not provided, or validate user-provided name
+	// Without an explicit name, check the branch out as is when it is free.
+	var direct *directCheckout
 	if worktreeName == "" {
+		var err error
+		direct, err = resolveDirectCheckout(ctx, gitSvc, branchName, silent)
+		if err != nil {
+			return "", err
+		}
+		if direct != nil {
+			worktreeName = utils.SanitizeBranchName(direct.branch, 100)
+			if worktreeName == "" {
+				direct = nil
+			}
+		}
+	}
+
+	// Generate random name if not provided, or validate user-provided name
+	switch {
+	case direct != nil:
+	case worktreeName == "":
 		// Generate random name with retry for uniqueness
 		sanitizedBranch := utils.SanitizeBranchName(branchName, 50)
 		worktreeName = generateUniqueWorktreeNameFS(cfg, mainWorktreePath, repoName, sanitizedBranch, fs)
-	} else {
+	default:
 		// Validate and sanitise user-provided name
 		sanitised := utils.SanitizeBranchName(worktreeName, 100)
 		if sanitised == "" {
@@ -318,11 +336,11 @@ func CreateFromBranchWithFS(ctx context.Context, gitSvc gitService, cfg *config.
 
 	// Create worktree with or without changes
 	if withChange && hasChanges && currentWt != nil {
-		if err := createWorktreeWithChanges(ctx, gitSvc, cfg, currentWt, branchName, worktreeName, targetPath, silent); err != nil {
+		if err := createWorktreeWithChanges(ctx, gitSvc, cfg, currentWt, branchName, worktreeName, targetPath, direct, silent); err != nil {
 			return "", err
 		}
 	} else {
-		if err := createWorktreeFromBranch(ctx, gitSvc, cfg, branchName, worktreeName, targetPath, silent); err != nil {
+		if err := createWorktreeFromBranch(ctx, gitSvc, cfg, branchName, worktreeName, targetPath, direct, silent); err != nil {
 			return "", err
 		}
 	}
@@ -330,12 +348,64 @@ func CreateFromBranchWithFS(ctx context.Context, gitSvc gitService, cfg *config.
 	return targetPath, nil
 }
 
-func createWorktreeFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branchName, worktreeName, targetPath string, silent bool) error {
+// directCheckout describes a worktree that checks out a branch as is rather
+// than creating a new branch from it.
+type directCheckout struct {
+	branch string
+	// remote is the remote-tracking ref to create branch from; empty when the
+	// local branch already exists.
+	remote string
+}
+
+func (d *directCheckout) worktreeAddArgs(targetPath string) []string {
+	if d.remote != "" {
+		return []string{"git", "worktree", "add", "-b", d.branch, "--track", targetPath, d.remote}
+	}
+	return []string{"git", "worktree", "add", targetPath, d.branch}
+}
+
+// resolveDirectCheckout maps source to a local branch that can be checked out
+// directly. It returns nil when source is not a branch or when the branch is
+// already checked out in a worktree.
+func resolveDirectCheckout(ctx context.Context, gitSvc gitService, source string, silent bool) (*directCheckout, error) {
+	direct := &directCheckout{}
+	switch {
+	case localBranchExists(ctx, gitSvc, source):
+		direct.branch = source
+	case remoteBranchExists(ctx, gitSvc, source):
+		_, local, _ := strings.Cut(source, "/")
+		if local == "" || local == "HEAD" {
+			return nil, nil
+		}
+		direct.branch = local
+		if !localBranchExists(ctx, gitSvc, local) {
+			direct.remote = source
+		}
+	default:
+		return nil, nil
+	}
+
+	worktrees, err := gitSvc.GetWorktrees(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to inspect worktrees: %w", err)
+	}
+	if wtPath, attached := findWorktreePathForBranch(worktrees, direct.branch); attached {
+		if !silent {
+			fmt.Fprintf(os.Stderr, "Branch %s is already checked out in %s, creating a new branch from it\n", direct.branch, wtPath)
+		}
+		return nil, nil
+	}
+	return direct, nil
+}
+
+func createWorktreeFromBranch(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branchName, worktreeName, targetPath string, direct *directCheckout, silent bool) error {
 	// Create worktree normally
 	args := []string{"git", "worktree", "add"}
 
 	// Determine if we need to create a new branch
 	switch {
+	case direct != nil:
+		args = direct.worktreeAddArgs(targetPath)
 	case strings.Contains(branchName, "/"):
 		// Remote branch - create new local branch with tracking
 		args = append(args, "-b", worktreeName, "--track", targetPath, branchName)
@@ -383,6 +453,18 @@ func localBranchExists(ctx context.Context, gitSvc gitService, branch string) bo
 	out := gitSvc.RunGit(
 		ctx,
 		[]string{"git", "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", branch)},
+		"",
+		[]int{0, 1},
+		true,
+		true,
+	)
+	return strings.TrimSpace(out) != ""
+}
+
+func remoteBranchExists(ctx context.Context, gitSvc gitService, ref string) bool {
+	out := gitSvc.RunGit(
+		ctx,
+		[]string{"git", "show-ref", "--verify", fmt.Sprintf("refs/remotes/%s", ref)},
 		"",
 		[]int{0, 1},
 		true,
@@ -1058,7 +1140,7 @@ func getCurrentWorktreeWithChangesFS(ctx context.Context, gitSvc gitService, fs 
 }
 
 // createWorktreeWithChanges creates a worktree and carries over uncommitted changes from the current worktree.
-func createWorktreeWithChanges(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, currentWt *models.WorktreeInfo, baseBranch, newBranch, targetPath string, silent bool) error {
+func createWorktreeWithChanges(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, currentWt *models.WorktreeInfo, baseBranch, newBranch, targetPath string, direct *directCheckout, silent bool) error {
 	if !silent {
 		fmt.Fprintf(os.Stderr, "Stashing uncommitted changes...\n")
 	}
@@ -1096,9 +1178,13 @@ func createWorktreeWithChanges(ctx context.Context, gitSvc gitService, cfg *conf
 	}
 
 	// Create the new worktree from the base branch
+	addArgs := []string{"git", "worktree", "add", "-b", newBranch, targetPath, baseBranch}
+	if direct != nil {
+		addArgs = direct.worktreeAddArgs(targetPath)
+	}
 	if !gitSvc.RunCommandChecked(
 		ctx,
-		[]string{"git", "worktree", "add", "-b", newBranch, targetPath, baseBranch},
+		addArgs,
 		"",
 		fmt.Sprintf("Failed to create worktree %s", newBranch),
 	) {

@@ -28,7 +28,7 @@ Manage git worktrees for the current repository using the `lazyworktree` CLI.
 **From the current branch (new feature work):**
 
 ```bash
-# Auto-generated name (branch-adjective-noun pattern)
+# Auto-generated name (branch-adjective-noun pattern, as the current branch is already checked out)
 lazyworktree create --silent
 
 # With a specific name
@@ -37,7 +37,10 @@ lazyworktree create --silent my-feature-name
 # Carry over uncommitted changes to the new worktree
 lazyworktree create --silent --with-change my-feature-name
 
-# From a specific branch
+# Check out an existing branch directly (falls back to a generated branch if already checked out)
+lazyworktree create --silent --from-branch feature/x
+
+# New branch from a specific branch
 lazyworktree create --silent --from-branch main my-feature-name
 ```
 

@@ -277,7 +277,7 @@ func createCommand() *appiCli.Command {
 			&appiCli.StringFlag{
 				Name:    "from-branch",
 				Aliases: []string{"branch"},
-				Usage:   "Create worktree from branch (defaults to current branch)",
+				Usage:   "Create worktree from branch (defaults to current branch). Without a name, the branch is checked out directly unless it is already checked out in a worktree",
 			},
 			&appiCli.IntFlag{
 				Name:  "from-pr",

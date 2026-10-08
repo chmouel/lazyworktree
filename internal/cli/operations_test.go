@@ -548,14 +548,14 @@ func TestCreateFromPRWithFSDisabledPRDoesNotFetch(t *testing.T) {
 func updateFakeOutputs(targetPath, status, counts string) map[string]string {
 	remoteFeatureCommitRef := "refs/remotes/origin/feature^{commit}"
 	return map[string]string{
-		filepath.Join("git", "rev-parse", "--verify", "feature"):                                         "abc123\n",
-		filepath.Join("git", "rev-parse", "--show-toplevel"):                                             targetPath + "\n",
-		filepath.Join("git", "rev-parse", "--path-format=absolute", "--git-common-dir"):                  "/repo/.git\n",
-		filepath.Join("git", "status", "--porcelain", "--untracked-files=all"):                           status,
+		filepath.Join("git", "rev-parse", "--verify", "feature"):                         "abc123\n",
+		filepath.Join("git", "rev-parse", "--show-toplevel"):                             targetPath + "\n",
+		filepath.Join("git", "rev-parse", "--path-format=absolute", "--git-common-dir"):  "/repo/.git\n",
+		filepath.Join("git", "status", "--porcelain", "--untracked-files=all"):           status,
 		filepath.Join("git", "rev-parse", "--verify", "--quiet", remoteFeatureCommitRef): "abc123\n",
-		filepath.Join("git", "rev-parse", "--verify", "--quiet", "FETCH_HEAD^{commit}"):                  "def456\n",
-		filepath.Join("git", "rev-list", "--left-right", "--count", "HEAD...abc123"):                     counts,
-		filepath.Join("git", "rev-list", "--left-right", "--count", "HEAD...def456"):                     counts,
+		filepath.Join("git", "rev-parse", "--verify", "--quiet", "FETCH_HEAD^{commit}"):  "def456\n",
+		filepath.Join("git", "rev-list", "--left-right", "--count", "HEAD...abc123"):     counts,
+		filepath.Join("git", "rev-list", "--left-right", "--count", "HEAD...def456"):     counts,
 	}
 }
 
@@ -1128,6 +1128,131 @@ func TestCreateFromBranchWorktreeNameDiffersFromSource(t *testing.T) {
 			assert.NotContains(t, call, "add")
 		}
 	})
+}
+
+func TestCreateFromBranchDirectCheckout(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	revParse := func(ref string) string { return filepath.Join("git", "rev-parse", "--verify", ref) }
+	localRef := func(b string) string { return filepath.Join("git", "show-ref", "--verify", "refs/heads/"+b) }
+	remoteRef := func(r string) string { return filepath.Join("git", "show-ref", "--verify", "refs/remotes/"+r) }
+
+	setup := func(t *testing.T, refs []string, worktrees []*models.WorktreeInfo) (*fakeGitService, *config.AppConfig, string) {
+		t.Helper()
+		runGitOutput := map[string]string{}
+		for _, ref := range refs {
+			runGitOutput[ref] = "abc123\n"
+		}
+		cfg := &config.AppConfig{WorktreeDir: t.TempDir(), InitCommands: []string{}}
+		return &fakeGitService{
+			resolveRepoName:     testRepoName,
+			mainWorktreePath:    t.TempDir(),
+			runCommandCheckedOK: true,
+			runGitOutput:        runGitOutput,
+			worktrees:           worktrees,
+		}, cfg, filepath.Join(cfg.WorktreeDir, testRepoName)
+	}
+	worktreeAdd := func(t *testing.T, svc *fakeGitService) []string {
+		t.Helper()
+		for _, call := range svc.runCommandCheckedCalls {
+			if len(call) > 2 && call[1] == "worktree" && call[2] == "add" {
+				return call
+			}
+		}
+		t.Fatal("no git worktree add call recorded")
+		return nil
+	}
+
+	t.Run("checks out free local branch as is", func(t *testing.T) {
+		t.Parallel()
+		svc, cfg, base := setup(t, []string{revParse("feature/x"), localRef("feature/x")}, nil)
+
+		out, err := CreateFromBranch(ctx, svc, cfg, "feature/x", "", false, true)
+		require.NoError(t, err)
+		want := filepath.Join(base, "feature-x")
+		assert.Equal(t, want, out)
+		assert.Equal(t, []string{"git", "worktree", "add", want, "feature/x"}, worktreeAdd(t, svc))
+	})
+
+	t.Run("falls back to new branch when attached", func(t *testing.T) {
+		t.Parallel()
+		attached := []*models.WorktreeInfo{{Path: "/elsewhere", Branch: "feature"}}
+		svc, cfg, _ := setup(t, []string{revParse("feature"), localRef("feature")}, attached)
+
+		out, err := CreateFromBranch(ctx, svc, cfg, "feature", "", false, true)
+		require.NoError(t, err)
+		name := filepath.Base(out)
+		assert.True(t, strings.HasPrefix(name, "feature-"), "unexpected name %q", name)
+		assert.Equal(t, []string{"git", "worktree", "add", "-b", name, out, "feature"}, worktreeAdd(t, svc))
+	})
+
+	t.Run("creates tracking branch from remote", func(t *testing.T) {
+		t.Parallel()
+		svc, cfg, base := setup(t, []string{revParse("origin/foo"), remoteRef("origin/foo")}, nil)
+
+		out, err := CreateFromBranch(ctx, svc, cfg, "origin/foo", "", false, true)
+		require.NoError(t, err)
+		want := filepath.Join(base, "foo")
+		assert.Equal(t, want, out)
+		assert.Equal(t, []string{"git", "worktree", "add", "-b", "foo", "--track", want, "origin/foo"}, worktreeAdd(t, svc))
+	})
+
+	t.Run("reuses local branch matching remote", func(t *testing.T) {
+		t.Parallel()
+		svc, cfg, base := setup(t, []string{revParse("origin/foo"), remoteRef("origin/foo"), localRef("foo")}, nil)
+
+		out, err := CreateFromBranch(ctx, svc, cfg, "origin/foo", "", false, true)
+		require.NoError(t, err)
+		want := filepath.Join(base, "foo")
+		assert.Equal(t, want, out)
+		assert.Equal(t, []string{"git", "worktree", "add", want, "foo"}, worktreeAdd(t, svc))
+	})
+
+	t.Run("fails when target path exists", func(t *testing.T) {
+		t.Parallel()
+		svc, cfg, base := setup(t, []string{revParse("feature"), localRef("feature")}, nil)
+		require.NoError(t, os.MkdirAll(filepath.Join(base, "feature"), 0o750))
+
+		_, err := CreateFromBranch(ctx, svc, cfg, "feature", "", false, true)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "path already exists")
+		assert.Empty(t, svc.runCommandCheckedCalls)
+	})
+
+	t.Run("with change checks out branch and applies stash", func(t *testing.T) {
+		t.Parallel()
+		current := &models.WorktreeInfo{Path: t.TempDir(), Branch: "main"}
+		inner, cfg, base := setup(t, []string{revParse("feature"), localRef("feature")}, []*models.WorktreeInfo{current})
+		inner.runGitOutput[filepath.Join("git", "status", "--porcelain")] = " M file.go\n"
+		inner.runGitOutput[filepath.Join("git", "stash", "list", "-1", "--format=%gd")] = "stash@{0}\n"
+		svc := &stashSequenceGitService{fakeGitService: inner}
+		fs := &mockFilesystem{getwdFunc: func() (string, error) { return current.Path, nil }}
+
+		out, err := CreateFromBranchWithFS(ctx, svc, cfg, "feature", "", true, true, fs)
+		require.NoError(t, err)
+		want := filepath.Join(base, "feature")
+		assert.Equal(t, want, out)
+		assert.Equal(t, []string{"git", "worktree", "add", want, "feature"}, worktreeAdd(t, inner))
+	})
+}
+
+// stashSequenceGitService reports a new stash entry after the first lookup so
+// that the --with-change flow sees a successful stash push.
+type stashSequenceGitService struct {
+	*fakeGitService
+	stashLookups int
+}
+
+func (s *stashSequenceGitService) RunGit(ctx context.Context, args []string, cwd string, okReturncodes []int, strip, silent bool) string {
+	if slices.Equal(args, []string{"git", "stash", "list", "-1", "--format=%H"}) {
+		s.stashLookups++
+		if s.stashLookups > 1 {
+			return "newstash"
+		}
+		return ""
+	}
+	return s.fakeGitService.RunGit(ctx, args, cwd, okReturncodes, strip, silent)
 }
 
 func TestCreateFromBranch(t *testing.T) {

@@ -46,7 +46,7 @@ Create a new worktree
 | `--description` | `string` | Set a description on the new worktree |
 | `--exec`, `-x` | `string` | Run a shell command after creation (in the created worktree, or current directory with --no-workspace) |
 | `--exec-mode` | `string` | Shell invocation mode for --exec: direct\|shell\|login-shell (default: login-shell) |
-| `--from-branch`, `--branch` | `string` | Create worktree from branch (defaults to current branch) |
+| `--from-branch`, `--branch` | `string` | Create worktree from branch (defaults to current branch). Without a name, the branch is checked out directly unless it is already checked out in a worktree |
 | `--from-issue` | `int` | Create worktree from issue number |
 | `--from-issue-interactive`, `-I` | `bool` | Interactively select an issue to create worktree from |
 | `--from-pr` | `int` | Create worktree from PR number |
