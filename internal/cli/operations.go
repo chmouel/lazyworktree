@@ -388,7 +388,10 @@ func CreateFromPRWithFS(ctx context.Context, gitSvc gitService, cfg *config.AppC
 	}
 	if worktreePath, attached := findWorktreePathForBranch(worktrees, localBranch); attached {
 		if !cfg.UpdateOnExisting || worktreePath != targetPath {
-			return "", fmt.Errorf("branch %q is already checked out in worktree %q", localBranch, worktreePath)
+			if !silent {
+				fmt.Fprintf(os.Stderr, "Branch %q is already checked out in worktree %q\n", localBranch, worktreePath)
+			}
+			return worktreePath, nil
 		}
 	}
 

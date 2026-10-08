@@ -553,12 +553,12 @@ func TestCreateFromPR_BranchAlreadyAttached(t *testing.T) {
 	}
 	cfg := &config.AppConfig{WorktreeDir: "/worktrees"}
 
-	_, err := CreateFromPR(ctx, svc, cfg, 7, false, true)
-	if err == nil {
-		t.Fatalf("expected error")
+	outputPath, err := CreateFromPR(ctx, svc, cfg, 7, false, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "already checked out") {
-		t.Fatalf("expected attached branch error, got: %v", err)
+	if outputPath != "/worktrees/repo/feature-branch" {
+		t.Fatalf("expected existing worktree path, got: %q", outputPath)
 	}
 }
 

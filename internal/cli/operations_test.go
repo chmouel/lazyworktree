@@ -711,9 +711,10 @@ func TestUpdateOnExistingPR(t *testing.T) {
 			UpdateOnExisting: true,
 		}
 
-		_, err := CreateFromPRWithFS(ctx, svc, cfg, 42, false, true, DefaultFS)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "already checked out")
+		outputPath, err := CreateFromPRWithFS(ctx, svc, cfg, 42, false, true, DefaultFS)
+		require.NoError(t, err)
+		assert.Equal(t, otherPath, outputPath)
+		assert.Empty(t, svc.runCommandCheckedCalls)
 	})
 
 	t.Run("fork PR falls back to refs/pull/N/head without erroring", func(t *testing.T) {
