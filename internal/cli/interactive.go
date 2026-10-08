@@ -23,6 +23,7 @@ import (
 const (
 	worktreeTag               = "[worktree]"
 	ansiGreen                 = "\x1b[32m"
+	ansiBoldYellow            = "\x1b[1;33m"
 	ansiReset                 = "\x1b[0m"
 	defaultIssueBranchPattern = "issue-{number}-{title}"
 )
@@ -130,7 +131,11 @@ func displayLine[T selectableItem](item T, colour bool) string {
 	return line
 }
 
-func isTerminalWriter(w io.Writer) bool {
+// colourEnabled reports whether ANSI colour should be written to w: it must be a terminal and NO_COLOR unset.
+func colourEnabled(w io.Writer) bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
 	f, ok := w.(*os.File)
 	return ok && term.IsTerminal(int(f.Fd())) //#nosec G115 -- fd conversion is safe on supported platforms
 }
@@ -225,7 +230,7 @@ func selectWithPrompt[T selectableItem](items []T, query, noun string, stdin io.
 	if len(items) == 0 {
 		return zero, fmt.Errorf("no %ss matching %q", noun, query)
 	}
-	colour := isTerminalWriter(stderr)
+	colour := colourEnabled(stderr)
 	fmt.Fprintf(stderr, "\nOpen %ss:\n\n", noun)
 	for i, item := range items {
 		fmt.Fprintf(stderr, "  [%d] %s\n", i+1, displayLine(item, colour))

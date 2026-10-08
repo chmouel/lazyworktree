@@ -1998,3 +1998,17 @@ func TestResolveNoteContext(t *testing.T) {
 		assert.Equal(t, "my-feature", nc.key)
 	})
 }
+
+func TestStyleWarning(t *testing.T) {
+	msg := "Existing worktree has diverged from upstream (1 local, 8 upstream), left untouched: /wt"
+
+	assert.Equal(t, msg, styleWarning(msg, false))
+	assert.Equal(t, ansiBoldYellow+msg+ansiReset, styleWarning(msg, true))
+}
+
+func TestColourEnabled_NonTerminalOrNoColor(t *testing.T) {
+	assert.False(t, colourEnabled(&strings.Builder{}))
+
+	t.Setenv("NO_COLOR", "1")
+	assert.False(t, colourEnabled(os.Stderr))
+}

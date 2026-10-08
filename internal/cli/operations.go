@@ -149,7 +149,7 @@ func fastForwardExistingWorktree(ctx context.Context, gitSvc gitService, targetP
 		return "", fmt.Errorf("failed to inspect worktree at %s: %w", targetPath, err)
 	}
 	if strings.TrimSpace(string(status)) != "" {
-		notifyUpdateSkipped(silent, "Worktree %s has uncommitted changes, left untouched", targetPath)
+		warnUpdateSkipped(silent, "Worktree %s has uncommitted changes, left untouched", targetPath)
 		return targetPath, nil
 	}
 
@@ -172,10 +172,10 @@ func fastForwardExistingWorktree(ctx context.Context, gitSvc gitService, targetP
 		notifyUpdateSkipped(silent, "Existing worktree is already up to date: %s", targetPath)
 		return targetPath, nil
 	case ahead > 0 && behind == 0:
-		notifyUpdateSkipped(silent, "Existing worktree has %d unpushed commit(s), left untouched: %s", ahead, targetPath)
+		warnUpdateSkipped(silent, "Existing worktree has %d unpushed commit(s), left untouched: %s", ahead, targetPath)
 		return targetPath, nil
 	case ahead > 0 && behind > 0:
-		notifyUpdateSkipped(silent, "Existing worktree has diverged from upstream (%d local, %d upstream), left untouched: %s", ahead, behind, targetPath)
+		warnUpdateSkipped(silent, "Existing worktree has diverged from upstream (%d local, %d upstream), left untouched: %s", ahead, behind, targetPath)
 		return targetPath, nil
 	}
 
@@ -244,6 +244,20 @@ func notifyUpdateSkipped(silent bool, format string, args ...any) {
 	if !silent {
 		fmt.Fprintf(os.Stderr, format+"\n", args...)
 	}
+}
+
+// warnUpdateSkipped reports an update skipped because of local changes, highlighted so it is not missed.
+func warnUpdateSkipped(silent bool, format string, args ...any) {
+	if !silent {
+		fmt.Fprintln(os.Stderr, styleWarning(fmt.Sprintf(format, args...), colourEnabled(os.Stderr)))
+	}
+}
+
+func styleWarning(msg string, colour bool) string {
+	if !colour {
+		return msg
+	}
+	return ansiBoldYellow + msg + ansiReset
 }
 
 // CreateFromBranch creates a worktree from a branch name.
