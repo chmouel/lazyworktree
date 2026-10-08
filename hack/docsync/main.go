@@ -918,6 +918,7 @@ func renderCLICommandsPage(commands []commandSpec) string {
 		if len(cmd.Aliases) > 0 {
 			aliases = strings.Join(wrapCode(cmd.Aliases), ", ")
 		}
+		//nolint:gocritic
 		guide := fmt.Sprintf("[`%s`](%s.md)", cmd.Name, cmd.Name)
 		fmt.Fprintf(&b, "| `%s` | %s | `%s` | %s | %s |\n", cmd.Name, escapePipe(cmd.Usage), escapePipe(args), aliases, guide)
 	}
