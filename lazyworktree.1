@@ -169,11 +169,11 @@ Create worktree from issue number. Fetches the specified issue and creates a wor
 .
 .TP
 .B \-\-from\-issue\-interactive\fR, \fB\-I\fR
-Interactively select an open issue to create a worktree from. When \fBfzf\fR is installed, presents a searchable list with issue body preview; otherwise displays a numbered list for selection. Shares the same constraints as \-\-from\-issue (mutually exclusive with \-\-from\-pr, cannot combine with \-\-with\-change or a positional name). Combine with \-\-from\-branch to specify a base branch.
+Interactively select an open issue to create a worktree from. When \fBfzf\fR is installed, presents a searchable list with issue body preview; otherwise displays a numbered list for selection. Issues that appear to have a worktree already are marked \fB[worktree]\fR and shown in green; detection matches the \fBissue_branch_name_template\fR text before \fB{number}\fR, plus the issue number, against branch and worktree directory names, so renamed branches are not detected. Shares the same constraints as \-\-from\-issue (mutually exclusive with \-\-from\-pr, cannot combine with \-\-with\-change or a positional name). Combine with \-\-from\-branch to specify a base branch.
 .
 .TP
 .B \-\-from\-pr\-interactive\fR, \fB\-P\fR
-Interactively select an open pull request to create a worktree from. When \fBfzf\fR is installed, presents a searchable list with PR metadata preview (author, branches, draft status, CI); otherwise displays a numbered list for selection. Mutually exclusive with \-\-from\-pr, \-\-from\-issue, \-\-from\-issue\-interactive, and \-\-from\-branch. Cannot combine with \-\-with\-change or a positional name.
+Interactively select an open pull request to create a worktree from. When \fBfzf\fR is installed, presents a searchable list with PR metadata preview (author, branches, draft status, CI); otherwise displays a numbered list for selection. Pull requests whose branch is already checked out in a worktree are marked \fB[worktree]\fR and shown in green. Mutually exclusive with \-\-from\-pr, \-\-from\-issue, \-\-from\-issue\-interactive, and \-\-from\-branch. Cannot combine with \-\-with\-change or a positional name.
 .
 .TP
 .B \-\-query \fISTRING\fR\fR, \fB\-q \fISTRING\fR

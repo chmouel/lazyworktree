@@ -574,7 +574,7 @@ func TestHandleCreateOutputSelection(t *testing.T) {
 	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _, _ bool) (string, error) {
 		return "", os.ErrInvalid
 	}
-	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service, _ string) (int, error) {
+	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service, _, _ string) (int, error) {
 		return 0, os.ErrInvalid
 	}
 	selectPRInteractiveFunc = func(_ context.Context, _ *git.Service, _ string) (int, error) {
@@ -665,7 +665,7 @@ func TestHandleCreateOutputSelectionFailureLeavesFile(t *testing.T) {
 	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _, _ bool) (string, error) {
 		return "", os.ErrInvalid
 	}
-	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service, _ string) (int, error) {
+	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service, _, _ string) (int, error) {
 		return 0, os.ErrInvalid
 	}
 	selectPRInteractiveFunc = func(_ context.Context, _ *git.Service, _ string) (int, error) {
@@ -735,7 +735,7 @@ func TestHandleCreateExecRunsInCreatedWorktree(t *testing.T) {
 	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _, _ bool) (string, error) {
 		return "", os.ErrInvalid
 	}
-	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service, _ string) (int, error) {
+	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service, _, _ string) (int, error) {
 		return 0, os.ErrInvalid
 	}
 	selectPRInteractiveFunc = func(_ context.Context, _ *git.Service, _ string) (int, error) {
@@ -810,7 +810,7 @@ func TestHandleCreateExecRunsInCurrentDirWithNoWorkspace(t *testing.T) {
 	createFromIssueFunc = func(_ context.Context, _ *git.Service, _ *config.AppConfig, _ int, _ string, _, _ bool) (string, error) {
 		return "", os.ErrInvalid
 	}
-	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service, _ string) (int, error) {
+	selectIssueInteractiveFunc = func(_ context.Context, _ *git.Service, _, _ string) (int, error) {
 		return 0, os.ErrInvalid
 	}
 	selectPRInteractiveFunc = func(_ context.Context, _ *git.Service, _ string) (int, error) {

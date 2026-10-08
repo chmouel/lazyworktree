@@ -30,7 +30,7 @@ func TestSelectIssueWithPrompt_ValidSelection(t *testing.T) {
 	stdin := strings.NewReader("2\n")
 	stderr := &bytes.Buffer{}
 
-	selected, err := selectIssueWithPrompt(issues, "", stdin, stderr)
+	selected, err := selectIssueWithPrompt(issues, nil, "", stdin, stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 42, selected.Number)
 	assert.Equal(t, "Add dark mode", selected.Title)
@@ -48,7 +48,7 @@ func TestSelectIssueWithPrompt_FirstItem(t *testing.T) {
 	stdin := strings.NewReader("1\n")
 	stderr := &bytes.Buffer{}
 
-	selected, err := selectIssueWithPrompt(issues, "", stdin, stderr)
+	selected, err := selectIssueWithPrompt(issues, nil, "", stdin, stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 10, selected.Number)
 }
@@ -58,7 +58,7 @@ func TestSelectIssueWithPrompt_LastItem(t *testing.T) {
 	stdin := strings.NewReader("3\n")
 	stderr := &bytes.Buffer{}
 
-	selected, err := selectIssueWithPrompt(issues, "", stdin, stderr)
+	selected, err := selectIssueWithPrompt(issues, nil, "", stdin, stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 99, selected.Number)
 }
@@ -68,7 +68,7 @@ func TestSelectIssueWithPrompt_OutOfRangeTooHigh(t *testing.T) {
 	stdin := strings.NewReader("5\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectIssueWithPrompt(issues, "", stdin, stderr)
+	_, err := selectIssueWithPrompt(issues, nil, "", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "selection out of range")
 }
@@ -78,7 +78,7 @@ func TestSelectIssueWithPrompt_OutOfRangeZero(t *testing.T) {
 	stdin := strings.NewReader("0\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectIssueWithPrompt(issues, "", stdin, stderr)
+	_, err := selectIssueWithPrompt(issues, nil, "", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "selection out of range")
 }
@@ -88,7 +88,7 @@ func TestSelectIssueWithPrompt_NegativeNumber(t *testing.T) {
 	stdin := strings.NewReader("-1\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectIssueWithPrompt(issues, "", stdin, stderr)
+	_, err := selectIssueWithPrompt(issues, nil, "", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "selection out of range")
 }
@@ -98,7 +98,7 @@ func TestSelectIssueWithPrompt_NonNumeric(t *testing.T) {
 	stdin := strings.NewReader("abc\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectIssueWithPrompt(issues, "", stdin, stderr)
+	_, err := selectIssueWithPrompt(issues, nil, "", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid selection")
 }
@@ -108,7 +108,7 @@ func TestSelectIssueWithPrompt_EmptyInput(t *testing.T) {
 	stdin := strings.NewReader("\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectIssueWithPrompt(issues, "", stdin, stderr)
+	_, err := selectIssueWithPrompt(issues, nil, "", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no issue selected")
 }
@@ -118,7 +118,7 @@ func TestSelectIssueWithPrompt_EOF(t *testing.T) {
 	stdin := strings.NewReader("") // EOF immediately
 	stderr := &bytes.Buffer{}
 
-	_, err := selectIssueWithPrompt(issues, "", stdin, stderr)
+	_, err := selectIssueWithPrompt(issues, nil, "", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cancelled")
 }
@@ -176,10 +176,12 @@ func TestBuildPreviewScript_SingleQuoteEscaping(t *testing.T) {
 }
 
 type mockGitServiceForInteractive struct {
-	issues []*models.IssueInfo
-	err    error
-	prs    []*models.PRInfo
-	prsErr error
+	issues    []*models.IssueInfo
+	err       error
+	prs       []*models.PRInfo
+	prsErr    error
+	worktrees []*models.WorktreeInfo
+	wtErr     error
 }
 
 func (m *mockGitServiceForInteractive) FetchAllOpenIssues(_ context.Context) ([]*models.IssueInfo, error) {
@@ -235,7 +237,7 @@ func (m *mockGitServiceForInteractive) GetCurrentBranch(context.Context) (string
 }
 func (m *mockGitServiceForInteractive) GetMainWorktreePath(context.Context) string { return "" }
 func (m *mockGitServiceForInteractive) GetWorktrees(context.Context) ([]*models.WorktreeInfo, error) {
-	return nil, nil
+	return m.worktrees, m.wtErr
 }
 
 func (m *mockGitServiceForInteractive) RenameWorktree(context.Context, string, string, string, string) bool {
@@ -262,7 +264,7 @@ func TestSelectIssueInteractive_NoIssues(t *testing.T) {
 	gitSvc := &mockGitServiceForInteractive{issues: []*models.IssueInfo{}}
 	stderr := &bytes.Buffer{}
 
-	_, err := SelectIssueInteractive(context.Background(), gitSvc, "", strings.NewReader(""), stderr)
+	_, err := SelectIssueInteractive(context.Background(), gitSvc, "", "", strings.NewReader(""), stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no open issues found")
 }
@@ -271,7 +273,7 @@ func TestSelectIssueInteractive_FetchError(t *testing.T) {
 	gitSvc := &mockGitServiceForInteractive{err: assert.AnError}
 	stderr := &bytes.Buffer{}
 
-	_, err := SelectIssueInteractive(context.Background(), gitSvc, "", strings.NewReader(""), stderr)
+	_, err := SelectIssueInteractive(context.Background(), gitSvc, "", "", strings.NewReader(""), stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to fetch issues")
 }
@@ -285,7 +287,7 @@ func TestSelectIssueInteractive_UsesPromptFallback(t *testing.T) {
 	gitSvc := &mockGitServiceForInteractive{issues: sampleIssues()}
 	stderr := &bytes.Buffer{}
 
-	num, err := SelectIssueInteractive(context.Background(), gitSvc, "", strings.NewReader("2\n"), stderr)
+	num, err := SelectIssueInteractive(context.Background(), gitSvc, "", "", strings.NewReader("2\n"), stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 42, num)
 }
@@ -301,7 +303,7 @@ func TestSelectIssueDefault_FallsBackToPromptWhenNoFzf(t *testing.T) {
 	stdin := strings.NewReader("1\n")
 	stderr := &bytes.Buffer{}
 
-	selected, err := selectIssueDefault(issues, "", stdin, stderr)
+	selected, err := selectIssueDefault(issues, nil, "", stdin, stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 10, selected.Number)
 }
@@ -354,7 +356,7 @@ func TestSelectPRWithPrompt_ValidSelection(t *testing.T) {
 	stdin := strings.NewReader("2\n")
 	stderr := &bytes.Buffer{}
 
-	selected, err := selectPRWithPrompt(prs, "", stdin, stderr)
+	selected, err := selectPRWithPrompt(prs, nil, "", stdin, stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 42, selected.Number)
 	assert.Equal(t, "Add dark mode", selected.Title)
@@ -372,7 +374,7 @@ func TestSelectPRWithPrompt_FirstItem(t *testing.T) {
 	stdin := strings.NewReader("1\n")
 	stderr := &bytes.Buffer{}
 
-	selected, err := selectPRWithPrompt(prs, "", stdin, stderr)
+	selected, err := selectPRWithPrompt(prs, nil, "", stdin, stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 10, selected.Number)
 }
@@ -382,7 +384,7 @@ func TestSelectPRWithPrompt_LastItem(t *testing.T) {
 	stdin := strings.NewReader("3\n")
 	stderr := &bytes.Buffer{}
 
-	selected, err := selectPRWithPrompt(prs, "", stdin, stderr)
+	selected, err := selectPRWithPrompt(prs, nil, "", stdin, stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 99, selected.Number)
 }
@@ -392,7 +394,7 @@ func TestSelectPRWithPrompt_OutOfRangeTooHigh(t *testing.T) {
 	stdin := strings.NewReader("5\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectPRWithPrompt(prs, "", stdin, stderr)
+	_, err := selectPRWithPrompt(prs, nil, "", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "selection out of range")
 }
@@ -402,7 +404,7 @@ func TestSelectPRWithPrompt_OutOfRangeZero(t *testing.T) {
 	stdin := strings.NewReader("0\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectPRWithPrompt(prs, "", stdin, stderr)
+	_, err := selectPRWithPrompt(prs, nil, "", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "selection out of range")
 }
@@ -412,7 +414,7 @@ func TestSelectPRWithPrompt_NonNumeric(t *testing.T) {
 	stdin := strings.NewReader("abc\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectPRWithPrompt(prs, "", stdin, stderr)
+	_, err := selectPRWithPrompt(prs, nil, "", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid selection")
 }
@@ -422,7 +424,7 @@ func TestSelectPRWithPrompt_EmptyInput(t *testing.T) {
 	stdin := strings.NewReader("\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectPRWithPrompt(prs, "", stdin, stderr)
+	_, err := selectPRWithPrompt(prs, nil, "", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no pull request selected")
 }
@@ -432,7 +434,7 @@ func TestSelectPRWithPrompt_EOF(t *testing.T) {
 	stdin := strings.NewReader("")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectPRWithPrompt(prs, "", stdin, stderr)
+	_, err := selectPRWithPrompt(prs, nil, "", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cancelled")
 }
@@ -442,7 +444,7 @@ func TestSelectPRWithPrompt_DraftAndCITags(t *testing.T) {
 	stdin := strings.NewReader("2\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectPRWithPrompt(prs, "", stdin, stderr)
+	_, err := selectPRWithPrompt(prs, nil, "", stdin, stderr)
 	require.NoError(t, err)
 
 	output := stderr.String()
@@ -480,7 +482,7 @@ func TestPrepareGenericPreviewCommand_UsesTempFiles(t *testing.T) {
 	longBody := strings.Repeat("body ", 4096)
 	items := wrapPRs([]*models.PRInfo{
 		{Number: 42, Title: "Large PR", Body: longBody, Author: "dev", Branch: "feature", BaseBranch: "main"},
-	})
+	}, nil)
 
 	command, cleanup, err := prepareGenericPreviewCommand(items)
 	require.NoError(t, err)
@@ -527,7 +529,7 @@ func TestSelectPRInteractive_UsesPromptFallback(t *testing.T) {
 func TestSelectPRInteractive_LogsFetchCountAndSelection(t *testing.T) {
 	oldFunc := selectPRFunc
 	t.Cleanup(func() { selectPRFunc = oldFunc })
-	selectPRFunc = func(prs []*models.PRInfo, _ string, _ io.Reader, _ io.Writer) (*models.PRInfo, error) {
+	selectPRFunc = func(prs []*models.PRInfo, _ map[int]bool, _ string, _ io.Reader, _ io.Writer) (*models.PRInfo, error) {
 		return prs[1], nil
 	}
 
@@ -566,7 +568,7 @@ func TestSelectPRDefault_FallsBackToPromptWhenNoFzf(t *testing.T) {
 	stdin := strings.NewReader("1\n")
 	stderr := &bytes.Buffer{}
 
-	selected, err := selectPRDefault(prs, "", stdin, stderr)
+	selected, err := selectPRDefault(prs, nil, "", stdin, stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 10, selected.Number)
 }
@@ -585,7 +587,7 @@ func TestSelectPRDefault_LogsPromptFallback(t *testing.T) {
 		_ = lwlog.SetFile("")
 	})
 
-	selected, err := selectPRDefault(samplePRs(), "", strings.NewReader("1\n"), &bytes.Buffer{})
+	selected, err := selectPRDefault(samplePRs(), nil, "", strings.NewReader("1\n"), &bytes.Buffer{})
 	require.NoError(t, err)
 	assert.Equal(t, 10, selected.Number)
 	require.NoError(t, lwlog.Close())
@@ -612,7 +614,7 @@ func TestSelectPRWithFzf_LogsExitError(t *testing.T) {
 	})
 
 	stderr := &bytes.Buffer{}
-	_, err := selectPRWithFzf(samplePRs(), "", stderr)
+	_, err := selectPRWithFzf(samplePRs(), nil, "", stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "pull request selection cancelled")
 	assert.Contains(t, stderr.String(), "fzf boom")
@@ -663,7 +665,7 @@ func TestSelectPRWithFzf_Integration(t *testing.T) {
 // --- Query filtering tests ---
 
 func TestFilterItems_Issues(t *testing.T) {
-	items := wrapIssues(sampleIssues())
+	items := wrapIssues(sampleIssues(), nil)
 
 	tests := []struct {
 		name      string
@@ -690,7 +692,7 @@ func TestFilterItems_Issues(t *testing.T) {
 }
 
 func TestFilterItems_PRs(t *testing.T) {
-	items := wrapPRs(samplePRs())
+	items := wrapPRs(samplePRs(), nil)
 
 	tests := []struct {
 		name      string
@@ -721,7 +723,7 @@ func TestSelectIssueWithPrompt_QueryFiltersResults(t *testing.T) {
 	stdin := strings.NewReader("1\n")
 	stderr := &bytes.Buffer{}
 
-	selected, err := selectIssueWithPrompt(issues, "dark", stdin, stderr)
+	selected, err := selectIssueWithPrompt(issues, nil, "dark", stdin, stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 42, selected.Number)
 
@@ -735,7 +737,7 @@ func TestSelectIssueWithPrompt_QueryNoMatch(t *testing.T) {
 	stdin := strings.NewReader("1\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectIssueWithPrompt(issues, "nonexistent", stdin, stderr)
+	_, err := selectIssueWithPrompt(issues, nil, "nonexistent", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `no issues matching "nonexistent"`)
 }
@@ -745,7 +747,7 @@ func TestSelectPRWithPrompt_QueryFiltersResults(t *testing.T) {
 	stdin := strings.NewReader("1\n")
 	stderr := &bytes.Buffer{}
 
-	selected, err := selectPRWithPrompt(prs, "dark", stdin, stderr)
+	selected, err := selectPRWithPrompt(prs, nil, "dark", stdin, stderr)
 	require.NoError(t, err)
 	assert.Equal(t, 42, selected.Number)
 }
@@ -755,7 +757,138 @@ func TestSelectPRWithPrompt_QueryNoMatch(t *testing.T) {
 	stdin := strings.NewReader("1\n")
 	stderr := &bytes.Buffer{}
 
-	_, err := selectPRWithPrompt(prs, "nonexistent", stdin, stderr)
+	_, err := selectPRWithPrompt(prs, nil, "nonexistent", stdin, stderr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `no pull requests matching "nonexistent"`)
+}
+
+func TestIssuesWithWorktree(t *testing.T) {
+	worktrees := []*models.WorktreeInfo{
+		{Path: "/repo", Branch: "main", IsMain: true},
+		{Path: "/wt/issue-42-add-dark-mode", Branch: "issue-42-add-dark-mode"},
+		{Path: "/wt/gh-10", Branch: "renamed-branch"},
+		{Path: "/wt/feat-99", Branch: "feat/99-ai-title"},
+	}
+	tests := []struct {
+		name     string
+		template string
+		want     map[int]bool
+	}{
+		{name: "default template matches branch", template: "", want: map[int]bool{42: true}},
+		{name: "explicit default template", template: "issue-{number}-{title}", want: map[int]bool{42: true}},
+		{name: "matches worktree directory name", template: "gh-{number}-{title}", want: map[int]bool{10: true}},
+		{name: "prefix with slash and generated title", template: "feat/{number}-{generated}", want: map[int]bool{99: true}},
+		{name: "template without number", template: "{title}", want: map[int]bool{}},
+		{name: "placeholder before number", template: "{title}-{number}", want: map[int]bool{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := issuesWithWorktree(sampleIssues(), worktrees, tt.template)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestIssuesWithWorktree_NumberBoundary(t *testing.T) {
+	issues := []*models.IssueInfo{{Number: 4}, {Number: 42}, {Number: 420}}
+	worktrees := []*models.WorktreeInfo{{Path: "/wt/x", Branch: "issue-42-something"}}
+
+	got := issuesWithWorktree(issues, worktrees, "issue-{number}-{title}")
+	assert.Equal(t, map[int]bool{42: true}, got)
+}
+
+func TestPRsWithWorktree(t *testing.T) {
+	prs := append(samplePRs(), &models.PRInfo{Number: 7, Branch: ""})
+	worktrees := []*models.WorktreeInfo{
+		{Path: "/repo", Branch: "main", IsMain: true},
+		{Path: "/wt/pr-42-dark", Branch: "dark-mode"},
+		{Path: "/wt/detached", Branch: ""},
+	}
+
+	got := prsWithWorktree(prs, worktrees)
+	assert.Equal(t, map[int]bool{42: true}, got)
+}
+
+func TestSelectPRInteractive_MarksCheckedOutPRs(t *testing.T) {
+	oldFunc := selectPRFunc
+	t.Cleanup(func() { selectPRFunc = oldFunc })
+	selectPRFunc = selectPRWithPrompt
+
+	gitSvc := &mockGitServiceForInteractive{
+		prs:       samplePRs(),
+		worktrees: []*models.WorktreeInfo{{Path: "/wt/dark", Branch: "dark-mode"}},
+	}
+	stderr := &bytes.Buffer{}
+
+	num, err := SelectPRInteractive(context.Background(), gitSvc, "", strings.NewReader("1\n"), stderr)
+	require.NoError(t, err)
+	assert.Equal(t, 10, num)
+
+	out := stderr.String()
+	assert.Contains(t, out, "[draft] [CI: pending] [worktree]")
+	assert.Equal(t, 1, strings.Count(out, worktreeTag))
+	assert.NotContains(t, out, ansiGreen, "non-terminal output must not be coloured")
+}
+
+func TestSelectIssueInteractive_MarksCheckedOutIssues(t *testing.T) {
+	oldFunc := selectIssueFunc
+	t.Cleanup(func() { selectIssueFunc = oldFunc })
+	selectIssueFunc = selectIssueWithPrompt
+
+	gitSvc := &mockGitServiceForInteractive{
+		issues:    sampleIssues(),
+		worktrees: []*models.WorktreeInfo{{Path: "/wt/bug-10-login", Branch: "bug-10-login"}},
+	}
+	stderr := &bytes.Buffer{}
+
+	num, err := SelectIssueInteractive(context.Background(), gitSvc, "", "bug-{number}-{title}", strings.NewReader("2\n"), stderr)
+	require.NoError(t, err)
+	assert.Equal(t, 42, num)
+	assert.Contains(t, stderr.String(), "Fix login bug  [worktree]")
+	assert.Equal(t, 1, strings.Count(stderr.String(), worktreeTag))
+}
+
+func TestSelectInteractive_WorktreeListErrorIsNotFatal(t *testing.T) {
+	oldIssue, oldPR := selectIssueFunc, selectPRFunc
+	t.Cleanup(func() { selectIssueFunc, selectPRFunc = oldIssue, oldPR })
+
+	var issueMarks, prMarks map[int]bool
+	selectIssueFunc = func(issues []*models.IssueInfo, checkedOut map[int]bool, _ string, _ io.Reader, _ io.Writer) (*models.IssueInfo, error) {
+		issueMarks = checkedOut
+		return issues[0], nil
+	}
+	selectPRFunc = func(prs []*models.PRInfo, checkedOut map[int]bool, _ string, _ io.Reader, _ io.Writer) (*models.PRInfo, error) {
+		prMarks = checkedOut
+		return prs[0], nil
+	}
+
+	gitSvc := &mockGitServiceForInteractive{issues: sampleIssues(), prs: samplePRs(), wtErr: assert.AnError}
+
+	_, err := SelectIssueInteractive(context.Background(), gitSvc, "", "", strings.NewReader(""), &bytes.Buffer{})
+	require.NoError(t, err)
+	assert.Empty(t, issueMarks)
+
+	_, err = SelectPRInteractive(context.Background(), gitSvc, "", strings.NewReader(""), &bytes.Buffer{})
+	require.NoError(t, err)
+	assert.Empty(t, prMarks)
+}
+
+func TestDisplayLine_ColoursCheckedOutItems(t *testing.T) {
+	items := wrapPRs(samplePRs(), map[int]bool{42: true})
+
+	assert.Equal(t, items[0].FormatLine(), displayLine(items[0], true))
+	coloured := displayLine(items[1], true)
+	assert.Equal(t, ansiGreen+items[1].FormatLine()+ansiReset, coloured)
+	assert.Equal(t, items[1].FormatLine(), displayLine(items[1], false))
+
+	if _, err := exec.LookPath("fzf"); err != nil {
+		t.Skip("fzf not installed, skipping ANSI round-trip check")
+	}
+	cmd := exec.Command("fzf", "--ansi", "--filter", "dark")
+	cmd.Stdin = strings.NewReader(coloured + "\n")
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	num, err := parseNumberFromLine(strings.TrimSpace(string(out)))
+	require.NoError(t, err)
+	assert.Equal(t, 42, num)
 }

@@ -31,6 +31,7 @@ lazyworktree create my-feature --note-file ./notes.md
 ## Behaviour Notes
 
 - `--exec` runs after successful creation.
+- In `-P`/`-I` selection, items already checked out in a worktree are marked `[worktree]` and shown in green. PRs match on their branch. Issues match on the `issue_branch_name_template` text before `{number}` plus the issue number (e.g. `issue-42`), checked against branch and worktree directory names; renamed branches or templates without `{number}` are not detected.
 - With `--no-workspace`, `--exec` runs in current directory.
 - Shell execution uses your shell mode (`zsh -ilc`, `bash -ic`, otherwise `-lc`).
 - `--exec-mode` controls how `--exec` is invoked:

@@ -29,7 +29,7 @@ type (
 	createFromPRFuncType           func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, prNumber int, noWorkspace, silent bool) (string, error)
 	createFromIssueFuncType        func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, issueNumber int, baseBranch string, noWorkspace, silent bool) (string, error)
 	renameWorktreeFuncType         func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, worktreePath, newName string, silent bool) error
-	selectIssueInteractiveFuncType func(ctx context.Context, gitSvc *git.Service, query string) (int, error)
+	selectIssueInteractiveFuncType func(ctx context.Context, gitSvc *git.Service, query, issueTemplate string) (int, error)
 	selectPRInteractiveFuncType    func(ctx context.Context, gitSvc *git.Service, query string) (int, error)
 	runCreateExecFuncType          func(ctx context.Context, command, cwd string) error
 )
@@ -49,8 +49,8 @@ var (
 	renameWorktreeFunc renameWorktreeFuncType = func(ctx context.Context, gitSvc *git.Service, cfg *config.AppConfig, worktreePath, newName string, silent bool) error {
 		return cli.RenameWorktree(ctx, gitSvc, cfg, worktreePath, newName, silent)
 	}
-	selectIssueInteractiveFunc selectIssueInteractiveFuncType = func(ctx context.Context, gitSvc *git.Service, query string) (int, error) {
-		return cli.SelectIssueInteractiveFromStdio(ctx, gitSvc, query)
+	selectIssueInteractiveFunc selectIssueInteractiveFuncType = func(ctx context.Context, gitSvc *git.Service, query, issueTemplate string) (int, error) {
+		return cli.SelectIssueInteractiveFromStdio(ctx, gitSvc, query, issueTemplate)
 	}
 	selectPRInteractiveFunc selectPRInteractiveFuncType = func(ctx context.Context, gitSvc *git.Service, query string) (int, error) {
 		return cli.SelectPRInteractiveFromStdio(ctx, gitSvc, query)
@@ -627,7 +627,7 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 		}
 		outputPath, opErr = createFromPRFunc(ctx, gitSvc, cfg, prNumber, noWorkspace, silent)
 	case fromIssueInteractive:
-		issueNumber, err := selectIssueInteractiveFunc(ctx, gitSvc, query)
+		issueNumber, err := selectIssueInteractiveFunc(ctx, gitSvc, query, cfg.IssueBranchNameTemplate)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			_ = log.Close()
