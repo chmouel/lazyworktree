@@ -1048,6 +1048,77 @@ func TestGetCurrentWorktreeWithChanges(t *testing.T) {
 	}
 }
 
+func TestCreateFromBranchWorktreeNameDiffersFromSource(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	sourceBranch := "main"
+	worktreeName := "strava"
+	showRef := filepath.Join("git", "show-ref", "--verify", "refs/heads/"+worktreeName)
+
+	newSvc := func(t *testing.T, existing bool, worktrees []*models.WorktreeInfo) *fakeGitService {
+		t.Helper()
+		mainPath := filepath.Join(t.TempDir(), "main")
+		if err := os.MkdirAll(mainPath, 0o750); err != nil {
+			t.Fatalf("failed to create main path: %v", err)
+		}
+		runGitOutput := map[string]string{
+			filepath.Join("git", "rev-parse", "--verify", sourceBranch):              "abc123\n",
+			filepath.Join("git", "show-ref", "--verify", "refs/heads/"+sourceBranch): "abc123\n",
+		}
+		if existing {
+			runGitOutput[showRef] = "def456\n"
+		}
+		return &fakeGitService{
+			resolveRepoName:     testRepoName,
+			mainWorktreePath:    mainPath,
+			runCommandCheckedOK: true,
+			runGitOutput:        runGitOutput,
+			worktrees:           worktrees,
+		}
+	}
+
+	t.Run("creates new branch when name is free", func(t *testing.T) {
+		svc := newSvc(t, false, nil)
+		cfg := &config.AppConfig{WorktreeDir: t.TempDir(), InitCommands: []string{}}
+
+		if _, err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		last := svc.runCommandCheckedCalls[len(svc.runCommandCheckedCalls)-1]
+		assert.Contains(t, last, "-b")
+		assert.Contains(t, last, worktreeName)
+		assert.Equal(t, sourceBranch, last[len(last)-1])
+	})
+
+	t.Run("reuses existing local branch instead of -b", func(t *testing.T) {
+		svc := newSvc(t, true, nil)
+		cfg := &config.AppConfig{WorktreeDir: t.TempDir(), InitCommands: []string{}}
+
+		if _, err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		last := svc.runCommandCheckedCalls[len(svc.runCommandCheckedCalls)-1]
+		assert.NotContains(t, last, "-b")
+		assert.Equal(t, worktreeName, last[len(last)-1])
+	})
+
+	t.Run("fails when existing branch is checked out elsewhere", func(t *testing.T) {
+		otherPath := filepath.Join(t.TempDir(), "elsewhere")
+		svc := newSvc(t, true, []*models.WorktreeInfo{{Path: otherPath, Branch: worktreeName}})
+		cfg := &config.AppConfig{WorktreeDir: t.TempDir(), InitCommands: []string{}}
+
+		_, err := CreateFromBranch(ctx, svc, cfg, sourceBranch, worktreeName, false, true)
+		if err == nil {
+			t.Fatal("expected error for branch already checked out")
+		}
+		assert.Contains(t, err.Error(), otherPath)
+		for _, call := range svc.runCommandCheckedCalls {
+			assert.NotContains(t, call, "add")
+		}
+	})
+}
+
 func TestCreateFromBranch(t *testing.T) {
 	t.Parallel()
 

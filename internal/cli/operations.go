@@ -246,21 +246,23 @@ func createWorktreeFromBranch(ctx context.Context, gitSvc gitService, cfg *confi
 		// Remote branch - create new local branch with tracking
 		args = append(args, "-b", worktreeName, "--track", targetPath, branchName)
 	case worktreeName != branchName:
-		// Creating a new branch with a different name (e.g., random name)
-		// Always use -b to create the new branch based on the source branch
-		args = append(args, "-b", worktreeName, targetPath, branchName)
+		// Reuse an existing local branch named after the worktree, otherwise
+		// create it from the source branch.
+		if localBranchExists(ctx, gitSvc, worktreeName) {
+			worktrees, err := gitSvc.GetWorktrees(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to inspect worktrees: %w", err)
+			}
+			if wtPath, attached := findWorktreePathForBranch(worktrees, worktreeName); attached {
+				return fmt.Errorf("branch %q is already checked out in worktree %q", worktreeName, wtPath)
+			}
+			args = append(args, targetPath, worktreeName)
+		} else {
+			args = append(args, "-b", worktreeName, targetPath, branchName)
+		}
 	default:
 		// Worktree name matches branch name - check if branch already exists
-		localBranchExists := gitSvc.RunGit(
-			ctx,
-			[]string{"git", "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", branchName)},
-			"",
-			[]int{0, 1},
-			true,
-			true,
-		)
-
-		if strings.TrimSpace(localBranchExists) != "" {
+		if localBranchExists(ctx, gitSvc, branchName) {
 			// Local branch exists - checkout without creating new branch
 			args = append(args, targetPath, branchName)
 		} else {
@@ -281,6 +283,18 @@ func createWorktreeFromBranch(ctx context.Context, gitSvc gitService, cfg *confi
 	}
 
 	return nil
+}
+
+func localBranchExists(ctx context.Context, gitSvc gitService, branch string) bool {
+	out := gitSvc.RunGit(
+		ctx,
+		[]string{"git", "show-ref", "--verify", fmt.Sprintf("refs/heads/%s", branch)},
+		"",
+		[]int{0, 1},
+		true,
+		true,
+	)
+	return strings.TrimSpace(out) != ""
 }
 
 // generateUniqueWorktreeNameFS generates a unique worktree name with retries.
