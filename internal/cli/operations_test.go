@@ -2012,3 +2012,24 @@ func TestColourEnabled_NonTerminalOrNoColor(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	assert.False(t, colourEnabled(os.Stderr))
 }
+
+func TestDivergedResyncHint(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		ref      string
+		wantPath string
+		wantRef  string
+	}{
+		{name: "plain path and remote ref", path: "/wt/repo/pr-42", ref: "origin/feature", wantPath: "/wt/repo/pr-42", wantRef: "origin/feature"},
+		{name: "path with space is quoted", path: "/wt/my repo/x", ref: "abc123", wantPath: "'/wt/my repo/x'", wantRef: "abc123"},
+		{name: "path with quote is escaped", path: "/wt/it's", ref: "origin/main", wantPath: `'/wt/it'"'"'s'`, wantRef: "origin/main"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hint := divergedResyncHint(tt.path, tt.ref)
+			assert.Contains(t, hint, "git -C "+tt.wantPath+" rebase "+tt.wantRef+"\n")
+			assert.Contains(t, hint, "git -C "+tt.wantPath+" reset --hard "+tt.wantRef+"\n")
+		})
+	}
+}

@@ -119,7 +119,7 @@ func updateExistingWorktreeToRef(ctx context.Context, gitSvc gitService, targetP
 		}
 		return resolveCommitForUpdate(ctx, gitSvc, targetPath, remoteRef)
 	}
-	return fastForwardExistingWorktree(ctx, gitSvc, targetPath, "", fetch, silent)
+	return fastForwardExistingWorktree(ctx, gitSvc, targetPath, "", "origin/"+branch, fetch, silent)
 }
 
 // updateExistingWorktreeForPR fast-forwards an existing worktree to the PR head when it is safe.
@@ -133,13 +133,14 @@ func updateExistingWorktreeForPR(ctx context.Context, gitSvc gitService, targetP
 		}
 		return resolveCommitForUpdate(ctx, gitSvc, targetPath, "FETCH_HEAD")
 	}
-	return fastForwardExistingWorktree(ctx, gitSvc, targetPath, fmt.Sprintf(" (PR #%d)", prNumber), fetch, silent)
+	return fastForwardExistingWorktree(ctx, gitSvc, targetPath, fmt.Sprintf(" (PR #%d)", prNumber), "", fetch, silent)
 }
 
 // fastForwardExistingWorktree updates an existing worktree only when it can be fast-forwarded.
 // Dirty, ahead, and diverged worktrees are left untouched and returned as-is. The fetch callback
 // runs only after the worktree has been validated and found clean, and returns the target commit.
-func fastForwardExistingWorktree(ctx context.Context, gitSvc gitService, targetPath, label string, fetch func() (string, error), silent bool) (string, error) {
+// upstreamRef names the target in resync hints; when empty, the fetched commit is used.
+func fastForwardExistingWorktree(ctx context.Context, gitSvc gitService, targetPath, label, upstreamRef string, fetch func() (string, error), silent bool) (string, error) {
 	if err := validateExistingWorktreeForUpdate(ctx, gitSvc, targetPath); err != nil {
 		return "", err
 	}
@@ -176,6 +177,12 @@ func fastForwardExistingWorktree(ctx context.Context, gitSvc gitService, targetP
 		return targetPath, nil
 	case ahead > 0 && behind > 0:
 		warnUpdateSkipped(silent, "Existing worktree has diverged from upstream (%d local, %d upstream), left untouched: %s", ahead, behind, targetPath)
+		if !silent {
+			if upstreamRef == "" {
+				upstreamRef = targetOID
+			}
+			fmt.Fprint(os.Stderr, divergedResyncHint(targetPath, upstreamRef))
+		}
 		return targetPath, nil
 	}
 
@@ -251,6 +258,26 @@ func warnUpdateSkipped(silent bool, format string, args ...any) {
 	if !silent {
 		fmt.Fprintln(os.Stderr, styleWarning(fmt.Sprintf(format, args...), colourEnabled(os.Stderr)))
 	}
+}
+
+// divergedResyncHint suggests commands to bring a diverged worktree back in line with upstreamRef.
+func divergedResyncHint(targetPath, upstreamRef string) string {
+	path := shellQuoteIfNeeded(targetPath)
+	ref := shellQuoteIfNeeded(upstreamRef)
+	return fmt.Sprintf("  To replay your local commits on top of upstream:\n"+
+		"    git -C %s rebase %s\n"+
+		"  Or to discard your local commits and match upstream:\n"+
+		"    git -C %s reset --hard %s\n", path, ref, path, ref)
+}
+
+// shellQuoteIfNeeded quotes s only when it contains characters the shell would interpret.
+func shellQuoteIfNeeded(s string) string {
+	if s != "" && strings.IndexFunc(s, func(r rune) bool {
+		return !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._-+:@%,=", r)
+	}) < 0 {
+		return s
+	}
+	return multiplexer.ShellQuote(s)
 }
 
 func styleWarning(msg string, colour bool) string {
