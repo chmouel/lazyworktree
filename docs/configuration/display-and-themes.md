@@ -39,7 +39,7 @@ layout_sizes:
   notes: 30        # Notes pane share (when visible)
 ```
 
-All fields are optional — omitted fields keep their built-in defaults. Focus-based
+All fields are optional. Omitted fields keep their built-in defaults. Focus-based
 dynamic resizing still applies on top of the configured baseline.
 
 **Tip:** On smaller terminals, setting `worktrees` to a higher value such as `80`
@@ -48,7 +48,7 @@ You can also resize the worktree pane at runtime with `h` (shrink) and `l` (grow
 
 ![Worktree pane at 80%](../assets/worktree-size-80%.png)
 
-*Worktree pane with `worktrees: 80` — more space for the list on a compact screen.*
+*With `worktrees: 80`, the worktree list gets more space on a compact screen.*
 
 ## Icon Rendering
 
@@ -57,11 +57,11 @@ You can also resize the worktree pane at runtime with `h` (shrink) and `l` (grow
 
 If glyphs render incorrectly, use `text` or install a patched Nerd Font.
 
-`avatar_badges: auto` shows tiny avatars in the Info pane — for the PR/MR
-author and for each reviewer — only when LazyWorktree detects a
-Kitty-compatible terminal, such as Kitty, WezTerm, or Ghostty. Use `never` to
-keep plain text everywhere, or `always` to force the Kitty graphics path for a
-compatible terminal that is not detected automatically.
+When `avatar_badges: auto` is set, the Info pane shows small avatars for the
+PR/MR author and reviewers only when LazyWorktree detects a Kitty-compatible
+terminal such as Kitty, WezTerm, or Ghostty. Use `never` to keep plain text
+everywhere, or `always` to use the Kitty graphics path in a compatible terminal
+that LazyWorktree does not detect automatically.
 
 ## Reviewers
 
@@ -78,8 +78,8 @@ and the forge request that populates it.
 
 The commit log pane uses theme colours for push and merge status:
 
-- **`ErrorFg`** (typically red) — unpushed commits (`↑`)
-- **`WarnFg`** (typically yellow) — unmerged commits (`★`, pushed but not in main)
+- `ErrorFg` (typically red) indicates unpushed commits (`↑`).
+- `WarnFg` (typically yellow) indicates unmerged commits (`★`), which have been pushed but are not in main.
 
 These colours are defined in each theme and follow the selected theme automatically.
 

@@ -10,7 +10,7 @@ With container execution:
 - Run builds and tests in isolated containers with pinned toolchain versions
 - Reproduce CI environments locally without installing dependencies
 - Combine containers with [multiplexer sessions](multiplexer-integration.md) for multi-window container workflows
-- Auto-detect Docker or Podman — no runtime configuration needed
+- Docker or Podman is detected automatically; no runtime configuration is needed.
 
 ## Basic Examples
 
@@ -43,7 +43,7 @@ custom_commands:
 
 ### Image + Entrypoint
 
-Override the image's default entrypoint — for images that bundle multiple tools or require a specific shell:
+Override the image's default entrypoint for images that bundle multiple tools or require a specific shell:
 
 ```yaml
 custom_commands:

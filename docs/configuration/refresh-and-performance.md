@@ -16,7 +16,7 @@ sort_mode: switched       # Sort order: switched, active, or path
 
 - When `auto_refresh` is enabled, LazyWorktree re-scans the worktree list at the configured interval
 - When `auto_refresh` is disabled, the list only updates on manual refresh or after worktree operations
-- `refresh_interval` sets the cadence in seconds — lower values give fresher data, higher values reduce git process spawning
+- `refresh_interval` sets the refresh interval in seconds. Lower values update data more often; higher values spawn fewer Git processes.
 
 ### Guidance for large repositories
 
@@ -42,7 +42,7 @@ This reduces the frequency of `git worktree list` and status checks, which can b
 ci_auto_refresh: true     # Periodic CI status refresh (default: false)
 ```
 
-When enabled, LazyWorktree polls the GitHub or GitLab API for CI check status at regular intervals. Only worktrees with pending or running CI jobs are refreshed — completed checks are not re-fetched until the cache expires.
+When enabled, LazyWorktree polls GitHub or GitLab for CI status at regular intervals. It refreshes only worktrees with pending or running jobs. Completed checks stay cached until the cache expires.
 
 !!! tip
     If you hit API rate limits (especially on large GitHub organisations), disable CI auto-refresh and use manual refresh instead:

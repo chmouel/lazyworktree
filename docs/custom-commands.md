@@ -165,7 +165,7 @@ Palette-only commands keep their `_name` identifier for configuration and CLI us
 
 ## Pane Scoping
 
-Custom commands are nested under a pane scope. `universal` commands are available in every pane. Use a pane name to restrict a command to that pane only — pane-specific bindings override `universal` bindings for the same key.
+Custom commands are nested under a pane scope. `universal` commands are available in every pane. Use a pane name to restrict a command to that pane. Pane-specific bindings override `universal` bindings for the same key.
 
 **Available pane names:** `universal`, `worktrees`, `info`, `status`, `log`, `notes`, `agent_sessions`
 
@@ -260,7 +260,7 @@ Each mount entry has:
 
 The worktree path is automatically mounted to the working directory. If a user-specified mount targets the same path as `working_dir`, the automatic mount is skipped. Managed worktree and `LAZYWORKTREE_*` environment variables are forwarded into the container automatically.
 
-**`entrypoint` vs `command`:** The `entrypoint` overrides the container image's default entrypoint (the binary that runs inside the container), whilst `command` provides arguments passed to that entrypoint via `sh -c`. When both are set, the entrypoint runs with the command as its argument. When only `entrypoint` is set (no `command`), the container runs the entrypoint directly — useful for interactive shells or tools that need no additional arguments. When only `command` is set, it runs under the image's default entrypoint. When neither is set, the container runs with its image defaults.
+**`entrypoint` and `command`:** `entrypoint` replaces the image's default executable. `command` passes arguments to it through `sh -c`. When both are set, the custom entrypoint runs with the command as its argument. With only `entrypoint`, the container runs it directly, which suits interactive shells or tools that need no extra arguments. With only `command`, the image's default entrypoint runs it. If neither is set, the image uses its defaults.
 
 When combined with `tmux` or `zellij`, each window/tab command is individually wrapped in a container invocation.
 

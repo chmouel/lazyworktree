@@ -21,8 +21,8 @@ The TUI is organised into six panes:
 
 Press `L` to toggle between two layout arrangements:
 
-- **Default layout** — worktree list on the left, agent sessions and notes stacked beneath it when present, detail panes stacked on the right
-- **Top layout** — alternative arrangement with worktrees at the top, optional agent sessions and notes rows beneath, and detail panes along the bottom
+- Default layout: worktree list on the left, agent sessions and notes beneath it when present, and detail panes on the right.
+- Top layout: worktrees at the top, optional agent sessions and notes beneath, and detail panes along the bottom.
 
 ![Light theme layout](../assets/screenshot-light.png)
 
@@ -57,9 +57,9 @@ By default the pane shows only sessions with confirmed live agent processes; pre
 
 ### Worktree Pane
 
-- `Enter` — jump to selected worktree (exits LazyWorktree and outputs the path)
-- `s` — cycle sort mode: Path, Last Active (commit date), Last Switched (access time)
-- `e` — edit worktree metadata for the selected worktree (description, colour, notes, icon, tags)
+- `Enter`: jump to the selected worktree, exit LazyWorktree, and output its path
+- `s`: cycle through Path, Last Active (commit date), and Last Switched (access time) sort modes
+- `e`: edit the selected worktree's description, colour, notes, icon, and tags
 - Command palette only: **Set worktree colour** (picker plus `Custom…` for hex, supported named colours, or 256 indices)
 - Command palette only: **Worktree notes** and **Set worktree icon** remain available without default direct shortcuts
 - Command palette only: **Set worktree tags** (type labels separated by commas, e.g. "bug,frontend,urgent", and toggle existing tags in the same editor; displayed as coloured badges after the worktree name, shown in the Info pane when present, and included in filter/search)
@@ -67,21 +67,21 @@ By default the pane shows only sessions with confirmed live agent processes; pre
 
 ### Git Status Pane
 
-- `Enter` — toggle collapse/expand or show diffs
-- `e` — open file in editor
-- `s` — stage/unstage files or directories
-- `d` — show full diff in pager
-- `c` — open the commit screen from the Git Status pane for staged changes
-- `Ctrl+g` — open the commit screen from anywhere; the screen uses a dedicated subject field, `Tab` switches to the body, `Ctrl+o` auto-generates from the staged diff, and `Ctrl+x` opens the draft in the configured editor
-- `C` — stage all changes and commit with the git editor
-- `Ctrl+←` / `Ctrl+→` — jump between folders
+- `Enter`: toggle collapse or expansion, or show diffs
+- `e`: open the file in an editor
+- `s`: stage or unstage files and directories
+- `d`: show the full diff in a pager
+- `c`: open the commit screen from the Git Status pane for staged changes
+- `Ctrl+g`: open the commit screen from anywhere. Use the subject field, press `Tab` to edit the body, `Ctrl+o` to generate a message from the staged diff, or `Ctrl+x` to edit the draft in the configured editor.
+- `C`: stage all changes and commit with the Git editor
+- `Ctrl+←` / `Ctrl+→`: jump between folders
 
 ### Commit Pane
 
-- `Enter` — view commit's file tree
-- `d` — show full commit diff in pager
-- `C` — cherry-pick commit to another worktree
-- `Ctrl+j` — move to next commit and open its file tree
+- `Enter`: view the commit's file tree
+- `d`: show the full commit diff in a pager
+- `C`: cherry-pick the commit to another worktree
+- `Ctrl+j`: move to the next commit and open its file tree
 
 Each commit displays a status indicator: `↑` (red) for unpushed commits, `★` (yellow) for commits pushed but not yet in the main branch, or the author's initials when fully merged.
 

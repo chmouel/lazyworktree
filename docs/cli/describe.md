@@ -86,15 +86,15 @@ lazyworktree describe note show | jq '.flags[].name'
 - With two arguments, describes the nested subcommand (e.g. `note show`).
 - `--all` is equivalent to no arguments.
 - Unknown command names produce an error on stderr and exit non-zero.
-- Output is always valid JSON — suitable for `jq`, Python `json.loads`, etc.
+- Output is valid JSON for tools such as `jq` and Python's `json.loads`.
 
 ## For Coding Agents
 
 The recommended introspection hierarchy is:
 
-1. **`describe`** — authoritative, structured JSON
-2. **`--json` flags** — machine-readable output from mutating commands
-3. **`--help`** — human-readable fallback (do not parse programmatically)
+1. `describe`: authoritative, structured JSON
+2. `--json` flags: machine-readable output from mutating commands
+3. `--help`: human-readable reference, not for programmatic parsing
 
 ```bash
 # Discover all flags for create before invoking it

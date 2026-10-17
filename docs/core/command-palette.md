@@ -15,11 +15,11 @@ The command palette is the fastest way to trigger actions without remembering ev
 
 The palette surfaces all available actions, including:
 
-- **Worktree actions** — create, delete, rename, set icon, set colour, absorb, prune, sync
-- **Commit flow** — search for **Open commit screen** to open the staged commit modal from the palette
-- **Git operations** — lazygit, cherry-pick, diff viewing
-- **Navigation and pane controls** — focus pane, toggle zoom, switch layout
-- **Settings** — theme selection with live preview
+- Worktree actions: create, delete, rename, set icon, set colour, absorb, prune, and sync.
+- Commit flow: search for **Open commit screen** to open the staged commit modal.
+- Git operations: lazygit, cherry-pick, and diff viewing.
+- Navigation and pane controls: focus a pane, toggle zoom, or switch layout.
+- Settings: select a theme with a live preview.
 
 The letter on the right of each entry indicates its keybinding (if any) for
 quick reference.

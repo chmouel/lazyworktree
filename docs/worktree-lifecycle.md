@@ -50,7 +50,7 @@ Contextual `LAZYWORKTREE_*` values are empty when no PR/MR, issue, or diff sourc
 
 Commands execute in the order listed. If you also have global `init_commands` or `terminate_commands` in your LazyWorktree configuration file, those run **before** the repository `.wt` commands. This allows global setup (e.g., shell environment) to complete before project-specific commands.
 
-If any command fails (non-zero exit code), subsequent commands in the list still execute — failure does not halt the sequence.
+If a command exits with a non-zero code, the remaining commands still run.
 
 ## Special Commands
 
@@ -58,12 +58,10 @@ If any command fails (non-zero exit code), subsequent commands in the list still
 
 A built-in command (not a shell command) that automates common worktree setup tasks:
 
-1. **Symlinks untracked and ignored root files** from the main worktree into the new worktree — useful for configuration files, local overrides, and build artefacts that should not be duplicated
-2. **Symlinks editor configuration directories**: `.vscode`, `.idea`, `.cursor`, and `.claude/settings.local.json`
-3. **Creates a `tmp/` directory** in the new worktree
-4. **Runs `direnv allow`** if a `.envrc` file exists in the main worktree
-
-This command is particularly useful for projects that rely on local configuration files (`.env`, editor settings) that are not tracked in git but need to be present in every worktree.
+1. Symlink untracked files and ignored files at the repository root from the main worktree into the new worktree. This keeps local configuration, overrides, and build artefacts available without tracking them.
+2. Symlink editor configuration directories such as `.vscode`, `.idea`, `.cursor`, and `.claude/settings.local.json`.
+3. Create a `tmp/` directory in the new worktree.
+4. Run `direnv allow` if a `.envrc` file exists in the main worktree.
 
 ## Security: Trust on First Use (TOFU)
 
@@ -82,7 +80,7 @@ Trust decisions are stored in `~/.local/share/lazyworktree/trusted.json`.
 | Mode | Behaviour |
 | --- | --- |
 | `tofu` | Prompt on first use and when the file changes (default) |
-| `never` | Never execute `.wt` commands — all hooks are silently skipped |
+| `never` | Skip all `.wt` commands without prompting |
 | `always` | Always execute without prompting (use with caution) |
 
 Configure in your LazyWorktree config:

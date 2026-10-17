@@ -15,7 +15,7 @@ This document intentionally avoids marketing positioning and instead focuses on 
 
 ## Ecosystem Positioning (By Workflow Category)
 
-Rather than listing tools linearly, this section groups them by **primary workflow they optimize for**.
+This comparison groups tools by the workflows they optimise for.
 
 ### Human-Interactive Workspace Managers
 
@@ -26,7 +26,7 @@ Rather than listing tools linearly, this section groups them by **primary workfl
 | branchlet    | Lightweight interactive TUI with minimal cognitive load        |
 | gwm          | Fast interactive CLI + fuzzy selection                         |
 
-These tools optimize for **humans actively driving development**.
+These tools optimise for **humans actively driving development**.
 
 ---
 
@@ -39,7 +39,7 @@ These tools optimize for **humans actively driving development**.
 | newt      | Minimal wrapper with predictable directory layout           |
 | treekanga | CLI-first with smart branch handling + navigation helpers   |
 
-These tools optimize for **repeatability and shell-first workflows**.
+These tools optimise for **repeatability and shell-first workflows**.
 
 ---
 
@@ -51,7 +51,7 @@ These tools optimize for **repeatability and shell-first workflows**.
 | kosho        | Multi-agent isolation with command execution per worktree |
 | worktree-cli | MCP integration for AI assistants                         |
 
-These tools optimize for **AI or multi-agent development models**.
+These tools optimise for **AI or multi-agent development models**.
 
 ---
 
@@ -61,7 +61,7 @@ These tools optimize for **AI or multi-agent development models**.
 | ---- | -------------------------------------------- |
 | wtm  | Bare repo workflow + CI-safe cleanup + hooks |
 
-These tools optimize for **automation environments and shared servers**.
+These tools optimise for **automation environments and shared servers**.
 
 ---
 
@@ -103,7 +103,7 @@ Examples:
 ### Where Other Tools Win
 
 * CLI tools have smaller mental model
-* Automation tools provide deterministic behavior
+* Automation tools provide deterministic behaviour
 * Parallel tools scale better to many simultaneous trees
 
 ---
@@ -251,7 +251,7 @@ Prefer:
 
 ## Summary
 
-lazyworktree is best understood as a **workspace orchestration tool for humans**, not just a worktree manager.
+lazyworktree is a workspace tool for people working across several Git worktrees.
 
 It prioritizes:
 
@@ -271,9 +271,9 @@ Other tools outperform it when:
 
 ## Final Positioning
 
-* lazyworktree → Human workspace orchestration
-* jean → AI-first worktree UX
-* CLI tools → System-level worktree utilities
-* Agent tools → Parallel execution environments
+* lazyworktree -> Human workspace orchestration
+* jean -> AI-first worktree UX
+* CLI tools -> System-level worktree utilities
+* Agent tools -> Parallel execution environments
 
 Each is valid when used in its optimal workflow domain.

@@ -43,14 +43,14 @@ Keys defined in `keybindings:` take priority over `custom_commands` and built-in
 | `status-commit-staged` | Open commit screen | `c` | Open the commit screen for staged changes (or prompt to stage all) |
 | `status-commit-all` | Commit changes using git editor | `C` | Commit using git editor |
 | `status-edit-file` | Edit file | `e` | Open selected file in editor |
-| `status-delete-file` | Delete selected file or directory | — | Delete selected file or directory |
+| `status-delete-file` | Delete selected file or directory | - | Delete selected file or directory |
 
 ## Log Pane
 
 | ID | Label | Default Key | Description |
 |----|-------|-------------|-------------|
 | `log-cherry-pick` | Cherry-pick commit | `C` | Cherry-pick commit to another worktree |
-| `log-commit-view` | Browse commit files | — | Browse files changed in selected commit |
+| `log-commit-view` | Browse commit files | - | Browse files changed in selected commit |
 
 ## Navigation
 
@@ -66,13 +66,13 @@ Keys defined in `keybindings:` take priority over `custom_commands` and built-in
 | `nav-sort-cycle` | Cycle sort | `s` | Cycle sort mode (path/active/switched) |
 | `nav-copy-path` | Copy path / file / SHA | `y` | Copy context-aware content (path, file, or commit SHA) |
 | `nav-copy-branch` | Copy branch name | `Y` | Copy selected worktree branch name |
-| `nav-copy-pr-url` | Copy PR/MR URL | — | Copy selected worktree PR/MR URL |
+| `nav-copy-pr-url` | Copy PR/MR URL | - | Copy selected worktree PR/MR URL |
 
 ## Settings
 
 | ID | Label | Default Key | Description |
 |----|-------|-------------|-------------|
-| `settings-theme` | Select theme | — | Change the application theme with live preview |
+| `settings-theme` | Select theme | - | Change the application theme with live preview |
 | `settings-taskboard` | Taskboard | `T` | Browse and toggle worktree tasks |
 | `settings-help` | Help | `?` | Show help |
-| `cache-clear` | Clear cache | — | Clear all in-memory and on-disk caches then refresh |
+| `cache-clear` | Clear cache | - | Clear all in-memory and on-disk caches then refresh |

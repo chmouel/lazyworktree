@@ -77,14 +77,14 @@ The default `lazyworktree` command launches the Bubble Tea program from
 
 `internal/app` follows the Model-Update-View pattern:
 
-- **Model** coordinates configuration, theme, caches, selection state, async
+- Model coordinates configuration, theme, caches, selection state, async
   work, and shared services.
-- **Update** logic lives primarily in `handlers.go` plus focused feature files
+- Update logic lives primarily in `handlers.go` and focused feature files
   such as `worktree_operations.go`, `app_git.go`, `ci.go`, and
   `worktree_sync.go`.
-- **View** rendering is split across `render_*.go`, `layout.go`, `renderer.go`,
+- View rendering is split across `render_*.go`, `layout.go`, `renderer.go`,
   and table style helpers.
-- **Modal screens** are handled by `internal/app/screen` through a stack-based
+- Modal screens are handled by `internal/app/screen` through a stack-based
   screen manager.
 
 The model state is intentionally split by concern:

@@ -1,16 +1,15 @@
 # About
 
-LazyWorktree is a terminal-based Git worktree manager designed for speed, context, and focus.
+LazyWorktree is a terminal UI for managing Git worktrees.
 
-Originally built as a Python application using [Textual](https://textual.textualize.io/), it was rewritten in Go using [Bubble Tea](https://github.com/charmbracelet/bubbletea) for better performance on large repositories.
+Chmouel first built LazyWorktree in Python with [Textual](https://textual.textualize.io/), then rewrote it in Go with [Bubble Tea](https://github.com/charmbracelet/bubbletea) to improve performance on large repositories.
 
-## Philosophy
+## Features
 
-The project reduces the overhead of working with Git worktrees by:
-*   Providing a **keyboard-first interface**.
-*   Integrating **CI/CD status and Pull Request information** directly into your workflow.
-*   Enabling **per-worktree context** through local notes and task tracking.
-*   Supporting **extensible automation** with custom shell commands, container execution, and AI-assisted task naming.
+* Manage worktrees from the keyboard.
+* View CI/CD and pull request status.
+* Keep notes and tasks with each worktree.
+* Run custom commands, including in containers, and generate branch names with AI-assisted scripts.
 
 ## Credits & Support
 
@@ -20,10 +19,10 @@ LazyWorktree is maintained by [Chmouel Boudjnah](https://blog.chmouel.com).
 *   🐦 [Twitter](https://twitter.com/chmouel)
 *   📝 [Blog](https://blog.chmouel.com)
 
-## License
+## Licence
 
-This project is licensed under the [Apache-2.0 License](https://github.com/chmouel/lazyworktree/blob/main/LICENSE)
+This project uses the [Apache-2.0 licence](https://github.com/chmouel/lazyworktree/blob/main/LICENSE).
 
 ## Comparison
 
-For a detailed analysis of how LazyWorktree compares to other worktree management tools, see the [COMPARISON.md](https://github.com/chmouel/lazyworktree/blob/main/COMPARISON.md) in the repository.
+See [COMPARISON.md](https://github.com/chmouel/lazyworktree/blob/main/COMPARISON.md) for a comparison with other worktree tools.

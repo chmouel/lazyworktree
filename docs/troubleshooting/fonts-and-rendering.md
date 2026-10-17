@@ -61,9 +61,9 @@ If colours appear washed out, inverted, or limited to 8/16 colours, your termina
 
 Some terminals require additional configuration for true colour:
 
-- **tmux**: add `set -g default-terminal "tmux-256color"` and `set -ag terminal-overrides ",*256col*:Tc"` to `~/.tmux.conf`
-- **screen**: true-colour support is limited; consider tmux instead
-- **SSH sessions**: ensure the remote `$TERM` is propagated correctly
+- In tmux, add `set -g default-terminal "tmux-256color"` and `set -ag terminal-overrides ",*256col*:Tc"` to `~/.tmux.conf`.
+- Screen has limited true-colour support; consider tmux instead.
+- In SSH sessions, ensure the remote `$TERM` is propagated correctly.
 
 ## Symptom: PR/MR Avatars Do Not Appear
 

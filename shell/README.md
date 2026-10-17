@@ -142,6 +142,6 @@ eval "$(lazyworktree completion zsh --code)"
 lazyworktree completion fish --code > ~/.config/fish/completions/lazyworktree.fish
 ```
 
-Or simply run `lazyworktree completion` to see instructions for your shell.
+Run `lazyworktree completion` to print instructions for your shell.
 
 Package manager installations (deb, rpm, AUR) include completions automatically.

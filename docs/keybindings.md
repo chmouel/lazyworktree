@@ -119,9 +119,9 @@ Each commit in the log pane displays an indicator showing its push and merge sta
 
 | Indicator | Colour | Meaning |
 | --- | --- | --- |
-| `↑` | Red | Unpushed — commit has not been pushed to the remote |
-| `★` | Yellow | Unmerged — pushed to the remote but not yet in the main branch |
-| Author initials | Author colour | Merged — no special indicator |
+| `↑` | Red | Unpushed: commit has not been pushed to the remote |
+| `★` | Yellow | Unmerged: pushed to the remote but not yet in the main branch |
+| Author initials | Author colour | Merged: no special indicator |
 
 ## Commit File Tree
 
@@ -196,10 +196,10 @@ Applies to focused pane (worktrees, files, commits). Active filter shows `[Esc] 
 - Command history (`!`) is saved per repository (max 100 entries).
 - Use `↑` / `↓` to navigate command history.
 - In Command Palette:
-  - **Select theme** changes theme with live preview (see [Themes](themes.md)).
-  - **Create from current branch** can include current file changes and may use `branch_name_script`.
+  - Select theme: change the theme with a live preview (see [Themes](themes.md)).
+  - Create from current branch: include current file changes and optionally use `branch_name_script`.
 
 ## Mouse Controls
 
-- **Click**: select and focus panes or items.
-- **Scroll**: navigate lists in any pane.
+- Click panes or items to select and focus them.
+- Scroll to navigate lists in any pane.

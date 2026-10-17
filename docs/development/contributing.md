@@ -8,11 +8,11 @@ Thank you for considering a contribution to LazyWorktree. This guide covers the 
 
 ## Prerequisites
 
-- **Go** 1.26 or later
-- **git** (used at runtime as well as for development)
-- **uv** — Python tooling for documentation (`brew install uv` on macOS)
-- **golangci-lint** — linting (`brew install golangci-lint` or see [installation docs](https://golangci-lint.run/usage/install/))
-- **gofumpt** — code formatting (`go install mvdan.cc/gofumpt@latest`)
+- Go 1.26 or later
+- Git for runtime and development
+- `uv`: Python tooling for documentation (`brew install uv` on macOS)
+- `golangci-lint`: linting (`brew install golangci-lint` or see [installation docs](https://golangci-lint.run/usage/install/))
+- `gofumpt`: Go formatting (`go install mvdan.cc/gofumpt@latest`)
 
 ## Clone and Build
 
@@ -39,9 +39,9 @@ make sanity
 
 This executes, in order:
 
-1. `make lint` — runs `golangci-lint` with `--fix`
-2. `make format` — runs `gofumpt` to normalise formatting
-3. `make test` — runs `go test ./...`
+1. `make lint` runs `golangci-lint` with `--fix`.
+2. `make format` runs `gofumpt` to normalise formatting.
+3. `make test` runs `go test ./...`.
 
 Because `make sanity` includes `--fix` and `-w` steps, it may rewrite files in
 your working tree.
@@ -67,7 +67,7 @@ make coverage
 
 ## Documentation Workflow
 
-Documentation uses [MkDocs](https://www.mkdocs.org/) with the [Material theme](https://squidfunk.github.io/mkdocs-material/). All documentation tooling uses `uv`/`uvx` — never use `pip` directly.
+Documentation uses [MkDocs](https://www.mkdocs.org/) with the [Material theme](https://squidfunk.github.io/mkdocs-material/). Use `uv` or `uvx` for documentation tooling; do not use `pip`.
 
 | Target | Command | Description |
 | --- | --- | --- |
@@ -103,10 +103,10 @@ The project uses GitHub Actions with four workflow files:
 
 The project follows [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
 
-- **Title**: 50 characters maximum
-- **Body**: 70 characters per line, cohesive paragraph unless bullet points aid clarity
-- **Tense**: Past tense throughout
-- **Content**: State **what** changed and **why** — never describe **how**
+- Title: 50 characters maximum
+- Body: 70 characters per line; use a cohesive paragraph unless bullets improve clarity.
+- Tense: use past tense.
+- Content: state what changed and why; do not describe how.
 
 Examples:
 
@@ -126,36 +126,36 @@ when the AI script exceeded 30 seconds.
 
 ## Documentation Style
 
-- **British spelling** throughout (`colour`, `synchronise`, `behaviour`)
-- **Professional butler tone**: clear, helpful, dignified but never pompous
-- Remove overly casual Americanisms
-- Maintain technical precision whilst keeping content readable
-- Every new or expanded page should include the `<div class="mint-callout">` pattern at the top
+- Use British spelling throughout (`colour`, `synchronise`, `behaviour`).
+- Use a professional butler tone: clear, helpful, dignified, and never pompous.
+- Remove overly casual Americanisms.
+- Maintain technical precision and readability.
+- Add the `<div class="mint-callout">` pattern to the top of every new or expanded page.
 
 ## Code Style
 
-- **Theme colours**: all UI rendering must use theme fields — never hardcode colours
-- **CLI surface changes**: when adding or changing commands, arguments, or flags, update:
+- Theme colours: use theme fields for all UI rendering; never hard-code colours.
+- When adding or changing CLI commands, arguments, or flags, update:
     - Shell completion
     - `README.md`
     - `lazyworktree.1`
     - Internal help text/template in `internal/app/screen/help.go`
     - Generated CLI docs via `make docs-sync`
     - Relevant website docs
-- **User-facing changes**: when adding features, options, or keybindings, update all of:
+- When adding features, options, or keybindings, update:
     - `README.md`
     - `lazyworktree.1` man page
     - Internal help text/template in `internal/app/screen/help.go`
     - Documentation site (if applicable)
-- **Testing**: add focused tests for changed behaviour where practical, and explain any gaps in your handoff or pull request notes
+- Add focused tests for changed behaviour where practical. Explain any gaps in your handoff or pull request notes.
 
 ## Filing Bug Reports
 
 A good bug report includes:
 
-- **Version**: output of `lazyworktree --version`
-- **Terminal**: name, version, and font in use
-- **Operating system**: name and version
-- **Debug log**: run with `--debug-log /tmp/lw-debug.log` and attach the log
-- **Reproduction steps**: minimal steps to trigger the issue
-- **Expected vs actual behaviour**: what you expected and what happened instead
+- Version: output of `lazyworktree --version`
+- Terminal: name, version, and font
+- Operating system: name and version
+- Debug log: run with `--debug-log /tmp/lw-debug.log` and attach the log
+- Reproduction steps: minimal steps to trigger the issue
+- Expected and actual behaviour: what you expected and what happened

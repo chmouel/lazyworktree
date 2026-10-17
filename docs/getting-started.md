@@ -25,8 +25,8 @@ For richer shell helpers and functions, see the [shell integration guide](shell-
 
 ## Requirements
 
-- **Git**: 2.31+
-- **Forge CLI**: `gh` or `glab` for PR/MR status
+- Git 2.31+
+- Forge CLI (`gh` or `glab`) for PR/MR status
 
 Optional tools:
 

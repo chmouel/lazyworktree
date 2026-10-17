@@ -116,8 +116,8 @@ func NewHelpScreen(maxWidth, maxHeight int, customCommands config.CustomCommands
 - /: Search commit titles
 
 Commit Status Indicators:
-- {{UNPUSHED}} (red): Unpushed — commit not yet on remote
-- {{UNMERGED}} (yellow): Unmerged — pushed to remote but not in main branch
+- {{UNPUSHED}} (red): Unpushed commits have not reached the remote
+- {{UNMERGED}} (yellow): Pushed but not merged into the main branch
 
 **{{HELP_COMMIT_TREE}}Commit File Tree (viewing files in a commit)**
 - j / k: Navigate files and directories
@@ -144,9 +144,10 @@ Commit Status Indicators:
 - Command palette: Worktree notes and Set worktree icon remain available without default direct shortcuts
 - Note viewer: j/k scroll, Ctrl+D/Ctrl+U half-page, g/G top/bottom, e edit, E edit in external editor, q/Esc close
 - Note editor: Ctrl+S saves, Ctrl+X opens in external editor, Enter adds a new line, Esc cancels
-- Command palette: Set worktree description — a short label that replaces the directory name in the worktree list for display
-- Command palette: Set worktree tags — type labels separated by commas (e.g. "bug,frontend,urgent") and toggle existing tags in the same editor; tags are displayed as coloured badges after the worktree name, shown in the Info pane when present, and remain searchable/filterable
-- Command palette: Browse by worktree tags — lists existing tags with counts and applies an exact tag:<name> worktree filter
+- Command palette: Set worktree description, a short label that replaces the directory name in the worktree list
+- Command palette: Set worktree tags (type comma-separated labels such as "bug,frontend,urgent" and toggle existing tags in the same editor)
+- Tags appear as coloured badges after the worktree name. The Info pane shows them when present, and they remain searchable and filterable.
+- Command palette: Browse by worktree tags (shows existing tags with counts and filters by an exact tag:<name>)
 - T: Open Taskboard (grouped by worktree from markdown checkbox notes)
 - Taskboard: a adds a new task, Enter/Space toggles selected checkbox task, f filters tasks, q/Esc closes
 - Worktrees with non-empty notes show a note marker beside the name
@@ -163,14 +164,14 @@ Commit Status Indicators:
 
 **{{HELP_BRANCH_NAMING}}Branch Naming**
 Special characters in branch names are automatically converted to hyphens for compatibility with Git and terminal multiplexers. Examples:
-- "feature.new" {{ARROW_RIGHT}} "feature-new"
-- "bug fix here" {{ARROW_RIGHT}} "bug-fix-here"
-- "path/to/branch" {{ARROW_RIGHT}} "path-to-branch"
+- "feature.new" becomes "feature-new"
+- "bug fix here" becomes "bug-fix-here"
+- "path/to/branch" becomes "path-to-branch"
 Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full details.
 
 **{{HELP_VIEWING_TOOLS}}Viewing & Tools**
 - d: Show diff in pager (worktree or commit)
-- o: Open in browser — PR/MR if available, branch page otherwise, or repo for main branch
+- o: Open in browser (PR/MR if available, branch page otherwise, or repository for the main branch)
 - g: Open LazyGit (or go to top in diff pane)
 - =: Toggle zoom for focused pane
 - y: Copy to clipboard (context-aware: path in worktrees pane, file path in status pane, SHA in log pane; uses OSC52, works over SSH)
@@ -284,7 +285,7 @@ Commit Log Indicators:
 
 	helpText := replacer.Replace(helpTextTemplate)
 
-	// Append custom commands section — universal first, then per-pane
+	// Append custom commands section, universal first, then per-pane
 	if len(customCommands) > 0 {
 		universal := customCommands.AllUniversal()
 		var universalKeys []string

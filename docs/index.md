@@ -5,8 +5,8 @@
   <p>Git worktree management for the terminal. Create, switch, and remove worktrees without leaving your editor context.</p>
 </div>
 
-- **[Quickstart](getting-started.md)** — Get running and jump to selected worktrees from your shell.
-- **[Installation](installation.md)** — Install with Homebrew, Arch Linux AUR, or from source.
+- [Quickstart](getting-started.md): Get running and jump to selected worktrees from your shell.
+- [Installation](installation.md): Install with Homebrew, Arch Linux AUR, or from source.
 
 ## Key Features
 
@@ -32,7 +32,7 @@
 ## What are Git Worktrees?
 
 Git worktrees allow multiple checkouts of the same repository simultaneously.
-This is useful when you need to:
+Use worktrees to:
 
 - Work on several branches in parallel.
 - Review PR/MR changes without stashing local work.

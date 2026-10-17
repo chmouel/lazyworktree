@@ -2,7 +2,7 @@
 
 Default worktree location: `~/.local/share/worktrees/<organization>-<repo_name>`.
 
-To keep worktrees inside the repository itself, set `worktree_dir` to use `$LWT_REPO_PATH` — lazyworktree automatically exports this variable to the git repository root before loading config:
+To keep worktrees inside the repository, set `worktree_dir` to use `$LWT_REPO_PATH`. LazyWorktree exports this variable as the repository root before loading the configuration:
 
 ```bash
 git config --local lw.worktree-dir '$LWT_REPO_PATH/.worktrees'

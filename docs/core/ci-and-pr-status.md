@@ -5,8 +5,8 @@ LazyWorktree surfaces pull/merge request information and CI state directly in th
 
 ## Requirements
 
-- **GitHub**: requires the [`gh`](https://cli.github.com/) CLI, authenticated
-- **GitLab**: requires the [`glab`](https://gitlab.com/gitlab-org/cli) CLI, authenticated
+- GitHub requires the authenticated [`gh`](https://cli.github.com/) CLI.
+- GitLab requires the authenticated [`glab`](https://gitlab.com/gitlab-org/cli).
 
 LazyWorktree auto-detects the forge from your repository remote.
 
@@ -125,7 +125,7 @@ If you do not use PRs/MRs or prefer not to install `gh`/`glab`, you can disable 
 
 ## Hyperlinks and Context
 
-In terminals that support OSC-8 hyperlinks, PR/MR identifiers and CI check names in the status pane are clickable — opening them directly in your browser.
+In terminals that support OSC-8 hyperlinks, click PR/MR identifiers and CI check names in the status pane to open them in your browser.
 
 ## CI Environment Variables
 

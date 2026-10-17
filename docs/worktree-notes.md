@@ -56,10 +56,10 @@ worktree_notes_path: "~/notes/$REPO_OWNER/$REPO_REPONAME/$WORKTREE_NAME.md"
 
 Template variables:
 
-- `$REPO_NAME` — `owner/repo` combined (e.g. `myorg/myrepo`) — convenient shorthand for a two-level directory
-- `$REPO_OWNER` — repository owner only (e.g. `myorg`)
-- `$REPO_REPONAME` — repository name only (e.g. `myrepo`)
-- `$WORKTREE_NAME` — worktree directory basename
+- `$REPO_NAME`: combined `owner/repo` (e.g. `myorg/myrepo`), a shorthand for a two-level directory
+- `$REPO_OWNER`: repository owner only (e.g. `myorg`)
+- `$REPO_REPONAME`: repository name only (e.g. `myrepo`)
+- `$WORKTREE_NAME`: worktree directory basename
 
 Note files use this format:
 
@@ -75,9 +75,9 @@ Supports **markdown**.
 
 This makes notes easy to browse, search, and edit with external tools.
 
-#### Concurrent edits in splitted mode
+#### Concurrent edits with the `splitted` mode
 
-Splitted mode is safe for concurrent access from multiple processes or clones. Saving a note writes or removes only that worktree's file — other note files on disk are left untouched, even if they were created after lazyworktree last read the directory. This means a stale in-memory view in one process cannot delete or overwrite a note written by another. Removing a note is always an explicit action rather than an implicit side effect of a batch save.
+The `splitted` mode supports concurrent access from multiple processes or clones. Saving or removing a note changes only that worktree's file. Other note files remain untouched, including files created after LazyWorktree last read the directory. A stale in-memory view cannot delete or overwrite another process's note. You must remove notes explicitly; batch saves do not remove them as a side effect.
 
 ## Example script: PR details to LLM note
 
@@ -104,10 +104,10 @@ printf '%s\n' "$PR_CONTENT" | aichat \
 | --- | --- |
 | **Input** | Receives PR/issue title and description on stdin |
 | **Output** | Writes the note text to stdout (can be multiline) |
-| **Timeout** | Must complete within 30 seconds — scripts exceeding this are terminated |
+| **Timeout** | Scripts must finish within 30 seconds. LazyWorktree terminates scripts that exceed this limit. |
 | **Failure** | If the script fails or outputs nothing, worktree creation continues normally and no note is saved |
 
-The script runs silently — there is no visible progress indicator whilst it executes. If you notice a brief pause during worktree creation, the note script is likely running.
+The script runs without a progress indicator. A brief pause during worktree creation may mean the note script is running.
 
 ## Environment Variables
 
@@ -121,7 +121,7 @@ The following variables are set when the script executes:
 | `LAZYWORKTREE_URL` | URL of the PR or issue | `https://github.com/org/repo/pull/42` |
 | `LAZYWORKTREE_DESCRIPTION` | Body/description of the PR or issue | `Adds session management…` |
 
-You can use these variables to vary behaviour by context — for example, generating more detailed notes for issues than for PRs.
+Use these variables to change behaviour by context, such as generating more detailed notes for issues than for PRs.
 
 ## Practical Example
 
@@ -146,5 +146,5 @@ The output is saved as the worktree note and can be viewed by pressing `i` on th
 
 ## Related Pages
 
-- [Notes and Taskboard](core/notes-and-taskboard.md) — viewing, editing, and using the taskboard with worktree notes
-- [AI Integration](guides/ai-integration.md) — full AI tool setup, branch naming scripts, and troubleshooting
+- [Notes and Taskboard](core/notes-and-taskboard.md): view, edit, and use the taskboard with worktree notes
+- [AI Integration](guides/ai-integration.md): configure AI tools, branch naming scripts, and troubleshooting

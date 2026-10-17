@@ -21,10 +21,10 @@ debug_log: /tmp/lw-debug.log
 
 ### What to look for
 
-- **Error lines**: search for `ERROR` or `error` — these indicate failed operations
-- **Timeout lines**: search for `timeout` — suggests a slow script or network issue
-- **Git command output**: the log records every git command and its exit code
-- **API responses**: GitHub/GitLab API calls and their HTTP status codes appear here
+- Error lines: search for `ERROR` or `error` to find failed operations.
+- Timeout lines: search for `timeout` to find slow scripts or network issues.
+- Git command output: the log records each Git command and its exit code.
+- API responses: the log includes GitHub and GitLab HTTP status codes.
 
 ## Step 2: Identify Symptom Category
 
@@ -36,7 +36,7 @@ Use the decision tree below to find the relevant section or page:
 
 **CI or PR/MR status not appearing**
 
-:   Check authentication first — GitHub requires a `GITHUB_TOKEN` or `gh` CLI authentication, GitLab requires `GITLAB_TOKEN`. Then verify `disable_pr` is not set to `true` in your configuration. Review the debug log for API errors.
+:   Check authentication first. GitHub requires a `GITHUB_TOKEN` or authenticated `gh` CLI; GitLab requires `GITLAB_TOKEN`. Then verify `disable_pr` is not set to `true` and check the debug log for API errors.
 
 **Custom commands not running**
 
@@ -80,7 +80,7 @@ See [Fonts and Rendering](fonts-and-rendering.md) for further detail.
 **Diagnosis**:
 
 1. Confirm authentication is configured (`GITHUB_TOKEN`, `gh auth status`, or `GITLAB_TOKEN`)
-2. Check `pager` and `ci_script_pager` settings — an incorrectly configured pager can swallow output
+2. Check `pager` and `ci_script_pager`; a misconfigured pager can swallow output.
 3. Verify the pager command is available in your shell:
     ```bash
     which delta  # or your configured pager
@@ -98,7 +98,7 @@ See [Fonts and Rendering](fonts-and-rendering.md) for further detail.
 **Diagnosis**:
 
 - The TUI and CLI use different shell execution modes. `zsh` uses `-ilc` (interactive + login), `bash` uses `-ic`, and other shells use `-lc`. This means shell functions, aliases, and startup scripts may behave differently.
-- `new-tab` commands are intentionally unsupported in CLI `exec` mode — they require a multiplexer session.
+- CLI `exec` does not support `new-tab` commands because they require a multiplexer session.
 - Confirm the command type and key binding match your intended execution context.
 
 ### `.wt` hooks are not running
@@ -109,7 +109,7 @@ See [Fonts and Rendering](fonts-and-rendering.md) for further detail.
 
 1. Check `trust_mode` in your configuration:
     - `tofu` (default): prompts on first use and when the file changes
-    - `never`: blocks all `.wt` execution — hooks will never run
+    - `never`: skips `.wt` commands without prompting
     - `always`: runs without prompting
 2. If you previously selected **Block** for a repository's `.wt` file, the decision is stored in `~/.local/share/lazyworktree/trusted.json`. Remove the entry to be prompted again.
 3. Verify the `.wt` file is in the repository root (not in a subdirectory).

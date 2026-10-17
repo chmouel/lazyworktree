@@ -83,7 +83,7 @@ lazyworktree worktrees context my-feature --json | jq '.agent_sessions[] | selec
 |---|---|
 | `"active"` | Confirmed running: matched to a live process |
 | `"recent"` | No live process found, but activity within the last 10 minutes |
-| `"suspect"` | Matched by working-directory heuristic only — less certain |
+| `"suspect"` | Matched by the working-directory heuristic only; less certain |
 | `"inactive"` | No live process and no recent activity |
 
 | `source` value | Meaning |
@@ -139,7 +139,7 @@ echo "$result" | jq '.exit_code'
 | `worktrees ... --json` | Discover, resolve, and read exact worktree state |
 | `notes get --json` | Read exact note metadata for one worktree |
 | `--json` flags | Parse command results programmatically |
-| `--help` | Human-readable reference only — do not parse |
+| `--help` | Human-readable reference; do not parse programmatically |
 
 
 ## Automatic Branch Names
@@ -190,9 +190,9 @@ Assuming AI generates `feat-ai-session-manager` for Issue #2:
 
 Your `branch_name_script` must:
 
-- **Read from stdin** — LazyWorktree pipes PR/issue content or diffs
-- **Write to stdout** — output the branch name (first line is used)
-- **Complete within 30 seconds** — scripts exceeding this timeout are terminated
+- Read from stdin. LazyWorktree passes PR/issue content or diffs to the script.
+- Write to stdout. LazyWorktree uses the first line as the branch name.
+- Finish within 30 seconds. LazyWorktree terminates scripts that exceed the limit.
 
 ### Environment Variables for Scripts
 
@@ -230,9 +230,9 @@ The script receives the PR/issue title and body on stdin and outputs the worktre
 
 Your `worktree_note_script` must:
 
-- **Read from stdin** — receives PR/issue title and description
-- **Write to stdout** — output the note text (can be multiline)
-- **Complete within 30 seconds** — timeout enforced
+- Read from stdin. The script receives the PR/issue title and description.
+- Write to stdout. The script returns the note text, which may span multiple lines.
+- Finish within 30 seconds. LazyWorktree terminates scripts that exceed the limit.
 
 If the note script fails or outputs nothing, worktree creation continues normally without saving a note.
 
@@ -282,8 +282,8 @@ curl -s https://api.your-ai-service.com/generate \
 
 ## Performance Tips
 
-- **Use smaller models** — branch naming does not require powerful models. `gemini-3.5-flash-lite`, `gpt-3.5-turbo`, or similar fast models complete in under 2 seconds
-- **Limit context** — if PR descriptions are very long, truncate in your script:
+- Use a fast model for branch naming. For example, `gemini-3.5-flash-lite` or `gpt-3.5-turbo` can finish in under 2 seconds.
+- Limit context by truncating long PR descriptions in your script:
 
     ```bash
     head -n 50 | aichat -m gemini:gemini-3.5-flash-lite 'Generate name'

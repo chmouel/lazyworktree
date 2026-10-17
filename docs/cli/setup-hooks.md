@@ -15,30 +15,31 @@ lazyworktree setup-hooks --dry-run
 `setup-hooks` adds lifecycle hooks to the user-level configurations of
 supported agents:
 
-- **Claude Code** — `~/.claude/settings.json` (`SessionStart`,
+- Claude Code uses `~/.claude/settings.json` (`SessionStart`,
   `UserPromptSubmit`, `Stop`, `SessionEnd`, and question-dialog lifecycle
   events)
-- **Codex CLI** — `$CODEX_HOME/hooks.json` when `CODEX_HOME` is set, otherwise
+- Codex CLI uses `$CODEX_HOME/hooks.json` when `CODEX_HOME` is set; otherwise
   `~/.codex/hooks.json` (`SessionStart`, `UserPromptSubmit`, and `Stop`)
-- **Copilot CLI** — `$COPILOT_HOME/hooks/lazyworktree.json` when
+- Copilot CLI uses `$COPILOT_HOME/hooks/lazyworktree.json` when
   `COPILOT_HOME` is set, otherwise `~/.copilot/hooks/lazyworktree.json`
   (`SessionStart`, `UserPromptSubmit`, `Stop`, `SessionEnd`, and
   question-dialog lifecycle events)
 
-Each hook invokes the hidden `lazyworktree agent-event` shim, which records a
-small event file that the TUI consumes on its next refresh. Hook events give
-lazyworktree precise session state — including the agent process id — so it
-can track liveness with a cheap PID probe instead of scanning the process
-table, and it enables Codex CLI and Copilot CLI sessions to appear in the
-agents pane at all (neither exposes a stable transcript format, so
-lazyworktree does not parse them). For Claude Code and Copilot CLI, the
-question-dialog events also distinguish an agent waiting for your answer from
-one that is still thinking. Codex CLI does not currently expose an equivalent
-question-dialog hook.
+Each hook calls the hidden `lazyworktree agent-event` shim. It writes a small
+event file that the TUI reads on its next refresh. The file includes the
+agent's process ID, so LazyWorktree can confirm liveness with a PID check
+instead of scanning the process table. These events also make Codex CLI and
+Copilot CLI sessions visible in the agents pane. Neither agent exposes a
+stable transcript format, so LazyWorktree does not parse their sessions.
 
-Hook events are the default liveness source: the former process-table scan
-(ps/lsof) is deprecated and disabled by default. If you cannot install hooks,
-re-enable it with `agent_sessions.process_scan: true` in the
+Claude Code and Copilot CLI also report when a question dialog opens and when
+you answer it. The pane shows the agent as waiting for your input, then
+returns to thinking. Codex CLI does not expose an equivalent question-dialog
+hook.
+
+Hook events are the default liveness source. The older process-table scan
+with ps/lsof is deprecated and disabled by default. If you cannot install
+hooks, re-enable it with `agent_sessions.process_scan: true` in the
 [configuration](../configuration/reference.md).
 
 ## Safety
@@ -54,10 +55,9 @@ re-enable it with `agent_sessions.process_scan: true` in the
 
 ## Agent-specific notes
 
-- **Codex CLI** requires newly installed hooks to be approved before they
-  run. After installing, open a Codex session and run the `/hooks` command to
-  trust the new entries.
-- **Copilot CLI** loads hook files at startup. Restart any running `copilot`
+- Codex CLI requires approval before newly installed hooks can run. Open a
+  Codex session and run the `/hooks` command to trust the new entries.
+- Copilot CLI loads hook files at startup. Restart any running `copilot`
   session after installing.
 
 ## Options

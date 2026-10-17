@@ -15,9 +15,9 @@ Known caveats across shells, pagers, and command execution modes.
 
 ### Implications
 
-- **Aliases and functions** defined in `.bashrc` or `.zshrc` are available in `zsh` and `bash` modes but may not be available in other shells
-- **Environment variables** set in login profiles (`.bash_profile`, `.zprofile`) are loaded in all modes
-- **Shell startup time** affects command execution — heavyweight `.zshrc` files with plugin managers can add noticeable delay
+- Aliases and functions in `.bashrc` or `.zshrc` are available in `zsh` and `bash` modes, but may not be available in other shells.
+- Login-profile variables in `.bash_profile` and `.zprofile` are loaded in all modes.
+- Large `.zshrc` files with plugin managers can slow command execution.
 - If a command works in your terminal but fails in LazyWorktree, the shell mode difference is the most likely cause
 
 ### Debugging
@@ -48,9 +48,9 @@ LazyWorktree pipes diff and CI log output through your configured pager. Not all
 
 ### Common issues
 
-- **Interactive pagers** (those that accept keyboard input) require `git_pager_interactive: true` — without it, the pager may hang or not display correctly
-- **Command-mode pagers** (those that process stdin and exit) may require `git_pager_command_mode: true`
-- **CI log formatting scripts** should be tested independently in your shell before configuring them as `ci_script_pager`:
+- Interactive pagers that accept keyboard input require `git_pager_interactive: true`. Without it, the pager may hang or display incorrectly.
+- Command-mode pagers that read stdin and exit may require `git_pager_command_mode: true`.
+- Test CI log formatting scripts in your shell before setting them as `ci_script_pager`:
     ```bash
     echo "sample log output" | your-pager-command
     ```
@@ -77,7 +77,7 @@ When a multiplexer session already exists for a worktree, behaviour depends on t
 
 The TOFU (Trust On First Use) model for `.wt` file execution has several implications:
 
-- **`trust_mode: never`** blocks all `.wt` command execution — init and terminate hooks will never run, regardless of the `.wt` file's content
-- **Modified `.wt` files** trigger trust re-evaluation in `tofu` mode. Any change to the file (including whitespace) invalidates the stored hash, and you will be prompted to re-approve. This is by design — it prevents silently executing changed commands
-- **Trust decisions** are stored per-file in `~/.local/share/lazyworktree/trusted.json`, keyed by a hash of the file content. Deleting this file resets all trust decisions
-- **Team workflows**: if multiple developers modify `.wt` files, each developer will be prompted independently when the hash changes. There is no way to share trust decisions across machines
+- `trust_mode: never` skips all `.wt` commands, including init and terminate hooks.
+- In `tofu` mode, changing a `.wt` file invalidates its stored hash, even if the change is whitespace. LazyWorktree prompts you to approve the file again before running the changed commands.
+- LazyWorktree stores trust decisions by file content hash in `~/.local/share/lazyworktree/trusted.json`. Deleting this file resets all trust decisions.
+- Each developer must approve a changed `.wt` file. Trust decisions are local and cannot be shared across machines.
