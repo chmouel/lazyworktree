@@ -3,32 +3,32 @@
 # LazyWorktree
 
 <img align="right" width="180" height="180" alt="logo" src="./website/assets/logo.png" />
-LazyWorktree is a terminal UI for managing Git worktrees with a keyboard-first workflow.
+LazyWorktree is a keyboard-driven terminal UI for managing Git worktrees.
 
-Work across multiple Git worktrees from one interface. Create, switch, remove, and run operations without changing directories.
+Manage multiple Git worktrees from one interface: create, remove, and switch between them without navigating between directories.
 
-Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), it shows worktree state and integrates with development tools, including tmux, zellij, and OCI runtimes such as Docker or Podman.
+Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), LazyWorktree shows worktree state and supports tmux, Zellij, Docker, and Podman.
 
 ## Screenshot
 
 ![lazyworktree screenshot](./website/assets/screenshot-main.png)
 
-_[You can see more screenshots here](https://chmouel.github.io/lazyworktree/#screenshots)_
+_[More screenshots](https://chmouel.github.io/lazyworktree/#screenshots)_
 
 ## Main Features
 
-- Worktree management - Create worktrees from branches, PRs/MRs, or issues; safely clean up merged worktrees without discarding uncommitted changes; delete, list, and switch between them
-- CI & PR/MR status - See GitHub Actions and GitLab CI results, check PR/MR details, view logs and more.
-- Agent sessions pane - See confirmed active Claude, Codex, Copilot, and pi sessions attached to the selected worktree.
-- Command palette - Quick access to all actions and custom commands with `?`.
-- Tmux and Zellij support - Automatically open worktrees in new tmux windows/panes or zellij tabs
-- Docker/Podman support - Run commands in Docker or Podman containers tied to the worktree
-- Custom commands - Set up custom shell commands in config, bind them to keys, show them in the palette.
-- Notes - Markdown notes per worktree to track work in progress
-- Hooks - `.wt` files per worktree to automate setup and cleanup tasks
-- Customise worktree metadata - Press `e` in the worktree pane to edit the description, colour, notes, icon, and tags for the selected worktree.
-- Shell helpers - `cd "$(lazyworktree)"` shortcut and shell completion for bash, zsh, and fish (making it easy to jump to worktrees from the terminal)
-- LLM-friendly CLI - Use `doctor`, `describe`, `worktrees ...`, and `notes get` to make it esay to manage wortrees with LLM agents.
+- Worktree management: Create worktrees from branches, PRs/MRs, or issues; clean up merged worktrees without discarding uncommitted changes; list and switch between worktrees.
+- CI and PR/MR status: View GitHub Actions and GitLab CI results, PR/MR details, and logs.
+- Agent sessions pane: View confirmed active Claude, Codex, Copilot, and pi sessions attached to the selected worktree.
+- Command palette: Press `?` to open the palette for actions and custom commands.
+- Tmux and Zellij support: Open worktrees in tmux windows or panes, or Zellij tabs.
+- Docker/Podman support: Run commands in containers for a worktree.
+- Custom commands: Configure shell commands, bind them to keys, and list them in the palette.
+- Notes: Keep Markdown notes for each worktree.
+- Hooks: Automate worktree setup and cleanup with `.wt` files.
+- Customise worktree metadata: Press `e` in the worktree pane to edit the selected worktree's description, colour, notes, icon, and tags.
+- Shell helpers: Jump to a worktree with `cd "$(lazyworktree)"`. Completions are available for Bash, Zsh, and Fish.
+- LLM-friendly CLI: Use `doctor`, `describe`, `worktrees ...`, and `notes get` to help LLM agents inspect and manage worktrees.
 
 ## Documentation
 
@@ -105,7 +105,7 @@ Optional tools are documented here:
 
 - Fediverse - <[@chmouel@chmouel.com](https://fosstodon.org/@chmouel)>
 - Twitter - <[@chmouel](https://twitter.com/chmouel)>
-- Blog  - <[https://blog.chmouel.com](https://blog.chmouel.com)>
+- Blog - <[https://blog.chmouel.com](https://blog.chmouel.com)>
 
 ## Licence
 
