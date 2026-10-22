@@ -51,6 +51,7 @@
 | `q` | Quit |
 | `y` | Copy context-aware value to clipboard (path/file/SHA via OSC52) |
 | `Y` | Copy selected worktree branch name to clipboard |
+| `t`, `Z`, `H` | Open the worktree in tmux, Zellij, or Herdr (default custom commands) |
 
 ## Pane Focus and Layout
 

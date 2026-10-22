@@ -58,6 +58,7 @@ By default the pane shows only sessions with confirmed live agent processes; pre
 ### Worktree Pane
 
 - `Enter`: jump to the selected worktree, exit LazyWorktree, and output its path
+- `t`, `Z`, `H`: open the worktree in tmux, Zellij, or Herdr (default custom commands; see [Custom Commands](../custom-commands.md))
 - `s`: cycle through Path, Last Active (commit date), and Last Switched (access time) sort modes
 - `e`: edit the selected worktree's description, colour, notes, icon, and tags
 - Command palette only: **Set worktree colour** (picker plus `Custom…` for hex, supported named colours, or 256 indices)

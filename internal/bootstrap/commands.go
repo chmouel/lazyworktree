@@ -2061,6 +2061,10 @@ func executeHerdrAction(ctx context.Context, herdrCfg *config.HerdrCommand, cont
 	}
 
 	if insideHerdr && herdrCfg.Mode != config.HerdrModeSession {
+		if session != "" && session != multiplexer.HerdrAmbientSession() {
+			fmt.Fprintf(os.Stderr, "Herdr workspace %q belongs to session %q, outside the current Herdr session. Attach from another terminal: herdr session attach %s\n", label, session, multiplexer.ShellQuote(session))
+			return nil
+		}
 		return h.FocusWorkspace(ctx, workspaceID)
 	}
 

@@ -111,6 +111,29 @@ func TestResolveHerdrWindowsExpandsAndDefaults(t *testing.T) {
 	if windows[1].Name != "window-2" || windows[1].Cwd != "/w/feature" {
 		t.Errorf("unexpected second window: %+v", windows[1])
 	}
+	if windows[1].Command != defaultWindowShellCommand {
+		t.Errorf("empty command should default to the shell, got %q", windows[1].Command)
+	}
+}
+
+func TestResolveHerdrWindowsContainerWrapsShellTabs(t *testing.T) {
+	windows := ResolveHerdrWindows([]config.TmuxWindow{
+		{Name: "shell"},
+		{Name: "test", Command: "go test ./..."},
+	}, map[string]string{}, "/w/feature")
+
+	wrapped, err := WrapWindowCommandsForContainer(windows, &config.ContainerCommand{Image: "alpine", Runtime: "echo"}, map[string]string{})
+	if err != nil {
+		t.Fatalf("wrap: %v", err)
+	}
+	for _, window := range wrapped {
+		if strings.TrimSpace(window.Command) == "" {
+			t.Errorf("window %q was left outside the container", window.Name)
+		}
+		if !strings.Contains(window.Command, "echo") {
+			t.Errorf("window %q is not wrapped in the container runtime: %q", window.Name, window.Command)
+		}
+	}
 }
 
 func TestHerdrAttachArgs(t *testing.T) {

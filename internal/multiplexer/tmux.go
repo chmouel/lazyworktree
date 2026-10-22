@@ -60,6 +60,11 @@ func ResolveTmuxWindows(windows []config.TmuxWindow, env map[string]string, defa
 	return resolved, true
 }
 
+// defaultWindowShellCommand keeps a window alive with the user's shell when no
+// command is configured. Multiplexers share it so empty windows still receive a
+// command that container wrapping can replace.
+const defaultWindowShellCommand = "exec ${SHELL:-bash}"
+
 // BuildTmuxWindowCommand builds the command string for a tmux window with environment exports.
 func BuildTmuxWindowCommand(command string, env map[string]string) string {
 	prefix := ExportEnvCommand(env)
@@ -67,7 +72,7 @@ func BuildTmuxWindowCommand(command string, env map[string]string) string {
 		prefix += " "
 	}
 	if strings.TrimSpace(command) == "" {
-		return prefix + "exec ${SHELL:-bash}"
+		return prefix + defaultWindowShellCommand
 	}
 	return prefix + command
 }
