@@ -828,7 +828,15 @@ func TestOpenZellijSession(t *testing.T) {
 	}
 
 	if _, err := exec.LookPath("zellij"); err != nil {
-		t.Skip("zellij not available in test environment")
+		if runtime.GOOS == osWindows {
+			t.Skip("zellij not available in test environment")
+		}
+		binDir := t.TempDir()
+		// #nosec G306 -- test fixture executable
+		if writeErr := os.WriteFile(filepath.Join(binDir, "zellij"), []byte("#!/bin/sh\nexit 0\n"), 0o700); writeErr != nil {
+			t.Fatalf("failed to create fake zellij: %v", writeErr)
+		}
+		t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	}
 
 	// Ensure we are not inside a zellij session for this test
@@ -919,6 +927,39 @@ func TestOpenZellijSession(t *testing.T) {
 	if execProcessCalled {
 		t.Fatal("execProcess must not be called when new_tab is set")
 	}
+
+	// new_tab with attach=false: should run script in background and return
+	// zellijSessionReadyMsg with the resolved session name (not terminalTabReadyMsg).
+	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
+		if name == "bash" && len(args) == 2 && args[0] == "-lc" {
+			return exec.Command("sh", "-c", `printf 'session-2' > "$LW_ZELLIJ_SESSION_FILE"`)
+		}
+		return exec.Command("true")
+	}
+	cfgDetached := &config.TmuxCommand{
+		SessionName: "session",
+		Attach:      false,
+		OnExists:    "new",
+		Windows:     []config.TmuxWindow{{Name: "shell"}},
+	}
+	detachedNewTabCmd := m.openZellijSession(&config.CustomCommand{Zellij: cfgDetached, NewTab: true}, wt)
+	if detachedNewTabCmd == nil {
+		t.Fatal("expected command for detached new_tab zellij")
+	}
+	detachedMsg := detachedNewTabCmd()
+	readyMsg, ok := detachedMsg.(zellijSessionReadyMsg)
+	if !ok {
+		t.Fatalf("expected zellijSessionReadyMsg for detached new_tab, got %T", detachedMsg)
+	}
+	if readyMsg.attach {
+		t.Fatal("expected attach=false in zellijSessionReadyMsg")
+	}
+	if readyMsg.sessionName != "session-2" {
+		t.Fatalf("expected resolved session name 'session-2', got %q", readyMsg.sessionName)
+	}
+	if execProcessCalled {
+		t.Fatal("execProcess must not be called when new_tab is set")
+	}
 }
 
 func TestBuildZellijNewTabScriptHonoursAttach(t *testing.T) {
@@ -926,13 +967,13 @@ func TestBuildZellijNewTabScriptHonoursAttach(t *testing.T) {
 
 	attachCfg := &config.TmuxCommand{SessionName: "session", Attach: true}
 	attachScript := buildZellijNewTabScript("session", attachCfg, layoutPaths)
-	if !strings.Contains(attachScript, "zellij attach 'session'") {
+	if !strings.Contains(attachScript, "zellij attach \"$session\"") {
 		t.Fatalf("expected attach command when attach is true, got:\n%s", attachScript)
 	}
 
 	detachedCfg := &config.TmuxCommand{SessionName: "session", Attach: false}
 	detachedScript := buildZellijNewTabScript("session", detachedCfg, layoutPaths)
-	if strings.Contains(detachedScript, "zellij attach 'session'") {
+	if strings.Contains(detachedScript, "zellij attach \"$session\"") {
 		t.Fatalf("expected no attach command when attach is false, got:\n%s", detachedScript)
 	}
 	if !strings.Contains(detachedScript, "zellij attach --create-background") {
