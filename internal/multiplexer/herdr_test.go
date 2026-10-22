@@ -662,6 +662,22 @@ func TestHerdrResolveWorkspace(t *testing.T) {
 			rejectLog:  []string{"workspace close"},
 		},
 		{
+			name:       "kill leaves an untagged workspace under the requested label alone",
+			workspaces: `[{"workspace_id":"w1","label":"feat"}]`,
+			label:      "feat",
+			onExists:   OnExistsKill,
+			wantErr:    ErrTargetConflict,
+			rejectLog:  []string{"workspace close"},
+		},
+		{
+			name:       "kill refuses tagged workspaces sharing the requested label",
+			workspaces: `[{"workspace_id":"w2","label":"feat","tokens":{"lazyworktree_id":"v1:me"}},{"workspace_id":"w1","label":"feat","tokens":{"lazyworktree_id":"v1:me"}}]`,
+			label:      "feat",
+			onExists:   OnExistsKill,
+			wantErr:    ErrAmbiguousTarget,
+			rejectLog:  []string{"workspace close"},
+		},
+		{
 			name:       "kill refuses several tagged workspaces",
 			workspaces: `[{"workspace_id":"w1","label":"a","tokens":{"lazyworktree_id":"v1:me"}},{"workspace_id":"w2","label":"b","tokens":{"lazyworktree_id":"v1:me"}}]`,
 			label:      "feat",

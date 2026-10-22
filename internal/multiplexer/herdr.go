@@ -492,17 +492,11 @@ func (h *Herdr) ResolveWorkspace(ctx context.Context, key, label, onExists strin
 	case OnExistsNew:
 		return HerdrWorkspace{}, uniqueWorkspaceLabel(workspaces, label), nil
 	case OnExistsKill:
-		resolution, err := ResolveTarget(targets, key, label, herdrLegacyLabels(label, legacyLabels)...)
+		resolution, err := ResolveForKill(targets, key, label, herdrLegacyLabels(label, legacyLabels)...)
 		if err != nil {
 			return HerdrWorkspace{}, "", err
 		}
 		if resolution.Found {
-			if resolution.Ambiguous {
-				return HerdrWorkspace{}, "", ambiguousTargetError(TaggedNames(targets, key))
-			}
-			if err := CheckReplacementName(targets, label, resolution.Target); err != nil {
-				return HerdrWorkspace{}, "", err
-			}
 			if err := h.CloseWorkspace(ctx, resolution.Target.ID); err != nil {
 				return HerdrWorkspace{}, "", err
 			}
