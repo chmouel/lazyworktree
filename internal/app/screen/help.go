@@ -205,6 +205,11 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 **{{HELP_TIPS}}Tips & Shortcuts**
 {{HELP_TIP_LINES}}
 
+**{{HELP_CONFIGURATION}}Herdr**
+- Commands with a 'herdr' section open a workspace or session per worktree
+- Inside Herdr, workspace mode focuses the workspace in place
+- A workspace in another Herdr session shows attach instructions, because Herdr cannot switch sessions from inside a running client
+
 **{{HELP_CONFIGURATION}}Container Execution**
 - Custom commands support OCI container execution via docker or podman
 - Add a 'container' section with 'image' to your custom command config

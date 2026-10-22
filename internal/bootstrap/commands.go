@@ -1774,6 +1774,13 @@ func executeKeyAction(ctx context.Context, key string, cfg *config.AppConfig, wt
 		return fmt.Errorf("custom command key %q not found", key)
 	}
 
+	// The CLI has no terminal tab to launch into, so reject the setting before
+	// dispatching to a multiplexer that would silently attach instead.
+	if customCmd.NewTab {
+		fmt.Fprintf(os.Stderr, "Error: new-tab commands are not supported in CLI mode\n")
+		return fmt.Errorf("new-tab commands are not supported in CLI mode")
+	}
+
 	// Determine command type based on config fields
 	if customCmd.Tmux != nil {
 		return executeTmuxAction(ctx, customCmd.Tmux, customCmd.Container, cfg, wt, env)
@@ -1785,11 +1792,6 @@ func executeKeyAction(ctx context.Context, key string, cfg *config.AppConfig, wt
 
 	if customCmd.Herdr != nil {
 		return executeHerdrAction(ctx, customCmd.Herdr, customCmd.Container, cfg, wt, env)
-	}
-
-	if customCmd.NewTab {
-		fmt.Fprintf(os.Stderr, "Error: new-tab commands are not supported in CLI mode\n")
-		return fmt.Errorf("new-tab commands are not supported in CLI mode")
 	}
 
 	if customCmd.ShowOutput {
@@ -1977,7 +1979,7 @@ func executeHerdrAction(ctx context.Context, herdrCfg *config.HerdrCommand, cont
 	windows := multiplexer.ResolveHerdrWindows(herdrCfg.Windows, env, wt.Path)
 	if containerCfg != nil {
 		var err error
-		windows = multiplexer.DefaultHerdrShellCommands(windows)
+		windows = multiplexer.DefaultHerdrContainerCommands(windows)
 		windows, err = multiplexer.WrapWindowCommandsForContainer(windows, containerCfg, env)
 		if err != nil {
 			return err
@@ -2045,7 +2047,7 @@ func executeHerdrAction(ctx context.Context, herdrCfg *config.HerdrCommand, cont
 		}
 		label = workspace.Label
 		workspaceID = workspace.ID
-	} else if herdrCfg.Attach && (!insideHerdr || (session != "" && session != multiplexer.HerdrAmbientSession())) {
+	} else if herdrCfg.Attach && (!insideHerdr || !multiplexer.HerdrSessionIsAmbient(session)) {
 		// Focus the reused workspace so an attaching client lands on it, including
 		// when it belongs to a session this client cannot display.
 		if err := h.FocusWorkspace(ctx, workspaceID); err != nil {
@@ -2063,7 +2065,7 @@ func executeHerdrAction(ctx context.Context, herdrCfg *config.HerdrCommand, cont
 	}
 
 	if insideHerdr && herdrCfg.Mode != config.HerdrModeSession {
-		if session != "" && session != multiplexer.HerdrAmbientSession() {
+		if !multiplexer.HerdrSessionIsAmbient(session) {
 			fmt.Fprintf(os.Stderr, "Herdr workspace %q belongs to session %q, outside the current Herdr session. Attach from another terminal: herdr session attach %s\n", label, session, multiplexer.ShellQuote(session))
 			return nil
 		}

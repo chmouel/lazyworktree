@@ -230,6 +230,29 @@ func TestFocusReusedHerdrWorkspaceFocusesOtherSession(t *testing.T) {
 	}
 }
 
+func TestHerdrReadyMatchingSessionWithCustomSocketFocuses(t *testing.T) {
+	t.Setenv("HERDR_SESSION", "work")
+	t.Setenv("HERDR_SOCKET_PATH", "/tmp/custom-herdr.sock")
+	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
+	m.setWindowSize(120, 40)
+
+	updated, cmd := m.Update(herdrReadyMsg{
+		label:       "wt-feature",
+		session:     "work",
+		workspaceID: "w1",
+		attach:      true,
+		insideHerdr: true,
+		mode:        config.HerdrModeWorkspace,
+	})
+	model := updated.(*Model)
+	if cmd == nil {
+		t.Fatal("expected a focus command for the ambient session")
+	}
+	if _, ok := model.state.ui.screenManager.Current().(*appscreen.InfoScreen); ok {
+		t.Error("expected focus, got attach instructions")
+	}
+}
+
 func TestGetHerdrActiveSessionsFiltersPrefix(t *testing.T) {
 	writeFakeHerdrBinary(t, fakeHerdrListScript)
 	t.Setenv("HERDR_SESSION", "")

@@ -154,7 +154,7 @@ custom_commands:
           command: npm run test:watch
 ```
 
-By default the workspace is created in the session LazyWorktree is running in, or in the default Herdr session when no session is ambient. An empty `herdr_session` inherits the current session; set `herdr_session: default` to target the default session explicitly. LazyWorktree starts a detached Herdr server when the target session is not running.
+By default the workspace is created in the session LazyWorktree is running in, or in the default Herdr session when no session is ambient. An empty `herdr_session` inherits the current session; set `herdr_session: default` to target the default session explicitly. A configured session that matches the one you are attached to reuses your current Herdr socket, so focusing works even when Herdr was started with a custom socket path. LazyWorktree starts a detached Herdr server when the target session is not running.
 
 ### Named Session per Worktree
 
