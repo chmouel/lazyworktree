@@ -38,7 +38,6 @@ Custom commands let you bind shell commands, tmux sessions, zellij sessions, Her
         t:
           description: Tmux
           tmux:
-            session_name: "wt:$WORKTREE_NAME"
             attach: true
             on_exists: switch
             windows:
@@ -147,7 +146,6 @@ custom_commands:
       description: Tmux
       show_help: true
       tmux: # If you specify zellij or herdr instead of tmux this would manage those sessions
-        session_name: "wt:$WORKTREE_NAME"
         attach: true
         on_exists: switch
         windows:
@@ -159,7 +157,7 @@ custom_commands:
             command: lazygit
 ```
 
-Palette lists sessions matching `session_prefix` (default: `wt-`). Herdr session entries are labelled without that prefix, and selecting one attaches to the full session name exactly as discovered.
+Palette lists the tmux sessions and Herdr workspaces tagged with a worktree under their full names, plus zellij sessions, Herdr sessions and older untagged sessions matching `session_prefix` (default: `wt-`). Herdr session entries are labelled without that prefix, and selecting one attaches to the full session name exactly as discovered. See [Session Discovery](guides/multiplexer-integration.md#session-discovery).
 
 Palette-only commands keep their `_name` identifier for configuration and CLI use, but they do not consume a direct TUI keybinding or appear in footer key hints.
 
@@ -202,7 +200,7 @@ custom_commands:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `session_name` | string | `wt:$WORKTREE_NAME` | Session name (env vars supported, special chars replaced) |
+| `session_name` | string | `#<number> <title>` for pull request worktrees, otherwise the worktree name | Session name (env vars supported, special chars replaced) |
 | `attach` | bool | `true` | Attach immediately; if false, show modal with instructions |
 | `on_exists` | string | `switch` | Behaviour if session exists: `switch`, `attach`, `kill`, `new` |
 | `windows` | list | `[ { name: "shell" } ]` | Window definitions for the session |
@@ -241,13 +239,13 @@ If `windows` is empty, a single `shell` tab is created. Session names with `/`, 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `mode` | string | `workspace` | `workspace` creates a workspace per worktree; `session` creates a named Herdr session |
-| `session_name` | string | `wt:$WORKTREE_NAME` | Workspace label in workspace mode, session name in session mode (env vars supported, special chars replaced) |
+| `session_name` | string | `#<number> <title>` for pull request worktrees, otherwise the worktree name | Workspace label in workspace mode, session name in session mode (env vars supported; session names have special chars replaced and default to `session_prefix` plus the worktree name) |
 | `herdr_session` | string | `""` | Herdr session hosting the workspace (workspace mode only; empty uses the current or default session) |
 | `attach` | bool | `true` | Attach or focus immediately; if false, show modal with instructions |
 | `on_exists` | string | `switch` | Behaviour if the workspace or session exists: `switch`, `attach`, `kill`, `new` (for Herdr, `attach` and `switch` both reuse the existing workspace or session) |
 | `windows` | list | `[ { name: "shell" } ]` | Tab definitions for the workspace |
 
-If `windows` is empty, a single `shell` tab is created. Herdr session names are limited to letters, digits, `.`, `_`, and `-`, with a maximum of 64 bytes; other characters are replaced with `-`, and workspace labels are sanitised in the same manner. A name that sanitises to nothing is rejected rather than silently falling back to the default session.
+If `windows` is empty, a single `shell` tab is created. Herdr session names are limited to letters, digits, `.`, `_`, and `-`, with a maximum of 64 bytes; other characters are replaced with `-`. Workspace labels are used exactly as configured. A name that sanitises to nothing is rejected rather than silently falling back to the default session.
 
 ### Herdr Window Fields
 

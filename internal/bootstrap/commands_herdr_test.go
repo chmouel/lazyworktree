@@ -12,6 +12,7 @@ import (
 
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/multiplexer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -327,6 +328,98 @@ func TestExecuteKeyActionNewTabStillDispatchesTmuxAndZellij(t *testing.T) {
 	}
 }
 
+func TestExecuteKeyActionTmuxUsesWorktreeTag(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake tmux uses a POSIX shell script")
+	}
+	dir := t.TempDir()
+	// #nosec G306 -- test fixture
+	if err := os.WriteFile(filepath.Join(dir, "tmux"), []byte("#!/bin/sh\nprintf '%b' \"$LW_TEST_TMUX_LIST\"\n"), 0o700); err != nil {
+		t.Fatalf("write fake tmux: %v", err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	wt := &models.WorktreeInfo{Path: t.TempDir(), Branch: "feat"}
+	other := t.TempDir()
+	tests := []struct {
+		name        string
+		onExists    string
+		sessionName string
+		env         map[string]string
+		list        string
+		wantErr     error
+		wantScript  []string
+	}{
+		{
+			name:       "reuses the tagged session after a template change",
+			onExists:   "switch",
+			list:       "$7\\t" + wt.Path + "\\told-name\\n",
+			wantScript: []string{"session='old-name'", "session_id='$7'"},
+		},
+		{
+			name:       "tags a legacy session found by name",
+			onExists:   "switch",
+			list:       "$3\\t\\twt-feat\\n",
+			wantScript: []string{"session='wt-feat'", "session_id='$3'", "worktree_key=" + multiplexer.ShellQuote(wt.Path), "@lazyworktree_path \"$worktree_key\""},
+		},
+		{
+			name:       "default name uses the pull request title",
+			onExists:   "switch",
+			env:        map[string]string{"LAZYWORKTREE_NUMBER": "12", "LAZYWORKTREE_TITLE": "Fix it"},
+			wantScript: []string{"session='#12 Fix it'", "session_id=''"},
+		},
+		{
+			name:       "default name reuses the session named by the old default",
+			onExists:   "switch",
+			env:        map[string]string{"LAZYWORKTREE_NUMBER": "12", "LAZYWORKTREE_TITLE": "Fix it"},
+			list:       "$3\t\twt-" + filepath.Base(wt.Path) + "\n",
+			wantScript: []string{"session='wt-" + filepath.Base(wt.Path) + "'", "session_id='$3'", "@lazyworktree_path"},
+		},
+		{
+			name:     "kill refuses when the new name belongs to another worktree",
+			onExists: "kill",
+			list:     "$7\\t" + wt.Path + "\\told-name\\n$8\\t" + other + "\\twt-feat\\n",
+			wantErr:  multiplexer.ErrTargetConflict,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("LW_TEST_TMUX_LIST", tt.list)
+			var script string
+			orig := runTmuxScriptFunc
+			runTmuxScriptFunc = func(_ context.Context, s, _ string, _ map[string]string) error {
+				script = s
+				return nil
+			}
+			t.Cleanup(func() { runTmuxScriptFunc = orig })
+
+			sessionName := "wt-feat"
+			env := map[string]string{}
+			if tt.env != nil {
+				sessionName, env = tt.sessionName, tt.env
+			}
+			cfg := &config.AppConfig{
+				WorktreeDir:   t.TempDir(),
+				SessionPrefix: "wt-",
+				CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {"k": {
+					NewTab: true,
+					Tmux:   &config.TmuxCommand{SessionName: sessionName, OnExists: tt.onExists, Windows: []config.TmuxWindow{{Name: "shell"}}},
+				}}},
+			}
+			err := executeKeyAction(context.Background(), "k", cfg, wt, env)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.Empty(t, script, "nothing should run after a conflict")
+				return
+			}
+			require.NoError(t, err)
+			for _, want := range tt.wantScript {
+				require.Contains(t, script, want)
+			}
+		})
+	}
+}
+
 func TestExecuteHerdrActionSessionModeCreatesMissingWorkspace(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "herdr.log")
 	t.Setenv("HERDR_TEST_LOG", logPath)
@@ -429,25 +522,42 @@ func TestExecuteHerdrActionRejectsInvalidConfiguredNames(t *testing.T) {
 	}
 }
 
-func TestExecuteHerdrActionRejectsDerivedEmptyWorkspaceLabel(t *testing.T) {
+func TestExecuteHerdrActionKeepsWorkspaceLabelVerbatim(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "herdr.log")
 	t.Setenv("HERDR_TEST_LOG", logPath)
 	t.Setenv("HERDR_SESSION", "")
+	t.Setenv("HERDR_SOCKET_PATH", "")
 	writeFakeHerdrCLI(t, fakeHerdrCLIScript)
 
-	wt := &models.WorktreeInfo{Path: "/w/+", Branch: "feat"}
+	wt, cfg := herdrActionWorktree(t)
 	err := executeHerdrAction(context.Background(), &config.HerdrCommand{
-		Mode:        config.HerdrModeSession,
-		SessionName: "...",
-		Attach:      true,
+		Mode:        config.HerdrModeWorkspace,
+		SessionName: "Feature: été / x",
 		Windows:     []config.TmuxWindow{{Name: "shell"}},
-	}, nil, &config.AppConfig{WorktreeDir: t.TempDir()}, wt, map[string]string{})
-	if err == nil || !strings.Contains(err.Error(), "workspace label") {
-		t.Fatalf("error = %v, want a workspace label validation error", err)
-	}
-	if _, statErr := os.Stat(logPath); statErr == nil {
-		t.Errorf("expected no herdr command to run, got:\n%s", readHerdrCLILog(t, logPath))
-	}
+	}, nil, cfg, wt, map[string]string{})
+	require.NoError(t, err)
+	log := readHerdrCLILog(t, logPath)
+	require.Contains(t, log, "workspace create --label Feature: été / x")
+	require.Contains(t, log, "workspace report-metadata w1 --source lazyworktree --token lazyworktree_id="+multiplexer.HerdrWorktreeKey(wt.Path))
+}
+
+func TestExecuteHerdrActionReusesTaggedWorkspace(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", logPath)
+	t.Setenv("HERDR_SESSION", "")
+	t.Setenv("HERDR_SOCKET_PATH", "")
+	writeFakeHerdrCLI(t, fakeHerdrCLIScript)
+
+	wt, cfg := herdrActionWorktree(t)
+	t.Setenv("HERDR_TEST_WORKSPACES", `[{"workspace_id":"w7","label":"Old name","tokens":{"lazyworktree_id":"`+multiplexer.HerdrWorktreeKey(wt.Path)+`"}}]`)
+	err := executeHerdrAction(context.Background(), &config.HerdrCommand{
+		Mode:        config.HerdrModeWorkspace,
+		SessionName: "wt-feat",
+		OnExists:    "switch",
+		Windows:     []config.TmuxWindow{{Name: "shell"}},
+	}, nil, cfg, wt, map[string]string{})
+	require.NoError(t, err)
+	require.NotContains(t, readHerdrCLILog(t, logPath), "workspace create")
 }
 
 func TestExecuteHerdrActionAcceptsDotOnlyValidName(t *testing.T) {

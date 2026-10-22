@@ -59,7 +59,7 @@ LazyWorktree pipes diff and CI log output through your configured pager. Not all
 
 ### Session name sanitisation
 
-tmux, zellij, and Herdr session names are sanitised to remove characters that are invalid in session identifiers. If your worktree path contains special characters, the resulting session name may differ from what you expect.
+tmux, zellij, and Herdr session names are sanitised to remove characters that are invalid in session identifiers. If your worktree path contains special characters, the resulting session name may differ from what you expect. tmux sessions and Herdr workspaces are found by their worktree tag rather than their name, so a changed name does not lose them; see [Session Discovery](../guides/multiplexer-integration.md#session-discovery).
 
 ### Existing session behaviour
 

@@ -303,7 +303,7 @@ func TestAttachTmuxSessionCmdUsesCommandRunner(t *testing.T) {
 	if capture.name != "tmux" {
 		t.Fatalf("expected tmux command, got %q", capture.name)
 	}
-	if len(capture.args) != 3 || capture.args[0] != "attach-session" || capture.args[2] != testSessionName {
+	if len(capture.args) != 3 || capture.args[0] != "attach-session" || capture.args[2] != "="+testSessionName+":" {
 		t.Fatalf("unexpected tmux args: %v", capture.args)
 	}
 }

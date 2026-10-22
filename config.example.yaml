@@ -426,7 +426,6 @@ custom_commands:
       description: Tmux session
       show_help: true
       tmux:
-        session_name: "wt:$WORKTREE_NAME"
         attach: true
         on_exists: "switch"
         windows:

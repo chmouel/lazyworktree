@@ -57,6 +57,7 @@ var (
 	}
 	writeOutputSelectionFunc                       = writeOutputSelection
 	runCreateExecFunc        runCreateExecFuncType = runCreateExec
+	runTmuxScriptFunc                              = runTmuxScript
 )
 
 // handleSubcommandCompletion checks if completion is being requested and outputs flags.
@@ -1825,10 +1826,21 @@ func executeTmuxAction(ctx context.Context, tmuxCfg *config.TmuxCommand, contain
 
 	// Expand and sanitise session name
 	sessionName := strings.TrimSpace(services.ExpandWithEnv(tmuxCfg.SessionName, env))
+	var legacyNames []string
 	if sessionName == "" {
-		sessionName = fmt.Sprintf("%s%s", cfg.SessionPrefix, filepath.Base(wt.Path))
+		sessionName = multiplexer.DefaultSessionName(env, wt.Path)
+		legacyNames = multiplexer.LegacyDefaultNames(cfg.SessionPrefix, wt.Path)
 	}
 	sessionName = multiplexer.SanitizeTmuxSessionName(sessionName)
+
+	targets, err := listTmuxTargets(ctx)
+	if err != nil {
+		return err
+	}
+	plan, err := multiplexer.PlanTmuxSession(targets, multiplexer.TmuxWorktreeKey(wt.Path), sessionName, tmuxCfg.OnExists, legacyNames...)
+	if err != nil {
+		return err
+	}
 
 	// Resolve windows
 	windows, ok := multiplexer.ResolveTmuxWindows(tmuxCfg.Windows, env, wt.Path)
@@ -1838,7 +1850,6 @@ func executeTmuxAction(ctx context.Context, tmuxCfg *config.TmuxCommand, contain
 
 	// Wrap window commands in container if configured
 	if containerCfg != nil {
-		var err error
 		windows, err = multiplexer.WrapWindowCommandsForContainer(windows, containerCfg, env)
 		if err != nil {
 			return err
@@ -1860,18 +1871,37 @@ func executeTmuxAction(ctx context.Context, tmuxCfg *config.TmuxCommand, contain
 	scriptCfg := *tmuxCfg
 	scriptCfg.Attach = true
 	env["LW_TMUX_SESSION_FILE"] = sessionPath
-	script := multiplexer.BuildTmuxScript(sessionName, &scriptCfg, windows, env)
+	script := multiplexer.BuildTmuxScript(plan, &scriptCfg, windows, env)
+	return runTmuxScriptFunc(ctx, script, wt.Path, env)
+}
 
-	// Execute script
+func runTmuxScript(ctx context.Context, script, dir string, env map[string]string) error {
 	// #nosec G204 -- command is built from user-configured tmux session settings
 	execCmd := exec.CommandContext(ctx, "bash", "-lc", script)
-	execCmd.Dir = wt.Path
+	execCmd.Dir = dir
 	execCmd.Env = services.AppendCommandEnv(os.Environ(), env)
 	execCmd.Stdin = os.Stdin
 	execCmd.Stdout = os.Stdout
 	execCmd.Stderr = os.Stderr
-
 	return execCmd.Run()
+}
+
+// listTmuxTargets returns the running tmux sessions with their worktree tags.
+// A missing tmux binary or server means no sessions, but cancellation is
+// reported so the session script never starts.
+func listTmuxTargets(ctx context.Context) ([]multiplexer.Target, error) {
+	if _, err := exec.LookPath("tmux"); err != nil {
+		return nil, nil
+	}
+	// #nosec G204 -- static command with format string
+	output, err := exec.CommandContext(ctx, "tmux", "list-sessions", "-F", multiplexer.TmuxListTargetsFormat).Output()
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, nil
+	}
+	return multiplexer.ParseTmuxTargets(string(output)), nil
 }
 
 func executeZellijAction(ctx context.Context, zellijCfg *config.TmuxCommand, containerCfg *config.ContainerCommand, cfg *config.AppConfig, wt *models.WorktreeInfo, env map[string]string) error {
@@ -1960,18 +1990,13 @@ func executeHerdrAction(ctx context.Context, herdrCfg *config.HerdrCommand, cont
 	var nameErr error
 	if herdrCfg.Mode == config.HerdrModeSession {
 		session, nameErr = multiplexer.HerdrResolvedName("session_name", label, fmt.Sprintf("%s%s", cfg.SessionPrefix, filepath.Base(wt.Path)))
-		if nameErr == nil {
-			label, nameErr = multiplexer.HerdrResolvedName("workspace label", "", filepath.Base(wt.Path))
-		}
 	} else {
-		label, nameErr = multiplexer.HerdrResolvedName("session_name", label, cfg.SessionPrefix+filepath.Base(wt.Path))
-		if nameErr == nil {
-			configuredSession := strings.TrimSpace(services.ExpandWithEnv(herdrCfg.HerdrSession, env))
-			if session = multiplexer.SanitizeHerdrSessionName(configuredSession); configuredSession != "" && session == "" {
-				nameErr = multiplexer.HerdrInvalidNameError("herdr_session", configuredSession)
-			}
+		configuredSession := strings.TrimSpace(services.ExpandWithEnv(herdrCfg.HerdrSession, env))
+		if session = multiplexer.SanitizeHerdrSessionName(configuredSession); configuredSession != "" && session == "" {
+			nameErr = multiplexer.HerdrInvalidNameError("herdr_session", configuredSession)
 		}
 	}
+	label, legacyLabels := multiplexer.HerdrWorkspaceLabel(herdrCfg.Mode, label, cfg.SessionPrefix, wt.Path, env)
 	if nameErr != nil {
 		return nameErr
 	}
@@ -2011,37 +2036,22 @@ func executeHerdrAction(ctx context.Context, herdrCfg *config.HerdrCommand, cont
 		return err
 	}
 
-	existing, found, err := h.FindWorkspaceByLabel(ctx, label)
+	key := multiplexer.HerdrWorktreeKey(wt.Path)
+	onExists := herdrCfg.OnExists
+	if herdrCfg.Mode == config.HerdrModeSession {
+		// on_exists applies to the session. A session left running by a failed
+		// attempt may hold a partial layout, so reuse the worktree workspace
+		// instead of assuming the layout completed.
+		onExists = multiplexer.OnExistsSwitch
+	}
+	existing, label, err := h.ResolveWorkspace(ctx, key, label, onExists, legacyLabels...)
 	if err != nil {
 		return err
 	}
-	workspaceID := ""
-	if found {
-		if herdrCfg.Mode == config.HerdrModeSession {
-			// A session left running by a failed attempt may hold a partial
-			// layout, so reuse the worktree workspace instead of assuming the
-			// layout completed.
-			workspaceID = existing.ID
-			label = existing.Label
-		} else {
-			switch strings.ToLower(strings.TrimSpace(herdrCfg.OnExists)) {
-			case multiplexer.OnExistsKill:
-				if err := h.CloseWorkspace(ctx, existing.ID); err != nil {
-					return err
-				}
-			case multiplexer.OnExistsNew:
-				label, err = h.UniqueWorkspaceLabel(ctx, label)
-				if err != nil {
-					return err
-				}
-			default:
-				workspaceID = existing.ID
-			}
-		}
-	}
+	workspaceID := existing.ID
 
 	if workspaceID == "" {
-		workspace, err := h.CreateWorkspace(ctx, label, wt.Path, windows, env, herdrCfg.Attach)
+		workspace, err := h.CreateWorkspace(ctx, label, key, wt.Path, windows, env, herdrCfg.Attach)
 		if err != nil {
 			return err
 		}

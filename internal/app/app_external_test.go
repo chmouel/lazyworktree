@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,59 +38,51 @@ func windowsMockOutputCmd(output string) *exec.Cmd {
 func TestGetTmuxActiveSessions(t *testing.T) {
 	tests := []struct {
 		name          string
+		prefix        string
 		mockOutput    string
 		mockErr       bool
 		expectedNames []string
 	}{
 		{
-			name:          "filters wt- sessions and strips prefix",
-			mockOutput:    "wt-feature-branch\nother-session\nwt-bugfix\nwt-another-feature\n",
-			expectedNames: []string{"another-feature", "bugfix", "feature-branch"}, // sorted
+			name:          "keeps tagged and prefixed sessions with full names",
+			prefix:        "wt-",
+			mockOutput:    "$1\t\twt-feature-branch\n$2\t\tother-session\n$3\t/repo/wt\tMy Feature\n$4\t\twt-bugfix\n",
+			expectedNames: []string{"My Feature", "wt-bugfix", "wt-feature-branch"},
 		},
 		{
-			name:          "handles no wt- sessions",
-			mockOutput:    "session1\nsession2\nregular\n",
-			expectedNames: nil,
+			name:       "ignores untagged sessions without the prefix",
+			prefix:     "wt-",
+			mockOutput: "$1\t\tsession1\n$2\t\tregular\n",
 		},
 		{
-			name:          "handles empty output",
-			mockOutput:    "",
-			expectedNames: nil,
+			name:          "custom prefix",
+			prefix:        "my-prefix-",
+			mockOutput:    "$1\t\tmy-prefix-feature\n$2\t\tother-session\n$3\t\tmy-prefix-bugfix\n",
+			expectedNames: []string{"my-prefix-bugfix", "my-prefix-feature"},
 		},
 		{
-			name:          "handles only whitespace",
-			mockOutput:    "  \n  \n",
-			expectedNames: nil,
+			name:   "empty output",
+			prefix: "wt-",
 		},
 		{
-			name:          "handles single wt- session",
-			mockOutput:    "wt-test\n",
-			expectedNames: []string{"test"},
-		},
-		{
-			name:          "handles mixed whitespace",
-			mockOutput:    "  wt-test1  \nother\n  wt-test2\n",
-			expectedNames: []string{"test1", "test2"},
-		},
-		{
-			name:          "command fails (tmux not running)",
-			mockErr:       true,
-			expectedNames: nil,
+			name:    "command fails (tmux not running)",
+			prefix:  "wt-",
+			mockErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if _, err := exec.LookPath("tmux"); err != nil {
+				t.Skip("tmux not installed")
+			}
 			cfg := &config.AppConfig{
 				WorktreeDir:   t.TempDir(),
-				SessionPrefix: "wt-",
+				SessionPrefix: tt.prefix,
 			}
 			m := NewModel(cfg, "")
-
-			// Mock commandRunner
-			m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
+			m.commandRunner = func(_ context.Context, _ string, _ ...string) *exec.Cmd {
 				if tt.mockErr {
-					// Command that will fail
 					return exec.Command("false")
 				}
 				if runtime.GOOS == osWindows {
@@ -98,36 +92,14 @@ func TestGetTmuxActiveSessions(t *testing.T) {
 				return exec.Command("printf", "%s", tt.mockOutput)
 			}
 
-			got := m.getTmuxActiveSessions()
-
+			var got []string
+			for _, session := range m.getTmuxActiveSessions() {
+				got = append(got, session.Name)
+			}
 			if !reflect.DeepEqual(got, tt.expectedNames) {
 				t.Fatalf("expected %v, got %v", tt.expectedNames, got)
 			}
 		})
-	}
-}
-
-func TestGetTmuxActiveSessionsWithCustomPrefix(t *testing.T) {
-	cfg := &config.AppConfig{
-		WorktreeDir:   t.TempDir(),
-		SessionPrefix: "my-prefix-",
-	}
-	m := NewModel(cfg, "")
-
-	// Mock commandRunner to return sessions with custom prefix
-	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
-		mockOutput := "my-prefix-feature\nother-session\nmy-prefix-bugfix\n"
-		if runtime.GOOS == osWindows {
-			return windowsMockOutputCmd(mockOutput)
-		}
-		return exec.Command("printf", "%s", mockOutput)
-	}
-
-	got := m.getTmuxActiveSessions()
-	expected := []string{"bugfix", "feature"}
-
-	if !reflect.DeepEqual(got, expected) {
-		t.Fatalf("expected %v, got %v", expected, got)
 	}
 }
 
@@ -164,7 +136,7 @@ func TestTmuxSessionReadyShowsInfoWhenNotAttaching(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("expected no command when not attaching")
 	}
-	if !strings.Contains(infoScr.Message, "tmux attach-session -t 'wt_test'") {
+	if !strings.Contains(infoScr.Message, "tmux attach-session -t '=wt_test:'") {
 		t.Errorf("expected attach message, got %q", infoScr.Message)
 	}
 }
@@ -301,15 +273,15 @@ func TestBuildTmuxWindowCommand(t *testing.T) {
 func TestBuildTmuxScript(t *testing.T) {
 	tests := []struct {
 		name        string
-		sessionName string
+		plan        multiplexer.TmuxSessionPlan
 		tmuxCfg     *config.TmuxCommand
 		windows     []multiplexer.ResolvedWindow
 		env         map[string]string
 		checkScript func(t *testing.T, script string)
 	}{
 		{
-			name:        "empty windows returns empty script",
-			sessionName: "test",
+			name: "empty windows returns empty script",
+			plan: multiplexer.TmuxSessionPlan{Name: "test"},
 			tmuxCfg: &config.TmuxCommand{
 				OnExists: "switch",
 				Attach:   false,
@@ -323,8 +295,8 @@ func TestBuildTmuxScript(t *testing.T) {
 			},
 		},
 		{
-			name:        "single window script",
-			sessionName: "myrepo_wt_feature",
+			name: "single window script",
+			plan: multiplexer.TmuxSessionPlan{Name: "myrepo_wt_feature"},
 			tmuxCfg: &config.TmuxCommand{
 				OnExists: "switch",
 				Attach:   false,
@@ -337,14 +309,11 @@ func TestBuildTmuxScript(t *testing.T) {
 				if !strings.Contains(script, "session='myrepo_wt_feature'") {
 					t.Error("script should contain session name")
 				}
-				if !strings.Contains(script, "tmux has-session -t \"$(tmux_exact_target \"$session\")\"") {
-					t.Error("script should use exact tmux target for session lookups")
-				}
 				if !strings.Contains(script, "tmux new-session") {
 					t.Error("script should create new session")
 				}
-				if !strings.Contains(script, "tmux new-session -d -s \"$session\"") {
-					t.Error("script should keep plain session name for creation")
+				if !strings.Contains(script, "session_id=$(tmux new-session -d -P -F '#{session_id}' -s \"$(printf '%s' \"$session\" | sed 's/#/##/g')\"") {
+					t.Error("script should create the session by name and capture its ID")
 				}
 				if !strings.Contains(script, "-n 'shell'") {
 					t.Error("script should create window named 'shell'")
@@ -352,8 +321,8 @@ func TestBuildTmuxScript(t *testing.T) {
 			},
 		},
 		{
-			name:        "on_exists kill mode",
-			sessionName: "test",
+			name: "on_exists kill mode",
+			plan: multiplexer.TmuxSessionPlan{Name: "test", KillID: "$1"},
 			tmuxCfg: &config.TmuxCommand{
 				OnExists: "kill",
 				Attach:   false,
@@ -363,14 +332,14 @@ func TestBuildTmuxScript(t *testing.T) {
 			},
 			env: map[string]string{},
 			checkScript: func(t *testing.T, script string) {
-				if !strings.Contains(script, "tmux kill-session -t \"$(tmux_exact_target \"$session\")\"") {
-					t.Error("script should kill existing session in kill mode")
+				if !strings.Contains(script, "kill_id='$1'") || !strings.Contains(script, "tmux kill-session -t \"$kill_id\"") {
+					t.Error("script should kill the planned session in kill mode")
 				}
 			},
 		},
 		{
-			name:        "on_exists new mode",
-			sessionName: "test",
+			name: "on_exists new mode",
+			plan: multiplexer.TmuxSessionPlan{Name: "test", Increment: true},
 			tmuxCfg: &config.TmuxCommand{
 				OnExists: "new",
 				Attach:   false,
@@ -386,8 +355,8 @@ func TestBuildTmuxScript(t *testing.T) {
 			},
 		},
 		{
-			name:        "multiple windows",
-			sessionName: "test",
+			name: "multiple windows",
+			plan: multiplexer.TmuxSessionPlan{Name: "test"},
 			tmuxCfg: &config.TmuxCommand{
 				OnExists: "switch",
 				Attach:   false,
@@ -407,8 +376,8 @@ func TestBuildTmuxScript(t *testing.T) {
 			},
 		},
 		{
-			name:        "attach inside tmux",
-			sessionName: "test",
+			name: "attach inside tmux",
+			plan: multiplexer.TmuxSessionPlan{Name: "test"},
 			tmuxCfg: &config.TmuxCommand{
 				OnExists: "switch",
 				Attach:   true,
@@ -418,14 +387,14 @@ func TestBuildTmuxScript(t *testing.T) {
 			},
 			env: map[string]string{},
 			checkScript: func(t *testing.T, script string) {
-				if !strings.Contains(script, "tmux switch-client -t \"$(tmux_exact_target \"$session\")\"") {
+				if !strings.Contains(script, "tmux switch-client -t \"$session_id\"") {
 					t.Error("script should switch client when inside tmux")
 				}
 			},
 		},
 		{
-			name:        "prefixed session names use exact lookup targets",
-			sessionName: "wt-feature-foo-bar",
+			name: "switching targets the session ID",
+			plan: multiplexer.TmuxSessionPlan{Name: "wt-feature-foo-bar"},
 			tmuxCfg: &config.TmuxCommand{
 				OnExists: "switch",
 				Attach:   true,
@@ -438,8 +407,8 @@ func TestBuildTmuxScript(t *testing.T) {
 				if !strings.Contains(script, "session='wt-feature-foo-bar'") {
 					t.Error("script should contain the full session name")
 				}
-				if !strings.Contains(script, "\"$(tmux_exact_target \"$session\")\"") {
-					t.Error("script should use exact tmux targets for lookups and switching")
+				if !strings.Contains(script, "switch-client -t \"$session_id\"") {
+					t.Error("script should switch by session ID")
 				}
 				if strings.Contains(script, "switch-client -t \"$session\"") {
 					t.Error("script should not use bare tmux target for switching")
@@ -447,8 +416,8 @@ func TestBuildTmuxScript(t *testing.T) {
 			},
 		},
 		{
-			name:        "env vars in script",
-			sessionName: "test",
+			name: "env vars in script",
+			plan: multiplexer.TmuxSessionPlan{Name: "test"},
 			tmuxCfg: &config.TmuxCommand{
 				OnExists: "switch",
 				Attach:   false,
@@ -470,7 +439,7 @@ func TestBuildTmuxScript(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			script := buildTmuxScript(tt.sessionName, tt.tmuxCfg, tt.windows, tt.env)
+			script := buildTmuxScript(tt.plan, tt.tmuxCfg, tt.windows, tt.env)
 			tt.checkScript(t, script)
 		})
 	}
@@ -694,6 +663,55 @@ func TestOpenTmuxSession(t *testing.T) {
 	}
 	if execProcessCalled {
 		t.Fatal("execProcess must not be called when new_tab is set")
+	}
+}
+
+func TestOpenTmuxSessionReusesTaggedSession(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("uses printf to mock tmux output")
+	}
+	if _, err := exec.LookPath("tmux"); err != nil {
+		t.Skip("tmux not installed")
+	}
+	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
+	wt := &models.WorktreeInfo{Path: t.TempDir(), Branch: "feature"}
+	other := t.TempDir()
+
+	newModel := func(listing string) *Model {
+		m := NewModel(cfg, "")
+		m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
+			if name == "tmux" && len(args) > 0 && args[0] == "list-sessions" {
+				// #nosec G204 -- test mock data, not user input
+				return exec.Command("printf", "%s", listing)
+			}
+			return exec.Command("true")
+		}
+		m.execProcess = func(_ *exec.Cmd, cb tea.ExecCallback) tea.Cmd {
+			return func() tea.Msg { return cb(nil) }
+		}
+		return m
+	}
+	tmuxCfg := func(onExists string) *config.CustomCommand {
+		return &config.CustomCommand{Tmux: &config.TmuxCommand{
+			SessionName: "new-template",
+			OnExists:    onExists,
+			Windows:     []config.TmuxWindow{{Name: "shell"}},
+		}}
+	}
+
+	m := newModel(fmt.Sprintf("$1\t%s\told-name\n", wt.Path))
+	ready, ok := m.openTmuxSession(tmuxCfg("switch"), wt)().(tmuxSessionReadyMsg)
+	if !ok {
+		t.Fatal("expected tmuxSessionReadyMsg")
+	}
+	if ready.sessionName != "old-name" {
+		t.Fatalf("expected the tagged session to be reused, got %q", ready.sessionName)
+	}
+
+	m = newModel(fmt.Sprintf("$1\t%s\told-name\n$2\t%s\tnew-template\n", wt.Path, other))
+	msg := m.openTmuxSession(tmuxCfg("kill"), wt)()
+	if errResult, ok := msg.(errMsg); !ok || !errors.Is(errResult.err, multiplexer.ErrTargetConflict) {
+		t.Fatalf("expected a conflict error, got %#v", msg)
 	}
 }
 

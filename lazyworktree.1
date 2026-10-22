@@ -1019,7 +1019,7 @@ The palette exposes a "Create from current" entry which copies the branch you cu
 
 Custom commands whose config key starts with \fB_\fR appear in the command palette only and do not bind a direct TUI shortcut.
 
-The command palette automatically lists all active tmux and zellij sessions and Herdr workspaces and sessions starting with the configured session prefix (default: \fBwt-\fR) under separate "Active ..." sections that appear after the Multiplexer section, allowing you to quickly switch to existing sessions without manually typing session names. Herdr workspaces are listed from the current or default Herdr session only. The session prefix can be customised via the \fBsession_prefix\fR configuration option. Note that tmux does not permit colons (:) in session names, so any colons in the prefix will be automatically converted to hyphens (-).
+The command palette automatically lists active tmux and zellij sessions and Herdr workspaces and sessions under separate "Active ..." sections that appear after the Multiplexer section, allowing you to quickly switch to existing sessions without manually typing session names. Herdr workspaces are listed from the current or default Herdr session only. tmux sessions and Herdr workspaces are tagged with the worktree they belong to: they are listed whatever their name, shown under their full name with the worktree as description, and found again by that tag when the session name template changes. zellij sessions, Herdr sessions and untagged sessions from earlier releases are listed only when they start with the configured session prefix (default: \fBwt-\fR), which can be customised via the \fBsession_prefix\fR configuration option. A session name already used by another worktree's session is reported as a conflict rather than reused or killed. Note that tmux does not permit colons (:) in session names, so any colons in the prefix will be automatically converted to hyphens (-).
 .
 .SS LazyGit
 .TP
@@ -1530,7 +1530,7 @@ Environment variables available in custom commands: WORKTREE_BRANCH, MAIN_WORKTR
 For tmux sessions, the following fields are available:
 .RS
 .IP \(bu 2
-\fBsession_name\fR: tmux session name, supports env vars (default: wt:$WORKTREE_NAME). Colons, slashes, and backslashes are replaced with -.
+\fBsession_name\fR: tmux session name, supports env vars (default: #<number> <title> for pull request worktrees, shortened to 40 characters, otherwise the worktree name). Colons, slashes, and backslashes are replaced with -.
 .IP \(bu 2
 \fBattach\fR: If true, attach/switch immediately; if false, show info modal (default: true)
 .IP \(bu 2
@@ -1556,7 +1556,7 @@ For Herdr workspaces or sessions, the following fields are available:
 .IP \(bu 2
 \fBmode\fR: workspace (default) creates one workspace per worktree inside an existing Herdr session; session creates a named Herdr session per worktree.
 .IP \(bu 2
-\fBsession_name\fR: Workspace label in workspace mode, session name in session mode, supports env vars (default: wt:$WORKTREE_NAME). Herdr session names are limited to letters, digits, ., _, and \-, with a maximum of 64 bytes; other characters are replaced with -. A name that sanitises to nothing is rejected instead of falling back to the default session. Workspace labels are sanitised in the same manner so the command palette can find them.
+\fBsession_name\fR: Workspace label in workspace mode, session name in session mode, supports env vars (default label: #<number> <title> for pull request worktrees, shortened to 40 characters, otherwise the worktree name; default session name: the session prefix followed by the worktree name). Herdr session names are limited to letters, digits, ., _, and \-, with a maximum of 64 bytes; other characters are replaced with -. A name that sanitises to nothing is rejected instead of falling back to the default session. Workspace labels are used exactly as configured.
 .IP \(bu 2
 \fBherdr_session\fR: Herdr session hosting the workspace (workspace mode only; empty inherits the current session, default targets the default session explicitly).
 .IP \(bu 2
@@ -1566,7 +1566,7 @@ For Herdr workspaces or sessions, the following fields are available:
 .IP \(bu 2
 \fBPartial layouts\fR: Herdr offers no reliable completion marker. A retry reuses a workspace left behind by a failed attempt and does not re-run the configured commands, so a partially configured workspace can be reused as-is. Use on_exists: kill to discard it and build a fresh layout; on_exists: new instead builds a fresh workspace under an incremented label and leaves the old one in place. In session mode, these options apply when the session is running; reusing a running session ensures the worktree workspace exists, creating it when the previous attempt never got that far.
 .IP \(bu 2
-\fBNormalised names\fR: on_exists: kill and on_exists: new act on the normalised name, as they do for tmux. When sanitisation makes two worktrees share a name, killing or incrementing one can target the other worktree's session or workspace.
+\fBNormalised names\fR: in session mode, on_exists: kill and on_exists: new act on the normalised session name, because Herdr sessions carry no worktree tag. When sanitisation makes two worktrees share a session name, killing or incrementing one can target the other worktree's session. Workspaces are found by their worktree tag instead.
 .IP \(bu 2
 \fBwindows\fR: List of tab definitions. Each tab has: name (supports env vars), command (empty uses default shell), cwd (default: $WORKTREE_PATH). If omitted, creates a single shell tab. The first tab uses the name and cwd of the first window.
 .RE

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -400,7 +401,11 @@ func TestIntegrationPaletteSelectsActiveTmuxSession(t *testing.T) {
 	}
 
 	cfg := &config.AppConfig{
-		WorktreeDir: t.TempDir(),
+		WorktreeDir:   t.TempDir(),
+		SessionPrefix: "wt-",
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
+			"x": {Command: "true", Description: "noop", ShowHelp: true},
+		}},
 	}
 
 	m := NewModel(cfg, "")
@@ -411,7 +416,7 @@ func TestIntegrationPaletteSelectsActiveTmuxSession(t *testing.T) {
 	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
 		// If querying tmux sessions, return mock data
 		if name == "tmux" && len(args) > 0 && args[0] == "list-sessions" {
-			mockOutput := "wt-test-session\nother-session\n"
+			mockOutput := "$1\t\twt-test-session\n$2\t\tother-session\n"
 			if runtime.GOOS == osWindows {
 				return windowsMockOutputCmd(mockOutput)
 			}
@@ -429,7 +434,7 @@ func TestIntegrationPaletteSelectsActiveTmuxSession(t *testing.T) {
 
 	// Verify the palette has the active session item
 	// Filter for "test" to narrow down the results
-	for _, r := range "test" {
+	for _, r := range "wt-test-session" {
 		_, _ = m.handleScreenKey(tea.KeyPressMsg{Code: r, Text: string(r)})
 	}
 
@@ -468,15 +473,8 @@ func TestIntegrationPaletteSelectsActiveTmuxSession(t *testing.T) {
 
 	// Verify the correct session name was used
 	tmuxCmd, _ := findCommand(recorder.execs, "tmux")
-	foundWtPrefix := false
-	for _, arg := range tmuxCmd.args {
-		if strings.HasPrefix(arg, "wt-") {
-			foundWtPrefix = true
-			break
-		}
-	}
-	if !foundWtPrefix {
-		t.Fatalf("expected tmux command to include 'wt-' prefix in session name, got args: %v", tmuxCmd.args)
+	if !slices.Contains(tmuxCmd.args, "=wt-test-session:") {
+		t.Fatalf("expected tmux command to target the exact session name, got args: %v", tmuxCmd.args)
 	}
 }
 

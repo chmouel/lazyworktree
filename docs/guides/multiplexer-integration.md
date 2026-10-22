@@ -24,7 +24,6 @@ custom_commands:
     description: Tmux session
     show_help: true
     tmux:
-      session_name: "wt:$WORKTREE_NAME"
       attach: true
       on_exists: switch
 ```
@@ -37,7 +36,6 @@ custom_commands:
     description: Tmux with layout
     show_help: true
     tmux:
-      session_name: "wt:$WORKTREE_NAME"
       attach: true
       on_exists: switch
       windows:
@@ -56,7 +54,7 @@ custom_commands:
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
-| `session_name` | string | `wt:$WORKTREE_NAME` | Session name (env vars supported, special chars replaced) |
+| `session_name` | string | `#<number> <title>` for pull request worktrees, otherwise the worktree name | Session name (env vars supported, special chars replaced) |
 | `attach` | bool | `true` | Attach immediately; if `false`, show modal with instructions |
 | `on_exists` | string | `switch` | Behaviour if session exists: `switch`, `attach`, `kill`, `new` |
 | `windows` | list | `[{name: "shell"}]` | Window definitions for the session |
@@ -143,7 +141,6 @@ custom_commands:
     show_help: true
     herdr:
       mode: workspace
-      session_name: "wt:$WORKTREE_NAME"
       attach: true
       on_exists: switch
       windows:
@@ -179,7 +176,7 @@ custom_commands:
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
 | `mode` | string | `workspace` | `workspace` creates a workspace per worktree; `session` creates a named Herdr session |
-| `session_name` | string | `wt:$WORKTREE_NAME` | Workspace label in workspace mode, session name in session mode (env vars supported) |
+| `session_name` | string | `#<number> <title>` for pull request worktrees, otherwise the worktree name | Workspace label in workspace mode, session name in session mode (env vars supported; session names default to `session_prefix` plus the worktree name) |
 | `herdr_session` | string | `""` | Herdr session hosting the workspace (workspace mode only; empty inherits the current session, `default` targets the default session) |
 | `attach` | bool | `true` | Attach or focus immediately; if `false`, show modal with instructions |
 | `on_exists` | string | `switch` | Behaviour if the workspace or session exists: `switch`, `attach`, `kill`, `new` (for Herdr, `attach` is an alias of `switch`) |
@@ -194,7 +191,7 @@ custom_commands:
 | `cwd` | string | `$WORKTREE_PATH` | Working directory (supports env vars) |
 
 !!! note
-    Herdr session names are limited to letters, digits, `.`, `_`, and `-`, with a maximum of 64 bytes. Other characters are replaced with `-`, and workspace labels are sanitised in the same manner so the palette can find them. A name that sanitises to nothing is rejected rather than silently falling back to the default session. The first tab takes the `name` and `cwd` configured for the first window. In workspace mode, LazyWorktree focuses the workspace directly when already running inside Herdr; otherwise it focuses a reused workspace before attaching. When the configured `herdr_session` differs from the session hosting the current client, LazyWorktree shows attach instructions instead, because focusing a workspace in another session cannot display it. In session mode, Herdr cannot switch between sessions from inside a running client, so LazyWorktree always shows attach instructions instead of nesting a second client — including when the session already exists.
+    Herdr session names are limited to letters, digits, `.`, `_`, and `-`, with a maximum of 64 bytes. Other characters are replaced with `-`, and a name that sanitises to nothing is rejected rather than silently falling back to the default session. Workspace labels are used exactly as configured, so they may contain spaces, colons, slashes or any other characters. The first tab takes the `name` and `cwd` configured for the first window. In workspace mode, LazyWorktree focuses the workspace directly when already running inside Herdr; otherwise it focuses a reused workspace before attaching. When the configured `herdr_session` differs from the session hosting the current client, LazyWorktree shows attach instructions instead, because focusing a workspace in another session cannot display it. In session mode, Herdr cannot switch between sessions from inside a running client, so LazyWorktree always shows attach instructions instead of nesting a second client — including when the session already exists.
 
 !!! warning
     Herdr offers no reliable completion marker for a workspace layout. When a previous attempt failed part-way, a retry reuses the workspace that was already created and does **not** re-run the configured commands, so a partially configured workspace can be reused as-is. Use `on_exists: kill` to discard it and build a fresh layout; `on_exists: new` instead builds a fresh workspace under an incremented label and leaves the old one in place. In session mode, these options apply when the session is running, and reusing a running session ensures the worktree workspace exists, creating it when the previous attempt never got that far.
@@ -203,11 +200,11 @@ custom_commands:
     `new_tab` is honoured when LazyWorktree runs outside Herdr. Inside Herdr, workspace mode focuses the workspace in place and session mode shows attach instructions, because Herdr cannot nest a client or switch sessions from within a running client. A workspace in another session also shows attach instructions.
 
 !!! warning
-    `on_exists: kill` and `on_exists: new` act on the normalised name, exactly as they do for tmux. If sanitisation makes two worktrees share a name, killing or incrementing one can target the other worktree's session or workspace.
+    In session mode, `on_exists` acts on the normalised session name, because Herdr sessions carry no worktree tag. If sanitisation makes two worktrees share a session name, killing or incrementing one can target the other worktree's session. Workspaces are found by their worktree tag, so this does not apply to them.
 
 ## on_exists Behaviour
 
-Controls what happens when a session with the same name already exists:
+Controls what happens when the worktree already has a session (see [Session Discovery](#session-discovery)):
 
 | Value | Behaviour |
 | --- | --- |
@@ -255,15 +252,27 @@ custom_commands:
           cwd: $MAIN_WORKTREE_PATH
 ```
 
-## Session Prefix
+## Session Discovery
 
-Filter which sessions appear in the command palette by setting a prefix:
+LazyWorktree tags the tmux sessions and Herdr workspaces it creates with the worktree they belong to: tmux sessions carry a `@lazyworktree_path` user option and Herdr workspaces a `lazyworktree_id` token. The tag, rather than the name, is what finds the session again, so `session_name` may be anything you find readable and changing it later does not orphan existing sessions. The worktree's own session is reused under its existing name. Without `session_name`, sessions and workspaces are named `#<number> <title>` for pull request worktrees (shortened to 40 characters) and after the worktree otherwise, and a session still using the earlier `wt-` default name is picked up and tagged.
+
+When no tagged session exists, a session with the configured name is reused only if it is untagged, and it is tagged on the spot. A name already used by another worktree's session is reported as a conflict instead of being reused or killed; change `session_name` or use `on_exists: new`. If several sessions are tagged for one worktree (for instance after `on_exists: new`), the one using the configured name is preferred, and `on_exists: kill` refuses to choose between them.
+
+Several untagged sessions sharing one name (Herdr allows duplicate workspace labels) are treated the same way: one is reused, and `on_exists: kill` refuses to close any of them.
+
+zellij sessions and Herdr sessions (session mode) carry no tag and are still found by name only. The workspace inside a Herdr session is tagged as usual.
+
+Herdr forgets workspace tokens when its server restarts, although workspaces and labels survive. Running the custom command again finds the workspace by its name and tags it once more. Until then, the palette lists it only if its label starts with `session_prefix`, and if its name no longer matches `session_name` (for instance after a pull request title change) a new workspace is created instead.
+
+### Session Prefix
+
+`session_prefix` lists untagged sessions in the command palette, such as zellij sessions or tmux sessions created by earlier releases:
 
 ```yaml
 session_prefix: "wt-"
 ```
 
-Only sessions whose names start with the configured prefix are listed. Use a unique prefix like `wt-` or `work-` to distinguish LazyWorktree sessions from others.
+Tagged sessions are always listed, whatever their name. Untagged ones are listed only when their names start with the prefix. Use a distinctive prefix like `wt-` or `work-` to keep LazyWorktree sessions apart from others.
 
 ## New Terminal Tab
 
@@ -275,7 +284,6 @@ custom_commands:
     description: Tmux in new tab
     new_tab: true
     tmux:
-      session_name: "wt:$WORKTREE_NAME"
       attach: true
 ```
 
@@ -302,7 +310,7 @@ lazyworktree exec --key=t
 
 Press `F1`, `Ctrl+p`, or `:` to open the command palette, where you can:
 
-- View all active sessions matching your configured `session_prefix`
+- View all active LazyWorktree sessions, each labelled with its full name and the worktree it belongs to
 - Switch between sessions quickly
 - Create new sessions for worktrees that lack one
 - Sessions are sorted by MRU (Most Recently Used) order

@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -185,18 +184,13 @@ func (m *Model) openHerdrSession(customCmd *config.CustomCommand, wt *models.Wor
 	session := ""
 	if cfg.Mode == config.HerdrModeSession {
 		session, nameErr = multiplexer.HerdrResolvedName("session_name", label, fmt.Sprintf("%s%s", m.config.SessionPrefix, filepath.Base(wt.Path)))
-		if nameErr == nil {
-			label, nameErr = multiplexer.HerdrResolvedName("workspace label", "", filepath.Base(wt.Path))
-		}
 	} else {
-		label, nameErr = multiplexer.HerdrResolvedName("session_name", label, m.config.SessionPrefix+filepath.Base(wt.Path))
-		if nameErr == nil {
-			configuredSession := strings.TrimSpace(expandWithEnv(cfg.HerdrSession, env))
-			if session = sanitizeHerdrSessionName(configuredSession); configuredSession != "" && session == "" {
-				nameErr = multiplexer.HerdrInvalidNameError("herdr_session", configuredSession)
-			}
+		configuredSession := strings.TrimSpace(expandWithEnv(cfg.HerdrSession, env))
+		if session = sanitizeHerdrSessionName(configuredSession); configuredSession != "" && session == "" {
+			nameErr = multiplexer.HerdrInvalidNameError("herdr_session", configuredSession)
 		}
 	}
+	label, _ = multiplexer.HerdrWorkspaceLabel(cfg.Mode, label, m.config.SessionPrefix, wt.Path, env)
 	if nameErr != nil {
 		return func() tea.Msg { return errMsg{err: nameErr} }
 	}
@@ -257,30 +251,26 @@ func (m *Model) createHerdrLayout(bin string, cfg *config.HerdrCommand, wt *mode
 		return errMsg{err: err}
 	}
 
+	key := multiplexer.HerdrWorktreeKey(wt.Path)
+	onExists := cfg.OnExists
 	if cfg.Mode == config.HerdrModeSession {
-		// A session left running by a failed attempt may hold a partial layout,
-		// so reuse the worktree workspace when it already exists rather than
-		// assuming the layout completed.
-		existing, found, err := h.FindWorkspaceByLabel(ctx, ready.label)
-		if err != nil {
-			return errMsg{err: err}
-		}
-		if found {
-			ready.workspaceID = existing.ID
-			ready.label = existing.Label
-			return m.focusReusedHerdrWorkspace(ctx, h, cfg, ready, insideHerdr)
-		}
-	} else {
-		if err := m.resolveHerdrWorkspaceTarget(ctx, h, cfg, &ready); err != nil {
-			var reused herdrWorkspaceReused
-			if errors.As(err, &reused) {
-				return m.focusReusedHerdrWorkspace(ctx, h, cfg, ready, insideHerdr)
-			}
-			return errMsg{err: err}
-		}
+		// on_exists applies to the session. A session left running by a failed
+		// attempt may hold a partial layout, so reuse the worktree workspace
+		// rather than assuming the layout completed.
+		onExists = multiplexer.OnExistsSwitch
+	}
+	_, legacyLabels := multiplexer.HerdrWorkspaceLabel(cfg.Mode, strings.TrimSpace(expandWithEnv(cfg.SessionName, env)), m.config.SessionPrefix, wt.Path, env)
+	existing, label, err := h.ResolveWorkspace(ctx, key, ready.label, onExists, legacyLabels...)
+	if err != nil {
+		return errMsg{err: err}
+	}
+	ready.label = label
+	if existing.ID != "" {
+		ready.workspaceID = existing.ID
+		return m.focusReusedHerdrWorkspace(ctx, h, cfg, ready, insideHerdr)
 	}
 
-	workspace, err := h.CreateWorkspace(ctx, ready.label, wt.Path, windows, env, cfg.Attach)
+	workspace, err := h.CreateWorkspace(ctx, label, key, wt.Path, windows, env, cfg.Attach)
 	if err != nil {
 		return errMsg{err: err}
 	}
@@ -288,12 +278,6 @@ func (m *Model) createHerdrLayout(bin string, cfg *config.HerdrCommand, wt *mode
 	ready.label = workspace.Label
 	return ready
 }
-
-// herdrWorkspaceReused signals that an existing workspace satisfied on_exists
-// without creating a new one.
-type herdrWorkspaceReused struct{}
-
-func (herdrWorkspaceReused) Error() string { return "herdr workspace reused" }
 
 // focusReusedHerdrWorkspace focuses a reused workspace before the client
 // attaches. A workspace in another session is still focused so a client
@@ -305,34 +289,6 @@ func (m *Model) focusReusedHerdrWorkspace(ctx context.Context, h *multiplexer.He
 		}
 	}
 	return ready
-}
-
-func (m *Model) resolveHerdrWorkspaceTarget(ctx context.Context, h *multiplexer.Herdr, cfg *config.HerdrCommand, ready *herdrReadyMsg) error {
-	existing, found, err := h.FindWorkspaceByLabel(ctx, ready.label)
-	if err != nil {
-		return err
-	}
-	if !found {
-		return nil
-	}
-
-	switch strings.ToLower(strings.TrimSpace(cfg.OnExists)) {
-	case multiplexer.OnExistsKill:
-		if err := h.CloseWorkspace(ctx, existing.ID); err != nil {
-			return err
-		}
-		return nil
-	case multiplexer.OnExistsNew:
-		label, err := h.UniqueWorkspaceLabel(ctx, ready.label)
-		if err != nil {
-			return err
-		}
-		ready.label = label
-		return nil
-	default:
-		ready.workspaceID = existing.ID
-		return herdrWorkspaceReused{}
-	}
 }
 
 func (m *Model) getHerdrWorkspaces() []multiplexer.HerdrWorkspace {
@@ -347,7 +303,7 @@ func (m *Model) getHerdrWorkspaces() []multiplexer.HerdrWorkspace {
 	prefixes := herdrPrefixCandidates(m.config.SessionPrefix)
 	filtered := make([]multiplexer.HerdrWorkspace, 0, len(workspaces))
 	for _, workspace := range workspaces {
-		if len(prefixes) > 0 &&
+		if workspace.WorktreeKey() == "" && len(prefixes) > 0 &&
 			!hasAnyHerdrPrefix(workspace.Label, prefixes) &&
 			!hasAnyHerdrPrefix(sanitizeHerdrSessionName(workspace.Label), prefixes) {
 			continue
