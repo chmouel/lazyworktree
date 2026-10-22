@@ -63,7 +63,7 @@ git_pager_args:
   - Dracula
 trust_mode: "tofu" # Options: "tofu" (default), "never", "always"
 merge_method: "rebase" # Options: "rebase" (default), "merge"
-session_prefix: "wt-" # Prefix for tmux/zellij/herdr session names (default: "wt-")
+session_prefix: "wt-" # Palette prefix for untagged tmux/zellij/herdr sessions (default: "wt-")
 # Branch name generation for issues and PRs
 issue_branch_name_template: "issue-{number}-{title}" # Placeholders: {number}, {title}, {generated}
 pr_branch_name_template: "pr-{number}-{title}" # Placeholders: {number}, {title}, {generated}, {pr_author}
@@ -216,7 +216,7 @@ CI environment variables: `LW_CI_JOB_NAME`, `LW_CI_JOB_NAME_CLEAN`, `LW_CI_RUN_I
 ### Sync and multiplexers
 
 - `merge_method`: `"rebase"` (default) or `"merge"`. Controls Absorb and Sync (`S`) behaviour.
-- `session_prefix`: prefix for tmux/zellij/herdr sessions (default: `wt-`). Palette filters by this prefix.
+- `session_prefix`: prefix for tmux/zellij/herdr sessions (default: `wt-`). The palette lists zellij sessions, Herdr sessions and untagged tmux sessions or Herdr workspaces only when they start with it; tagged tmux sessions and Herdr workspaces are always listed.
 
 ### Branch naming
 

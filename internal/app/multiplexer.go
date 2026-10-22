@@ -138,7 +138,7 @@ func sanitizeZellijSessionName(name string) string {
 }
 
 func buildTmuxInfoMessage(sessionName string, insideTmux bool) string {
-	quoted := multiplexer.ShellQuote(sessionName)
+	quoted := multiplexer.ShellQuote("=" + sessionName + ":")
 	if insideTmux {
 		return fmt.Sprintf("tmux session ready.\n\nSwitch with:\n\n  tmux switch-client -t %s", quoted)
 	}
@@ -146,9 +146,10 @@ func buildTmuxInfoMessage(sessionName string, insideTmux bool) string {
 }
 
 func (m *Model) attachTmuxSessionCmd(sessionName string, insideTmux bool) tea.Cmd {
-	args := []string{"attach-session", "-t", sessionName}
+	target := "=" + sessionName + ":"
+	args := []string{"attach-session", "-t", target}
 	if insideTmux {
-		args = []string{"switch-client", "-t", sessionName}
+		args = []string{"switch-client", "-t", target}
 	}
 	// #nosec G204 -- tmux session name comes from user configuration.
 	c := m.commandRunner(m.ctx, "tmux", args...)
@@ -164,8 +165,8 @@ func readTmuxSessionFile(path, fallback string) string {
 	return multiplexer.ReadSessionFile(path, fallback)
 }
 
-func buildTmuxScript(sessionName string, tmuxCfg *config.TmuxCommand, windows []multiplexer.ResolvedWindow, env map[string]string) string {
-	return multiplexer.BuildTmuxScript(sessionName, tmuxCfg, windows, env)
+func buildTmuxScript(plan multiplexer.TmuxSessionPlan, tmuxCfg *config.TmuxCommand, windows []multiplexer.ResolvedWindow, env map[string]string) string {
+	return multiplexer.BuildTmuxScript(plan, tmuxCfg, windows, env)
 }
 
 func buildZellijScript(sessionName string, zellijCfg *config.TmuxCommand, layoutPaths []string) string {
@@ -180,40 +181,49 @@ func sanitizeTmuxSessionName(name string) string {
 	return multiplexer.SanitizeTmuxSessionName(name)
 }
 
-// getTmuxActiveSessions queries tmux for all sessions starting with the configured session prefix
-// Returns session names with the prefix stripped, or empty slice if tmux is unavailable.
-func (m *Model) getTmuxActiveSessions() []string {
-	// Check if tmux is available
+// listTmuxTargets returns every tmux session with its worktree tag, or nil
+// when tmux is unavailable or has no server running.
+func (m *Model) listTmuxTargets() []multiplexer.Target {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		return nil
 	}
-
-	// Query tmux for session list
 	// #nosec G204 -- static command with format string
-	cmd := m.commandRunner(m.ctx, "tmux", "list-sessions", "-F", "#{session_name}")
-	output, err := cmd.Output()
+	output, err := m.commandRunner(m.ctx, "tmux", "list-sessions", "-F", multiplexer.TmuxListTargetsFormat).Output()
 	if err != nil {
-		// tmux not running or no sessions
 		return nil
 	}
+	return multiplexer.ParseTmuxTargets(string(output))
+}
 
-	// Parse output and filter for worktree session prefix
-	var sessions []string
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, m.config.SessionPrefix) {
-			// Strip worktree prefix
-			sessionName := strings.TrimPrefix(line, m.config.SessionPrefix)
-			if sessionName != "" {
-				sessions = append(sessions, sessionName)
-			}
+// getTmuxActiveSessions returns the sessions tagged with a worktree, plus
+// untagged ones whose name starts with the configured session prefix.
+func (m *Model) getTmuxActiveSessions() []multiplexer.Target {
+	var sessions []multiplexer.Target
+	for _, target := range m.listTmuxTargets() {
+		if target.Key != "" || strings.HasPrefix(target.Name, m.config.SessionPrefix) {
+			sessions = append(sessions, target)
 		}
 	}
-
-	// Sort alphabetically for consistent display
-	sort.Strings(sessions)
+	sort.Slice(sessions, func(i, j int) bool { return sessions[i].Name < sessions[j].Name })
 	return sessions
+}
+
+// describeMultiplexerTarget names the worktree a tagged session belongs to,
+// falling back to a generic description for untagged or unknown sessions.
+func (m *Model) describeMultiplexerTarget(kind, key string, keyFor func(string) string) string {
+	if key != "" {
+		for _, wt := range m.state.data.worktrees {
+			if wt == nil || keyFor(wt.Path) != key {
+				continue
+			}
+			name := filepath.Base(wt.Path)
+			if wt.Branch != "" && wt.Branch != name {
+				return fmt.Sprintf("%s for %s (%s)", kind, name, wt.Branch)
+			}
+			return fmt.Sprintf("%s for %s", kind, name)
+		}
+	}
+	return "active " + kind
 }
 
 func resolveTmuxWindows(windows []config.TmuxWindow, env map[string]string, defaultCwd string) ([]multiplexer.ResolvedWindow, bool) {
@@ -231,11 +241,18 @@ func (m *Model) openTmuxSession(customCmd *config.CustomCommand, wt *models.Work
 	tmuxCfg := customCmd.Tmux
 	env := m.buildCommandEnvForWorktree(wt)
 	insideTmux := os.Getenv("TMUX") != ""
-	sessionName := expandWithEnv(tmuxCfg.SessionName, env)
-	if strings.TrimSpace(sessionName) == "" {
-		sessionName = fmt.Sprintf("%s%s", m.config.SessionPrefix, filepath.Base(wt.Path))
+	sessionName := strings.TrimSpace(expandWithEnv(tmuxCfg.SessionName, env))
+	var legacyNames []string
+	if sessionName == "" {
+		sessionName = multiplexer.DefaultSessionName(env, wt.Path)
+		legacyNames = multiplexer.LegacyDefaultNames(m.config.SessionPrefix, wt.Path)
 	}
 	sessionName = sanitizeTmuxSessionName(sessionName)
+
+	plan, err := multiplexer.PlanTmuxSession(m.listTmuxTargets(), multiplexer.TmuxWorktreeKey(wt.Path), sessionName, tmuxCfg.OnExists, legacyNames...)
+	if err != nil {
+		return func() tea.Msg { return errMsg{err: err} }
+	}
 
 	resolved, ok := resolveTmuxWindows(tmuxCfg.Windows, env, wt.Path)
 	if !ok {
@@ -256,8 +273,8 @@ func (m *Model) openTmuxSession(customCmd *config.CustomCommand, wt *models.Work
 	// When new_tab is set, run the entire tmux script (create + attach) in a
 	// new terminal tab so the TUI is never suspended.
 	if customCmd.NewTab {
-		m.debugf("Opening tmux session %q in new terminal tab", sessionName)
-		script := buildTmuxScript(sessionName, tmuxCfg, resolved, env)
+		m.debugf("Opening tmux session %q in new terminal tab", plan.Name)
+		script := buildTmuxScript(plan, tmuxCfg, resolved, env)
 		// New tabs can inherit TMUX vars from the originating pane. Clear them
 		// so attach mode targets the new terminal tab client instead of running
 		// switch-client logic that may affect the current tab.
@@ -285,7 +302,7 @@ func (m *Model) openTmuxSession(customCmd *config.CustomCommand, wt *models.Work
 	scriptCfg := *tmuxCfg
 	scriptCfg.Attach = false
 	env["LW_TMUX_SESSION_FILE"] = sessionPath
-	script := buildTmuxScript(sessionName, &scriptCfg, resolved, env)
+	script := buildTmuxScript(plan, &scriptCfg, resolved, env)
 	// #nosec G204 -- command is built from user-configured tmux session settings.
 	c := m.commandRunner(m.ctx, "bash", "-lc", script)
 	c.Dir = wt.Path
@@ -298,7 +315,7 @@ func (m *Model) openTmuxSession(customCmd *config.CustomCommand, wt *models.Work
 		if err != nil {
 			return errMsg{err: err}
 		}
-		finalSession := readTmuxSessionFile(sessionPath, sessionName)
+		finalSession := readTmuxSessionFile(sessionPath, plan.Name)
 		return tmuxSessionReadyMsg{
 			sessionName: finalSession,
 			attach:      tmuxCfg.Attach,

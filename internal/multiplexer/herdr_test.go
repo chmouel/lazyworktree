@@ -290,7 +290,7 @@ func TestHerdrCreateWorkspaceRunsTabs(t *testing.T) {
 		{Name: "editor", Command: "vim", Cwd: "/w/first"},
 		{Name: "tests", Command: "go test ./...", Cwd: "/w"},
 	}
-	workspace, err := h.CreateWorkspace(context.Background(), "feat", "/w", windows, map[string]string{"A": "1"}, true)
+	workspace, err := h.CreateWorkspace(context.Background(), "feat", "v1:abc", "/w", windows, map[string]string{"A": "1"}, true)
 	if err != nil {
 		t.Fatalf("CreateWorkspace: %v", err)
 	}
@@ -305,6 +305,7 @@ func TestHerdrCreateWorkspaceRunsTabs(t *testing.T) {
 	log := string(logBytes)
 	wants := []string{
 		"--session wt-feat workspace create --label feat --cwd /w/first --env A=1 --focus",
+		"--session wt-feat workspace report-metadata w1 --source lazyworktree --token lazyworktree_id=v1:abc",
 		"--session wt-feat tab rename w1:t1 editor",
 		"--session wt-feat pane run w1:p1 vim",
 		"--session wt-feat tab create --workspace w1 --label tests --cwd /w --env A=1 --no-focus",
@@ -314,6 +315,31 @@ func TestHerdrCreateWorkspaceRunsTabs(t *testing.T) {
 		if !strings.Contains(log, want) {
 			t.Errorf("expected log to contain %q, got:\n%s", want, log)
 		}
+	}
+	if strings.Index(log, "report-metadata") > strings.Index(log, "tab rename") {
+		t.Errorf("expected the workspace to be tagged before its layout, got:\n%s", log)
+	}
+}
+
+func TestHerdrCreateWorkspaceTagFailureKeepsWorkspace(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_SESSION", "")
+	t.Setenv("HERDR_TEST_LOG", logPath)
+	bin := writeFakeHerdr(t, strings.Replace(fakeHerdrScript,
+		"focus|close) echo '{}';;",
+		"focus|close) echo '{}';;\n\t\t\t\treport-metadata) echo 'unknown token' >&2; exit 1;;", 1))
+
+	h := &Herdr{Bin: bin}
+	workspace, err := h.CreateWorkspace(context.Background(), "feat", "v1:abc", "/w", []ResolvedWindow{{Name: "shell"}}, nil, true)
+	if err == nil || !strings.Contains(err.Error(), "could not be tagged") || !strings.Contains(err.Error(), "w1") {
+		t.Fatalf("error = %v, want a tagging error naming the workspace", err)
+	}
+	if workspace.ID != "w1" {
+		t.Errorf("workspace = %+v, want the created workspace", workspace)
+	}
+	logBytes, _ := os.ReadFile(logPath) // #nosec G304 -- test log path
+	if strings.Contains(string(logBytes), "workspace close") || strings.Contains(string(logBytes), "tab rename") {
+		t.Errorf("expected no close or layout after a tagging failure, got:\n%s", logBytes)
 	}
 }
 
@@ -536,44 +562,158 @@ func TestUniqueHerdrSessionNameHonoursCancelledContext(t *testing.T) {
 	}
 }
 
-func TestHerdrUniqueWorkspaceLabel(t *testing.T) {
-	t.Setenv("HERDR_SESSION", "")
-	t.Setenv("HERDR_TEST_LOG", filepath.Join(t.TempDir(), "herdr.log"))
+func TestHerdrResolveWorkspace(t *testing.T) {
+	long := strings.Repeat("é", 80)
+	tests := []struct {
+		name       string
+		workspaces string
+		label      string
+		onExists   string
+		legacy     []string
+		wantID     string
+		wantLabel  string
+		wantErr    error
+		wantLog    []string
+		rejectLog  []string
+	}{
+		{
+			name:       "reuses the tagged workspace under another label",
+			workspaces: `[{"workspace_id":"w1","label":"Old name","tokens":{"lazyworktree_id":"v1:me"}}]`,
+			label:      "feat",
+			wantID:     "w1",
+			wantLabel:  "Old name",
+			rejectLog:  []string{"report-metadata"},
+		},
+		{
+			name:       "tags a legacy workspace found by label",
+			workspaces: `[{"workspace_id":"w1","label":"feat"}]`,
+			label:      "feat",
+			wantID:     "w1",
+			wantLabel:  "feat",
+			wantLog:    []string{"workspace report-metadata w1 --source lazyworktree --token lazyworktree_id=v1:me"},
+		},
+		{
+			name:       "tags a legacy workspace created with the sanitised label",
+			workspaces: `[{"workspace_id":"w1","label":"wt-feat"}]`,
+			label:      "wt:feat",
+			wantID:     "w1",
+			wantLabel:  "wt-feat",
+			wantLog:    []string{"workspace report-metadata w1 --source lazyworktree --token lazyworktree_id=v1:me"},
+		},
+		{
+			name:       "tags a legacy workspace under the old default label",
+			workspaces: `[{"workspace_id":"w1","label":"wt-feat"}]`,
+			label:      "#12 Fix the thing",
+			legacy:     []string{"wt:feat"},
+			wantID:     "w1",
+			wantLabel:  "wt-feat",
+			wantLog:    []string{"workspace report-metadata w1 --source lazyworktree --token lazyworktree_id=v1:me"},
+		},
+		{
+			name:       "kill replaces a legacy workspace with a sanitised label",
+			workspaces: `[{"workspace_id":"w1","label":"wt-feat"}]`,
+			label:      "wt:feat",
+			onExists:   OnExistsKill,
+			wantLabel:  "wt:feat",
+			wantLog:    []string{"workspace close w1"},
+		},
+		{
+			name:       "label of another worktree is a conflict",
+			workspaces: `[{"workspace_id":"w1","label":"feat","tokens":{"lazyworktree_id":"v1:other"}}]`,
+			label:      "feat",
+			wantErr:    ErrTargetConflict,
+		},
+		{
+			name:       "an untagged duplicate label does not hide another worktree's label",
+			workspaces: `[{"workspace_id":"w1","label":"shared"},{"workspace_id":"w2","label":"shared","tokens":{"lazyworktree_id":"v1:other"}}]`,
+			label:      "shared",
+			wantErr:    ErrTargetConflict,
+			rejectLog:  []string{"report-metadata"},
+		},
+		{
+			name:       "kill refuses several workspaces under a legacy label",
+			workspaces: `[{"workspace_id":"w1","label":"wt-feat"},{"workspace_id":"w2","label":"wt-feat"}]`,
+			label:      "#12 Fix the thing",
+			legacy:     []string{"wt:feat"},
+			onExists:   OnExistsKill,
+			wantErr:    ErrAmbiguousTarget,
+			rejectLog:  []string{"workspace close"},
+		},
+		{
+			name:       "nothing matches",
+			workspaces: `[{"workspace_id":"w1","label":"other","tokens":null}]`,
+			label:      "feat",
+			wantLabel:  "feat",
+		},
+		{
+			name:       "kill closes the tagged workspace",
+			workspaces: `[{"workspace_id":"w1","label":"Old name","tokens":{"lazyworktree_id":"v1:me"}}]`,
+			label:      "feat",
+			onExists:   OnExistsKill,
+			wantLabel:  "feat",
+			wantLog:    []string{"workspace close w1"},
+		},
+		{
+			name:       "kill with the label held by another workspace closes nothing",
+			workspaces: `[{"workspace_id":"w1","label":"Old name","tokens":{"lazyworktree_id":"v1:me"}},{"workspace_id":"w2","label":"feat"}]`,
+			label:      "feat",
+			onExists:   OnExistsKill,
+			wantErr:    ErrTargetConflict,
+			rejectLog:  []string{"workspace close"},
+		},
+		{
+			name:       "kill refuses several tagged workspaces",
+			workspaces: `[{"workspace_id":"w1","label":"a","tokens":{"lazyworktree_id":"v1:me"}},{"workspace_id":"w2","label":"b","tokens":{"lazyworktree_id":"v1:me"}}]`,
+			label:      "feat",
+			onExists:   OnExistsKill,
+			wantErr:    ErrAmbiguousTarget,
+			rejectLog:  []string{"workspace close"},
+		},
+		{
+			name:       "new appends a suffix without truncating long labels",
+			workspaces: fmt.Sprintf(`[{"workspace_id":"w1","label":%q},{"workspace_id":"w2","label":%q}]`, long, long+"-2"),
+			label:      long,
+			onExists:   OnExistsNew,
+			wantLabel:  long + "-3",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logPath := filepath.Join(t.TempDir(), "herdr.log")
+			t.Setenv("HERDR_SESSION", "")
+			t.Setenv("HERDR_TEST_LOG", logPath)
+			bin := writeFakeHerdr(t, strings.Replace(fakeHerdrScript,
+				`{"result":{"workspaces":[]}}`,
+				`{"result":{"workspaces":`+tt.workspaces+`}}`, 1))
 
-	t.Run("skips occupied suffixes", func(t *testing.T) {
-		bin := writeFakeHerdr(t, strings.Replace(fakeHerdrScript,
-			`{"result":{"workspaces":[]}}`,
-			`{"result":{"workspaces":[{"workspace_id":"w1","label":"feat"},{"workspace_id":"w2","label":"feat-2"}]}}`, 1))
-
-		h := &Herdr{Bin: bin}
-		label, err := h.UniqueWorkspaceLabel(context.Background(), "feat")
-		if err != nil {
-			t.Fatalf("UniqueWorkspaceLabel: %v", err)
-		}
-		if label != "feat-3" {
-			t.Errorf("label = %q, want feat-3", label)
-		}
-	})
-
-	t.Run("keeps suffix within limit", func(t *testing.T) {
-		base := strings.Repeat("a", herdrMaxSessionNameLen)
-		stem := base[:herdrMaxSessionNameLen-2]
-		bin := writeFakeHerdr(t, strings.Replace(fakeHerdrScript,
-			`{"result":{"workspaces":[]}}`,
-			fmt.Sprintf(`{"result":{"workspaces":[{"workspace_id":"w1","label":%q}]}}`, base), 1))
-
-		h := &Herdr{Bin: bin}
-		label, err := h.UniqueWorkspaceLabel(context.Background(), base)
-		if err != nil {
-			t.Fatalf("UniqueWorkspaceLabel: %v", err)
-		}
-		if want := stem + "-2"; label != want {
-			t.Errorf("label = %q, want %q", label, want)
-		}
-		if len(label) != herdrMaxSessionNameLen {
-			t.Errorf("label length = %d, want %d", len(label), herdrMaxSessionNameLen)
-		}
-	})
+			h := &Herdr{Bin: bin}
+			existing, label, err := h.ResolveWorkspace(context.Background(), "v1:me", tt.label, tt.onExists, tt.legacy...)
+			logBytes, _ := os.ReadFile(logPath) // #nosec G304 -- test log path
+			log := string(logBytes)
+			for _, reject := range tt.rejectLog {
+				if strings.Contains(log, reject) {
+					t.Errorf("expected log not to contain %q, got:\n%s", reject, log)
+				}
+			}
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("error = %v, want %v", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ResolveWorkspace: %v", err)
+			}
+			if existing.ID != tt.wantID || label != tt.wantLabel {
+				t.Errorf("got (%q, %q), want (%q, %q)", existing.ID, label, tt.wantID, tt.wantLabel)
+			}
+			for _, want := range tt.wantLog {
+				if !strings.Contains(log, want) {
+					t.Errorf("expected log to contain %q, got:\n%s", want, log)
+				}
+			}
+		})
+	}
 }
 
 func TestHerdrCreateWorkspaceRequiresWorkspaceID(t *testing.T) {
@@ -584,7 +724,7 @@ func TestHerdrCreateWorkspaceRequiresWorkspaceID(t *testing.T) {
 		`{"result":{"workspace":{"label":"feat"}}}`, 1))
 
 	h := &Herdr{Bin: bin}
-	if _, err := h.CreateWorkspace(context.Background(), "feat", "/w", []ResolvedWindow{{Name: "shell"}}, nil, true); err == nil || !strings.Contains(err.Error(), "no workspace ID") {
+	if _, err := h.CreateWorkspace(context.Background(), "feat", "", "/w", []ResolvedWindow{{Name: "shell"}}, nil, true); err == nil || !strings.Contains(err.Error(), "no workspace ID") {
 		t.Fatalf("error = %v, want a missing workspace ID error", err)
 	}
 }
@@ -632,7 +772,7 @@ func TestHerdrCreateWorkspaceRequiresTabAndPaneIDs(t *testing.T) {
 			bin := writeFakeHerdr(t, script)
 
 			h := &Herdr{Bin: bin}
-			_, err := h.CreateWorkspace(context.Background(), "feat", "/w", tt.windows, nil, true)
+			_, err := h.CreateWorkspace(context.Background(), "feat", "", "/w", tt.windows, nil, true)
 			if err == nil {
 				t.Fatal("expected an error")
 			}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -20,13 +21,33 @@ const (
 	herdrMaxSessionNameLen = 64
 	herdrServerReadyWait   = 10 * time.Second
 	herdrServerReadyPoll   = 100 * time.Millisecond
+
+	// HerdrWorktreeToken is the workspace token holding HerdrWorktreeKey.
+	HerdrWorktreeToken = "lazyworktree_id"
+	herdrTokenSource   = "lazyworktree"
 )
 
 // HerdrWorkspace is the subset of a Herdr workspace record needed to reuse or
 // focus a worktree workspace.
 type HerdrWorkspace struct {
-	ID    string `json:"workspace_id"`
-	Label string `json:"label"`
+	ID     string            `json:"workspace_id"`
+	Label  string            `json:"label"`
+	Tokens map[string]string `json:"tokens,omitempty"`
+}
+
+// WorktreeKey returns the LazyWorktree tag of the workspace, empty when the
+// workspace is untagged.
+func (w HerdrWorkspace) WorktreeKey() string {
+	return w.Tokens[HerdrWorktreeToken]
+}
+
+// HerdrWorkspaceTargets converts workspaces for ResolveTarget.
+func HerdrWorkspaceTargets(workspaces []HerdrWorkspace) []Target {
+	targets := make([]Target, 0, len(workspaces))
+	for _, workspace := range workspaces {
+		targets = append(targets, Target{ID: workspace.ID, Name: workspace.Label, Key: workspace.WorktreeKey()})
+	}
+	return targets
 }
 
 // HerdrSession is the subset of a Herdr session record used for discovery.
@@ -446,46 +467,114 @@ func (h *Herdr) Workspaces(ctx context.Context) ([]HerdrWorkspace, error) {
 	return response.Result.Workspaces, nil
 }
 
-// FindWorkspaceByLabel returns the workspace whose label matches exactly.
-func (h *Herdr) FindWorkspaceByLabel(ctx context.Context, label string) (HerdrWorkspace, bool, error) {
-	workspaces, err := h.Workspaces(ctx)
-	if err != nil {
-		return HerdrWorkspace{}, false, err
+// TagWorkspace records the worktree key on a workspace so it can be found
+// again whatever its label. An empty key leaves the workspace untagged.
+func (h *Herdr) TagWorkspace(ctx context.Context, workspaceID, key string) error {
+	if key == "" {
+		return nil
 	}
-	for _, workspace := range workspaces {
-		if workspace.Label == label {
-			return workspace, true, nil
-		}
-	}
-	return HerdrWorkspace{}, false, nil
+	return h.run(ctx, "workspace", "report-metadata", workspaceID, "--source", herdrTokenSource, "--token", HerdrWorktreeToken+"="+key)
 }
 
-// UniqueWorkspaceLabel appends a numeric suffix until the label is unused.
-func (h *Herdr) UniqueWorkspaceLabel(ctx context.Context, label string) (string, error) {
+// ResolveWorkspace applies on_exists to the workspaces of this session. It
+// returns the workspace to reuse, or a zero workspace and the label to create
+// one with. Workspaces tagged with key win over label matches; kill closes the
+// selected workspace only once the label is known to be free for its
+// replacement, and a reused legacy workspace is tagged.
+func (h *Herdr) ResolveWorkspace(ctx context.Context, key, label, onExists string, legacyLabels ...string) (HerdrWorkspace, string, error) {
 	workspaces, err := h.Workspaces(ctx)
 	if err != nil {
-		return "", err
+		return HerdrWorkspace{}, "", err
 	}
+	targets := HerdrWorkspaceTargets(workspaces)
+
+	switch NormalizeOnExists(onExists) {
+	case OnExistsNew:
+		return HerdrWorkspace{}, uniqueWorkspaceLabel(workspaces, label), nil
+	case OnExistsKill:
+		resolution, err := ResolveTarget(targets, key, label, herdrLegacyLabels(label, legacyLabels)...)
+		if err != nil {
+			return HerdrWorkspace{}, "", err
+		}
+		if resolution.Found {
+			if resolution.Ambiguous {
+				return HerdrWorkspace{}, "", ambiguousTargetError(TaggedNames(targets, key))
+			}
+			if err := CheckReplacementName(targets, label, resolution.Target); err != nil {
+				return HerdrWorkspace{}, "", err
+			}
+			if err := h.CloseWorkspace(ctx, resolution.Target.ID); err != nil {
+				return HerdrWorkspace{}, "", err
+			}
+		}
+		return HerdrWorkspace{}, label, nil
+	default:
+		resolution, err := ResolveTarget(targets, key, label, herdrLegacyLabels(label, legacyLabels)...)
+		if err != nil || !resolution.Found {
+			return HerdrWorkspace{}, label, err
+		}
+		var existing HerdrWorkspace
+		for _, workspace := range workspaces {
+			if workspace.ID == resolution.Target.ID {
+				existing = workspace
+				break
+			}
+		}
+		if resolution.Legacy {
+			if err := h.TagWorkspace(ctx, existing.ID, key); err != nil {
+				return HerdrWorkspace{}, "", err
+			}
+		}
+		return existing, existing.Label, nil
+	}
+}
+
+// HerdrWorkspaceLabel returns the workspace label for a worktree and the labels
+// earlier releases gave it when none was configured. In session mode the
+// configured name belongs to the session, so the workspace label is the default.
+func HerdrWorkspaceLabel(mode, configured, prefix, worktreePath string, env map[string]string) (string, []string) {
+	if mode == config.HerdrModeSession {
+		return DefaultSessionName(env, worktreePath), []string{filepath.Base(worktreePath)}
+	}
+	if configured != "" {
+		return configured, nil
+	}
+	return DefaultSessionName(env, worktreePath), LegacyDefaultNames(prefix, worktreePath)
+}
+
+// herdrLegacyLabels adds the sanitised forms earlier releases created labels
+// with, since workspace labels used to be sanitised like session names.
+func herdrLegacyLabels(label string, legacyLabels []string) []string {
+	candidates := append([]string{}, legacyLabels...)
+	for _, name := range append([]string{label}, legacyLabels...) {
+		candidates = append(candidates, SanitizeHerdrSessionName(name))
+	}
+	return candidates
+}
+
+// uniqueWorkspaceLabel appends the first free numeric suffix to label. Labels
+// have no length limit, so the suffix is never truncated.
+func uniqueWorkspaceLabel(workspaces []HerdrWorkspace, label string) string {
 	used := make(map[string]struct{}, len(workspaces))
 	for _, workspace := range workspaces {
 		used[workspace.Label] = struct{}{}
 	}
-	if _, exists := used[label]; !exists {
-		return label, nil
-	}
+	candidate := label
 	for suffix := 2; ; suffix++ {
-		candidate := herdrNameCandidate(label, suffix)
 		if _, exists := used[candidate]; !exists {
-			return candidate, nil
+			return candidate
 		}
+		candidate = fmt.Sprintf("%s-%d", label, suffix)
 	}
 }
 
-// CreateWorkspace creates a workspace plus one tab per additional window,
-// running each configured command in the tab's root pane. Herdr does not report
-// a reliable completion marker, so a failure after the workspace exists is
-// reported as a partial configuration and the workspace is left in place.
-func (h *Herdr) CreateWorkspace(ctx context.Context, label, cwd string, windows []ResolvedWindow, env map[string]string, focus bool) (HerdrWorkspace, error) {
+// CreateWorkspace creates a workspace tagged with key, plus one tab per
+// additional window, running each configured command in the tab's root pane.
+// The tag is applied before the layout so a partially configured workspace is
+// still found again. Herdr does not report a reliable completion marker, so a
+// failure after the workspace exists is reported and the workspace is left in
+// place.
+func (h *Herdr) CreateWorkspace(ctx context.Context, label, key, cwd string, windows []ResolvedWindow, env map[string]string, focus bool) (HerdrWorkspace, error) {
 	if len(windows) == 0 {
 		return HerdrWorkspace{}, fmt.Errorf("herdr requires at least one window")
 	}
@@ -504,6 +593,9 @@ func (h *Herdr) CreateWorkspace(ctx context.Context, label, cwd string, windows 
 	workspace := created.Result.Workspace
 	if workspace.ID == "" {
 		return HerdrWorkspace{}, fmt.Errorf("herdr workspace create for %q returned no workspace ID", label)
+	}
+	if err := h.TagWorkspace(ctx, workspace.ID, key); err != nil {
+		return workspace, fmt.Errorf("herdr workspace %q (%s) was created but could not be tagged for its worktree: %w", label, workspace.ID, err)
 	}
 	if err := h.configureWorkspace(ctx, created, windows, env); err != nil {
 		return workspace, fmt.Errorf("herdr workspace %q (%s) is partially configured: %w", label, workspace.ID, err)

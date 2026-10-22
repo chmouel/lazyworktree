@@ -406,6 +406,8 @@ if [ "$1" = "workspace" ]; then
 		list)
 			if [ "${HERDR_TEST_EXISTING:-}" = "1" ]; then
 				echo '{"result":{"workspaces":[{"workspace_id":"w9","label":"wt-feat"}]}}'
+			elif [ -n "${HERDR_TEST_TAGGED_KEY:-}" ]; then
+				echo "{\"result\":{\"workspaces\":[{\"workspace_id\":\"w7\",\"label\":\"Old name\",\"tokens\":{\"lazyworktree_id\":\"$HERDR_TEST_TAGGED_KEY\"}}]}}"
 			else
 				echo '{"result":{"workspaces":[]}}'
 			fi;;
@@ -450,6 +452,49 @@ func TestCreateHerdrLayoutReusesExistingWorkspace(t *testing.T) {
 	}
 	if strings.Contains(string(logBytes), "workspace create") {
 		t.Errorf("expected no workspace creation, got:\n%s", string(logBytes))
+	}
+	if !strings.Contains(string(logBytes), "workspace report-metadata w9 --source lazyworktree --token lazyworktree_id="+multiplexer.HerdrWorktreeKey("/w")) {
+		t.Errorf("expected the legacy workspace to be tagged, got:\n%s", string(logBytes))
+	}
+}
+
+func TestCreateHerdrLayoutReusesTaggedWorkspaceAfterTemplateChange(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", logPath)
+	t.Setenv("HERDR_TEST_TAGGED_KEY", multiplexer.HerdrWorktreeKey("/w"))
+	writeFakeHerdrBinary(t, fakeHerdrLayoutScript)
+
+	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
+	msg := m.createHerdrLayout("herdr", &config.HerdrCommand{
+		Mode:     config.HerdrModeWorkspace,
+		OnExists: "switch",
+		Attach:   true,
+	}, &models.WorktreeInfo{Path: "/w", Branch: "feat"}, "wt-feat", "", []multiplexer.ResolvedWindow{{Name: "shell"}}, nil, false, false)
+
+	ready, ok := msg.(herdrReadyMsg)
+	if !ok {
+		t.Fatalf("expected herdrReadyMsg, got %T: %v", msg, msg)
+	}
+	if ready.workspaceID != "w7" || ready.label != "Old name" {
+		t.Errorf("ready = (%q, %q), want the tagged workspace w7 \"Old name\"", ready.workspaceID, ready.label)
+	}
+	if log := readHerdrTestLog(t, logPath); strings.Contains(log, "workspace create") {
+		t.Errorf("expected no workspace creation, got:\n%s", log)
+	}
+}
+
+func TestGetHerdrWorkspacesListsTaggedWorkspaces(t *testing.T) {
+	key := multiplexer.HerdrWorktreeKey("/repo/feat")
+	writeFakeHerdrBinary(t, `echo '{"result":{"workspaces":[{"workspace_id":"w1","label":"My feature","tokens":{"lazyworktree_id":"`+key+`"}},{"workspace_id":"w2","label":"other"}]}}'`)
+
+	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir(), SessionPrefix: "wt-"}, "")
+	m.state.data.worktrees = []*models.WorktreeInfo{{Path: "/repo/feat", Branch: "feature/x"}}
+	got := m.getHerdrWorkspaces()
+	if len(got) != 1 || got[0].ID != "w1" {
+		t.Fatalf("workspaces = %+v, want only the tagged one", got)
+	}
+	if desc := m.describeMultiplexerTarget("herdr workspace", got[0].WorktreeKey(), multiplexer.HerdrWorktreeKey); desc != "herdr workspace for feat (feature/x)" {
+		t.Errorf("description = %q", desc)
 	}
 }
 
@@ -844,17 +889,6 @@ func TestOpenHerdrSessionRejectsInvalidConfiguredNames(t *testing.T) {
 			name: "workspace mode dot-dot session",
 			cfg:  &config.HerdrCommand{Mode: config.HerdrModeWorkspace, HerdrSession: "..", Attach: true},
 			want: "herdr_session",
-		},
-		{
-			name: "workspace mode configured label sanitises empty",
-			cfg:  &config.HerdrCommand{Mode: config.HerdrModeWorkspace, SessionName: "///", Attach: true},
-			want: "session_name",
-		},
-		{
-			name: "session mode derived label sanitises empty",
-			cfg:  &config.HerdrCommand{Mode: config.HerdrModeSession, SessionName: "...", Attach: true},
-			want: "workspace label",
-			path: "/w/+",
 		},
 	}
 	for _, tt := range tests {

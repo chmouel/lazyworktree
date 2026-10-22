@@ -16,6 +16,7 @@ import (
 	"github.com/chmouel/lazyworktree/internal/app/state"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/multiplexer"
 	"github.com/chmouel/lazyworktree/internal/theme"
 )
 
@@ -107,11 +108,8 @@ func (m *Model) showCommandPalette() tea.Cmd {
 		m.addToPaletteHistory(action)
 
 		// Handle tmux active session attachment
-		if after, ok := strings.CutPrefix(action, "tmux-attach:"); ok {
-			sessionName := after
-			insideTmux := os.Getenv("TMUX") != ""
-			fullSessionName := m.config.SessionPrefix + sessionName
-			return m.attachTmuxSessionCmd(fullSessionName, insideTmux)
+		if sessionName, ok := strings.CutPrefix(action, "tmux-attach:"); ok {
+			return m.attachTmuxSessionCmd(sessionName, os.Getenv("TMUX") != "")
 		}
 
 		// Handle zellij active session attachment
@@ -746,12 +744,11 @@ func (m *Model) customPaletteItems() []commands.PaletteItem {
 	// Get active tmux sessions
 	var activeTmuxSessions []commands.PaletteItem
 	if tmuxErr == nil {
-		sessions := m.getTmuxActiveSessions()
-		for _, sessionName := range sessions {
+		for _, session := range m.getTmuxActiveSessions() {
 			activeTmuxSessions = append(activeTmuxSessions, commands.PaletteItem{
-				ID:          "tmux-attach:" + sessionName,
-				Label:       sessionName,
-				Description: "active tmux session",
+				ID:          "tmux-attach:" + session.Name,
+				Label:       session.Name,
+				Description: m.describeMultiplexerTarget("tmux session", session.Key, multiplexer.WorktreeKey),
 				Icon:        commands.IconMultiplex,
 			})
 		}
@@ -778,7 +775,7 @@ func (m *Model) customPaletteItems() []commands.PaletteItem {
 			activeHerdrWorkspaces = append(activeHerdrWorkspaces, commands.PaletteItem{
 				ID:          "herdr-workspace:" + workspace.ID,
 				Label:       workspace.Label,
-				Description: "active herdr workspace",
+				Description: m.describeMultiplexerTarget("herdr workspace", workspace.WorktreeKey(), multiplexer.HerdrWorktreeKey),
 				Icon:        commands.IconMultiplex,
 			})
 		}
