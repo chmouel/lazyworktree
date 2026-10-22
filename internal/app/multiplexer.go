@@ -178,13 +178,18 @@ func writeZellijLayouts(windows []multiplexer.ResolvedWindow) ([]string, error) 
 }
 
 // listTmuxTargets returns every tmux session with its worktree tag, or nil
-// when tmux is unavailable or has no server running.
-func (m *Model) listTmuxTargets() []multiplexer.Target {
+// when tmux is unavailable or has no server running. defaultServer ignores the
+// tmux server LazyWorktree runs in, matching new_tab scripts that unset TMUX.
+func (m *Model) listTmuxTargets(defaultServer bool) []multiplexer.Target {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		return nil
 	}
 	// #nosec G204 -- static command with format string
-	output, err := m.commandRunner(m.ctx, "tmux", "list-sessions", "-F", multiplexer.TmuxListTargetsFormat).Output()
+	cmd := m.commandRunner(m.ctx, "tmux", "list-sessions", "-F", multiplexer.TmuxListTargetsFormat)
+	if defaultServer {
+		cmd.Env = filterEnvVars(os.Environ(), "TMUX", "TMUX_PANE")
+	}
+	output, err := cmd.Output()
 	if err != nil {
 		return nil
 	}
@@ -195,7 +200,7 @@ func (m *Model) listTmuxTargets() []multiplexer.Target {
 // untagged ones whose name starts with the configured session prefix.
 func (m *Model) getTmuxActiveSessions() []multiplexer.Target {
 	var sessions []multiplexer.Target
-	for _, target := range m.listTmuxTargets() {
+	for _, target := range m.listTmuxTargets(false) {
 		if target.Key != "" || strings.HasPrefix(target.Name, m.config.SessionPrefix) {
 			sessions = append(sessions, target)
 		}
@@ -244,7 +249,7 @@ func (m *Model) openTmuxSession(customCmd *config.CustomCommand, wt *models.Work
 		legacyNames = multiplexer.LegacyDefaultNames(m.config.SessionPrefix, wt.Path)
 	}
 
-	plan, err := multiplexer.PlanTmuxSession(m.listTmuxTargets(), multiplexer.TmuxWorktreeKey(wt.Path), sessionName, tmuxCfg.OnExists, legacyNames...)
+	plan, err := multiplexer.PlanTmuxSession(m.listTmuxTargets(customCmd.NewTab), multiplexer.TmuxWorktreeKey(wt.Path), sessionName, tmuxCfg.OnExists, legacyNames...)
 	if err != nil {
 		return func() tea.Msg { return errMsg{err: err} }
 	}
