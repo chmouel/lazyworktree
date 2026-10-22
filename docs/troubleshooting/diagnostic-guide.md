@@ -98,7 +98,7 @@ See [Fonts and Rendering](fonts-and-rendering.md) for further detail.
 **Diagnosis**:
 
 - The TUI and CLI use different shell execution modes. `zsh` uses `-ilc` (interactive + login), `bash` uses `-ic`, and other shells use `-lc`. This means shell functions, aliases, and startup scripts may behave differently.
-- CLI `exec` cannot open a new terminal tab: tmux and zellij commands ignore `new_tab` and attach in the current terminal, whilst Herdr and plain commands with `new_tab` are rejected.
+- CLI `exec` cannot open a new terminal tab: tmux and zellij commands ignore `new_tab`; their configured `attach` setting decides whether the session opens in the current terminal or is created in the background with instructions for attaching later. Herdr and plain commands with `new_tab` are rejected.
 - Confirm the command type and key binding match your intended execution context.
 
 ### `.wt` hooks are not running

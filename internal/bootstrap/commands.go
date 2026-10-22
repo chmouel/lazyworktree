@@ -1776,7 +1776,8 @@ func executeKeyAction(ctx context.Context, key string, cfg *config.AppConfig, wt
 	}
 
 	// Determine command type based on config fields. The CLI has no terminal
-	// tab to launch into, so tmux and zellij attach in the current terminal.
+	// tab to launch into, so each multiplexer honours the configured attach
+	// setting and otherwise leaves the session running in the background.
 	if customCmd.Tmux != nil {
 		return executeTmuxAction(ctx, customCmd.Tmux, customCmd.Container, cfg, wt, env)
 	}
@@ -1866,12 +1867,16 @@ func executeTmuxAction(ctx context.Context, tmuxCfg *config.TmuxCommand, contain
 	}
 	defer func() { _ = os.Remove(sessionPath) }() //#nosec G703 -- controlled temp file cleanup
 
-	// Build script with attach=true
-	scriptCfg := *tmuxCfg
-	scriptCfg.Attach = true
 	env["LW_TMUX_SESSION_FILE"] = sessionPath
-	script := multiplexer.BuildTmuxScript(plan, &scriptCfg, windows, env)
-	return runTmuxScriptFunc(ctx, script, wt.Path, env)
+	script := multiplexer.BuildTmuxScript(plan, tmuxCfg, windows, env)
+	if err := runTmuxScriptFunc(ctx, script, wt.Path, env); err != nil {
+		return err
+	}
+	if !tmuxCfg.Attach {
+		finalSession := multiplexer.ReadSessionFile(sessionPath, plan.Name)
+		fmt.Fprintf(os.Stderr, "tmux session %q is ready. Attach with: tmux attach-session -t %s\n", finalSession, multiplexer.ShellQuote("="+finalSession+":"))
+	}
+	return nil
 }
 
 func runTmuxScript(ctx context.Context, script, dir string, env map[string]string) error {
@@ -1948,11 +1953,10 @@ func executeZellijAction(ctx context.Context, zellijCfg *config.TmuxCommand, con
 	}
 	defer func() { _ = os.Remove(sessionPath) }() //#nosec G703 -- controlled temp file cleanup
 
-	// Build script
-	scriptCfg := *zellijCfg
-	scriptCfg.Attach = false
+	// Build script. The session is created in the background; attaching is
+	// handled below only when the configured attach setting allows it.
 	env["LW_ZELLIJ_SESSION_FILE"] = sessionPath
-	script := multiplexer.BuildZellijScript(sessionName, &scriptCfg, layoutPaths)
+	script := multiplexer.BuildZellijScript(sessionName, zellijCfg, layoutPaths)
 
 	// Execute script
 	// #nosec G204 -- command is built from user-configured zellij session settings
@@ -1967,8 +1971,12 @@ func executeZellijAction(ctx context.Context, zellijCfg *config.TmuxCommand, con
 		return err
 	}
 
-	// Read final session name and attach
 	finalSession := multiplexer.ReadSessionFile(sessionPath, sessionName)
+	if !zellijCfg.Attach {
+		fmt.Fprintf(os.Stderr, "zellij session %q is ready. Attach with: zellij attach %s\n", finalSession, multiplexer.ShellQuote(finalSession))
+		return nil
+	}
+
 	// #nosec G204 G702 -- zellij session name comes from user configuration
 	attachCmd := exec.CommandContext(ctx, "zellij", "attach", finalSession)
 	attachCmd.Stdin = os.Stdin

@@ -55,7 +55,7 @@ This executes the custom command without launching the interface. Palette-only c
 
 ## Why does `new-tab` not work from CLI `exec`?
 
-The CLI has no terminal tab to open, so `new_tab` cannot be honoured there. tmux and zellij commands ignore it and attach in the current terminal. Herdr and plain commands with `new_tab` are rejected; remove the setting for commands you wish to run from the CLI.
+The CLI has no terminal tab to open, so `new_tab` cannot be honoured there. tmux and zellij commands ignore it; their configured `attach` setting decides whether the session opens in the current terminal or is created in the background with instructions for attaching later. Herdr and plain commands with `new_tab` are rejected; remove the setting for commands you wish to run from the CLI.
 
 ## How do I change the worktree sort order?
 

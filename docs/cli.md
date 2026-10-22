@@ -163,4 +163,4 @@ Execute a shell command or trigger a custom command key action:
 - Palette-only custom commands still use their `_name` identifier with `--key`.
 - Sets the same managed `WORKTREE_*`, `REPO_*`, and contextual `LAZYWORKTREE_*` environment variables as custom commands in the TUI.
 - Supports shell, tmux, zellij, herdr, and show-output command types.
-- `new_tab` is ignored for tmux and zellij commands, which attach in the current terminal; it is not supported for Herdr or plain commands.
+- `new_tab` is ignored for tmux and zellij commands, which have no terminal tab to open. Their configured `attach` setting decides whether the session opens in the current terminal or is created in the background with instructions for attaching later. `new_tab` is not supported for Herdr or plain commands in CLI mode.

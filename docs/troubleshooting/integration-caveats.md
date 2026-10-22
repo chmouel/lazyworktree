@@ -71,7 +71,7 @@ When a multiplexer session already exists for a worktree, behaviour depends on t
 
 ### CLI `exec` limitations
 
-CLI `exec` has no terminal tab to open, so `new_tab` is handled per command type. tmux and zellij commands ignore it and attach in the current terminal. Herdr and plain commands with `new_tab` are rejected; remove the setting for commands that need to work from the CLI.
+CLI `exec` has no terminal tab to open, so `new_tab` is handled per command type. tmux and zellij commands ignore it; their configured `attach` setting decides whether the session opens in the current terminal or is created in the background with instructions for attaching later. Herdr and plain commands with `new_tab` are rejected; remove the setting for commands that need to work from the CLI.
 
 ## Trust Model Caveats for `.wt`
 
