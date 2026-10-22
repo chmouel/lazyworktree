@@ -236,7 +236,7 @@ func TestExecuteHerdrActionNestedSessionPrintsInstructions(t *testing.T) {
 	}
 }
 
-func TestExecuteHerdrActionNestedWorkspaceInOtherSessionPrintsInstructions(t *testing.T) {
+func TestExecuteHerdrActionNestedWorkspaceInOtherSessionFocusesBeforeInstructions(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "herdr.log")
 	t.Setenv("HERDR_TEST_LOG", logPath)
 	t.Setenv("HERDR_SESSION", "outer")
@@ -263,8 +263,8 @@ func TestExecuteHerdrActionNestedWorkspaceInOtherSessionPrintsInstructions(t *te
 		t.Errorf("stderr = %q, want nested attach instructions", stderr)
 	}
 	log := readHerdrCLILog(t, logPath)
-	if strings.Contains(log, "workspace focus") {
-		t.Errorf("expected no focus in a session the current client cannot display, got:\n%s", log)
+	if !strings.Contains(log, "--session inner workspace focus w1") {
+		t.Errorf("expected the reused workspace to be focused in its session, got:\n%s", log)
 	}
 	if strings.Contains(log, "attach") {
 		t.Errorf("expected no attach from inside Herdr, got:\n%s", log)

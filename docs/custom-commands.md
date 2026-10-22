@@ -159,7 +159,7 @@ custom_commands:
             command: lazygit
 ```
 
-Palette lists sessions matching `session_prefix` (default: `wt-`).
+Palette lists sessions matching `session_prefix` (default: `wt-`). Herdr session entries are labelled without that prefix, and selecting one attaches to the full session name exactly as discovered.
 
 Palette-only commands keep their `_name` identifier for configuration and CLI use, but they do not consume a direct TUI keybinding or appear in footer key hints.
 

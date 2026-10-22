@@ -111,16 +111,34 @@ func TestResolveHerdrWindowsExpandsAndDefaults(t *testing.T) {
 	if windows[1].Name != "window-2" || windows[1].Cwd != "/w/feature" {
 		t.Errorf("unexpected second window: %+v", windows[1])
 	}
-	if windows[1].Command != defaultWindowShellCommand {
-		t.Errorf("empty command should default to the shell, got %q", windows[1].Command)
+	if windows[1].Command != "" {
+		t.Errorf("a tab without a command must keep the native pane shell, got %q", windows[1].Command)
 	}
 }
 
-func TestResolveHerdrWindowsContainerWrapsShellTabs(t *testing.T) {
+func TestDefaultHerdrShellCommandsOnlyFillsEmptyCommands(t *testing.T) {
 	windows := ResolveHerdrWindows([]config.TmuxWindow{
 		{Name: "shell"},
 		{Name: "test", Command: "go test ./..."},
 	}, map[string]string{}, "/w/feature")
+
+	filled := DefaultHerdrShellCommands(windows)
+	if filled[0].Command != defaultWindowShellCommand {
+		t.Errorf("commandless tab = %q, want the default shell", filled[0].Command)
+	}
+	if filled[1].Command != "go test ./..." {
+		t.Errorf("configured command was overwritten: %q", filled[1].Command)
+	}
+	if windows[0].Command != "" {
+		t.Error("DefaultHerdrShellCommands must not mutate its input")
+	}
+}
+
+func TestResolveHerdrWindowsContainerWrapsShellTabs(t *testing.T) {
+	windows := DefaultHerdrShellCommands(ResolveHerdrWindows([]config.TmuxWindow{
+		{Name: "shell"},
+		{Name: "test", Command: "go test ./..."},
+	}, map[string]string{}, "/w/feature"))
 
 	wrapped, err := WrapWindowCommandsForContainer(windows, &config.ContainerCommand{Image: "alpine", Runtime: "echo"}, map[string]string{})
 	if err != nil {
