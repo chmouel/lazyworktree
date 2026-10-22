@@ -15,8 +15,15 @@ func SanitizeTmuxSessionName(name string) string {
 	if name == "" {
 		return ""
 	}
-	replacer := strings.NewReplacer(":", "-", "/", "-", "\\", "-")
-	return replacer.Replace(name)
+	// Older tmux releases turn "." into "_" themselves; doing it here keeps
+	// names identical on every version.
+	return strings.ReplaceAll(dottedTmuxSessionName(name), ".", "_")
+}
+
+// dottedTmuxSessionName is the sanitised name earlier releases used, which
+// kept "." as newer tmux releases do.
+func dottedTmuxSessionName(name string) string {
+	return strings.NewReplacer(":", "-", "/", "-", "\\", "-").Replace(name)
 }
 
 // ReadSessionFile reads the session name from a file, returning fallback if the file cannot be read or is empty.
@@ -138,12 +145,19 @@ func NormalizeOnExists(onExists string) string {
 // PlanTmuxSession decides which session a worktree's tmux command reuses,
 // replaces or creates, given the current sessions.
 func PlanTmuxSession(targets []Target, key, name, onExists string, legacyNames ...string) (TmuxSessionPlan, error) {
-	plan := TmuxSessionPlan{Name: name, Key: key}
-	sanitised := make([]string, 0, len(legacyNames))
-	for _, legacy := range legacyNames {
-		sanitised = append(sanitised, SanitizeTmuxSessionName(legacy))
+	var aliases []string
+	for _, legacy := range append([]string{name}, legacyNames...) {
+		sanitised, dotted := SanitizeTmuxSessionName(legacy), dottedTmuxSessionName(legacy)
+		if legacy != name {
+			aliases = append(aliases, sanitised)
+		}
+		if dotted != sanitised {
+			aliases = append(aliases, dotted)
+		}
 	}
-	legacyNames = sanitised
+	legacyNames = aliases
+	name = SanitizeTmuxSessionName(name)
+	plan := TmuxSessionPlan{Name: name, Key: key}
 	switch NormalizeOnExists(onExists) {
 	case OnExistsNew:
 		plan.Increment = true
