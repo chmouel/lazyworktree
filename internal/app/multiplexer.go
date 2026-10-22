@@ -173,17 +173,52 @@ func buildZellijScript(sessionName string, zellijCfg *config.TmuxCommand, layout
 	return multiplexer.BuildZellijScript(sessionName, zellijCfg, layoutPaths)
 }
 
-// buildZellijNewTabScript creates the session in the background, attaches only
-// when configured, and cleans up the temporary layout files.
+// buildZellijNewTabScript creates the session in the background, cleans up the
+// temporary layout files, and attaches only when configured.
 func buildZellijNewTabScript(sessionName string, zellijCfg *config.TmuxCommand, layoutPaths []string) string {
 	script := buildZellijScript(sessionName, zellijCfg, layoutPaths)
-	if zellijCfg.Attach {
-		script += fmt.Sprintf("zellij attach %s\n", multiplexer.ShellQuote(sessionName))
-	}
 	for _, lp := range layoutPaths {
 		script += fmt.Sprintf("rm -f %s\n", multiplexer.ShellQuote(lp))
 	}
+	if zellijCfg.Attach {
+		script += "zellij attach \"$session\"\n"
+	}
 	return script
+}
+
+func (m *Model) runDetachedZellijScriptCmd(sessionName string, zellijCfg *config.TmuxCommand, layoutPaths []string, cwd string, env map[string]string) tea.Cmd {
+	return func() tea.Msg {
+		defer multiplexer.CleanupZellijLayouts(layoutPaths)
+
+		sessionFile, err := os.CreateTemp("", "lazyworktree-zellij-")
+		if err != nil {
+			return errMsg{err: err}
+		}
+		sessionPath := sessionFile.Name()
+		if closeErr := sessionFile.Close(); closeErr != nil {
+			_ = os.Remove(sessionPath)
+			return errMsg{err: closeErr}
+		}
+		defer func() {
+			_ = os.Remove(sessionPath)
+		}()
+
+		env["LW_ZELLIJ_SESSION_FILE"] = sessionPath
+		script := buildZellijNewTabScript(sessionName, zellijCfg, layoutPaths)
+		// #nosec G204 -- command is built from user-configured zellij session settings.
+		c := m.commandRunner(m.ctx, "bash", "-lc", script)
+		c.Dir = cwd
+		c.Env = services.AppendCommandEnv(os.Environ(), env)
+		if err := c.Run(); err != nil {
+			return errMsg{err: err}
+		}
+		finalSession := multiplexer.ReadSessionFile(sessionPath, sessionName)
+		return zellijSessionReadyMsg{
+			sessionName:  finalSession,
+			attach:       false,
+			insideZellij: false,
+		}
+	}
 }
 
 func writeZellijLayouts(windows []multiplexer.ResolvedWindow) ([]string, error) {
@@ -562,6 +597,9 @@ func (m *Model) openZellijSession(customCmd *config.CustomCommand, wt *models.Wo
 			return func() tea.Msg {
 				return errMsg{err: err}
 			}
+		}
+		if !zellijCfg.Attach {
+			return m.runDetachedZellijScriptCmd(sessionName, zellijCfg, layoutPaths, wt.Path, env)
 		}
 		script := buildZellijNewTabScript(sessionName, zellijCfg, layoutPaths)
 		c := &config.CustomCommand{
