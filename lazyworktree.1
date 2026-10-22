@@ -315,7 +315,7 @@ Target worktree by name, path, or branch name. If not provided, lazyworktree aut
 .
 .TP
 .B \-\-key \fIKEY\fR, \-k \fIKEY\fR
-Custom command key to trigger (e.g., 't' for tmux, 'Z' for zellij, 'H' for Herdr, or '_review' for a palette-only action). Mutually exclusive with the positional command argument. The key must exist in your configuration's \fBcustom_commands\fR. Supports shell, tmux, zellij, herdr, and show-output command types. Note: \fBnew_tab\fR is ignored for tmux and zellij commands, which attach in the current terminal, and is not supported for Herdr or plain commands in CLI mode.
+Custom command key to trigger (e.g., 't' for tmux, 'Z' for zellij, 'H' for Herdr, or '_review' for a palette-only action). Mutually exclusive with the positional command argument. The key must exist in your configuration's \fBcustom_commands\fR. Supports shell, tmux, zellij, herdr, and show-output command types. Note: \fBnew_tab\fR is ignored for tmux and zellij commands, which have no terminal tab to open; their configured \fBattach\fR setting decides whether the session opens in the current terminal or is created in the background with instructions for attaching later. \fBnew_tab\fR is not supported for Herdr or plain commands in CLI mode.
 .
 .TP
 .B \-\-json

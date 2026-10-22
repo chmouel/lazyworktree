@@ -158,6 +158,27 @@ func TestZellijSessionReadyAttachesDirectly(t *testing.T) {
 	}
 }
 
+func TestZellijSessionReadyShowsInfoWhenNotAttaching(t *testing.T) {
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+	}
+	m := NewModel(cfg, "")
+	m.setWindowSize(120, 40)
+
+	updated, cmd := m.Update(zellijSessionReadyMsg{sessionName: "wt_test", attach: false, insideZellij: false})
+	model := updated.(*Model)
+	if !model.state.ui.screenManager.IsActive() || model.state.ui.screenManager.Type() != appscreen.TypeInfo {
+		t.Fatalf("expected info screen, got active=%v type=%v", model.state.ui.screenManager.IsActive(), model.state.ui.screenManager.Type())
+	}
+	infoScr := model.state.ui.screenManager.Current().(*appscreen.InfoScreen)
+	if cmd != nil {
+		t.Fatal("expected no command when not attaching")
+	}
+	if !strings.Contains(infoScr.Message, "zellij attach 'wt_test'") {
+		t.Errorf("expected attach message, got %q", infoScr.Message)
+	}
+}
+
 func TestZellijPaneCreatedShowsInfo(t *testing.T) {
 	cfg := &config.AppConfig{
 		WorktreeDir: t.TempDir(),
@@ -900,6 +921,25 @@ func TestOpenZellijSession(t *testing.T) {
 	}
 }
 
+func TestBuildZellijNewTabScriptHonoursAttach(t *testing.T) {
+	layoutPaths := []string{"/tmp/layout"}
+
+	attachCfg := &config.TmuxCommand{SessionName: "session", Attach: true}
+	attachScript := buildZellijNewTabScript("session", attachCfg, layoutPaths)
+	if !strings.Contains(attachScript, "zellij attach 'session'") {
+		t.Fatalf("expected attach command when attach is true, got:\n%s", attachScript)
+	}
+
+	detachedCfg := &config.TmuxCommand{SessionName: "session", Attach: false}
+	detachedScript := buildZellijNewTabScript("session", detachedCfg, layoutPaths)
+	if strings.Contains(detachedScript, "zellij attach 'session'") {
+		t.Fatalf("expected no attach command when attach is false, got:\n%s", detachedScript)
+	}
+	if !strings.Contains(detachedScript, "zellij attach --create-background") {
+		t.Fatalf("expected background session creation, got:\n%s", detachedScript)
+	}
+}
+
 func TestZellijAttachNewSessionCmd(t *testing.T) {
 	cfg := &config.AppConfig{WorktreeDir: t.TempDir()}
 	m := NewModel(cfg, "")
@@ -913,7 +953,7 @@ func TestZellijAttachNewSessionCmd(t *testing.T) {
 		return exec.Command(name, args...) //#nosec G204,G702 -- test mock with controlled args
 	}
 
-	cmd := m.zellijAttachNewSessionCmd("my-session", "/tmp/worktree")
+	cmd := m.zellijAttachNewSessionCmd("my-session", "/tmp/worktree", true)
 	if cmd == nil {
 		t.Fatal("expected command")
 	}
@@ -925,6 +965,23 @@ func TestZellijAttachNewSessionCmd(t *testing.T) {
 	}
 	if capturedCmd.Dir != "/tmp/worktree" {
 		t.Fatalf("expected Dir to be /tmp/worktree, got %q", capturedCmd.Dir)
+	}
+
+	capturedCmd = nil
+	cmd = m.zellijAttachNewSessionCmd("my-session", "/tmp/worktree", false)
+	msg := cmd()
+	ready, ok := msg.(zellijSessionReadyMsg)
+	if !ok {
+		t.Fatalf("expected zellijSessionReadyMsg, got %T", msg)
+	}
+	if ready.attach {
+		t.Fatal("expected detached ready message when attach is false")
+	}
+	if capturedCmd == nil {
+		t.Fatal("expected execProcess to be called")
+	}
+	if capturedCmd.Args[2] != "--create-background" {
+		t.Fatalf("expected zellij attach --create-background, got %v", capturedCmd.Args)
 	}
 }
 

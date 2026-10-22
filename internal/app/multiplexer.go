@@ -173,6 +173,19 @@ func buildZellijScript(sessionName string, zellijCfg *config.TmuxCommand, layout
 	return multiplexer.BuildZellijScript(sessionName, zellijCfg, layoutPaths)
 }
 
+// buildZellijNewTabScript creates the session in the background, attaches only
+// when configured, and cleans up the temporary layout files.
+func buildZellijNewTabScript(sessionName string, zellijCfg *config.TmuxCommand, layoutPaths []string) string {
+	script := buildZellijScript(sessionName, zellijCfg, layoutPaths)
+	if zellijCfg.Attach {
+		script += fmt.Sprintf("zellij attach %s\n", multiplexer.ShellQuote(sessionName))
+	}
+	for _, lp := range layoutPaths {
+		script += fmt.Sprintf("rm -f %s\n", multiplexer.ShellQuote(lp))
+	}
+	return script
+}
+
 func writeZellijLayouts(windows []multiplexer.ResolvedWindow) ([]string, error) {
 	return multiplexer.WriteZellijLayouts(windows)
 }
@@ -431,15 +444,24 @@ func (m *Model) zellijCreateExternalPaneCmd(sessionName, direction, cwd string) 
 	}
 }
 
-// zellijAttachNewSessionCmd attaches to a new zellij session with the worktree cwd.
-// Uses --create so the initial pane opens directly in the worktree directory (single pane).
-func (m *Model) zellijAttachNewSessionCmd(sessionName, cwd string) tea.Cmd {
+// zellijAttachNewSessionCmd creates a new zellij session with the worktree cwd.
+// When attach is true it opens the session directly; otherwise it creates the
+// session in the background and reports readiness so the TUI can show attach
+// details.
+func (m *Model) zellijAttachNewSessionCmd(sessionName, cwd string, attach bool) tea.Cmd {
+	args := []string{"attach", "--create", sessionName}
+	if !attach {
+		args = []string{"attach", "--create-background", sessionName}
+	}
 	// #nosec G204 -- session name comes from user configuration
-	c := m.commandRunner(m.ctx, "zellij", "attach", "--create", sessionName)
+	c := m.commandRunner(m.ctx, "zellij", args...)
 	c.Dir = cwd
 	return m.execProcess(c, func(err error) tea.Msg {
 		if err != nil {
 			return errMsg{err: err}
+		}
+		if !attach {
+			return zellijSessionReadyMsg{sessionName: sessionName, attach: false, insideZellij: false}
 		}
 		return refreshCompleteMsg{}
 	})
@@ -541,11 +563,7 @@ func (m *Model) openZellijSession(customCmd *config.CustomCommand, wt *models.Wo
 				return errMsg{err: err}
 			}
 		}
-		script := buildZellijScript(sessionName, zellijCfg, layoutPaths)
-		script += fmt.Sprintf("zellij attach %s\n", multiplexer.ShellQuote(sessionName))
-		for _, lp := range layoutPaths {
-			script += fmt.Sprintf("rm -f %s\n", multiplexer.ShellQuote(lp))
-		}
+		script := buildZellijNewTabScript(sessionName, zellijCfg, layoutPaths)
 		c := &config.CustomCommand{
 			Command:     script,
 			Description: filepath.Base(wt.Path),
@@ -556,8 +574,9 @@ func (m *Model) openZellijSession(customCmd *config.CustomCommand, wt *models.Wo
 	// Check for existing sessions
 	sessions := m.getAllZellijSessions()
 	if len(sessions) == 0 {
-		// No sessions: create and attach directly (single pane with worktree cwd)
-		return m.zellijAttachNewSessionCmd(sessionName, wt.Path)
+		// No sessions: create a session in the worktree directory, attaching only
+		// when the configured attach setting allows it.
+		return m.zellijAttachNewSessionCmd(sessionName, wt.Path, zellijCfg.Attach)
 	}
 
 	// Sessions exist: let user pick a session, then direction, then create pane and attach
