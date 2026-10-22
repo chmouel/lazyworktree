@@ -206,6 +206,30 @@ func TestHerdrAttachCommandQuotesExecutablePath(t *testing.T) {
 	}
 }
 
+func TestFocusReusedHerdrWorkspaceFocusesOtherSession(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", logPath)
+	t.Setenv("HERDR_SESSION", "outer")
+	writeFakeHerdrBinary(t, fakeHerdrLayoutScript)
+
+	bin, err := exec.LookPath("herdr")
+	if err != nil {
+		t.Fatalf("look up fake herdr: %v", err)
+	}
+	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
+	h := &multiplexer.Herdr{Bin: bin, Session: "inner"}
+	msg := m.focusReusedHerdrWorkspace(context.Background(), h, &config.HerdrCommand{
+		Mode:   config.HerdrModeWorkspace,
+		Attach: true,
+	}, herdrReadyMsg{label: "wt-feature", session: "inner", workspaceID: "w1", attach: true}, true)
+	if failure, isFailure := msg.(errMsg); isFailure {
+		t.Fatalf("focus reused workspace: %v", failure.err)
+	}
+	if log := readHerdrTestLog(t, logPath); !strings.Contains(log, "--session inner workspace focus w1") {
+		t.Errorf("expected the workspace to be focused in its own session, got:\n%s", log)
+	}
+}
+
 func TestGetHerdrActiveSessionsFiltersPrefix(t *testing.T) {
 	writeFakeHerdrBinary(t, fakeHerdrListScript)
 	t.Setenv("HERDR_SESSION", "")

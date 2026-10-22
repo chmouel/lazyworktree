@@ -1977,6 +1977,7 @@ func executeHerdrAction(ctx context.Context, herdrCfg *config.HerdrCommand, cont
 	windows := multiplexer.ResolveHerdrWindows(herdrCfg.Windows, env, wt.Path)
 	if containerCfg != nil {
 		var err error
+		windows = multiplexer.DefaultHerdrShellCommands(windows)
 		windows, err = multiplexer.WrapWindowCommandsForContainer(windows, containerCfg, env)
 		if err != nil {
 			return err
@@ -2044,8 +2045,9 @@ func executeHerdrAction(ctx context.Context, herdrCfg *config.HerdrCommand, cont
 		}
 		label = workspace.Label
 		workspaceID = workspace.ID
-	} else if herdrCfg.Attach && !insideHerdr {
-		// Focus the reused workspace before attaching so the client lands on it.
+	} else if herdrCfg.Attach && (!insideHerdr || (session != "" && session != multiplexer.HerdrAmbientSession())) {
+		// Focus the reused workspace so an attaching client lands on it, including
+		// when it belongs to a session this client cannot display.
 		if err := h.FocusWorkspace(ctx, workspaceID); err != nil {
 			return err
 		}

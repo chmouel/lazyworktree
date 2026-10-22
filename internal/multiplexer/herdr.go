@@ -131,9 +131,9 @@ func HerdrResolvedName(field, configured, fallback string) (string, error) {
 }
 
 // ResolveHerdrWindows expands names and working directories for Herdr tabs.
-// Unlike tmux, Herdr receives environment variables through --env, so commands
-// keep their original form. A window without a command runs the default shell,
-// which keeps container wrapping effective for shell tabs.
+// Unlike tmux, Herdr receives environment variables through --env and types tab
+// commands into the pane's existing shell, so commands keep their original
+// form and tabs without one stay with their native shell.
 func ResolveHerdrWindows(windows []config.TmuxWindow, env map[string]string, defaultCwd string) []ResolvedWindow {
 	resolved := make([]ResolvedWindow, 0, len(windows))
 	for i, window := range windows {
@@ -146,14 +146,26 @@ func ResolveHerdrWindows(windows []config.TmuxWindow, env map[string]string, def
 			cwd = defaultCwd
 		}
 		command := strings.TrimSpace(window.Command)
-		if command == "" {
-			command = defaultWindowShellCommand
-		}
 		resolved = append(resolved, ResolvedWindow{
 			Name:    name,
 			Command: command,
 			Cwd:     cwd,
 		})
+	}
+	return resolved
+}
+
+// DefaultHerdrShellCommands fills commandless tabs with the default shell so
+// container wrapping has a command to replace. It must only run for container
+// layouts: Herdr types commands into the pane's existing shell, so a plain tab
+// keeps its native shell and its own syntax.
+func DefaultHerdrShellCommands(windows []ResolvedWindow) []ResolvedWindow {
+	resolved := make([]ResolvedWindow, len(windows))
+	for i, window := range windows {
+		resolved[i] = window
+		if strings.TrimSpace(window.Command) == "" {
+			resolved[i].Command = defaultWindowShellCommand
+		}
 	}
 	return resolved
 }

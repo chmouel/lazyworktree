@@ -210,6 +210,7 @@ func (m *Model) openHerdrSession(customCmd *config.CustomCommand, wt *models.Wor
 	windows := multiplexer.ResolveHerdrWindows(cfg.Windows, env, wt.Path)
 	if customCmd.Container != nil {
 		var wrapErr error
+		windows = multiplexer.DefaultHerdrShellCommands(windows)
 		windows, wrapErr = multiplexer.WrapWindowCommandsForContainer(windows, customCmd.Container, env)
 		if wrapErr != nil {
 			return func() tea.Msg { return errMsg{err: wrapErr} }
@@ -301,9 +302,10 @@ type herdrWorkspaceReused struct{}
 func (herdrWorkspaceReused) Error() string { return "herdr workspace reused" }
 
 // focusReusedHerdrWorkspace focuses a reused workspace before the client
-// attaches, unless Herdr already hosts the TUI or attaching is disabled.
+// attaches. A workspace in another session is still focused so a client
+// attaching there lands on it, even though the current one cannot show it.
 func (m *Model) focusReusedHerdrWorkspace(ctx context.Context, h *multiplexer.Herdr, cfg *config.HerdrCommand, ready herdrReadyMsg, insideHerdr bool) tea.Msg {
-	if !insideHerdr && cfg.Attach && ready.workspaceID != "" {
+	if cfg.Attach && ready.workspaceID != "" && (!insideHerdr || !herdrSessionIsAmbient(ready.session)) {
 		if err := h.FocusWorkspace(ctx, ready.workspaceID); err != nil {
 			return errMsg{err: err}
 		}
