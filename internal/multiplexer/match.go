@@ -128,10 +128,14 @@ func ResolveTarget(targets []Target, key, name string, legacyNames ...string) (R
 		case 1:
 			return Resolution{Target: tagged[0], Found: true}, nil
 		default:
+			var named []Target
 			for _, target := range tagged {
 				if target.Name == name {
-					return Resolution{Target: target, Found: true}, nil
+					named = append(named, target)
 				}
+			}
+			if len(named) > 0 {
+				return pickByName(named, false), nil
 			}
 			sort.SliceStable(tagged, func(i, j int) bool { return tagged[i].Name < tagged[j].Name })
 			return Resolution{Target: tagged[0], Found: true, Ambiguous: true}, nil
@@ -143,7 +147,8 @@ func ResolveTarget(targets []Target, key, name string, legacyNames ...string) (R
 		if target.Name != name {
 			continue
 		}
-		if key != "" && target.Key != "" {
+		// A worktree without a tag (see TmuxWorktreeKey) owns no tagged target.
+		if target.Key != "" {
 			return Resolution{}, targetConflictError(name)
 		}
 		named = append(named, target)
@@ -165,7 +170,7 @@ func ResolveTarget(targets []Target, key, name string, legacyNames ...string) (R
 	return Resolution{}, nil
 }
 
-// pickByName selects among untagged targets matching by name. Herdr allows
+// pickByName selects among targets matching by name. Herdr allows
 // duplicate labels and legacy names have several forms, so several matches are
 // ambiguous and the lowest ID is picked so the choice is stable.
 func pickByName(matches []Target, legacy bool) Resolution {
@@ -209,6 +214,11 @@ func ResolveForKill(targets []Target, key, name string, legacyNames ...string) (
 			return Resolution{}, fmt.Errorf("%w: several sessions are named %q; close the extra ones or use on_exists: new", ErrAmbiguousTarget, resolution.Target.Name)
 		}
 		return Resolution{}, ambiguousTargetError(TaggedNames(targets, key))
+	}
+	// Only legacy names prove an untagged session came from LazyWorktree; one
+	// that merely shares the requested name may be the user's own.
+	if resolution.Legacy && resolution.Target.Name == name {
+		return Resolution{}, fmt.Errorf("%w: %q is an untagged session LazyWorktree will not close; close it yourself or use on_exists: switch", ErrTargetConflict, name)
 	}
 	if err := CheckReplacementName(targets, name, resolution.Target); err != nil {
 		return Resolution{}, err

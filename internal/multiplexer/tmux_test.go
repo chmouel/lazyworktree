@@ -330,6 +330,12 @@ func TestPlanTmuxSession(t *testing.T) {
 			want:     TmuxSessionPlan{Name: "wt-feat-old", ExistingID: "$1", Key: key},
 		},
 		{
+			name:     "kill leaves an untagged session under the requested name alone",
+			targets:  []Target{{ID: "$1", Name: "wt-feat"}},
+			onExists: "kill",
+			wantErr:  ErrTargetConflict,
+		},
+		{
 			name:     "kill refuses when several legacy names match different sessions",
 			targets:  []Target{{ID: "$1", Name: "custom-feat"}, {ID: "$2", Name: "wt-feat-old"}},
 			onExists: "kill",
@@ -505,6 +511,11 @@ func TestTmuxScriptRechecksStalePlans(t *testing.T) {
 		{ID: "$0", Name: "wt-feat", Key: "/repo/a"},
 		{ID: "$1", Name: "replacement", Key: "/repo/c"},
 	}, ParseTmuxTargets(tmux("list-sessions", "-F", TmuxListTargetsFormat)))
+}
+
+func TestResolveTargetWithoutKeyRefusesTaggedName(t *testing.T) {
+	_, err := ResolveTarget([]Target{{ID: "$1", Name: "feat", Key: "/repo/other"}}, "", "feat")
+	require.ErrorIs(t, err, ErrTargetConflict)
 }
 
 func TestDefaultSessionName(t *testing.T) {

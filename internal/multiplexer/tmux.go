@@ -207,7 +207,7 @@ func BuildTmuxScript(plan TmuxSessionPlan, tmuxCfg *config.TmuxCommand, windows 
 	b.WriteString("tmux_still_ours() {\n")
 	b.WriteString("  [ \"$(tmux display-message -p -t \"$1\" '#{session_name}' 2>/dev/null)\" = \"$2\" ] || return 1\n")
 	fmt.Fprintf(&b, "  owner=$(tmux display-message -p -t \"$1\" '#{%s}' 2>/dev/null)\n", TmuxWorktreeOption)
-	b.WriteString("  [ -z \"$owner\" ] || [ -z \"$worktree_key\" ] || [ \"$owner\" = \"$worktree_key\" ]\n")
+	b.WriteString("  [ -z \"$owner\" ] || [ \"$owner\" = \"$worktree_key\" ]\n")
 	b.WriteString("}\n")
 	b.WriteString("tmux_changed() { printf 'lazyworktree: tmux session %s changed since it was listed, try again\\n' \"$1\" >&2; exit 1; }\n")
 	b.WriteString("if [ -n \"$session_id\" ]; then\n")
