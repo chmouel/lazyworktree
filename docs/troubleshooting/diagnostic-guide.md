@@ -98,7 +98,7 @@ See [Fonts and Rendering](fonts-and-rendering.md) for further detail.
 **Diagnosis**:
 
 - The TUI and CLI use different shell execution modes. `zsh` uses `-ilc` (interactive + login), `bash` uses `-ic`, and other shells use `-lc`. This means shell functions, aliases, and startup scripts may behave differently.
-- CLI `exec` does not support `new-tab` commands because they require a multiplexer session.
+- CLI `exec` cannot open a new terminal tab: tmux and zellij commands ignore `new_tab` and attach in the current terminal, whilst Herdr and plain commands with `new_tab` are rejected.
 - Confirm the command type and key binding match your intended execution context.
 
 ### `.wt` hooks are not running

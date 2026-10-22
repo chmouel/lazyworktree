@@ -71,7 +71,7 @@ When a multiplexer session already exists for a worktree, behaviour depends on t
 
 ### CLI `exec` limitations
 
-`new-tab` commands are not supported in CLI `exec` mode. They require a running multiplexer session, which is only available inside the TUI. Use `shell` or `command` types for commands that need to work from the CLI.
+CLI `exec` has no terminal tab to open, so `new_tab` is handled per command type. tmux and zellij commands ignore it and attach in the current terminal. Herdr and plain commands with `new_tab` are rejected; remove the setting for commands that need to work from the CLI.
 
 ## Trust Model Caveats for `.wt`
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/stretchr/testify/require"
 )
 
 func writeFakeHerdrCLI(t *testing.T, script string) {
@@ -296,6 +297,33 @@ func TestExecuteKeyActionRejectsNewTabBeforeHerdrDispatch(t *testing.T) {
 	}
 	if _, err := os.Stat(logPath); err == nil {
 		t.Error("expected new_tab to be rejected before Herdr runs")
+	}
+}
+
+func TestExecuteKeyActionNewTabStillDispatchesTmuxAndZellij(t *testing.T) {
+	session := &config.TmuxCommand{SessionName: "wt-feat", Windows: []config.TmuxWindow{{Name: "shell"}}}
+	tests := []struct {
+		name string
+		cmd  *config.CustomCommand
+	}{
+		{name: "tmux", cmd: &config.CustomCommand{NewTab: true, Tmux: session}},
+		{name: "zellij", cmd: &config.CustomCommand{NewTab: true, Zellij: session}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.AppConfig{
+				WorktreeDir:    t.TempDir(),
+				CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {"k": tt.cmd}},
+			}
+			wt := &models.WorktreeInfo{Path: t.TempDir(), Branch: "feat"}
+
+			// A cancelled context stops the multiplexer script before it starts,
+			// so reaching it proves new_tab did not short-circuit the dispatch.
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			err := executeKeyAction(ctx, "k", cfg, wt, map[string]string{})
+			require.ErrorIs(t, err, context.Canceled)
+		})
 	}
 }
 
