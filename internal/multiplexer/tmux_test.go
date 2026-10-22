@@ -45,6 +45,11 @@ func TestSanitizeTmuxSessionName(t *testing.T) {
 			want:  "feature-branch",
 		},
 		{
+			name:  "dot as older tmux releases rewrite it",
+			input: "fix v1.2",
+			want:  "fix v1_2",
+		},
+		{
 			name:  "name with multiple special chars",
 			input: "feature:foo/bar\\baz",
 			want:  "feature-foo-bar-baz",
@@ -332,6 +337,13 @@ func TestPlanTmuxSession(t *testing.T) {
 			wantErr:  ErrAmbiguousTarget,
 		},
 		{
+			name:     "reuses an untagged session named with a dot by earlier releases",
+			targets:  []Target{{ID: "$2", Name: "fix v1.2"}},
+			onExists: "switch",
+			legacy:   []string{"fix v1.2"},
+			want:     TmuxSessionPlan{Name: "fix v1.2", ExistingID: "$2", Key: key},
+		},
+		{
 			name:     "legacy default names never match a tagged session",
 			targets:  []Target{{ID: "$1", Name: "wt-feat-old", Key: "/repo/other"}},
 			onExists: "switch",
@@ -444,10 +456,12 @@ func TestTmuxScriptAgainstTmux(t *testing.T) {
 	assert.Equal(t, "wt-a-2", got)
 	assert.Equal(t, keyA+"\n", tmux("show-options", "-v", "-t", "wt-a-2", TmuxWorktreeOption))
 
-	// Pull request titles keep their "#" and "." instead of being read as
-	// tmux formats or pane separators, including when incremented.
+	// Pull request titles keep their "#" instead of being read as tmux
+	// formats, and "." becomes "_" on every tmux release, including when
+	// incremented.
 	title := "#12 Fix #S in v1.2 #{session_name}"
-	for _, want := range []string{title, title + "-2"} {
+	named := "#12 Fix #S in v1_2 #{session_name}"
+	for _, want := range []string{named, named + "-2"} {
 		got, err = runTmuxPlan(t, "/repo/pr", title, "new")
 		require.NoError(t, err)
 		assert.Equal(t, want, got)

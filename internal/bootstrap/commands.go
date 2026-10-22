@@ -1831,7 +1831,6 @@ func executeTmuxAction(ctx context.Context, tmuxCfg *config.TmuxCommand, contain
 		sessionName = multiplexer.DefaultSessionName(env, wt.Path)
 		legacyNames = multiplexer.LegacyDefaultNames(cfg.SessionPrefix, wt.Path)
 	}
-	sessionName = multiplexer.SanitizeTmuxSessionName(sessionName)
 
 	targets, err := listTmuxTargets(ctx)
 	if err != nil {

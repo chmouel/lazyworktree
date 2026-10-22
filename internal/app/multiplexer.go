@@ -177,10 +177,6 @@ func writeZellijLayouts(windows []multiplexer.ResolvedWindow) ([]string, error) 
 	return multiplexer.WriteZellijLayouts(windows)
 }
 
-func sanitizeTmuxSessionName(name string) string {
-	return multiplexer.SanitizeTmuxSessionName(name)
-}
-
 // listTmuxTargets returns every tmux session with its worktree tag, or nil
 // when tmux is unavailable or has no server running.
 func (m *Model) listTmuxTargets() []multiplexer.Target {
@@ -247,7 +243,6 @@ func (m *Model) openTmuxSession(customCmd *config.CustomCommand, wt *models.Work
 		sessionName = multiplexer.DefaultSessionName(env, wt.Path)
 		legacyNames = multiplexer.LegacyDefaultNames(m.config.SessionPrefix, wt.Path)
 	}
-	sessionName = sanitizeTmuxSessionName(sessionName)
 
 	plan, err := multiplexer.PlanTmuxSession(m.listTmuxTargets(), multiplexer.TmuxWorktreeKey(wt.Path), sessionName, tmuxCfg.OnExists, legacyNames...)
 	if err != nil {
