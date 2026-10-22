@@ -155,16 +155,21 @@ func ResolveHerdrWindows(windows []config.TmuxWindow, env map[string]string, def
 	return resolved
 }
 
-// DefaultHerdrShellCommands fills commandless tabs with the default shell so
-// container wrapping has a command to replace. It must only run for container
+// containerShellCommand replaces a missing tab command inside a container.
+// Images commonly ship sh but not bash, and SHELL is rarely set there, so sh is
+// the only fallback a container can rely on.
+const containerShellCommand = "exec ${SHELL:-sh}"
+
+// DefaultHerdrContainerCommands fills commandless tabs with a shell command so
+// container wrapping has something to replace. It must only run for container
 // layouts: Herdr types commands into the pane's existing shell, so a plain tab
 // keeps its native shell and its own syntax.
-func DefaultHerdrShellCommands(windows []ResolvedWindow) []ResolvedWindow {
+func DefaultHerdrContainerCommands(windows []ResolvedWindow) []ResolvedWindow {
 	resolved := make([]ResolvedWindow, len(windows))
 	for i, window := range windows {
 		resolved[i] = window
 		if strings.TrimSpace(window.Command) == "" {
-			resolved[i].Command = defaultWindowShellCommand
+			resolved[i].Command = containerShellCommand
 		}
 	}
 	return resolved
@@ -225,7 +230,11 @@ func (h *Herdr) bin() string {
 
 func (h *Herdr) args(rest ...string) []string {
 	args := make([]string, 0, len(rest)+2)
-	if h.Session != "" {
+	// An explicit target that resolves to the ambient session keeps ambient
+	// routing when the client advertises its socket: --session would select that
+	// session's own socket and bypass HERDR_SOCKET_PATH, which is how the current
+	// client is reached.
+	if h.Session != "" && (h.Session != HerdrAmbientSession() || HerdrClientSocket() == "") {
 		args = append(args, "--session", h.Session)
 	}
 	return append(args, rest...)
@@ -412,6 +421,20 @@ func HerdrAmbientSession() string {
 		return ambient
 	}
 	return herdrDefaultSession
+}
+
+// HerdrClientSocket returns the socket the current client is attached to, or an
+// empty string when Herdr resolves the target on its own.
+func HerdrClientSocket() string {
+	return strings.TrimSpace(os.Getenv("HERDR_SOCKET_PATH"))
+}
+
+// HerdrSessionIsAmbient reports whether the current client can display the
+// target session. An empty target inherits the ambient session, and an explicit
+// session equal to it routes through the same socket (see Herdr.args).
+func HerdrSessionIsAmbient(session string) bool {
+	target := strings.TrimSpace(session)
+	return target == "" || target == HerdrAmbientSession()
 }
 
 // Workspaces lists the workspaces in this Herdr session.

@@ -271,6 +271,34 @@ func TestExecuteHerdrActionNestedWorkspaceInOtherSessionFocusesBeforeInstruction
 	}
 }
 
+func TestExecuteKeyActionRejectsNewTabBeforeHerdrDispatch(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", logPath)
+	writeFakeHerdrCLI(t, fakeHerdrCLIScript)
+
+	cfg := &config.AppConfig{
+		WorktreeDir: t.TempDir(),
+		CustomCommands: config.CustomCommandsConfig{config.PaneUniversal: {
+			"H": {
+				NewTab: true,
+				Herdr:  &config.HerdrCommand{Mode: config.HerdrModeWorkspace, SessionName: "wt-feat", Attach: true},
+			},
+		}},
+	}
+	wt := &models.WorktreeInfo{Path: "/w/feat", Branch: "feat"}
+
+	var runErr error
+	stderr := captureStderr(t, func() {
+		runErr = executeKeyAction(context.Background(), "H", cfg, wt, map[string]string{})
+	})
+	if runErr == nil || !strings.Contains(stderr, "new-tab commands are not supported in CLI mode") {
+		t.Fatalf("err = %v, stderr = %q", runErr, stderr)
+	}
+	if _, err := os.Stat(logPath); err == nil {
+		t.Error("expected new_tab to be rejected before Herdr runs")
+	}
+}
+
 func TestExecuteHerdrActionSessionModeCreatesMissingWorkspace(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "herdr.log")
 	t.Setenv("HERDR_TEST_LOG", logPath)

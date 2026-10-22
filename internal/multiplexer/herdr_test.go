@@ -116,26 +116,26 @@ func TestResolveHerdrWindowsExpandsAndDefaults(t *testing.T) {
 	}
 }
 
-func TestDefaultHerdrShellCommandsOnlyFillsEmptyCommands(t *testing.T) {
+func TestDefaultHerdrContainerCommandsOnlyFillsEmptyCommands(t *testing.T) {
 	windows := ResolveHerdrWindows([]config.TmuxWindow{
 		{Name: "shell"},
 		{Name: "test", Command: "go test ./..."},
 	}, map[string]string{}, "/w/feature")
 
-	filled := DefaultHerdrShellCommands(windows)
-	if filled[0].Command != defaultWindowShellCommand {
-		t.Errorf("commandless tab = %q, want the default shell", filled[0].Command)
+	filled := DefaultHerdrContainerCommands(windows)
+	if filled[0].Command != containerShellCommand {
+		t.Errorf("commandless tab = %q, want the container shell", filled[0].Command)
 	}
 	if filled[1].Command != "go test ./..." {
 		t.Errorf("configured command was overwritten: %q", filled[1].Command)
 	}
 	if windows[0].Command != "" {
-		t.Error("DefaultHerdrShellCommands must not mutate its input")
+		t.Error("DefaultHerdrContainerCommands must not mutate its input")
 	}
 }
 
 func TestResolveHerdrWindowsContainerWrapsShellTabs(t *testing.T) {
-	windows := DefaultHerdrShellCommands(ResolveHerdrWindows([]config.TmuxWindow{
+	windows := DefaultHerdrContainerCommands(ResolveHerdrWindows([]config.TmuxWindow{
 		{Name: "shell"},
 		{Name: "test", Command: "go test ./..."},
 	}, map[string]string{}, "/w/feature"))
@@ -151,6 +151,30 @@ func TestResolveHerdrWindowsContainerWrapsShellTabs(t *testing.T) {
 		if !strings.Contains(window.Command, "echo") {
 			t.Errorf("window %q is not wrapped in the container runtime: %q", window.Name, window.Command)
 		}
+	}
+}
+
+func TestHerdrSessionIsAmbient(t *testing.T) {
+	tests := []struct {
+		name    string
+		ambient string
+		socket  string
+		session string
+		want    bool
+	}{
+		{name: "empty target inherits the ambient session", ambient: "work", want: true},
+		{name: "matching name", ambient: "work", session: "work", want: true},
+		{name: "different name", ambient: "work", session: "other", want: false},
+		{name: "matching name on a custom socket", ambient: "work", socket: "/tmp/custom.sock", session: "work", want: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("HERDR_SESSION", tc.ambient)
+			t.Setenv("HERDR_SOCKET_PATH", tc.socket)
+			if got := HerdrSessionIsAmbient(tc.session); got != tc.want {
+				t.Errorf("HerdrSessionIsAmbient(%q) = %v, want %v", tc.session, got, tc.want)
+			}
+		})
 	}
 }
 
@@ -171,9 +195,27 @@ func TestHerdrAttachArgs(t *testing.T) {
 	}
 }
 
-func TestHerdrArgsIncludeExplicitDefaultSession(t *testing.T) {
+func TestHerdrArgsRouteAmbientSessionThroughItsSocket(t *testing.T) {
+	t.Setenv("HERDR_SESSION", "")
+	t.Setenv("HERDR_SOCKET_PATH", "/tmp/custom-herdr.sock")
+	if got := (&Herdr{Session: "default"}).args("workspace", "list"); strings.Join(got, " ") != "workspace list" {
+		t.Errorf("explicit default args = %v, want ambient routing without --session", got)
+	}
+
+	t.Setenv("HERDR_SESSION", "work")
 	if got := (&Herdr{Session: "default"}).args("workspace", "list"); strings.Join(got, " ") != "--session default workspace list" {
 		t.Errorf("explicit default args = %v, want --session default workspace list", got)
+	}
+	if got := (&Herdr{Session: "work"}).args("workspace", "list"); strings.Join(got, " ") != "workspace list" {
+		t.Errorf("ambient session args = %v, want workspace list", got)
+	}
+
+	t.Setenv("HERDR_SOCKET_PATH", "")
+	if got := (&Herdr{Session: "default"}).args("workspace", "list"); strings.Join(got, " ") != "--session default workspace list" {
+		t.Errorf("explicit default args without a client socket = %v, want --session default workspace list", got)
+	}
+	if got := (&Herdr{Session: "work"}).args("workspace", "list"); strings.Join(got, " ") != "--session work workspace list" {
+		t.Errorf("explicit ambient session without a client socket = %v, want --session work workspace list", got)
 	}
 	if got := (&Herdr{}).args("workspace", "list"); strings.Join(got, " ") != "workspace list" {
 		t.Errorf("inherited args = %v, want workspace list", got)

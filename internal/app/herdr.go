@@ -56,12 +56,6 @@ func buildHerdrNestedWorkspaceInfoMessage(label, session string) string {
 	return fmt.Sprintf("herdr workspace %q belongs to session %q, outside the current Herdr session.\n\nHerdr cannot switch sessions from inside a running client.\n\nAttach from another terminal:\n\n  herdr session attach %s", label, session, multiplexer.ShellQuote(session))
 }
 
-// herdrSessionIsAmbient reports whether the current Herdr client can display a
-// target session. An empty target inherits the ambient session.
-func herdrSessionIsAmbient(session string) bool {
-	return session == "" || session == multiplexer.HerdrAmbientSession()
-}
-
 func (m *Model) attachHerdrCmd(msg herdrReadyMsg) tea.Cmd {
 	h := &multiplexer.Herdr{Bin: msg.bin, Session: msg.session}
 	args := h.AttachArgs()
@@ -127,7 +121,7 @@ func (m *Model) handleHerdrReady(msg herdrReadyMsg) tea.Cmd {
 			return nil
 		}
 		if msg.insideHerdr {
-			if !herdrSessionIsAmbient(msg.session) {
+			if !multiplexer.HerdrSessionIsAmbient(msg.session) {
 				m.showInfo(buildHerdrNestedWorkspaceInfoMessage(msg.label, msg.session), nil)
 				return nil
 			}
@@ -210,7 +204,7 @@ func (m *Model) openHerdrSession(customCmd *config.CustomCommand, wt *models.Wor
 	windows := multiplexer.ResolveHerdrWindows(cfg.Windows, env, wt.Path)
 	if customCmd.Container != nil {
 		var wrapErr error
-		windows = multiplexer.DefaultHerdrShellCommands(windows)
+		windows = multiplexer.DefaultHerdrContainerCommands(windows)
 		windows, wrapErr = multiplexer.WrapWindowCommandsForContainer(windows, customCmd.Container, env)
 		if wrapErr != nil {
 			return func() tea.Msg { return errMsg{err: wrapErr} }
@@ -305,7 +299,7 @@ func (herdrWorkspaceReused) Error() string { return "herdr workspace reused" }
 // attaches. A workspace in another session is still focused so a client
 // attaching there lands on it, even though the current one cannot show it.
 func (m *Model) focusReusedHerdrWorkspace(ctx context.Context, h *multiplexer.Herdr, cfg *config.HerdrCommand, ready herdrReadyMsg, insideHerdr bool) tea.Msg {
-	if cfg.Attach && ready.workspaceID != "" && (!insideHerdr || !herdrSessionIsAmbient(ready.session)) {
+	if cfg.Attach && ready.workspaceID != "" && (!insideHerdr || !multiplexer.HerdrSessionIsAmbient(ready.session)) {
 		if err := h.FocusWorkspace(ctx, ready.workspaceID); err != nil {
 			return errMsg{err: err}
 		}
