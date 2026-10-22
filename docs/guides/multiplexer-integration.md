@@ -1,18 +1,18 @@
 # Multiplexer Integration
 
-LazyWorktree can create and manage tmux or zellij sessions directly from the TUI, giving each worktree a dedicated terminal environment.
+LazyWorktree can create and manage tmux, zellij, or Herdr sessions directly from the TUI, giving each worktree a dedicated terminal environment.
 
 
 ## Overview
 
 With multiplexer integration:
 
-- Create dedicated tmux or zellij sessions for each worktree
+- Create dedicated tmux, zellij, or Herdr sessions for each worktree
 - Define custom window/tab layouts with specific commands
 - Switch to existing sessions or create new ones
 - Manage sessions from the [command palette](../core/command-palette.md)
 
-Default keybindings: `t` for tmux, `Z` for zellij (configurable via [custom commands](../custom-commands.md)).
+Default keybindings: `t` for tmux, `Z` for zellij, `H` for Herdr (configurable via [custom commands](../custom-commands.md)).
 
 ## tmux Configuration
 
@@ -125,6 +125,86 @@ custom_commands:
 !!! important
     Session names with `/`, `\`, or `:` are replaced with `-`. If `windows` is empty, a single shell window/tab is created by default.
 
+## Herdr Configuration
+
+Herdr organises terminals into workspaces, each containing tabs. LazyWorktree maps configured `windows` to tabs: the first window becomes the workspace's initial tab, and its `name` and `cwd` are applied to that tab, whilst each additional window becomes another tab.
+
+Two modes are available:
+
+- `workspace` (default): one workspace per worktree inside an existing Herdr session.
+- `session`: one named Herdr session per worktree, with its own workspace layout.
+
+### Workspace per Worktree
+
+```yaml
+custom_commands:
+  H:
+    description: Herdr
+    show_help: true
+    herdr:
+      mode: workspace
+      session_name: "wt:$WORKTREE_NAME"
+      attach: true
+      on_exists: switch
+      windows:
+        - name: editor
+          command: nvim
+        - name: shell
+        - name: tests
+          command: npm run test:watch
+```
+
+By default the workspace is created in the session LazyWorktree is running in, or in the default Herdr session when no session is ambient. An empty `herdr_session` inherits the current session; set `herdr_session: default` to target the default session explicitly. LazyWorktree starts a detached Herdr server when the target session is not running.
+
+### Named Session per Worktree
+
+```yaml
+custom_commands:
+  H:
+    description: Herdr session
+    show_help: true
+    herdr:
+      mode: session
+      session_name: "wt-$WORKTREE_NAME"
+      attach: true
+      on_exists: switch
+      windows:
+        - name: editor
+          command: nvim
+        - name: shell
+```
+
+### Herdr Field Reference
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `mode` | string | `workspace` | `workspace` creates a workspace per worktree; `session` creates a named Herdr session |
+| `session_name` | string | `wt:$WORKTREE_NAME` | Workspace label in workspace mode, session name in session mode (env vars supported) |
+| `herdr_session` | string | `""` | Herdr session hosting the workspace (workspace mode only; empty inherits the current session, `default` targets the default session) |
+| `attach` | bool | `true` | Attach or focus immediately; if `false`, show modal with instructions |
+| `on_exists` | string | `switch` | Behaviour if the workspace or session exists: `switch`, `attach`, `kill`, `new` (for Herdr, `attach` is an alias of `switch`) |
+| `windows` | list | `[{name: "shell"}]` | Tab definitions for the workspace |
+
+#### Tab Fields
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `name` | string | `window-N` | Tab label (supports env vars) |
+| `command` | string | `""` | Command to run (empty uses default shell) |
+| `cwd` | string | `$WORKTREE_PATH` | Working directory (supports env vars) |
+
+!!! note
+    Herdr session names are limited to letters, digits, `.`, `_`, and `-`, with a maximum of 64 bytes. Other characters are replaced with `-`, and workspace labels are sanitised in the same manner so the palette can find them. A name that sanitises to nothing is rejected rather than silently falling back to the default session. The first tab takes the `name` and `cwd` configured for the first window. In workspace mode, LazyWorktree focuses the workspace directly when already running inside Herdr; otherwise it focuses a reused workspace before attaching. In session mode, Herdr cannot switch between sessions from inside a running client, so LazyWorktree always shows attach instructions instead of nesting a second client — including when the session already exists.
+
+!!! warning
+    Herdr offers no reliable completion marker for a workspace layout. When a previous attempt failed part-way, a retry reuses the workspace that was already created and does **not** re-run the configured commands, so a partially configured workspace can be reused as-is. Use `on_exists: kill` to discard it and build a fresh layout; `on_exists: new` instead builds a fresh workspace under an incremented label and leaves the old one in place. In session mode, these options apply when the session is running, and reusing a running session ensures the worktree workspace exists, creating it when the previous attempt never got that far.
+
+!!! note
+    `new_tab` is honoured when LazyWorktree runs outside Herdr. Inside Herdr, workspace mode focuses the workspace in place and session mode shows attach instructions, because Herdr cannot nest a client or switch sessions from within a running client.
+
+!!! warning
+    `on_exists: kill` and `on_exists: new` act on the normalised name, exactly as they do for tmux. If sanitisation makes two worktrees share a name, killing or incrementing one can target the other worktree's session or workspace.
+
 ## on_exists Behaviour
 
 Controls what happens when a session with the same name already exists:
@@ -135,6 +215,9 @@ Controls what happens when a session with the same name already exists:
 | `attach` | Attach to the existing session in the current terminal |
 | `kill` | Kill the existing session and create a new one |
 | `new` | Create a new session with an incremented name (e.g., `wt:feature-1`) |
+
+!!! note
+    For Herdr, `attach` and `switch` both reuse the existing workspace or session; `attach` is effectively an alias of `switch`. A reused workspace is focused before the external client attaches, so the attach lands on the right workspace. When Herdr is already nested inside a running client, session mode shows attach instructions rather than switching.
 
 ## Environment Variables
 

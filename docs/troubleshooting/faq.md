@@ -55,7 +55,7 @@ This executes the custom command without launching the interface. Palette-only c
 
 ## Why does `new-tab` not work from CLI `exec`?
 
-The `new-tab` command type is intentionally unsupported in CLI mode. It requires a running multiplexer session (tmux or zellij) to create a new tab, which is only available when LazyWorktree is running inside the TUI. Use `shell` or `command` types for CLI-compatible commands.
+The `new-tab` command type is intentionally unsupported in CLI mode. It requires a running multiplexer session (tmux, zellij, or Herdr) to create a new tab, which is only available when LazyWorktree is running inside the TUI. Use `shell` or `command` types for CLI-compatible commands.
 
 ## How do I change the worktree sort order?
 

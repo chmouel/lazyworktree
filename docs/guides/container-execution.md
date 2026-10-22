@@ -121,7 +121,7 @@ custom_commands:
 
 ## Combining with Multiplexers
 
-Container execution can be combined with tmux or zellij. Each window/tab command is individually wrapped in a container invocation, so every pane runs inside the same image.
+Container execution can be combined with tmux, zellij, or Herdr. Each window/tab command is individually wrapped in a container invocation, so every pane runs inside the same image.
 
 ### Container + tmux
 

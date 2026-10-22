@@ -66,7 +66,7 @@ type AppConfig struct {
 	PRReviewers             string // PR/MR reviewers in the Info pane: "auto" or "never" (default: "auto").
 	IssueBranchNameTemplate string // Template for issue branch names with placeholders: {number}, {title} (default: "issue-{number}-{title}")
 	PRBranchNameTemplate    string // Template for PR branch names with placeholders: {number}, {title}, {generated}, {pr_author} (default: "pr-{number}-{title}")
-	SessionPrefix           string // Prefix for tmux/zellij session names (default: "wt-")
+	SessionPrefix           string // Prefix for tmux/zellij/herdr session names (default: "wt-")
 	Layout                  string // Pane arrangement: "default" or "top" (default: "default")
 	PruneStaleBranches      bool   // Include merged branches without worktrees in prune (default: false)
 	PaletteMRU              bool   // Enable MRU sorting for command palette (default: false)
@@ -138,6 +138,19 @@ func DefaultConfig() *AppConfig {
 				"Z": {
 					Description: "Zellij",
 					Zellij: &TmuxCommand{
+						SessionName: "wt:$WORKTREE_NAME",
+						Attach:      true,
+						OnExists:    "switch",
+						Windows: []TmuxWindow{
+							{Name: "shell"},
+						},
+					},
+				},
+				"H": {
+					Description: "Herdr",
+					ShowHelp:    true,
+					Herdr: &HerdrCommand{
+						Mode:        HerdrModeWorkspace,
 						SessionName: "wt:$WORKTREE_NAME",
 						Attach:      true,
 						OnExists:    "switch",

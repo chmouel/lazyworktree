@@ -26,7 +26,7 @@
 ### Customisation
 
 - Configure globally, per repository, or via CLI overrides.
-- Add custom command bindings for shell/tmux/zellij actions.
+- Add custom command bindings for shell/tmux/zellij/Herdr actions.
 - Run `.wt` initialisation and termination workflows with trust controls.
 
 ## What are Git Worktrees?

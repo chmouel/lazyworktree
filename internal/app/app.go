@@ -1053,6 +1053,9 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.showInfo(fmt.Sprintf("Pane added to session %q (%s).", msg.sessionName, msg.direction), nil)
 		return m, nil
 
+	case herdrReadyMsg:
+		return m, m.handleHerdrReady(msg)
+
 	case terminalTabReadyMsg:
 		if msg.err != nil {
 			m.showInfo(fmt.Sprintf("Terminal tab error: %v", msg.err), nil)

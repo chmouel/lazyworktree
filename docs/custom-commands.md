@@ -1,9 +1,9 @@
 # Custom Commands
 
-Custom commands let you bind shell commands, tmux sessions, zellij sessions, OCI container execution, or output views to keys. Commands can appear in help/footer and in the command palette. Prefix a command key with `_` to make it command-palette only.
+Custom commands let you bind shell commands, tmux sessions, zellij sessions, Herdr workspaces or sessions, OCI container execution, or output views to keys. Commands can appear in help/footer and in the command palette. Prefix a command key with `_` to make it command-palette only.
 
 <div class="lw-callout">
-  <p><strong>Defaults:</strong> <code>t</code> opens tmux and <code>Z</code> opens zellij. Override either key with your own command definition.</p>
+  <p><strong>Defaults:</strong> <code>t</code> opens tmux, <code>Z</code> opens zellij, and <code>H</code> opens Herdr. Override any key with your own command definition.</p>
 </div>
 
 ## Quick Start Patterns
@@ -146,7 +146,7 @@ custom_commands:
     t: # Open a tmux session with multiple windows
       description: Tmux
       show_help: true
-      tmux: # If you specify zellij instead of tmux this would manage zellij sessions
+      tmux: # If you specify zellij or herdr instead of tmux this would manage those sessions
         session_name: "wt:$WORKTREE_NAME"
         attach: true
         on_exists: switch
@@ -192,10 +192,11 @@ custom_commands:
 | `show_help` | bool | `false` | Show in help screen (`?`) and footer |
 | `wait` | bool | `false` | Wait for keypress after completion |
 | `show_output` | bool | `false` | Show stdout/stderr in pager (ignores `wait`) |
-| `new_tab` | bool | `false` | Launch in new terminal tab. Can be used with tmux/zellij (Kitty with remote control enabled, WezTerm, or iTerm) |
+| `new_tab` | bool | `false` | Launch in new terminal tab. Can be used with tmux/zellij/herdr (Kitty with remote control enabled, WezTerm, or iTerm). Inside Herdr, workspace mode focuses in place instead. |
 | `tmux` | object | `null` | Configure tmux session |
 | `zellij` | object | `null` | Configure zellij session |
-| `container` | object | `null` | Run inside an OCI container; specifying just an image uses its defaults (combinable with tmux/zellij) |
+| `herdr` | object | `null` | Configure Herdr workspace or session |
+| `container` | object | `null` | Run inside an OCI container; specifying just an image uses its defaults (combinable with tmux/zellij/herdr) |
 
 ### tmux Fields
 
@@ -235,6 +236,27 @@ If `windows` is empty, a single `shell` tab is created. Session names with `/`, 
 | `command` | string | `""` | Command to run in the tab (empty uses your default shell) |
 | `cwd` | string | `$WORKTREE_PATH` | Working directory for the tab (supports env vars) |
 
+### Herdr Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `mode` | string | `workspace` | `workspace` creates a workspace per worktree; `session` creates a named Herdr session |
+| `session_name` | string | `wt:$WORKTREE_NAME` | Workspace label in workspace mode, session name in session mode (env vars supported, special chars replaced) |
+| `herdr_session` | string | `""` | Herdr session hosting the workspace (workspace mode only; empty uses the current or default session) |
+| `attach` | bool | `true` | Attach or focus immediately; if false, show modal with instructions |
+| `on_exists` | string | `switch` | Behaviour if the workspace or session exists: `switch`, `attach`, `kill`, `new` (for Herdr, `attach` and `switch` both reuse the existing workspace or session) |
+| `windows` | list | `[ { name: "shell" } ]` | Tab definitions for the workspace |
+
+If `windows` is empty, a single `shell` tab is created. Herdr session names are limited to letters, digits, `.`, `_`, and `-`, with a maximum of 64 bytes; other characters are replaced with `-`, and workspace labels are sanitised in the same manner. A name that sanitises to nothing is rejected rather than silently falling back to the default session.
+
+### Herdr Window Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | `window-N` | Tab label (supports env vars) |
+| `command` | string | `""` | Command to run in the tab (empty uses your default shell) |
+| `cwd` | string | `$WORKTREE_PATH` | Working directory for the tab (supports env vars) |
+
 ### Container Fields
 
 For a step-by-step walkthrough with examples, see the [Container Execution guide](guides/container-execution.md).
@@ -262,11 +284,11 @@ The worktree path is automatically mounted to the working directory. If a user-s
 
 **`entrypoint` and `command`:** `entrypoint` replaces the image's default executable. `command` passes arguments to it through `sh -c`. When both are set, the custom entrypoint runs with the command as its argument. With only `entrypoint`, the container runs it directly, which suits interactive shells or tools that need no extra arguments. With only `command`, the image's default entrypoint runs it. If neither is set, the image uses its defaults.
 
-When combined with `tmux` or `zellij`, each window/tab command is individually wrapped in a container invocation.
+When combined with `tmux`, `zellij`, or `herdr`, each window/tab command is individually wrapped in a container invocation.
 
 ## Environment Variables
 
-Available to commands, tmux/zellij templates, terminal tabs, `show_output`, and containers:
+Available to commands, tmux/zellij/herdr templates, terminal tabs, `show_output`, and containers:
 
 | Variable | Description |
 | --- | --- |

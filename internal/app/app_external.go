@@ -205,6 +205,10 @@ func (m *Model) executeCustomCommandDirect(customCmd *config.CustomCommand) tea.
 		return m.openTmuxSession(customCmd, wt)
 	}
 
+	if customCmd.Herdr != nil {
+		return m.openHerdrSession(customCmd, wt)
+	}
+
 	if customCmd.NewTab {
 		if customCmd.Container != nil {
 			env := m.buildCommandEnvForWorktree(wt)
@@ -346,7 +350,7 @@ func (m *Model) customCommandKeys() []string {
 		if cmd == nil {
 			continue
 		}
-		if strings.TrimSpace(cmd.Command) == "" && cmd.Tmux == nil && cmd.Zellij == nil && cmd.Container == nil {
+		if strings.TrimSpace(cmd.Command) == "" && cmd.Tmux == nil && cmd.Zellij == nil && cmd.Herdr == nil && cmd.Container == nil {
 			continue
 		}
 		keys = append(keys, key)
@@ -385,6 +389,8 @@ func (m *Model) customCommandBaseLabel(cmd *config.CustomCommand, key string) st
 					label = zellijSessionLabel
 				case cmd.Tmux != nil:
 					label = tmuxSessionLabel
+				case cmd.Herdr != nil:
+					label = herdrWorkspaceLabel
 				case cmd.NewTab:
 					label = terminalTabLabel
 				}

@@ -99,7 +99,7 @@ Run `make docs-sync` after changing flag definitions.
 | Flag | Type | Usage |
 | --- | --- | --- |
 | `--json` | `bool` | Output result as JSON; command stdout/stderr is redirected to stderr |
-| `--key`, `-k` | `string` | Custom command key to trigger (e.g. 't' for tmux) |
+| `--key`, `-k` | `string` | Custom command key to trigger (e.g. 't' for tmux, 'Z' for zellij, 'H' for Herdr) |
 | `--workspace`, `-w` | `string` | Target worktree name or path |
 
 ### `note`

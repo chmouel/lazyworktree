@@ -66,7 +66,7 @@ internal/app                 internal/cli
 | `internal/config/` | App config loading, CLI override merging, `.wt` repo config loading |
 | `internal/security/` | TOFU trust persistence for `.wt` files |
 | `internal/theme/` | Built-in themes, custom theme support, terminal background detection |
-| `internal/multiplexer/` | tmux, zellij, shell, and container command assembly |
+| `internal/multiplexer/` | tmux, zellij, Herdr, shell, and container command assembly |
 | `internal/models/` | Shared data types such as worktrees, PRs, issues, CI checks, and status files |
 | `internal/commands/` | Helper commands such as symlink setup |
 
@@ -178,8 +178,8 @@ environment instead of replacing it.
 That shows up in several places:
 
 - custom commands run in the shell with worktree-specific environment variables
-- tmux and zellij session scripts are generated from config rather than
-  hardcoded
+- tmux, zellij, and Herdr session scripts or layouts are generated from
+  config rather than hardcoded
 - optional container execution wraps commands for Docker or Podman
 - diff and CI output can flow through configured pager commands
 - note and branch name generation can be delegated to external scripts

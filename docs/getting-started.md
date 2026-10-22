@@ -33,7 +33,7 @@ Optional tools:
 - Nerd Font: icons default to Nerd Font glyphs.
 - delta: syntax-highlighted diffs (recommended).
 - lazygit: full TUI git control.
-- tmux / zellij: session management.
+- tmux / zellij / Herdr: session management.
 - [aichat](https://github.com/sigoden/aichat) or similar LLM CLI for automatic branch naming from diffs/issues/PRs.
 
 !!! important

@@ -34,5 +34,5 @@ lazyworktree exec --key=t
 - Accepts either positional shell command or `--key` custom action.
 - Palette-only custom commands still use their `_name` identifier with `--key`.
 - Exposes the same managed `WORKTREE_*`, `REPO_*`, and contextual `LAZYWORKTREE_*` environment variables as custom commands in the TUI.
-- Supports shell, tmux, zellij, and show-output command types.
+- Supports shell, tmux, zellij, herdr, and show-output command types.
 - `new-tab` commands are not supported in CLI mode.
