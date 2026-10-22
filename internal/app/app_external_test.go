@@ -720,9 +720,14 @@ func TestOpenTmuxSessionNewTabClearsTmuxEnv(t *testing.T) {
 	wt := &models.WorktreeInfo{Path: t.TempDir(), Branch: "feature"}
 
 	var kittyArgs []string
+	var listCmd *exec.Cmd
 	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
 		if name == "kitty" {
 			kittyArgs = append([]string{}, args...)
+		}
+		if name == "tmux" && len(args) > 0 && args[0] == "list-sessions" {
+			listCmd = exec.Command("true")
+			return listCmd
 		}
 		return exec.Command("true")
 	}
@@ -748,6 +753,17 @@ func TestOpenTmuxSessionNewTabClearsTmuxEnv(t *testing.T) {
 	}
 	if ready.err != nil {
 		t.Fatalf("expected no launch error, got %v", ready.err)
+	}
+	// The script runs on the default tmux server, so sessions must be listed there.
+	if _, err := exec.LookPath("tmux"); err == nil {
+		if listCmd == nil || listCmd.Env == nil {
+			t.Fatal("expected tmux sessions to be listed with an explicit environment")
+		}
+		for _, entry := range listCmd.Env {
+			if strings.HasPrefix(entry, "TMUX=") || strings.HasPrefix(entry, "TMUX_PANE=") {
+				t.Fatalf("expected TMUX to be cleared when listing sessions, got %q", entry)
+			}
+		}
 	}
 	if len(kittyArgs) == 0 {
 		t.Fatal("expected kitty launcher to be invoked")
