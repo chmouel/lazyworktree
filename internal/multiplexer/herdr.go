@@ -132,7 +132,8 @@ func HerdrResolvedName(field, configured, fallback string) (string, error) {
 
 // ResolveHerdrWindows expands names and working directories for Herdr tabs.
 // Unlike tmux, Herdr receives environment variables through --env, so commands
-// keep their original form.
+// keep their original form. A window without a command runs the default shell,
+// which keeps container wrapping effective for shell tabs.
 func ResolveHerdrWindows(windows []config.TmuxWindow, env map[string]string, defaultCwd string) []ResolvedWindow {
 	resolved := make([]ResolvedWindow, 0, len(windows))
 	for i, window := range windows {
@@ -144,9 +145,13 @@ func ResolveHerdrWindows(windows []config.TmuxWindow, env map[string]string, def
 		if cwd == "" {
 			cwd = defaultCwd
 		}
+		command := strings.TrimSpace(window.Command)
+		if command == "" {
+			command = defaultWindowShellCommand
+		}
 		resolved = append(resolved, ResolvedWindow{
 			Name:    name,
-			Command: strings.TrimSpace(window.Command),
+			Command: command,
 			Cwd:     cwd,
 		})
 	}
@@ -380,12 +385,17 @@ func (h *Herdr) EnsureServer(ctx context.Context) error {
 }
 
 // displaySession resolves the session these commands act on: an explicit
-// Session wins, otherwise an ambient HERDR_SESSION, otherwise the default
-// session.
+// Session wins, otherwise the ambient session.
 func (h *Herdr) displaySession() string {
 	if h.Session != "" {
 		return h.Session
 	}
+	return HerdrAmbientSession()
+}
+
+// HerdrAmbientSession returns the session the current Herdr client is attached
+// to: HERDR_SESSION when set, otherwise Herdr's default session.
+func HerdrAmbientSession() string {
 	if ambient := strings.TrimSpace(os.Getenv("HERDR_SESSION")); ambient != "" {
 		return ambient
 	}

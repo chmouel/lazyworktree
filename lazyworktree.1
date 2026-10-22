@@ -1497,7 +1497,7 @@ Same environment variables as init_commands.
 .
 .TP
 .B custom_commands
-Custom keybindings to run commands in the selected worktree. Commands execute interactively (TUI suspends, like lazygit) and appear in the command palette. Prefix a command key with \fB_\fR to make it command-palette only. Key-bound custom commands take precedence over built-in keys.
+Custom keybindings to run commands in the selected worktree. Commands execute interactively (TUI suspends, like lazygit) and appear in the command palette. Prefix a command key with \fB_\fR to make it command-palette only. Key-bound custom commands take precedence over built-in keys. The default bindings are \fBt\fR for tmux, \fBZ\fR for Zellij, and \fBH\fR for Herdr.
 .PP
 Each custom command supports the following fields:
 .RS
@@ -1560,7 +1560,7 @@ For Herdr workspaces or sessions, the following fields are available:
 .IP \(bu 2
 \fBherdr_session\fR: Herdr session hosting the workspace (workspace mode only; empty inherits the current session, default targets the default session explicitly).
 .IP \(bu 2
-\fBattach\fR: If true, attach or focus immediately; if false, show info modal (default: true). A reused workspace is focused before the external client attaches. Herdr cannot switch sessions from inside a running client, so session mode shows attach instructions when nested, including when the session already exists.
+\fBattach\fR: If true, attach or focus immediately; if false, show info modal (default: true). A reused workspace is focused before the external client attaches. Herdr cannot switch sessions from inside a running client, so session mode shows attach instructions when nested, including when the session already exists. In workspace mode, a session other than the current one shows attach instructions instead of focusing a workspace the current client cannot display.
 .IP \(bu 2
 \fBon_exists\fR: Behaviour if the workspace or session exists: switch, attach, kill, new (default: switch). For Herdr, attach and switch both reuse the existing workspace or session.
 .IP \(bu 2

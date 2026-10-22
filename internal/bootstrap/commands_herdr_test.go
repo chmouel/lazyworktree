@@ -236,6 +236,41 @@ func TestExecuteHerdrActionNestedSessionPrintsInstructions(t *testing.T) {
 	}
 }
 
+func TestExecuteHerdrActionNestedWorkspaceInOtherSessionPrintsInstructions(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", logPath)
+	t.Setenv("HERDR_SESSION", "outer")
+	t.Setenv("HERDR_TEST_SESSIONS", `[{"name":"inner","running":true}]`)
+	t.Setenv("HERDR_TEST_WORKSPACES", `[{"workspace_id":"w1","label":"feat"}]`)
+	writeFakeHerdrCLI(t, fakeHerdrCLIScript)
+
+	wt, cfg := herdrActionWorktree(t)
+	var runErr error
+	stderr := captureStderr(t, func() {
+		runErr = executeHerdrAction(context.Background(), &config.HerdrCommand{
+			Mode:         config.HerdrModeWorkspace,
+			SessionName:  "feat",
+			HerdrSession: "inner",
+			OnExists:     "switch",
+			Attach:       true,
+			Windows:      []config.TmuxWindow{{Name: "shell"}},
+		}, nil, cfg, wt, map[string]string{})
+	})
+	if runErr != nil {
+		t.Fatalf("executeHerdrAction: %v", runErr)
+	}
+	if !strings.Contains(stderr, "Attach from another terminal") {
+		t.Errorf("stderr = %q, want nested attach instructions", stderr)
+	}
+	log := readHerdrCLILog(t, logPath)
+	if strings.Contains(log, "workspace focus") {
+		t.Errorf("expected no focus in a session the current client cannot display, got:\n%s", log)
+	}
+	if strings.Contains(log, "attach") {
+		t.Errorf("expected no attach from inside Herdr, got:\n%s", log)
+	}
+}
+
 func TestExecuteHerdrActionSessionModeCreatesMissingWorkspace(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "herdr.log")
 	t.Setenv("HERDR_TEST_LOG", logPath)

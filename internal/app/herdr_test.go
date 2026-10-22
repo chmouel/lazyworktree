@@ -150,14 +150,70 @@ func TestHerdrReadyAttachesWhenRequested(t *testing.T) {
 	}
 }
 
+func TestHerdrReadyWorkspaceInOtherSessionShowsNestedInfo(t *testing.T) {
+	t.Setenv("HERDR_SESSION", "outer")
+	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
+	m.setWindowSize(120, 40)
+
+	updated, cmd := m.Update(herdrReadyMsg{
+		label:       "wt-feature",
+		session:     "inner",
+		workspaceID: "w1",
+		attach:      true,
+		insideHerdr: true,
+		mode:        config.HerdrModeWorkspace,
+	})
+	model := updated.(*Model)
+	if cmd != nil {
+		t.Fatal("expected no focus command for a workspace in another session")
+	}
+	infoScr := model.state.ui.screenManager.Current().(*appscreen.InfoScreen)
+	if !strings.Contains(infoScr.Message, "outside the current Herdr session") {
+		t.Errorf("expected attach instructions for the target session, got: %q", infoScr.Message)
+	}
+	if !strings.Contains(infoScr.Message, "herdr session attach 'inner'") {
+		t.Errorf("expected the target session in the attach hint, got: %q", infoScr.Message)
+	}
+}
+
+func TestHerdrReadyWorkspaceInAmbientSessionFocuses(t *testing.T) {
+	t.Setenv("HERDR_SESSION", "inner")
+	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
+	m.setWindowSize(120, 40)
+
+	updated, cmd := m.Update(herdrReadyMsg{
+		label:       "wt-feature",
+		session:     "inner",
+		workspaceID: "w1",
+		attach:      true,
+		insideHerdr: true,
+		mode:        config.HerdrModeWorkspace,
+	})
+	model := updated.(*Model)
+	if model.state.ui.screenManager.IsActive() {
+		t.Fatalf("expected no info screen, got %v", model.state.ui.screenManager.Type())
+	}
+	if cmd == nil {
+		t.Fatal("expected the workspace to be focused in place")
+	}
+}
+
+func TestHerdrAttachCommandQuotesExecutablePath(t *testing.T) {
+	got := herdrAttachCommand("/Applications/My Tools/herdr", "wt-feature")
+	want := "'/Applications/My Tools/herdr' 'session' 'attach' 'wt-feature'"
+	if got != want {
+		t.Errorf("attach command = %q, want %q", got, want)
+	}
+}
+
 func TestGetHerdrActiveSessionsFiltersPrefix(t *testing.T) {
 	writeFakeHerdrBinary(t, fakeHerdrListScript)
 	t.Setenv("HERDR_SESSION", "")
 
 	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir(), SessionPrefix: "wt-"}, "")
 	got := m.getHerdrActiveSessions()
-	want := []string{"feature"}
-	if strings.Join(got, ",") != strings.Join(want, ",") {
+	want := []herdrSessionEntry{{Name: "wt-feature", Label: "feature"}}
+	if len(got) != len(want) || got[0] != want[0] {
 		t.Errorf("sessions = %v, want %v", got, want)
 	}
 }
@@ -195,8 +251,9 @@ func TestGetHerdrSessionsAndWorkspacesWithSanitizedPrefix(t *testing.T) {
 	t.Setenv("HERDR_SESSION", "")
 
 	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir(), SessionPrefix: "wt:"}, "")
-	if got := strings.Join(m.getHerdrActiveSessions(), ","); got != "feature" {
-		t.Errorf("sessions = %q, want feature", got)
+	sessions := m.getHerdrActiveSessions()
+	if len(sessions) != 1 || sessions[0] != (herdrSessionEntry{Name: "wt-feature", Label: "feature"}) {
+		t.Errorf("sessions = %v, want wt-feature displayed as feature", sessions)
 	}
 	got := m.getHerdrWorkspaces()
 	if len(got) != 2 || got[0].ID != "w1" || got[1].ID != "w3" {
@@ -266,11 +323,11 @@ func TestCommandPaletteExposesHerdrEntries(t *testing.T) {
 	if _, ok := items["herdr-workspace:w9"]; ok {
 		t.Error("workspace outside the session prefix should not be listed")
 	}
-	if item, ok := items["herdr-session:feature"]; !ok || item.label != "feature" {
+	if item, ok := items["herdr-session:wt-feature"]; !ok || item.label != "feature" {
 		t.Errorf("session palette item = %+v, found=%v", item, ok)
 	}
-	if _, ok := items["herdr-session:wt-feature"]; ok {
-		t.Error("the sanitised prefix should be stripped from session palette IDs")
+	if _, ok := items["herdr-session:feature"]; ok {
+		t.Error("session palette IDs should keep the full session name so attaching targets it")
 	}
 
 	cmd := paletteScreen.OnSelect("herdr-workspace:w1")
@@ -849,12 +906,12 @@ func TestOpenHerdrWorkspaceCmdFocusesPaletteWorkspace(t *testing.T) {
 	}
 }
 
-func TestOpenHerdrSessionByNameCmdAddsPrefix(t *testing.T) {
+func TestOpenHerdrSessionByNameCmdKeepsDiscoveredName(t *testing.T) {
 	t.Setenv("HERDR_SESSION", "outer")
 	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir(), SessionPrefix: "wt-"}, "")
 	m.setWindowSize(120, 40)
 
-	cmd := m.openHerdrSessionByNameCmd("feature")
+	cmd := m.openHerdrSessionByNameCmd("wt-feature")
 	if cmd != nil {
 		t.Fatal("expected no nested attach command")
 	}
@@ -862,17 +919,17 @@ func TestOpenHerdrSessionByNameCmdAddsPrefix(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected info screen, got %v", m.state.ui.screenManager.Type())
 	}
-	if !strings.Contains(infoScr.Message, "wt-feature") {
-		t.Errorf("expected the prefixed session name, got: %q", infoScr.Message)
+	if !strings.Contains(infoScr.Message, "wt-feature") || strings.Contains(infoScr.Message, "wt-wt-feature") {
+		t.Errorf("expected the discovered session name without a second prefix, got: %q", infoScr.Message)
 	}
 }
 
-func TestOpenHerdrSessionByNameCmdAttachesWithPrefix(t *testing.T) {
+func TestOpenHerdrSessionByNameCmdAttachesDiscoveredName(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "herdr.log")
 	t.Setenv("HERDR_TEST_LOG", logPath)
 	writeFakeHerdrBinary(t, fakeHerdrLayoutScript)
 
-	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir(), SessionPrefix: "wt-"}, "")
+	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir(), SessionPrefix: "wt:"}, "")
 	m.commandRunner = func(_ context.Context, name string, args ...string) *exec.Cmd {
 		appendHerdrTestLog(t, logPath, "attach "+name+" "+strings.Join(args, " "))
 		return exec.Command("true")
@@ -881,13 +938,13 @@ func TestOpenHerdrSessionByNameCmdAttachesWithPrefix(t *testing.T) {
 		return func() tea.Msg { return cb(nil) }
 	}
 
-	cmd := m.openHerdrSessionByNameCmd("feature")
+	cmd := m.openHerdrSessionByNameCmd("wt-feature")
 	if cmd == nil {
 		t.Fatal("expected an attach command")
 	}
 	_ = cmd()
 	if log := readHerdrTestLog(t, logPath); !strings.Contains(log, "attach herdr session attach wt-feature") {
-		t.Errorf("expected the prefixed session to be attached, got:\n%s", log)
+		t.Errorf("expected the discovered session to be attached unchanged, got:\n%s", log)
 	}
 }
 

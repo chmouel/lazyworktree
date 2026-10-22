@@ -52,6 +52,16 @@ func buildHerdrNestedInfoMessage(session string) string {
 	return fmt.Sprintf("herdr session %q was created outside the current Herdr session.\n\nHerdr cannot switch sessions from inside a running client.\n\nAttach from another terminal:\n\n  herdr session attach %s", session, multiplexer.ShellQuote(session))
 }
 
+func buildHerdrNestedWorkspaceInfoMessage(label, session string) string {
+	return fmt.Sprintf("herdr workspace %q belongs to session %q, outside the current Herdr session.\n\nHerdr cannot switch sessions from inside a running client.\n\nAttach from another terminal:\n\n  herdr session attach %s", label, session, multiplexer.ShellQuote(session))
+}
+
+// herdrSessionIsAmbient reports whether the current Herdr client can display a
+// target session. An empty target inherits the ambient session.
+func herdrSessionIsAmbient(session string) bool {
+	return session == "" || session == multiplexer.HerdrAmbientSession()
+}
+
 func (m *Model) attachHerdrCmd(msg herdrReadyMsg) tea.Cmd {
 	h := &multiplexer.Herdr{Bin: msg.bin, Session: msg.session}
 	args := h.AttachArgs()
@@ -85,8 +95,10 @@ func (m *Model) openHerdrWorkspaceCmd(workspaceID string) tea.Cmd {
 	}
 }
 
+// openHerdrSessionByNameCmd attaches to an active session discovered by the
+// palette. name is the full session name, so no prefix is reapplied.
 func (m *Model) openHerdrSessionByNameCmd(name string) tea.Cmd {
-	session := m.config.SessionPrefix + name
+	session := name
 	if herdrInsideSession() {
 		m.showInfo(buildHerdrNestedInfoMessage(session), nil)
 		return nil
@@ -114,8 +126,14 @@ func (m *Model) handleHerdrReady(msg herdrReadyMsg) tea.Cmd {
 			m.showInfo(buildHerdrWorkspaceInfoMessage(msg.label, h.DisplayAttachCommand()), nil)
 			return nil
 		}
-		if msg.insideHerdr && msg.workspaceID != "" {
-			return m.focusHerdrWorkspaceCmd(msg.bin, msg.session, msg.workspaceID)
+		if msg.insideHerdr {
+			if !herdrSessionIsAmbient(msg.session) {
+				m.showInfo(buildHerdrNestedWorkspaceInfoMessage(msg.label, msg.session), nil)
+				return nil
+			}
+			if msg.workspaceID != "" {
+				return m.focusHerdrWorkspaceCmd(msg.bin, msg.session, msg.workspaceID)
+			}
 		}
 	}
 
@@ -135,13 +153,21 @@ func (m *Model) focusHerdrWorkspaceCmd(bin, session, workspaceID string) tea.Cmd
 	}
 }
 
-func (m *Model) openHerdrInNewTab(msg herdrReadyMsg) tea.Cmd {
-	h := &multiplexer.Herdr{Bin: msg.bin, Session: msg.session}
-	parts := make([]string, 0, 4)
-	for _, arg := range h.AttachArgs()[1:] {
-		parts = append(parts, multiplexer.ShellQuote(arg))
+// herdrAttachCommand renders an attach command with every argument quoted, so
+// an executable installed under a path containing spaces survives shell
+// interpretation by terminal launchers.
+func herdrAttachCommand(bin, session string) string {
+	h := &multiplexer.Herdr{Bin: bin, Session: session}
+	args := h.AttachArgs()
+	quoted := make([]string, len(args))
+	for i, arg := range args {
+		quoted[i] = multiplexer.ShellQuote(arg)
 	}
-	command := strings.Join(append([]string{h.AttachArgs()[0]}, parts...), " ")
+	return strings.Join(quoted, " ")
+}
+
+func (m *Model) openHerdrInNewTab(msg herdrReadyMsg) tea.Cmd {
+	command := herdrAttachCommand(msg.bin, msg.session)
 	wt := &models.WorktreeInfo{Path: msg.wtPath, Branch: msg.wtBranch}
 	return m.openTerminalTab(&config.CustomCommand{Command: command, Description: msg.label}, wt)
 }
@@ -336,7 +362,15 @@ func (m *Model) getHerdrWorkspaces() []multiplexer.HerdrWorkspace {
 	return filtered
 }
 
-func (m *Model) getHerdrActiveSessions() []string {
+// herdrSessionEntry pairs a discovered Herdr session with the label shown in
+// the palette. Name keeps the full session name so attaching targets the same
+// session, even when the prefix was matched in sanitised form.
+type herdrSessionEntry struct {
+	Name  string
+	Label string
+}
+
+func (m *Model) getHerdrActiveSessions() []herdrSessionEntry {
 	if _, err := exec.LookPath("herdr"); err != nil {
 		return nil
 	}
@@ -345,7 +379,7 @@ func (m *Model) getHerdrActiveSessions() []string {
 		return nil
 	}
 	prefixes := herdrPrefixCandidates(m.config.SessionPrefix)
-	var active []string
+	entries := make([]herdrSessionEntry, 0, len(sessions))
 	for _, session := range sessions {
 		if !session.Running || session.Default {
 			continue
@@ -354,13 +388,13 @@ func (m *Model) getHerdrActiveSessions() []string {
 		if len(prefixes) > 0 && !matched {
 			continue
 		}
-		name := strings.TrimPrefix(session.Name, prefix)
-		if name != "" {
-			active = append(active, name)
+		label := strings.TrimPrefix(session.Name, prefix)
+		if label != "" {
+			entries = append(entries, herdrSessionEntry{Name: session.Name, Label: label})
 		}
 	}
-	sort.Strings(active)
-	return active
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
+	return entries
 }
 
 func herdrPrefixCandidates(prefix string) []string {

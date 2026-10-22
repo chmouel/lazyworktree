@@ -7,7 +7,7 @@ LazyWorktree is a keyboard-driven terminal UI for managing Git worktrees.
 
 Manage multiple Git worktrees from one interface: create, remove, and switch between them without navigating between directories.
 
-Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), LazyWorktree shows worktree state and supports tmux, Zellij, Docker, and Podman.
+Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), LazyWorktree shows worktree state and supports tmux, Zellij, Herdr, Docker, and Podman.
 
 ## Screenshot
 
@@ -21,7 +21,7 @@ _[More screenshots](https://chmouel.github.io/lazyworktree/#screenshots)_
 - CI and PR/MR status: View GitHub Actions and GitLab CI results, PR/MR details, and logs.
 - Agent sessions pane: View confirmed active Claude, Codex, Copilot, and pi sessions attached to the selected worktree.
 - Command palette: Press `?` to open the palette for actions and custom commands.
-- Tmux and Zellij support: Open worktrees in tmux windows or panes, or Zellij tabs.
+- Multiplexer support: Open worktrees in tmux windows or panes, Zellij tabs, or Herdr workspaces and sessions.
 - Docker/Podman support: Run commands in containers for a worktree.
 - Custom commands: Configure shell commands, bind them to keys, and list them in the palette.
 - Notes: Keep Markdown notes for each worktree.

@@ -782,10 +782,10 @@ func (m *Model) customPaletteItems() []commands.PaletteItem {
 				Icon:        commands.IconMultiplex,
 			})
 		}
-		for _, sessionName := range m.getHerdrActiveSessions() {
+		for _, session := range m.getHerdrActiveSessions() {
 			activeHerdrSessions = append(activeHerdrSessions, commands.PaletteItem{
-				ID:          "herdr-session:" + sessionName,
-				Label:       sessionName,
+				ID:          "herdr-session:" + session.Name,
+				Label:       session.Label,
 				Description: "active herdr session",
 				Icon:        commands.IconMultiplex,
 			})
