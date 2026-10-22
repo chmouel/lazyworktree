@@ -392,14 +392,21 @@ func TestShowCommandPaletteHasSectionHeaders(t *testing.T) {
 
 	paletteScreen := m.state.ui.screenManager.Current().(*appscreen.CommandPaletteScreen)
 	sectionCount := 0
+	hasSection := map[string]bool{}
 	for _, item := range paletteScreen.Items {
 		if item.IsSection {
 			sectionCount++
+			hasSection[item.Label] = true
 		}
 	}
 
 	if sectionCount != 7 {
 		t.Errorf("expected 7 sections, got %d", sectionCount)
+	}
+	for _, want := range []string{"Navigation", "Settings"} {
+		if !hasSection[want] {
+			t.Errorf("expected a %q section, got %v", want, hasSection)
+		}
 	}
 }
 

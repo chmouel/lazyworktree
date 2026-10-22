@@ -12,6 +12,7 @@ type CustomCommand struct {
 	NewTab      bool // Launch command in a new terminal tab (Kitty, etc.)
 	Tmux        *TmuxCommand
 	Zellij      *TmuxCommand
+	Herdr       *HerdrCommand
 	Container   *ContainerCommand
 }
 
@@ -97,7 +98,7 @@ type CustomCreateMenu struct {
 var commandSpecificFields = map[string]bool{
 	"command": true, "description": true, "show_help": true,
 	"wait": true, "show_output": true, "new_tab": true,
-	"tmux": true, "zellij": true, "container": true,
+	"tmux": true, "zellij": true, "herdr": true, "container": true,
 }
 
 // isOldFlatCommandEntry reports whether val looks like an old-style flat
@@ -182,11 +183,14 @@ func parseOneCustomCommand(cmdData map[string]any) *CustomCommand {
 	if zellij, ok := cmdData["zellij"].(map[string]any); ok {
 		cmd.Zellij = parseTmuxCommand(zellij)
 	}
+	if herdr, ok := cmdData["herdr"].(map[string]any); ok {
+		cmd.Herdr = parseHerdrCommand(herdr)
+	}
 	if container, ok := cmdData["container"].(map[string]any); ok {
 		cmd.Container = parseContainerCommand(container)
 	}
 
-	if cmd.Command != "" || cmd.Tmux != nil || cmd.Zellij != nil || cmd.Container != nil {
+	if cmd.Command != "" || cmd.Tmux != nil || cmd.Zellij != nil || cmd.Herdr != nil || cmd.Container != nil {
 		return cmd
 	}
 	return nil

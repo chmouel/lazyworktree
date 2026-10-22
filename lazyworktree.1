@@ -53,6 +53,8 @@ Tmux Integration: Create and manage tmux sessions per worktree with multi-window
 .IP \(bu 2
 Zellij Integration: Create and manage zellij sessions per worktree with multi-tab support
 .IP \(bu 2
+Herdr Integration: Create and manage Herdr workspaces or named sessions per worktree with multi-tab support
+.IP \(bu 2
 Container Execution: Run custom commands inside OCI containers (docker/podman) with automatic worktree mounting
 .IP \(bu 2
 Diff Viewer: View diff with optional delta support
@@ -299,7 +301,7 @@ Emit a JSON object to standard output describing the cleanup result, including a
 Run a command or trigger a custom command key action in a worktree from the CLI.
 .
 .PP
-The exec subcommand bridges CLI scripting with the TUI's custom command system, allowing you to execute shell commands or trigger tmux/zellij sessions without entering the TUI.
+The exec subcommand bridges CLI scripting with the TUI's custom command system, allowing you to execute shell commands or trigger tmux/zellij/herdr sessions without entering the TUI.
 .
 .PP
 .B Options:
@@ -313,7 +315,7 @@ Target worktree by name, path, or branch name. If not provided, lazyworktree aut
 .
 .TP
 .B \-\-key \fIKEY\fR, \-k \fIKEY\fR
-Custom command key to trigger (e.g., 't' for tmux, 'z' for zellij, or '_review' for a palette-only action). Mutually exclusive with the positional command argument. The key must exist in your configuration's \fBcustom_commands\fR. Supports shell, tmux, zellij, and show-output command types. Note: new-tab commands are not supported in CLI mode.
+Custom command key to trigger (e.g., 't' for tmux, 'Z' for zellij, 'H' for Herdr, or '_review' for a palette-only action). Mutually exclusive with the positional command argument. The key must exist in your configuration's \fBcustom_commands\fR. Supports shell, tmux, zellij, herdr, and show-output command types. Note: new-tab commands are not supported in CLI mode.
 .
 .TP
 .B \-\-json
@@ -616,7 +618,12 @@ Trigger a tmux custom command:
 .PP
 Trigger a zellij custom command in the current worktree:
 .br
-.B lazyworktree exec \-k z
+.B lazyworktree exec \-k Z
+.
+.PP
+Trigger a Herdr custom command:
+.br
+.B lazyworktree exec \-k H \-w my\-feature
 .
 .SS Notes
 Show the note for the current worktree:
@@ -1012,7 +1019,7 @@ The palette exposes a "Create from current" entry which copies the branch you cu
 
 Custom commands whose config key starts with \fB_\fR appear in the command palette only and do not bind a direct TUI shortcut.
 
-The command palette automatically lists all active tmux and zellij sessions starting with the configured session prefix (default: \fBwt-\fR) under separate "Active Tmux Sessions" and "Active Zellij Sessions" sections that appear after the Multiplexer section, allowing you to quickly switch to existing sessions without manually typing session names. The session prefix can be customised via the \fBsession_prefix\fR configuration option. Note that tmux does not permit colons (:) in session names, so any colons in the prefix will be automatically converted to hyphens (-).
+The command palette automatically lists all active tmux and zellij sessions and Herdr workspaces and sessions starting with the configured session prefix (default: \fBwt-\fR) under separate "Active ..." sections that appear after the Multiplexer section, allowing you to quickly switch to existing sessions without manually typing session names. Herdr workspaces are listed from the current or default Herdr session only. The session prefix can be customised via the \fBsession_prefix\fR configuration option. Note that tmux does not permit colons (:) in session names, so any colons in the prefix will be automatically converted to hyphens (-).
 .
 .SS LazyGit
 .TP
@@ -1075,7 +1082,7 @@ compdef _jt jt
 .RE
 .
 .SH BRANCH NAMING CONVENTIONS
-When creating worktrees with manual branch names, special characters are automatically converted to hyphens for compatibility with Git and terminal multiplexers (tmux/zellij). This ensures worktree directories and session names are valid across all systems.
+When creating worktrees with manual branch names, special characters are automatically converted to hyphens for compatibility with Git and terminal multiplexers (tmux/zellij/herdr). This ensures worktree directories and session names are valid across all systems.
 .PP
 .SS Supported Characters
 .LP
@@ -1099,7 +1106,7 @@ _
 feature.new|feature-new|Dots not allowed in Git branch names
 bug fix here|bug-fix-here|Spaces not allowed in branch names
 path/to/branch|path-to-branch|Slashes reserved for path separators
-feature:test|feature-test|Colons reserved in tmux/zellij session names
+feature:test|feature-test|Colons reserved in tmux/zellij/herdr session names
 test_underscore|test-underscore|Normalised to hyphens for consistency
 .TE
 .PP
@@ -1495,7 +1502,7 @@ Custom keybindings to run commands in the selected worktree. Commands execute in
 Each custom command supports the following fields:
 .RS
 .IP \(bu 2
-\fBcommand\fR: The command to execute (required, unless using tmux/zellij)
+\fBcommand\fR: The command to execute (required, unless using tmux/zellij/herdr)
 .IP \(bu 2
 \fBdescription\fR: Description shown in help screen and command palette (optional)
 .IP \(bu 2
@@ -1505,13 +1512,15 @@ Each custom command supports the following fields:
 .IP \(bu 2
 \fBshow_output\fR: Run non-interactively and show stdout/stderr in the pager (default: false, ignores wait)
 .IP \(bu 2
-\fBnew_tab\fR: Launch command in a new terminal tab (default: false). Can be combined with \fBtmux\fR and \fBzellij\fR to open multiplexer sessions in new tabs instead of suspending the TUI. Currently supports Kitty (requires remote control enabled), WezTerm, and iTerm.
+\fBnew_tab\fR: Launch command in a new terminal tab (default: false). Can be combined with \fBtmux\fR, \fBzellij\fR, and \fBherdr\fR to open multiplexer sessions in new tabs instead of suspending the TUI. Currently supports Kitty (requires remote control enabled), WezTerm, and iTerm. Inside Herdr, workspace mode focuses the workspace in place instead of opening a new tab.
 .IP \(bu 2
 \fBtmux\fR: Configure a tmux session instead of executing a single command (object, optional)
 .IP \(bu 2
 \fBzellij\fR: Configure a zellij session instead of executing a single command (object, optional)
 .IP \(bu 2
-\fBcontainer\fR: Run inside an OCI container (object, optional). Specifying just an image uses its defaults. Can be combined with \fBtmux\fR or \fBzellij\fR to run each window/tab inside a container.
+\fBherdr\fR: Configure a Herdr workspace or session instead of executing a single command (object, optional)
+.IP \(bu 2
+\fBcontainer\fR: Run inside an OCI container (object, optional). Specifying just an image uses its defaults. Can be combined with \fBtmux\fR, \fBzellij\fR, or \fBherdr\fR to run each window/tab inside a container.
 .RE
 .PP
 Supported key formats: single keys (e, s, t), modifier combinations (ctrl+e, alt+t), special keys (enter, esc, tab, space), and palette-only identifiers prefixed with \fB_\fR (for example \fB_review\fR).
@@ -1540,6 +1549,26 @@ For zellij sessions, the following fields are available:
 \fBon_exists\fR: Behaviour if session exists: switch, attach, kill, new (default: switch)
 .IP \(bu 2
 \fBwindows\fR: List of tab definitions. Each tab has: name (supports env vars), command (empty uses default shell), cwd (default: $WORKTREE_PATH). If omitted, creates a single shell tab.
+.RE
+.PP
+For Herdr workspaces or sessions, the following fields are available:
+.RS
+.IP \(bu 2
+\fBmode\fR: workspace (default) creates one workspace per worktree inside an existing Herdr session; session creates a named Herdr session per worktree.
+.IP \(bu 2
+\fBsession_name\fR: Workspace label in workspace mode, session name in session mode, supports env vars (default: wt:$WORKTREE_NAME). Herdr session names are limited to letters, digits, ., _, and \-, with a maximum of 64 bytes; other characters are replaced with -. A name that sanitises to nothing is rejected instead of falling back to the default session. Workspace labels are sanitised in the same manner so the command palette can find them.
+.IP \(bu 2
+\fBherdr_session\fR: Herdr session hosting the workspace (workspace mode only; empty inherits the current session, default targets the default session explicitly).
+.IP \(bu 2
+\fBattach\fR: If true, attach or focus immediately; if false, show info modal (default: true). A reused workspace is focused before the external client attaches. Herdr cannot switch sessions from inside a running client, so session mode shows attach instructions when nested, including when the session already exists.
+.IP \(bu 2
+\fBon_exists\fR: Behaviour if the workspace or session exists: switch, attach, kill, new (default: switch). For Herdr, attach and switch both reuse the existing workspace or session.
+.IP \(bu 2
+\fBPartial layouts\fR: Herdr offers no reliable completion marker. A retry reuses a workspace left behind by a failed attempt and does not re-run the configured commands, so a partially configured workspace can be reused as-is. Use on_exists: kill to discard it and build a fresh layout; on_exists: new instead builds a fresh workspace under an incremented label and leaves the old one in place. In session mode, these options apply when the session is running; reusing a running session ensures the worktree workspace exists, creating it when the previous attempt never got that far.
+.IP \(bu 2
+\fBNormalised names\fR: on_exists: kill and on_exists: new act on the normalised name, as they do for tmux. When sanitisation makes two worktrees share a name, killing or incrementing one can target the other worktree's session or workspace.
+.IP \(bu 2
+\fBwindows\fR: List of tab definitions. Each tab has: name (supports env vars), command (empty uses default shell), cwd (default: $WORKTREE_PATH). If omitted, creates a single shell tab. The first tab uses the name and cwd of the first window.
 .RE
 .PP
 For container execution, the following fields are available:
@@ -1708,6 +1737,8 @@ lazygit \- For full TUI git control
 tmux \- For tmux integration support
 .IP \(bu 2
 zellij \- For zellij integration support
+.IP \(bu 2
+herdr \- For Herdr integration support
 .
 .SH EXAMPLES
 .TP
@@ -1802,6 +1833,7 @@ Default worktree storage location
 .BR lazygit (1),
 .BR tmux (1),
 .BR zellij (1),
+.BR herdr (1),
 .BR delta (1)
 .
 .SH AUTHOR

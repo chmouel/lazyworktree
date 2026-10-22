@@ -210,7 +210,7 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 - Add a 'container' section with 'image' to your custom command config
 - The worktree is automatically mounted to /workspace inside the container
 - Runtime is auto-detected (podman preferred over docker)
-- Works with direct execution, tmux/zellij, pager, and terminal tabs
+- Works with direct execution, tmux/zellij/herdr, pager, and terminal tabs
 - Additional mounts, environment variables, extra arguments, args, and interactive mode are supported
 - The command field becomes the container entrypoint; use 'args' to pass arguments after the image
 - Set 'interactive: true' in the container section to allocate a TTY

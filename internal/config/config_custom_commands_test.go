@@ -482,13 +482,14 @@ func TestParseConfig_CustomCommands(t *testing.T) {
 			validate: func(t *testing.T, cfg *AppConfig) {
 				assert.Equal(t, "/tmp/worktrees", cfg.WorktreeDir)
 				assert.Equal(t, "switched", cfg.SortMode)
-				require.Len(t, cfg.CustomCommands[PaneUniversal], 3)
+				require.Len(t, cfg.CustomCommands[PaneUniversal], 4)
 				assert.Equal(t, "nvim", cfg.CustomCommands[PaneUniversal]["e"].Command)
 				assert.Equal(t, "Open editor", cfg.CustomCommands[PaneUniversal]["e"].Description)
 				assert.True(t, cfg.CustomCommands[PaneUniversal]["e"].ShowHelp)
 				assert.False(t, cfg.CustomCommands[PaneUniversal]["e"].Wait)
 				require.Contains(t, cfg.CustomCommands[PaneUniversal], "t")
 				require.Contains(t, cfg.CustomCommands[PaneUniversal], "Z")
+				require.Contains(t, cfg.CustomCommands[PaneUniversal], "H")
 			},
 		},
 		{

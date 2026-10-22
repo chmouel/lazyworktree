@@ -12,6 +12,8 @@ import (
 
 func newTestModel(t *testing.T) *Model {
 	t.Helper()
+	t.Setenv("HERDR_SESSION", "")
+	t.Setenv("HERDR_SOCKET_PATH", "")
 	return NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
 }
 

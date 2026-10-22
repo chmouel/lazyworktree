@@ -450,7 +450,7 @@ func parseConfigKeys(path string) ([]configKeySpec, error) {
 		"issue_branch_name_template":   "Template for issue-based branch naming.",
 		"pr_branch_name_template":      "Template for PR-based branch naming.",
 		"merge_method":                 "Absorb strategy for integrating a worktree.",
-		"session_prefix":               "Prefix for tmux/zellij session names.",
+		"session_prefix":               "Prefix for tmux/zellij/herdr session names.",
 		"palette_mru":                  "Enable MRU sorting in command palette.",
 		"palette_mru_limit":            "Maximum MRU items in command palette.",
 		"layout":                       "Pane layout strategy.",

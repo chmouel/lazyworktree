@@ -121,6 +121,16 @@ func (m *Model) showCommandPalette() tea.Cmd {
 			return m.attachZellijSessionCmd(fullSessionName)
 		}
 
+		// Handle active herdr workspaces
+		if workspaceID, ok := strings.CutPrefix(action, "herdr-workspace:"); ok {
+			return m.openHerdrWorkspaceCmd(workspaceID)
+		}
+
+		// Handle active herdr sessions
+		if sessionName, ok := strings.CutPrefix(action, "herdr-session:"); ok {
+			return m.openHerdrSessionByNameCmd(sessionName)
+		}
+
 		// Handle custom commands
 		paneName := paneIndexToName(m.state.view.FocusedPane)
 		if cmd, ok := m.config.CustomCommands.Lookup(paneName, action); ok {
@@ -686,7 +696,7 @@ func (m *Model) customPaletteItems() []commands.PaletteItem {
 	allCmds := m.config.CustomCommands.AllForPane(paneName)
 
 	// Separate commands into categories
-	var regularItems, tmuxItems, zellijItems []commands.PaletteItem
+	var regularItems, tmuxItems, zellijItems, herdrItems []commands.PaletteItem
 	for _, key := range keys {
 		cmd := allCmds[key]
 		if cmd == nil {
@@ -701,6 +711,8 @@ func (m *Model) customPaletteItems() []commands.PaletteItem {
 			description = zellijSessionLabel
 		case cmd.Tmux != nil:
 			description = tmuxSessionLabel
+		case cmd.Herdr != nil:
+			description = herdrWorkspaceLabel
 		}
 		item := commands.PaletteItem{
 			ID:          key,
@@ -715,16 +727,21 @@ func (m *Model) customPaletteItems() []commands.PaletteItem {
 		case cmd.Zellij != nil:
 			item.Icon = commands.IconMultiplex
 			zellijItems = append(zellijItems, item)
+		case cmd.Herdr != nil:
+			item.Icon = commands.IconMultiplex
+			herdrItems = append(herdrItems, item)
 		default:
 			regularItems = append(regularItems, item)
 		}
 	}
 
-	// Check if tmux/zellij are available
+	// Check if tmux/zellij/herdr are available
 	_, tmuxErr := exec.LookPath("tmux")
 	_, zellijErr := exec.LookPath("zellij")
+	_, herdrErr := exec.LookPath("herdr")
 	hasTmux := len(tmuxItems) > 0 && tmuxErr == nil
 	hasZellij := len(zellijItems) > 0 && zellijErr == nil
+	hasHerdr := len(herdrItems) > 0 && herdrErr == nil
 
 	// Get active tmux sessions
 	var activeTmuxSessions []commands.PaletteItem
@@ -754,6 +771,27 @@ func (m *Model) customPaletteItems() []commands.PaletteItem {
 		}
 	}
 
+	// Get active herdr workspaces and sessions
+	var activeHerdrWorkspaces, activeHerdrSessions []commands.PaletteItem
+	if herdrErr == nil {
+		for _, workspace := range m.getHerdrWorkspaces() {
+			activeHerdrWorkspaces = append(activeHerdrWorkspaces, commands.PaletteItem{
+				ID:          "herdr-workspace:" + workspace.ID,
+				Label:       workspace.Label,
+				Description: "active herdr workspace",
+				Icon:        commands.IconMultiplex,
+			})
+		}
+		for _, sessionName := range m.getHerdrActiveSessions() {
+			activeHerdrSessions = append(activeHerdrSessions, commands.PaletteItem{
+				ID:          "herdr-session:" + sessionName,
+				Label:       sessionName,
+				Description: "active herdr session",
+				Icon:        commands.IconMultiplex,
+			})
+		}
+	}
+
 	// Build result with sections
 	var items []commands.PaletteItem
 	if len(regularItems) > 0 {
@@ -761,14 +799,17 @@ func (m *Model) customPaletteItems() []commands.PaletteItem {
 		items = append(items, regularItems...)
 	}
 
-	// Multiplexer section for custom tmux/zellij commands
-	if hasTmux || hasZellij {
+	// Multiplexer section for custom tmux/zellij/herdr commands
+	if hasTmux || hasZellij || hasHerdr {
 		items = append(items, commands.PaletteItem{Label: "Multiplexer", IsSection: true, Icon: commands.IconMultiplex})
 		if hasTmux {
 			items = append(items, tmuxItems...)
 		}
 		if hasZellij {
 			items = append(items, zellijItems...)
+		}
+		if hasHerdr {
+			items = append(items, herdrItems...)
 		}
 	}
 
@@ -782,6 +823,16 @@ func (m *Model) customPaletteItems() []commands.PaletteItem {
 	if len(activeZellijSessions) > 0 {
 		items = append(items, commands.PaletteItem{Label: "Active Zellij Sessions", IsSection: true, Icon: commands.IconMultiplex})
 		items = append(items, activeZellijSessions...)
+	}
+
+	if len(activeHerdrWorkspaces) > 0 {
+		items = append(items, commands.PaletteItem{Label: "Active Herdr Workspaces", IsSection: true, Icon: commands.IconMultiplex})
+		items = append(items, activeHerdrWorkspaces...)
+	}
+
+	if len(activeHerdrSessions) > 0 {
+		items = append(items, commands.PaletteItem{Label: "Active Herdr Sessions", IsSection: true, Icon: commands.IconMultiplex})
+		items = append(items, activeHerdrSessions...)
 	}
 
 	return items

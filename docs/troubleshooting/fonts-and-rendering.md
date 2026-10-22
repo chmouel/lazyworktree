@@ -93,7 +93,7 @@ automatically; you do not need to clear the cache by hand.
 LazyWorktree wraps Kitty graphics registration for tmux passthrough. If avatars
 do not render in tmux, ensure your tmux version and configuration allow
 passthrough, for example `set -g allow-passthrough on`. If avatars still do not
-render in tmux or zellij, test outside the multiplexer, then fall back to
+render in tmux, zellij, or Herdr, test outside the multiplexer, then fall back to
 `never` if your terminal stack cannot pass Kitty graphics sequences through
 reliably.
 

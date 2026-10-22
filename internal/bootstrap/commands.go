@@ -1587,7 +1587,7 @@ func execCommand() *appiCli.Command {
 			&appiCli.StringFlag{
 				Name:    "key",
 				Aliases: []string{"k"},
-				Usage:   "Custom command key to trigger (e.g. 't' for tmux)",
+				Usage:   "Custom command key to trigger (e.g. 't' for tmux, 'Z' for zellij, 'H' for Herdr)",
 			},
 			&appiCli.BoolFlag{
 				Name:  "json",
@@ -1783,6 +1783,10 @@ func executeKeyAction(ctx context.Context, key string, cfg *config.AppConfig, wt
 		return executeZellijAction(ctx, customCmd.Zellij, customCmd.Container, cfg, wt, env)
 	}
 
+	if customCmd.Herdr != nil {
+		return executeHerdrAction(ctx, customCmd.Herdr, customCmd.Container, cfg, wt, env)
+	}
+
 	if customCmd.NewTab {
 		fmt.Fprintf(os.Stderr, "Error: new-tab commands are not supported in CLI mode\n")
 		return fmt.Errorf("new-tab commands are not supported in CLI mode")
@@ -1940,6 +1944,141 @@ func executeZellijAction(ctx context.Context, zellijCfg *config.TmuxCommand, con
 	attachCmd.Stdout = os.Stdout
 	attachCmd.Stderr = os.Stderr
 
+	return attachCmd.Run()
+}
+
+func executeHerdrAction(ctx context.Context, herdrCfg *config.HerdrCommand, containerCfg *config.ContainerCommand, cfg *config.AppConfig, wt *models.WorktreeInfo, env map[string]string) error {
+	if herdrCfg == nil {
+		return fmt.Errorf("herdr configuration is nil")
+	}
+
+	label := strings.TrimSpace(services.ExpandWithEnv(herdrCfg.SessionName, env))
+
+	session := ""
+	var nameErr error
+	if herdrCfg.Mode == config.HerdrModeSession {
+		session, nameErr = multiplexer.HerdrResolvedName("session_name", label, fmt.Sprintf("%s%s", cfg.SessionPrefix, filepath.Base(wt.Path)))
+		if nameErr == nil {
+			label, nameErr = multiplexer.HerdrResolvedName("workspace label", "", filepath.Base(wt.Path))
+		}
+	} else {
+		label, nameErr = multiplexer.HerdrResolvedName("session_name", label, cfg.SessionPrefix+filepath.Base(wt.Path))
+		if nameErr == nil {
+			configuredSession := strings.TrimSpace(services.ExpandWithEnv(herdrCfg.HerdrSession, env))
+			if session = multiplexer.SanitizeHerdrSessionName(configuredSession); configuredSession != "" && session == "" {
+				nameErr = multiplexer.HerdrInvalidNameError("herdr_session", configuredSession)
+			}
+		}
+	}
+	if nameErr != nil {
+		return nameErr
+	}
+
+	windows := multiplexer.ResolveHerdrWindows(herdrCfg.Windows, env, wt.Path)
+	if containerCfg != nil {
+		var err error
+		windows, err = multiplexer.WrapWindowCommandsForContainer(windows, containerCfg, env)
+		if err != nil {
+			return err
+		}
+	}
+
+	h := &multiplexer.Herdr{Bin: "herdr", Session: session}
+	insideHerdr := strings.TrimSpace(os.Getenv("HERDR_SESSION")) != "" || strings.TrimSpace(os.Getenv("HERDR_SOCKET_PATH")) != ""
+
+	if herdrCfg.Mode == config.HerdrModeSession {
+		if h.Running(ctx) {
+			switch strings.ToLower(strings.TrimSpace(herdrCfg.OnExists)) {
+			case multiplexer.OnExistsKill:
+				if err := h.StopSession(ctx); err != nil {
+					return err
+				}
+			case multiplexer.OnExistsNew:
+				candidate, err := multiplexer.UniqueHerdrSessionName(ctx, h.Bin, h.Session)
+				if err != nil {
+					return err
+				}
+				session = candidate
+				h.Session = candidate
+			}
+		}
+	}
+
+	if err := h.EnsureServer(ctx); err != nil {
+		return err
+	}
+
+	existing, found, err := h.FindWorkspaceByLabel(ctx, label)
+	if err != nil {
+		return err
+	}
+	workspaceID := ""
+	if found {
+		if herdrCfg.Mode == config.HerdrModeSession {
+			// A session left running by a failed attempt may hold a partial
+			// layout, so reuse the worktree workspace instead of assuming the
+			// layout completed.
+			workspaceID = existing.ID
+			label = existing.Label
+		} else {
+			switch strings.ToLower(strings.TrimSpace(herdrCfg.OnExists)) {
+			case multiplexer.OnExistsKill:
+				if err := h.CloseWorkspace(ctx, existing.ID); err != nil {
+					return err
+				}
+			case multiplexer.OnExistsNew:
+				label, err = h.UniqueWorkspaceLabel(ctx, label)
+				if err != nil {
+					return err
+				}
+			default:
+				workspaceID = existing.ID
+			}
+		}
+	}
+
+	if workspaceID == "" {
+		workspace, err := h.CreateWorkspace(ctx, label, wt.Path, windows, env, herdrCfg.Attach)
+		if err != nil {
+			return err
+		}
+		label = workspace.Label
+		workspaceID = workspace.ID
+	} else if herdrCfg.Attach && !insideHerdr {
+		// Focus the reused workspace before attaching so the client lands on it.
+		if err := h.FocusWorkspace(ctx, workspaceID); err != nil {
+			return err
+		}
+	}
+
+	if !herdrCfg.Attach {
+		if herdrCfg.Mode == config.HerdrModeSession {
+			fmt.Fprintf(os.Stderr, "Herdr session %q is ready. Attach with: herdr session attach %s\n", h.SessionName(), multiplexer.ShellQuote(h.SessionName()))
+		} else {
+			fmt.Fprintf(os.Stderr, "Herdr workspace %q is ready. Attach with: %s\n", label, h.DisplayAttachCommand())
+		}
+		return nil
+	}
+
+	if insideHerdr && herdrCfg.Mode != config.HerdrModeSession {
+		return h.FocusWorkspace(ctx, workspaceID)
+	}
+
+	if herdrCfg.Mode == config.HerdrModeSession && insideHerdr {
+		fmt.Fprintf(os.Stderr, "Herdr session %q is ready. Attach from another terminal: herdr session attach %s\n", session, multiplexer.ShellQuote(session))
+		return nil
+	}
+
+	return attachHerdrClient(ctx, h)
+}
+
+func attachHerdrClient(ctx context.Context, h *multiplexer.Herdr) error {
+	args := h.AttachArgs()
+	// #nosec G204 -- herdr binary and session name come from user configuration
+	attachCmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	attachCmd.Stdin = os.Stdin
+	attachCmd.Stdout = os.Stdout
+	attachCmd.Stderr = os.Stderr
 	return attachCmd.Run()
 }
 
