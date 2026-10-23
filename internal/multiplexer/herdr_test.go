@@ -283,12 +283,15 @@ done
 func TestHerdrCreateWorkspaceRunsTabs(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "herdr.log")
 	t.Setenv("HERDR_TEST_LOG", logPath)
+	scriptDir := t.TempDir()
+	t.Setenv("TMPDIR", scriptDir)
 	bin := writeFakeHerdr(t, fakeHerdrScript)
 
+	multiLine := "zsh -li -c '(( ${+commands[tuicr]} )) && tuicr pr 1'\nread -rsn1 -p \"Press any key\""
 	h := &Herdr{Bin: bin, Session: "wt-feat"}
 	windows := []ResolvedWindow{
 		{Name: "editor", Command: "vim", Cwd: "/w/first"},
-		{Name: "tests", Command: "go test ./...", Cwd: "/w"},
+		{Name: "tests", Command: multiLine, Cwd: "/w"},
 	}
 	workspace, err := h.CreateWorkspace(context.Background(), "feat", "v1:abc", "/w", windows, map[string]string{"A": "1"}, true)
 	if err != nil {
@@ -307,9 +310,7 @@ func TestHerdrCreateWorkspaceRunsTabs(t *testing.T) {
 		"--session wt-feat workspace create --label feat --cwd /w/first --env A=1 --focus",
 		"--session wt-feat workspace report-metadata w1 --source lazyworktree --token lazyworktree_id=v1:abc",
 		"--session wt-feat tab rename w1:t1 editor",
-		"--session wt-feat pane run w1:p1 vim",
 		"--session wt-feat tab create --workspace w1 --label tests --cwd /w --env A=1 --no-focus",
-		"--session wt-feat pane run w1:p2 go test ./...",
 	}
 	for _, want := range wants {
 		if !strings.Contains(log, want) {
@@ -318,6 +319,60 @@ func TestHerdrCreateWorkspaceRunsTabs(t *testing.T) {
 	}
 	if strings.Index(log, "report-metadata") > strings.Index(log, "tab rename") {
 		t.Errorf("expected the workspace to be tagged before its layout, got:\n%s", log)
+	}
+
+	for pane, command := range map[string]string{"w1:p1": "vim", "w1:p2": multiLine} {
+		prefix := "--session wt-feat pane run " + pane + " bash -l " + scriptDir + string(filepath.Separator)
+		var typed string
+		for _, line := range strings.Split(log, "\n") {
+			if strings.HasPrefix(line, prefix) {
+				typed = strings.TrimPrefix(line, "--session wt-feat pane run "+pane+" ")
+			}
+		}
+		if typed == "" {
+			t.Fatalf("expected a %q line in log, got:\n%s", prefix, log)
+		}
+		if strings.ContainsAny(typed, "'\"()\n") {
+			t.Errorf("typed line %q must not contain quotes, brackets or newlines", typed)
+		}
+		script, err := os.ReadFile(strings.TrimPrefix(typed, "bash -l ")) // #nosec G304 -- test script path
+		if err != nil {
+			t.Fatalf("read script: %v", err)
+		}
+		if want := "rm -f -- \"$0\"\n" + command + "\n"; string(script) != want {
+			t.Errorf("script for %s = %q, want %q", pane, script, want)
+		}
+	}
+}
+
+func TestHerdrTypedPathQuotesUnusualPaths(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"/tmp/lazyworktree-herdr-1.sh", "/tmp/lazyworktree-herdr-1.sh"},
+		{"/tmp/my dir/x.sh", "'/tmp/my dir/x.sh'"},
+	}
+	for _, tt := range tests {
+		if got := herdrTypedPath(tt.in); got != tt.want {
+			t.Errorf("herdrTypedPath(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestHerdrRunPaneCommandRemovesScriptOnFailure(t *testing.T) {
+	scriptDir := t.TempDir()
+	t.Setenv("TMPDIR", scriptDir)
+	t.Setenv("HERDR_TEST_LOG", filepath.Join(t.TempDir(), "herdr.log"))
+	bin := writeFakeHerdr(t, strings.Replace(fakeHerdrScript, "pane) exit 0;;", "pane) echo 'no pane' >&2; exit 1;;", 1))
+
+	h := &Herdr{Bin: bin, Session: "wt-feat"}
+	if err := h.runPaneCommand(context.Background(), "w1:p1", "vim"); err == nil {
+		t.Fatal("expected pane run failure")
+	}
+	entries, err := os.ReadDir(scriptDir)
+	if err != nil {
+		t.Fatalf("read script dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected script to be removed, found %d entries", len(entries))
 	}
 }
 

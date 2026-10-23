@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -152,8 +153,8 @@ func HerdrResolvedName(field, configured, fallback string) (string, error) {
 }
 
 // ResolveHerdrWindows expands names and working directories for Herdr tabs.
-// Unlike tmux, Herdr receives environment variables through --env and types tab
-// commands into the pane's existing shell, so commands keep their original
+// Unlike tmux, Herdr receives environment variables through --env and starts
+// tab commands from the pane's existing shell, so commands keep their original
 // form and tabs without one stay with their native shell.
 func ResolveHerdrWindows(windows []config.TmuxWindow, env map[string]string, defaultCwd string) []ResolvedWindow {
 	resolved := make([]ResolvedWindow, 0, len(windows))
@@ -649,7 +650,49 @@ func (h *Herdr) runPaneCommand(ctx context.Context, paneID, command string) erro
 	if strings.TrimSpace(command) == "" {
 		return nil
 	}
-	return h.run(ctx, "pane", "run", paneID, command)
+	if runtime.GOOS == "windows" {
+		return h.run(ctx, "pane", "run", paneID, command)
+	}
+	line, scriptPath, err := herdrScriptCommand(command)
+	if err != nil {
+		return err
+	}
+	if err := h.run(ctx, "pane", "run", paneID, line); err != nil {
+		_ = os.Remove(scriptPath)
+		return err
+	}
+	return nil
+}
+
+// herdrScriptCommand writes command to a self-deleting script and returns the
+// short line that runs it with bash, like tmux windows. Herdr types commands
+// into the pane's interactive shell, where multi-line text is split at the
+// first newline and line editors such as autopair rewrite quotes and brackets,
+// so only a plain path is typed. The tab returns to its native shell afterwards.
+func herdrScriptCommand(command string) (line, scriptPath string, err error) {
+	f, err := os.CreateTemp("", "lazyworktree-herdr-*.sh")
+	if err != nil {
+		return "", "", fmt.Errorf("create herdr command script: %w", err)
+	}
+	scriptPath = f.Name()
+	_, writeErr := f.WriteString("rm -f -- \"$0\"\n" + command + "\n")
+	closeErr := f.Close()
+	if err := errors.Join(writeErr, closeErr); err != nil {
+		_ = os.Remove(scriptPath)
+		return "", "", fmt.Errorf("write herdr command script: %w", err)
+	}
+	return "bash -l " + herdrTypedPath(scriptPath), scriptPath, nil
+}
+
+// herdrTypedPath quotes a path only when needed, since typed quotes are what
+// interactive line editors tend to rewrite.
+func herdrTypedPath(path string) string {
+	for _, r := range path {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && !strings.ContainsRune("/._-+", r) {
+			return ShellQuote(path)
+		}
+	}
+	return path
 }
 
 // FocusWorkspace brings an existing workspace to the foreground.

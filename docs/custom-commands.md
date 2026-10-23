@@ -255,6 +255,8 @@ If `windows` is empty, a single `shell` tab is created. Herdr session names are 
 | `command` | string | `""` | Command to run in the tab (empty uses your default shell) |
 | `cwd` | string | `$WORKTREE_PATH` | Working directory for the tab (supports env vars) |
 
+Herdr tab commands, including multi-line ones, are written to a temporary script and run with `bash -l` from the tab's shell, as tmux windows are. When the command finishes, the tab returns to your default shell.
+
 ### Container Fields
 
 For a step-by-step walkthrough with examples, see the [Container Execution guide](guides/container-execution.md).
