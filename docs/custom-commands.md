@@ -243,6 +243,7 @@ If `windows` is empty, a single `shell` tab is created. Session names with `/`, 
 | `herdr_session` | string | `""` | Herdr session hosting the workspace (workspace mode only; empty uses the current or default session) |
 | `attach` | bool | `true` | Attach or focus immediately; if false, show modal with instructions |
 | `on_exists` | string | `switch` | Behaviour if the workspace or session exists: `switch`, `attach`, `kill`, `new` (for Herdr, `attach` and `switch` both reuse the existing workspace or session) |
+| `worktree_group` | bool | `true` | Nest workspaces under their repository in the Herdr sidebar via `herdr worktree open`; `false` creates plain workspaces |
 | `windows` | list | `[ { name: "shell" } ]` | Tab definitions for the workspace |
 
 If `windows` is empty, a single `shell` tab is created. Herdr session names are limited to letters, digits, `.`, `_`, and `-`, with a maximum of 64 bytes; other characters are replaced with `-`. Workspace labels are used exactly as configured. A name that sanitises to nothing is rejected rather than silently falling back to the default session.

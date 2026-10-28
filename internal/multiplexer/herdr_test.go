@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/chmouel/lazyworktree/internal/config"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSanitizeHerdrSessionName(t *testing.T) {
@@ -262,8 +264,9 @@ while [ $# -gt 0 ]; do
 				focus|close) echo '{}';;
 			esac
 			exit 0;;
+		worktree) echo '{"result":{"already_open":false,"workspace":{"workspace_id":"w1","label":"feat"},"tab":{"tab_id":"w1:t1","label":"1"},"root_pane":{"pane_id":"w1:p1"}}}'; exit 0;;
 		tab)
-			if [ "$2" = "rename" ]; then exit 0; fi
+			if [ "$2" = "rename" ] || [ "$2" = "close" ]; then exit 0; fi
 			echo '{"result":{"tab":{"tab_id":"w1:t2"},"root_pane":{"pane_id":"w1:p2"}}}'
 			exit 0;;
 		pane) exit 0;;
@@ -853,6 +856,137 @@ func TestHerdrCreateWorkspaceRequiresTabAndPaneIDs(t *testing.T) {
 			if !strings.Contains(err.Error(), "is partially configured") {
 				t.Errorf("error = %v, want a partial configuration message", err)
 			}
+		})
+	}
+}
+
+func TestHerdrCreateWorktreeWorkspace(t *testing.T) {
+	const opened = `{"result":{"already_open":false,"workspace":{"workspace_id":"w1","label":"feat"},"tab":{"tab_id":"w1:t1","label":"1"},"root_pane":{"pane_id":"w1:p1"}}}`
+	tests := []struct {
+		name       string
+		source     string
+		workspaces string
+		worktree   string
+		wantLog    []string
+		rejectLog  []string
+	}{
+		{
+			name:   "opens the worktree grouped and swaps the first tab for one with env",
+			source: "/repo",
+			wantLog: []string{
+				"worktree open --cwd /repo --path /w --label feat --trust-repository --focus",
+				"workspace report-metadata w1 --source lazyworktree --token lazyworktree_id=v1:me",
+				"tab create --workspace w1 --label editor --cwd /w/first --env A=1 --no-focus",
+				"tab close w1:t1",
+				"tab rename w1:t2 editor",
+				"pane run w1:p2 bash -l",
+			},
+			rejectLog: []string{"workspace create", "pane run w1:p1"},
+		},
+		{
+			name:      "reuses an already open worktree workspace as is",
+			source:    "/repo",
+			worktree:  strings.Replace(opened, `"already_open":false`, `"already_open":true`, 1),
+			wantLog:   []string{"worktree open", "workspace report-metadata w1"},
+			rejectLog: []string{"tab create", "tab close", "pane run"},
+		},
+		{
+			name:      "falls back to a plain workspace when Herdr cannot open the worktree",
+			source:    "/repo",
+			worktree:  `{"error":{"code":"linked_worktree_source"}}' >&2; exit 2; echo '`,
+			wantLog:   []string{"worktree open", "workspace create --label feat --cwd /w/first --env A=1 --focus", "tab rename w1:t1 editor"},
+			rejectLog: []string{"tab close"},
+		},
+		{
+			name:      "creates a plain workspace without a source checkout",
+			wantLog:   []string{"workspace create --label feat"},
+			rejectLog: []string{"worktree open"},
+		},
+		{
+			name:       "creates a plain workspace when the worktree already has one",
+			source:     "/repo",
+			workspaces: `[{"workspace_id":"w9","label":"feat","worktree":{"checkout_path":"/w"}}]`,
+			wantLog:    []string{"workspace create --label feat"},
+			rejectLog:  []string{"worktree open"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logPath := filepath.Join(t.TempDir(), "herdr.log")
+			t.Setenv("HERDR_SESSION", "")
+			t.Setenv("HERDR_TEST_LOG", logPath)
+			script := fakeHerdrScript
+			if tt.worktree != "" {
+				script = strings.Replace(script, opened, tt.worktree, 1)
+			}
+			if tt.workspaces != "" {
+				script = strings.Replace(script, `{"result":{"workspaces":[]}}`, `{"result":{"workspaces":`+tt.workspaces+`}}`, 1)
+			}
+			bin := writeFakeHerdr(t, script)
+
+			key := "v1:me"
+			if tt.workspaces != "" {
+				key = HerdrWorktreeKey("/w")
+			}
+			windows := []ResolvedWindow{{Name: "editor", Command: "vim", Cwd: "/w/first"}}
+			h := &Herdr{Bin: bin}
+			workspace, err := h.CreateWorktreeWorkspace(context.Background(), "feat", key, tt.source, "/w", windows, map[string]string{"A": "1"}, true)
+			require.NoError(t, err)
+			assert.Equal(t, "w1", workspace.ID)
+
+			logBytes, err := os.ReadFile(logPath) // #nosec G304 -- test log path
+			require.NoError(t, err)
+			log := string(logBytes)
+			for _, want := range tt.wantLog {
+				assert.Contains(t, log, want)
+			}
+			for _, reject := range tt.rejectLog {
+				assert.NotContains(t, log, reject)
+			}
+			if strings.Contains(log, "tab close") {
+				assert.Less(t, strings.Index(log, "tab create"), strings.Index(log, "tab close"), "the replacement tab must exist before the implicit one closes")
+			}
+		})
+	}
+}
+
+func TestHerdrResolveWorkspaceReusesCheckoutWorkspace(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_SESSION", "")
+	t.Setenv("HERDR_TEST_LOG", logPath)
+	bin := writeFakeHerdr(t, strings.Replace(fakeHerdrScript,
+		`{"result":{"workspaces":[]}}`,
+		`{"result":{"workspaces":[{"workspace_id":"w1","label":"opened in herdr","worktree":{"checkout_path":"/w"}}]}}`, 1))
+
+	h := &Herdr{Bin: bin}
+	existing, label, err := h.ResolveWorkspace(context.Background(), HerdrWorktreeKey("/w"), "feat", OnExistsSwitch)
+	require.NoError(t, err)
+	assert.Equal(t, "w1", existing.ID)
+	assert.Equal(t, "opened in herdr", label)
+}
+
+func TestHerdrCloseWorkspaceExplainsGroupClose(t *testing.T) {
+	t.Setenv("HERDR_SESSION", "")
+	bin := writeFakeHerdr(t, `echo '{"error":{"code":"workspace_group_close_required"}}' >&2; exit 1`)
+
+	err := (&Herdr{Bin: bin}).CloseWorkspace(context.Background(), "w1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "linked worktree workspaces")
+}
+
+func TestMainCheckoutFromPorcelain(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "main checkout first", in: "worktree /repo\nHEAD abc\nbranch refs/heads/main\n\nworktree /w\nHEAD def\n", want: "/repo"},
+		{name: "bare repository", in: "worktree /repo.git\nbare\n\nworktree /w\nHEAD def\n", want: ""},
+		{name: "empty output", in: "", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, mainCheckoutFromPorcelain(tt.in))
 		})
 	}
 }

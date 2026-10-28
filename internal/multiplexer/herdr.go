@@ -31,15 +31,35 @@ const (
 // HerdrWorkspace is the subset of a Herdr workspace record needed to reuse or
 // focus a worktree workspace.
 type HerdrWorkspace struct {
-	ID     string            `json:"workspace_id"`
-	Label  string            `json:"label"`
-	Tokens map[string]string `json:"tokens,omitempty"`
+	ID       string                  `json:"workspace_id"`
+	Label    string                  `json:"label"`
+	Tokens   map[string]string       `json:"tokens,omitempty"`
+	Worktree *HerdrWorkspaceWorktree `json:"worktree,omitempty"`
 }
 
-// WorktreeKey returns the LazyWorktree tag of the workspace, empty when the
-// workspace is untagged.
+// HerdrWorkspaceWorktree is the Git checkout Herdr records on workspaces opened
+// through its worktree commands.
+type HerdrWorkspaceWorktree struct {
+	CheckoutPath string `json:"checkout_path"`
+}
+
+// Tagged reports whether LazyWorktree tagged the workspace with a worktree key.
+func (w HerdrWorkspace) Tagged() bool {
+	return w.Tokens[HerdrWorktreeToken] != ""
+}
+
+// WorktreeKey returns the LazyWorktree tag of the workspace, falling back to
+// the checkout Herdr records for worktree workspaces. Unlike tokens, that
+// checkout survives Herdr server restarts and is also set on workspaces opened
+// from Herdr itself. It is empty when neither is present.
 func (w HerdrWorkspace) WorktreeKey() string {
-	return w.Tokens[HerdrWorktreeToken]
+	if key := w.Tokens[HerdrWorktreeToken]; key != "" {
+		return key
+	}
+	if w.Worktree != nil && w.Worktree.CheckoutPath != "" {
+		return HerdrWorktreeKey(w.Worktree.CheckoutPath)
+	}
+	return ""
 }
 
 // HerdrWorkspaceTargets converts workspaces for ResolveTarget.
@@ -72,16 +92,26 @@ type herdrWorkspaceListResponse struct {
 	} `json:"result"`
 }
 
+type herdrWorkspaceCreateResult struct {
+	Workspace HerdrWorkspace `json:"workspace"`
+	Tab       herdrTab       `json:"tab"`
+	RootPane  herdrPane      `json:"root_pane"`
+}
+
 type herdrWorkspaceCreateResponse struct {
+	Result herdrWorkspaceCreateResult `json:"result"`
+}
+
+type herdrWorktreeOpenResponse struct {
 	Result struct {
-		Workspace HerdrWorkspace `json:"workspace"`
-		Tab       herdrTab       `json:"tab"`
-		RootPane  herdrPane      `json:"root_pane"`
+		herdrWorkspaceCreateResult
+		AlreadyOpen bool `json:"already_open"`
 	} `json:"result"`
 }
 
 type herdrTabCreateResponse struct {
 	Result struct {
+		Tab      herdrTab  `json:"tab"`
 		RootPane herdrPane `json:"root_pane"`
 	} `json:"result"`
 }
@@ -592,40 +622,112 @@ func (h *Herdr) CreateWorkspace(ctx context.Context, label, key, cwd string, win
 	if err := h.TagWorkspace(ctx, workspace.ID, key); err != nil {
 		return workspace, fmt.Errorf("herdr workspace %q (%s) was created but could not be tagged for its worktree: %w", label, workspace.ID, err)
 	}
-	if err := h.configureWorkspace(ctx, created, windows, env); err != nil {
+	if err := h.configureWorkspace(ctx, created.Result, windows, env, false); err != nil {
 		return workspace, fmt.Errorf("herdr workspace %q (%s) is partially configured: %w", label, workspace.ID, err)
 	}
 	return workspace, nil
 }
 
-// configureWorkspace names the implicit first tab, runs its command and adds a
-// tab per remaining window. Missing IDs are fatal whenever the matching command
-// or name would otherwise be dropped silently.
-func (h *Herdr) configureWorkspace(ctx context.Context, created herdrWorkspaceCreateResponse, windows []ResolvedWindow, env map[string]string) error {
-	first := windows[0]
-	if strings.TrimSpace(first.Name) != "" {
-		if created.Result.Tab.ID == "" {
-			return fmt.Errorf("herdr workspace create returned no tab ID for the first tab")
+// CreateWorktreeWorkspace opens the worktree at cwd through Herdr's worktree
+// commands, so Herdr groups the workspace under its repository, then builds the
+// layout like CreateWorkspace. source is the repository's main checkout, which
+// Herdr requires as the starting point and opens as the group's parent when it
+// is not open yet. It falls back to CreateWorkspace when source is empty, when
+// another workspace already holds the worktree (on_exists: new), or when Herdr
+// cannot open it, for instance with older releases or bare repositories.
+func (h *Herdr) CreateWorktreeWorkspace(ctx context.Context, label, key, source, cwd string, windows []ResolvedWindow, env map[string]string, focus bool) (HerdrWorkspace, error) {
+	if len(windows) == 0 {
+		return HerdrWorkspace{}, fmt.Errorf("herdr requires at least one window")
+	}
+	if strings.TrimSpace(source) == "" || h.worktreeWorkspaceOpen(ctx, key) {
+		return h.CreateWorkspace(ctx, label, key, cwd, windows, env, focus)
+	}
+
+	args := []string{"worktree", "open", "--cwd", source, "--path", cwd, "--label", label, "--trust-repository", herdrFocusFlag(focus)}
+	var opened herdrWorktreeOpenResponse
+	if err := h.runJSON(ctx, &opened, args...); err != nil {
+		return h.CreateWorkspace(ctx, label, key, cwd, windows, env, focus)
+	}
+	workspace := opened.Result.Workspace
+	if workspace.ID == "" {
+		return HerdrWorkspace{}, fmt.Errorf("herdr worktree open for %q returned no workspace ID", label)
+	}
+	if err := h.TagWorkspace(ctx, workspace.ID, key); err != nil {
+		return workspace, fmt.Errorf("herdr workspace %q (%s) was opened but could not be tagged for its worktree: %w", label, workspace.ID, err)
+	}
+	if opened.Result.AlreadyOpen {
+		return workspace, nil
+	}
+	if err := h.configureWorkspace(ctx, opened.Result.herdrWorkspaceCreateResult, windows, env, true); err != nil {
+		return workspace, fmt.Errorf("herdr workspace %q (%s) is partially configured: %w", label, workspace.ID, err)
+	}
+	return workspace, nil
+}
+
+// worktreeWorkspaceOpen reports whether a workspace in this session already
+// belongs to the worktree identified by key.
+func (h *Herdr) worktreeWorkspaceOpen(ctx context.Context, key string) bool {
+	if key == "" {
+		return false
+	}
+	workspaces, err := h.Workspaces(ctx)
+	if err != nil {
+		return false
+	}
+	for _, workspace := range workspaces {
+		if workspace.WorktreeKey() == key {
+			return true
 		}
-		if err := h.renameTab(ctx, created.Result.Tab.ID, first.Name); err != nil {
+	}
+	return false
+}
+
+// configureWorkspace sets up the first tab, runs its command and adds a tab
+// per remaining window. Missing IDs are fatal whenever the matching command or
+// name would otherwise be dropped silently. With replaceFirstTab, the first
+// window gets a new tab carrying env and the implicit tab is closed, because
+// Herdr's worktree commands cannot set the environment of the tab they create.
+func (h *Herdr) configureWorkspace(ctx context.Context, created herdrWorkspaceCreateResult, windows []ResolvedWindow, env map[string]string, replaceFirstTab bool) error {
+	first := windows[0]
+	firstTab, firstPane := created.Tab.ID, created.RootPane.ID
+	if replaceFirstTab {
+		if created.Tab.ID == "" {
+			return fmt.Errorf("herdr worktree open returned no tab ID for the first tab")
+		}
+		tab, err := h.createTab(ctx, created.Workspace.ID, first, env)
+		if err != nil {
+			return err
+		}
+		if err := h.run(ctx, "tab", "close", created.Tab.ID); err != nil {
+			return err
+		}
+		firstTab, firstPane = tab.Result.Tab.ID, tab.Result.RootPane.ID
+	}
+	if strings.TrimSpace(first.Name) != "" {
+		if firstTab == "" {
+			return fmt.Errorf("herdr returned no tab ID for the first tab")
+		}
+		if err := h.renameTab(ctx, firstTab, first.Name); err != nil {
 			return err
 		}
 	}
 	if strings.TrimSpace(first.Command) != "" {
-		if created.Result.RootPane.ID == "" {
-			return fmt.Errorf("herdr workspace create returned no root pane ID for the first tab")
+		if firstPane == "" {
+			return fmt.Errorf("herdr returned no root pane ID for the first tab")
 		}
-		if err := h.runPaneCommand(ctx, created.Result.RootPane.ID, first.Command); err != nil {
+		if err := h.runPaneCommand(ctx, firstPane, first.Command); err != nil {
 			return err
 		}
 	}
 
-	for _, window := range windows[1:] {
-		tabArgs := []string{"tab", "create", "--workspace", created.Result.Workspace.ID, "--label", window.Name, "--cwd", window.Cwd}
-		tabArgs = append(tabArgs, BuildHerdrEnvArgs(env)...)
-		tabArgs = append(tabArgs, "--no-focus")
-		var tab herdrTabCreateResponse
-		if err := h.runJSON(ctx, &tab, tabArgs...); err != nil {
+	return h.addTabs(ctx, created.Workspace.ID, windows[1:], env)
+}
+
+// addTabs creates one tab per window in the workspace and runs its command.
+func (h *Herdr) addTabs(ctx context.Context, workspaceID string, windows []ResolvedWindow, env map[string]string) error {
+	for _, window := range windows {
+		tab, err := h.createTab(ctx, workspaceID, window, env)
+		if err != nil {
 			return err
 		}
 		if strings.TrimSpace(window.Command) != "" {
@@ -640,8 +742,17 @@ func (h *Herdr) configureWorkspace(ctx context.Context, created herdrWorkspaceCr
 	return nil
 }
 
-// renameTab applies the first configured window's name to the tab that Herdr
-// created implicitly for the new workspace.
+func (h *Herdr) createTab(ctx context.Context, workspaceID string, window ResolvedWindow, env map[string]string) (herdrTabCreateResponse, error) {
+	tabArgs := []string{"tab", "create", "--workspace", workspaceID, "--label", window.Name, "--cwd", window.Cwd}
+	tabArgs = append(tabArgs, BuildHerdrEnvArgs(env)...)
+	tabArgs = append(tabArgs, "--no-focus")
+	var tab herdrTabCreateResponse
+	err := h.runJSON(ctx, &tab, tabArgs...)
+	return tab, err
+}
+
+// renameTab applies the first configured window's name to the first tab of a
+// new workspace.
 func (h *Herdr) renameTab(ctx context.Context, tabID, label string) error {
 	return h.run(ctx, "tab", "rename", tabID, label)
 }
@@ -700,9 +811,43 @@ func (h *Herdr) FocusWorkspace(ctx context.Context, workspaceID string) error {
 	return h.run(ctx, "workspace", "focus", workspaceID)
 }
 
-// CloseWorkspace closes an existing workspace.
+// CloseWorkspace closes an existing workspace. Herdr refuses to close a
+// repository workspace that still has linked worktree workspaces, and the group
+// is never closed on the user's behalf.
 func (h *Herdr) CloseWorkspace(ctx context.Context, workspaceID string) error {
-	return h.run(ctx, "workspace", "close", workspaceID)
+	err := h.run(ctx, "workspace", "close", workspaceID)
+	if err != nil && strings.Contains(err.Error(), "workspace_group_close_required") {
+		return fmt.Errorf("herdr workspace %s has linked worktree workspaces; close them first or use on_exists: new: %w", workspaceID, err)
+	}
+	return err
+}
+
+// HerdrSourceCheckout returns the main checkout of the repository holding the
+// worktree at path, which Herdr's worktree commands start from. It is empty for
+// bare repositories, which Herdr cannot group, and when Git cannot list them.
+func HerdrSourceCheckout(ctx context.Context, path string) string {
+	// #nosec G204 -- path is a worktree known to LazyWorktree
+	out, err := exec.CommandContext(ctx, "git", "-C", path, "worktree", "list", "--porcelain").Output()
+	if err != nil {
+		return ""
+	}
+	return mainCheckoutFromPorcelain(string(out))
+}
+
+func mainCheckoutFromPorcelain(out string) string {
+	checkout := ""
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case checkout == "" && strings.HasPrefix(line, "worktree "):
+			checkout = strings.TrimPrefix(line, "worktree ")
+		case line == "bare":
+			return ""
+		case line == "" && checkout != "":
+			return checkout
+		}
+	}
+	return checkout
 }
 
 // StopSession stops this Herdr session's server.

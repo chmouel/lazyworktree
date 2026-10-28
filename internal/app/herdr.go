@@ -270,7 +270,11 @@ func (m *Model) createHerdrLayout(bin string, cfg *config.HerdrCommand, wt *mode
 		return m.focusReusedHerdrWorkspace(ctx, h, cfg, ready, insideHerdr)
 	}
 
-	workspace, err := h.CreateWorkspace(ctx, label, key, wt.Path, windows, env, cfg.Attach)
+	source := ""
+	if cfg.WorktreeGroup {
+		source = multiplexer.HerdrSourceCheckout(ctx, wt.Path)
+	}
+	workspace, err := h.CreateWorktreeWorkspace(ctx, label, key, source, wt.Path, windows, env, cfg.Attach)
 	if err != nil {
 		return errMsg{err: err}
 	}
@@ -301,9 +305,18 @@ func (m *Model) getHerdrWorkspaces() []multiplexer.HerdrWorkspace {
 		return nil
 	}
 	prefixes := herdrPrefixCandidates(m.config.SessionPrefix)
+	// Herdr records the checkout of every worktree workspace, including other
+	// repositories' ones, so only this repository's are listed by checkout.
+	repoKeys := make(map[string]struct{}, len(m.state.data.worktrees))
+	for _, wt := range m.state.data.worktrees {
+		if wt != nil {
+			repoKeys[multiplexer.HerdrWorktreeKey(wt.Path)] = struct{}{}
+		}
+	}
 	filtered := make([]multiplexer.HerdrWorkspace, 0, len(workspaces))
 	for _, workspace := range workspaces {
-		if workspace.WorktreeKey() == "" && len(prefixes) > 0 &&
+		_, inRepo := repoKeys[workspace.WorktreeKey()]
+		if !workspace.Tagged() && !inRepo && len(prefixes) > 0 &&
 			!hasAnyHerdrPrefix(workspace.Label, prefixes) &&
 			!hasAnyHerdrPrefix(sanitizeHerdrSessionName(workspace.Label), prefixes) {
 			continue
