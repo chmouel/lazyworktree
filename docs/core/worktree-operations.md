@@ -127,6 +127,10 @@ Worktree creation and removal can run commands from repository `.wt` files and g
 
 For hook setup and trust behaviour, see [Lifecycle Hooks](../configuration/lifecycle-hooks.md).
 
+## Herdr Workspaces
+
+Deleting a worktree, whether from the TUI, with `lazyworktree delete`, or through `lazyworktree cleanup`, closes its Herdr workspaces in every running Herdr session. With `use_herdr_for_workspace_create` enabled, Herdr creates each new worktree as a workspace grouped under its repository. See [Worktree Grouping](../guides/multiplexer-integration.md#worktree-grouping) and [Creating Worktrees with Herdr](../guides/multiplexer-integration.md#creating-worktrees-with-herdr).
+
 ## Environment-Aware Commands
 
 Custom commands and lifecycle hooks receive managed worktree and source context variables:

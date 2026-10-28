@@ -69,7 +69,7 @@ Since `.wt` files execute arbitrary commands, LazyWorktree uses a TOFU model to 
 
 ### How it works
 
-1. **First encounter**: LazyWorktree hashes the `.wt` file and prompts you to **Trust**, **Block**, or **Cancel**
+1. **First encounter**: LazyWorktree hashes the `.wt` file and prompts you to **Trust**, **Block**, or **Cancel**. When the prompt appears for a new worktree, the worktree already exists, so the last button reads **Cancel Setup**: it keeps the worktree and skips its commands.
 2. **Subsequent runs**: the hash is compared against the stored value. If it matches, commands run without prompting
 3. **File modified**: if the `.wt` file has changed since you last trusted it (even whitespace changes), the hash will no longer match and you will be prompted again
 

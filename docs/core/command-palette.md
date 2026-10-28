@@ -32,7 +32,7 @@ Custom commands defined in your `config.yaml` appear at the top of the palette f
 
 If a custom command key starts with `_`, it is palette-only: it appears in the palette, but it is not bound to a direct TUI shortcut or shown in footer key hints.
 
-Session-oriented custom commands (tmux/zellij/herdr) also expose active sessions and Herdr workspaces in the palette, letting you switch between sessions or create new ones. Herdr workspaces are listed from the current or default Herdr session only. tmux sessions and Herdr workspaces appear under their full names with the worktree they belong to as description. Herdr session entries show the name with the configured session prefix removed, but selecting one attaches to the full session name, so the prefix is never applied twice.
+Session-oriented custom commands (tmux/zellij/herdr) also expose active sessions and Herdr workspaces in the palette, letting you switch between sessions or create new ones. Herdr workspaces are listed from the current or default Herdr session only. A workspace is matched to its worktree by the LazyWorktree tag or by its checkout path, so workspaces opened from Herdr's own worktree picker are listed as well (see `worktree_group` in [Custom Commands](../custom-commands.md)). tmux sessions and Herdr workspaces appear under their full names with the worktree they belong to as description. Herdr session entries show the name with the configured session prefix removed, but selecting one attaches to the full session name, so the prefix is never applied twice.
 
 For full command schema, see [Custom Commands Reference](../custom-commands.md).
 
