@@ -120,7 +120,7 @@ Override config values from the command line (repeatable).
 .br
 Format: \fB--config=lw.key=value\fR
 .br
-Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_refresh\fR, \fBdisable_pr\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBavatar_badges\fR, \fBpr_reviewers\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBgit_pager_command_mode\fR, \fBpager\fR, \fBeditor\fR, \fBcommit.auto_generate_command\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBworktree_note_script\fR, \fBworktree_notes_path\fR, \fBworktree_note_type\fR, \fBissue_branch_name_template\fR, \fBpr_branch_name_template\fR, \fBsession_prefix\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
+Supported keys: \fBtheme\fR, \fBworktree_dir\fR, \fBsort_mode\fR, \fBauto_refresh\fR, \fBdisable_pr\fR, \fBsearch_auto_select\fR, \fBfuzzy_finder_input\fR, \fBicon_set\fR, \fBavatar_badges\fR, \fBpr_reviewers\fR, \fBpalette_mru\fR, \fBpalette_mru_limit\fR, \fBgit_pager\fR, \fBgit_pager_args\fR, \fBgit_pager_interactive\fR, \fBgit_pager_command_mode\fR, \fBpager\fR, \fBeditor\fR, \fBcommit.auto_generate_command\fR, \fBmax_untracked_diffs\fR, \fBmax_diff_chars\fR, \fBrefresh_interval_seconds\fR, \fBtrust_mode\fR, \fBmerge_method\fR, \fBbranch_name_script\fR, \fBworktree_note_script\fR, \fBworktree_notes_path\fR, \fBworktree_note_type\fR, \fBissue_branch_name_template\fR, \fBpr_branch_name_template\fR, \fBsession_prefix\fR, \fBuse_herdr_for_workspace_create\fR, \fBherdr_workspace_create_layout\fR, \fBinit_commands\fR, \fBterminate_commands\fR.
 .br
 Examples: \fB--config=lw.theme=nord\fR, \fB--config=lw.sort_mode=active\fR
 .br
@@ -1490,6 +1490,18 @@ Available environment variables: WORKTREE_BRANCH, MAIN_WORKTREE_PATH, WORKTREE_P
 Special built-in command: \fBlink_topsymlinks\fR (not a shell command) symlinks untracked/ignored files from main worktree root, non-empty editor configs (.vscode, .idea, .cursor, .claude/settings.local.json) if it exists, ensures tmp/ directory exists, and runs direnv allow if .envrc is present.
 .
 .TP
+.B use_herdr_for_workspace_create
+Let Herdr create new worktrees with herdr worktree create, so each one opens as a workspace grouped under its repository. Applies to the CLI, the TUI and the shell helpers. See \fBCreating worktrees with Herdr\fR below.
+.br
+Default: false
+.
+.TP
+.B herdr_workspace_create_layout
+Custom command key whose herdr block lays out workspaces created with \fBuse_herdr_for_workspace_create\fR, resolved as when pressing the key in the worktrees pane. Empty uses Herdr's plain workspace.
+.br
+Default: none
+.
+.TP
 .B terminate_commands
 List of commands to execute when removing a worktree. These execute before any repository-specific .wt commands (if present).
 .br
@@ -1571,6 +1583,8 @@ For Herdr workspaces or sessions, the following fields are available:
 \fBworktree_group\fR: If true, open workspaces with herdr worktree open so they nest under their repository in the Herdr sidebar (default: true). Herdr opens the repository's main workspace when needed, and the repository is trusted. Bare repositories, or a refusal from Herdr, fall back to a plain workspace. Grouped workspaces are also matched by checkout path, so workspaces opened from Herdr's own picker are reused, listed and killed like tagged ones. Set to false for plain workspaces.
 .IP \(bu 2
 \fBDeleting worktrees\fR: deleting a worktree from the TUI, delete or cleanup closes its Herdr workspaces in every running Herdr session, stopping their programmes. The workspace hosting lazyworktree is left open.
+.PP
+\fBCreating worktrees with Herdr\fR: set \fBuse_herdr_for_workspace_create\fR to let herdr worktree create make every new worktree (CLI, TUI and shell helpers), grouped under its repository. Off by default. \fBherdr_workspace_create_layout\fR names a custom command key whose herdr block lays out the workspace, resolved as in the worktrees pane; its worktree_group is ignored. Without it, Herdr's plain workspace is used. herdr_session sees only worktree, branch and repository variables at that point. lazyworktree still prepares branches; a Herdr failure falls back to Git. The layout is applied after the init commands; a rolled-back worktree closes its workspace, and a workspace that was already open is never laid out or closed. On the trust prompt, Block skips the commands but applies the layout, whilst Cancel Setup keeps the worktree without commands or layout. A TUI started with \-\-output\-selection never focuses new workspaces. TUI warnings go to the debug log.
 .IP \(bu 2
 \fBwindows\fR: List of tab definitions. Each tab has: name (supports env vars), command (empty uses default shell), cwd (default: $WORKTREE_PATH). If omitted, creates a single shell tab. The first tab uses the name and cwd of the first window.
 .RE

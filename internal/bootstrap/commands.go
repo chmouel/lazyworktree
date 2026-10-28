@@ -574,6 +574,11 @@ func handleCreateAction(ctx context.Context, cmd *appiCli.Command) error {
 	}
 
 	gitSvc := newCLIGitServiceFunc(cfg)
+	if creator := multiplexer.NewHerdrWorktreeCreator(cfg, gitSvc.ResolveRepoName, func(message string) {
+		fmt.Fprintf(os.Stderr, "Warning: %s\n", message)
+	}); creator != nil {
+		gitSvc.SetWorktreeHook(creator)
+	}
 
 	// Extract command-specific flags
 	fromPR := cmd.Int("from-pr")

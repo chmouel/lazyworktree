@@ -69,6 +69,7 @@ type Service struct {
 	gitPagerArgs         []string
 	gitPager             string
 	commandRunner        func(ctx context.Context, name string, args ...string) *exec.Cmd
+	worktreeHook         WorktreeHook
 }
 
 // NewService constructs a Service and sets up concurrency limits.
@@ -334,6 +335,8 @@ func (s *Service) RunGit(ctx context.Context, args []string, cwd string, okRetur
 }
 
 // RunCommandChecked runs the provided git command and reports failures via notify callbacks.
+// With a worktree hook installed, `git worktree add` goes through the hook and
+// the outcome of `git worktree remove` is reported to it.
 func (s *Service) RunCommandChecked(ctx context.Context, args []string, cwd, errorPrefix string) bool {
 	command := strings.Join(args, " ")
 	if command == "" {
@@ -341,35 +344,57 @@ func (s *Service) RunCommandChecked(ctx context.Context, args []string, cwd, err
 	}
 	s.debugf("run: %s (cwd=%s)", command, cwd)
 
+	if hook := s.worktreeHook; hook != nil {
+		if add, ok := parseWorktreeAdd(args, cwd); ok {
+			err := hook.AddWorktree(ctx, add, func() error { return s.runChecked(ctx, args, cwd) })
+			return s.reportChecked(command, errorPrefix, err)
+		}
+		if path, ok := parseWorktreeRemove(args, cwd); ok {
+			removed := s.reportChecked(command, errorPrefix, s.runChecked(ctx, args, cwd))
+			hook.WorktreeRemoved(ctx, path, removed)
+			return removed
+		}
+	}
+	return s.reportChecked(command, errorPrefix, s.runChecked(ctx, args, cwd))
+}
+
+// commandPrepareError marks a command that was rejected before it ran.
+type commandPrepareError struct{ err error }
+
+func (e *commandPrepareError) Error() string { return e.err.Error() }
+
+// runChecked runs args and returns git's output as the error on failure.
+func (s *Service) runChecked(ctx context.Context, args []string, cwd string) error {
 	cmd, err := s.prepareAllowedCommand(ctx, args, nil)
 	if err != nil {
-		message := fmt.Sprintf("%s: %v", errorPrefix, err)
-		if errorPrefix == "" {
-			message = fmt.Sprintf("command error: %v", err)
-		}
-		s.notify(message, "error")
-		s.debugf("error: %s", message)
-		return false
+		return &commandPrepareError{err: err}
 	}
 	if cwd != "" {
 		cmd.Dir = cwd
 	}
-
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		detail := strings.TrimSpace(string(output))
-		if detail != "" {
-			s.notify(fmt.Sprintf("%s: %s", errorPrefix, detail), "error")
-			s.debugf("error: %s: %s", errorPrefix, detail)
-		} else {
-			s.notify(fmt.Sprintf("%s: %v", errorPrefix, err), "error")
-			s.debugf("error: %s: %v", errorPrefix, err)
+		if detail := strings.TrimSpace(string(output)); detail != "" {
+			return errors.New(detail)
 		}
-		return false
+		return err
 	}
+	return nil
+}
 
-	s.debugf("ok: %s", command)
-	return true
+func (s *Service) reportChecked(command, errorPrefix string, err error) bool {
+	if err == nil {
+		s.debugf("ok: %s", command)
+		return true
+	}
+	message := fmt.Sprintf("%s: %v", errorPrefix, err)
+	var prepareErr *commandPrepareError
+	if errors.As(err, &prepareErr) && errorPrefix == "" {
+		message = fmt.Sprintf("command error: %v", err)
+	}
+	s.notify(message, "error")
+	s.debugf("error: %s", message)
+	return false
 }
 
 // RunCommandQuiet runs the provided git command and reports whether it succeeded,

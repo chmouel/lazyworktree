@@ -636,11 +636,7 @@ func (m *Model) checkoutExistingBranchAsync(_, targetPath, branchName string) te
 			return worktreesLoadedMsg{worktrees: worktrees, err: err}
 		}
 
-		cmd := m.runCommandsWithTrust(initCmds, targetPath, env, after)
-		if cmd != nil {
-			return cmd()
-		}
-		return after()
+		return createInitMsg{path: targetPath, env: env, initCmds: initCmds, after: after}
 	}
 }
 
@@ -698,12 +694,7 @@ func (m *Model) createWorktreeFromBaseAsync(newBranch, targetPath, baseRef strin
 			}
 		}
 
-		// Return the init commands execution, which will handle the 'after' callback
-		cmd := m.runCommandsWithTrust(initCmds, targetPath, env, after)
-		if cmd != nil {
-			return cmd()
-		}
-		return after()
+		return createInitMsg{path: targetPath, env: env, initCmds: initCmds, after: after}
 	}
 }
 

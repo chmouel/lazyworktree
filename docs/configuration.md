@@ -217,6 +217,8 @@ CI environment variables: `LW_CI_JOB_NAME`, `LW_CI_JOB_NAME_CLEAN`, `LW_CI_RUN_I
 
 - `merge_method`: `"rebase"` (default) or `"merge"`. Controls Absorb and Sync (`S`) behaviour.
 - `session_prefix`: prefix for tmux/zellij/herdr sessions (default: `wt-`). The palette lists zellij sessions, Herdr sessions and untagged tmux sessions or Herdr workspaces only when they start with it; tagged tmux sessions and Herdr workspaces are always listed.
+- `use_herdr_for_workspace_create`: let Herdr create new worktrees as workspaces grouped under the repository (default: `false`). See [Creating Worktrees with Herdr](guides/multiplexer-integration.md#creating-worktrees-with-herdr).
+- `herdr_workspace_create_layout`: custom command key whose `herdr` block lays out those workspaces, resolved as in the worktrees pane (default: none, Herdr's plain workspace).
 
 ### Branch naming
 

@@ -28,61 +28,63 @@ type CommitConfig struct {
 
 // AppConfig defines the global lazyworktree configuration options.
 type AppConfig struct {
-	WorktreeDir             string
-	InitCommands            []string
-	TerminateCommands       []string
-	SortMode                string // Sort mode: "path", "active" (commit date), "switched" (last accessed)
-	AutoFetchPRs            bool
-	DisablePR               bool // Disable all PR/MR fetching and display
-	SearchAutoSelect        bool // Start with filter focused and select first match on Enter.
-	MaxUntrackedDiffs       int
-	MaxDiffChars            int
-	MaxNameLength           int // Maximum length for worktree names in table display (0 disables truncation)
-	GitPagerArgs            []string
-	GitPagerArgsSet         bool `yaml:"-"`
-	GitPager                string
-	GitPagerInteractive     bool // Interactive tools need terminal control, skip piping to less
-	GitPagerCommandMode     bool // Command-mode tools run their own git commands (e.g. lumen diff)
-	TrustMode               string
-	DebugLog                string
-	Pager                   string
-	CIScriptPager           string // Pager for CI check logs, implicitly interactive
-	CIRemote                string // Preferred remote for CI/PR queries (GitHub only): "" (auto: prefer upstream), or a remote name (e.g. "upstream", "origin"); does not change repository identity
-	Editor                  string
-	AutoRefresh             bool
-	CIAutoRefresh           bool // Periodically refresh CI status (GitHub only, uses API rate limits)
-	RefreshIntervalSeconds  int
-	CustomCommands          CustomCommandsConfig
-	Keybindings             KeybindingsConfig
-	BranchNameScript        string // Script to generate branch name suggestions from diff
-	WorktreeNoteScript      string // Script to generate worktree notes from PR/issue content
-	WorktreeNotesPath       string // Optional path to a single shared JSON file for worktree notes
-	WorktreeNoteType        string // Note storage type: "onejson" (default) or "splitted"
-	Theme                   string // Theme name: see AvailableThemes in internal/theme
-	MergeMethod             string // Merge method for absorb: "rebase" or "merge" (default: "rebase")
-	FuzzyFinderInput        bool   // Enable fuzzy finder for input suggestions (default: false)
-	IconSet                 string // Icon set: "nerd-font-v3", "text" (default: "nerd-font-v3"). Legacy "emoji" and "none" map to "text".
-	AvatarBadges            string // PR/MR author avatar badges: "auto", "never", or "always" (default: "auto").
-	PRReviewers             string // PR/MR reviewers in the Info pane: "auto" or "never" (default: "auto").
-	IssueBranchNameTemplate string // Template for issue branch names with placeholders: {number}, {title} (default: "issue-{number}-{title}")
-	PRBranchNameTemplate    string // Template for PR branch names with placeholders: {number}, {title}, {generated}, {pr_author} (default: "pr-{number}-{title}")
-	SessionPrefix           string // Palette prefix for untagged tmux/zellij/herdr sessions (default: "wt-")
-	Layout                  string // Pane arrangement: "default" or "top" (default: "default")
-	PruneStaleBranches      bool   // Include merged branches without worktrees in prune (default: false)
-	PaletteMRU              bool   // Enable MRU sorting for command palette (default: false)
-	PaletteMRULimit         int    // Number of MRU items to show (default: 5)
-	AgentSessionClaudeRoot  string // Custom root for Claude transcript discovery (default: ~/.claude/projects)
-	AgentSessionPiRoot      string // Custom root for pi transcript discovery (default: ~/.pi/agent/sessions)
-	AgentSessionsDisabled   bool   // Disable the Agent Sessions pane and transcript watching (default: false)
-	AgentProcessScan        bool   // Deprecated: opt in to ps/lsof process scanning for agent liveness (default: false; prefer setup-hooks)
-	AgentRefreshDebounceMs  int    // Debounce window (ms) for agent transcript refreshes (default: 600; 0 disables throttling)
-	CustomCreateMenus       []*CustomCreateMenu
-	CustomThemes            map[string]*CustomTheme // User-defined custom themes
-	LayoutSizes             *LayoutSizes            // Configurable pane size weights (nil = use defaults)
-	ConfigPath              string                  `yaml:"-"` // Path to the configuration file
-	DeprecationWarnings     []string                `yaml:"-"` // Warnings about deprecated config keys detected at load time
-	Commit                  CommitConfig            `yaml:"commit"`
-	UpdateOnExisting        bool                    `yaml:"-" json:"-"`
+	WorktreeDir                string
+	InitCommands               []string
+	TerminateCommands          []string
+	SortMode                   string // Sort mode: "path", "active" (commit date), "switched" (last accessed)
+	AutoFetchPRs               bool
+	DisablePR                  bool // Disable all PR/MR fetching and display
+	SearchAutoSelect           bool // Start with filter focused and select first match on Enter.
+	MaxUntrackedDiffs          int
+	MaxDiffChars               int
+	MaxNameLength              int // Maximum length for worktree names in table display (0 disables truncation)
+	GitPagerArgs               []string
+	GitPagerArgsSet            bool `yaml:"-"`
+	GitPager                   string
+	GitPagerInteractive        bool // Interactive tools need terminal control, skip piping to less
+	GitPagerCommandMode        bool // Command-mode tools run their own git commands (e.g. lumen diff)
+	TrustMode                  string
+	DebugLog                   string
+	Pager                      string
+	CIScriptPager              string // Pager for CI check logs, implicitly interactive
+	CIRemote                   string // Preferred remote for CI/PR queries (GitHub only): "" (auto: prefer upstream), or a remote name (e.g. "upstream", "origin"); does not change repository identity
+	Editor                     string
+	AutoRefresh                bool
+	CIAutoRefresh              bool // Periodically refresh CI status (GitHub only, uses API rate limits)
+	RefreshIntervalSeconds     int
+	CustomCommands             CustomCommandsConfig
+	Keybindings                KeybindingsConfig
+	BranchNameScript           string // Script to generate branch name suggestions from diff
+	WorktreeNoteScript         string // Script to generate worktree notes from PR/issue content
+	WorktreeNotesPath          string // Optional path to a single shared JSON file for worktree notes
+	WorktreeNoteType           string // Note storage type: "onejson" (default) or "splitted"
+	Theme                      string // Theme name: see AvailableThemes in internal/theme
+	MergeMethod                string // Merge method for absorb: "rebase" or "merge" (default: "rebase")
+	FuzzyFinderInput           bool   // Enable fuzzy finder for input suggestions (default: false)
+	IconSet                    string // Icon set: "nerd-font-v3", "text" (default: "nerd-font-v3"). Legacy "emoji" and "none" map to "text".
+	AvatarBadges               string // PR/MR author avatar badges: "auto", "never", or "always" (default: "auto").
+	PRReviewers                string // PR/MR reviewers in the Info pane: "auto" or "never" (default: "auto").
+	IssueBranchNameTemplate    string // Template for issue branch names with placeholders: {number}, {title} (default: "issue-{number}-{title}")
+	PRBranchNameTemplate       string // Template for PR branch names with placeholders: {number}, {title}, {generated}, {pr_author} (default: "pr-{number}-{title}")
+	SessionPrefix              string // Palette prefix for untagged tmux/zellij/herdr sessions (default: "wt-")
+	Layout                     string // Pane arrangement: "default" or "top" (default: "default")
+	PruneStaleBranches         bool   // Include merged branches without worktrees in prune (default: false)
+	UseHerdrForWorkspaceCreate bool   // Let Herdr create new worktrees as grouped workspaces (default: false)
+	HerdrWorkspaceCreateLayout string // Custom command key whose herdr block lays out those workspaces (default: "")
+	PaletteMRU                 bool   // Enable MRU sorting for command palette (default: false)
+	PaletteMRULimit            int    // Number of MRU items to show (default: 5)
+	AgentSessionClaudeRoot     string // Custom root for Claude transcript discovery (default: ~/.claude/projects)
+	AgentSessionPiRoot         string // Custom root for pi transcript discovery (default: ~/.pi/agent/sessions)
+	AgentSessionsDisabled      bool   // Disable the Agent Sessions pane and transcript watching (default: false)
+	AgentProcessScan           bool   // Deprecated: opt in to ps/lsof process scanning for agent liveness (default: false; prefer setup-hooks)
+	AgentRefreshDebounceMs     int    // Debounce window (ms) for agent transcript refreshes (default: 600; 0 disables throttling)
+	CustomCreateMenus          []*CustomCreateMenu
+	CustomThemes               map[string]*CustomTheme // User-defined custom themes
+	LayoutSizes                *LayoutSizes            // Configurable pane size weights (nil = use defaults)
+	ConfigPath                 string                  `yaml:"-"` // Path to the configuration file
+	DeprecationWarnings        []string                `yaml:"-"` // Warnings about deprecated config keys detected at load time
+	Commit                     CommitConfig            `yaml:"commit"`
+	UpdateOnExisting           bool                    `yaml:"-" json:"-"`
 }
 
 // RepoConfig represents repository-scoped commands from .wt
@@ -149,9 +151,10 @@ func DefaultConfig() *AppConfig {
 					Description: "Herdr",
 					ShowHelp:    true,
 					Herdr: &HerdrCommand{
-						Mode:     HerdrModeWorkspace,
-						Attach:   true,
-						OnExists: "switch",
+						Mode:          HerdrModeWorkspace,
+						Attach:        true,
+						OnExists:      "switch",
+						WorktreeGroup: true,
 						Windows: []TmuxWindow{
 							{Name: "shell"},
 						},
@@ -269,6 +272,10 @@ func parseConfig(data map[string]any) (*AppConfig, error) {
 	cfg.SearchAutoSelect = coerceBool(data["search_auto_select"], false)
 	cfg.FuzzyFinderInput = coerceBool(data["fuzzy_finder_input"], false)
 	cfg.PruneStaleBranches = coerceBool(data["prune_stale_branches"], false)
+	cfg.UseHerdrForWorkspaceCreate = coerceBool(data["use_herdr_for_workspace_create"], false)
+	if layout, ok := data["herdr_workspace_create_layout"].(string); ok {
+		cfg.HerdrWorkspaceCreateLayout = strings.TrimSpace(layout)
+	}
 
 	if iconSet, ok := data["icon_set"].(string); ok {
 		iconSet = strings.ToLower(strings.TrimSpace(iconSet))
@@ -706,6 +713,12 @@ func (cfg *AppConfig) ApplyCLIOverrides(overrides []string) error {
 	}
 	if _, ok := overrideData["prune_stale_branches"]; ok {
 		cfg.PruneStaleBranches = overrideCfg.PruneStaleBranches
+	}
+	if _, ok := overrideData["use_herdr_for_workspace_create"]; ok {
+		cfg.UseHerdrForWorkspaceCreate = overrideCfg.UseHerdrForWorkspaceCreate
+	}
+	if _, ok := overrideData["herdr_workspace_create_layout"]; ok {
+		cfg.HerdrWorkspaceCreateLayout = overrideCfg.HerdrWorkspaceCreateLayout
 	}
 	if _, ok := overrideData["icon_set"]; ok {
 		cfg.IconSet = overrideCfg.IconSet

@@ -982,6 +982,11 @@ func TestCreateWorktreeFromBase(t *testing.T) {
 	}
 
 	msg := cmd()
+	initMsg, ok := msg.(createInitMsg)
+	if !ok {
+		t.Fatalf("expected createInitMsg, got %T", msg)
+	}
+	msg = m.runCreateInit(initMsg.path, initMsg.env, initMsg.initCmds, initMsg.after)()
 	loaded, ok := msg.(worktreesLoadedMsg)
 	if !ok {
 		t.Fatalf("expected worktreesLoadedMsg, got %T", msg)
@@ -1385,6 +1390,11 @@ func TestCheckoutExistingBranchAsync(t *testing.T) {
 	}
 
 	msg := cmd()
+	initMsg, ok := msg.(createInitMsg)
+	if !ok {
+		t.Fatalf("expected createInitMsg, got %T", msg)
+	}
+	msg = m.runCreateInit(initMsg.path, initMsg.env, initMsg.initCmds, initMsg.after)()
 	loaded, ok := msg.(worktreesLoadedMsg)
 	if !ok {
 		t.Fatalf("expected worktreesLoadedMsg, got %T", msg)
