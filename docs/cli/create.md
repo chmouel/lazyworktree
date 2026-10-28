@@ -50,3 +50,8 @@ PR-specific branch behaviour:
 
 - worktree name is generated from the configured template
 - local branch name always matches the PR head branch name
+
+Issue-specific branch behaviour:
+
+- branch name is generated from `issue_branch_name_template`
+- if that branch already exists locally, it is reused rather than created from the base branch; when it is already checked out in a worktree, that worktree's path is returned

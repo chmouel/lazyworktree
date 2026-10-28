@@ -712,9 +712,10 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 		template = "issue-{number}-{title}"
 	}
 	branchName := utils.GenerateIssueWorktreeName(selectedIssue, template, "")
+	branchExists := localBranchExists(ctx, gitSvc, branchName)
 
 	if noWorkspace {
-		if !gitSvc.RunCommandChecked(
+		if !branchExists && !gitSvc.RunCommandChecked(
 			ctx,
 			[]string{"git", "branch", branchName, baseBranch},
 			"",
@@ -752,15 +753,32 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 		return "", fmt.Errorf("failed to check path %s: %w", targetPath, err)
 	}
 
+	addArgs := []string{"git", "worktree", "add", "-b", branchName, targetPath, baseBranch}
+	if branchExists {
+		worktrees, err := gitSvc.GetWorktrees(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to inspect worktrees for issue #%d: %w", issueNumber, err)
+		}
+		if worktreePath, attached := findWorktreePathForBranch(worktrees, branchName); attached {
+			if !silent {
+				fmt.Fprintf(os.Stderr, "Branch %q is already checked out in worktree %q\n", branchName, worktreePath)
+			}
+			return worktreePath, nil
+		}
+		if !silent {
+			fmt.Fprintf(os.Stderr, "Reusing existing branch %q\n", branchName)
+		}
+		addArgs = []string{"git", "worktree", "add", targetPath, branchName}
+	}
+
 	// Create parent directory
 	if err := fs.MkdirAll(filepath.Dir(targetPath), utils.DefaultDirPerms); err != nil {
 		return "", fmt.Errorf("failed to create worktree directory: %w", err)
 	}
 
-	// Create worktree from base branch
 	if !gitSvc.RunCommandChecked(
 		ctx,
-		[]string{"git", "worktree", "add", "-b", branchName, targetPath, baseBranch},
+		addArgs,
 		"",
 		fmt.Sprintf("Failed to create worktree from issue #%d", issueNumber),
 	) {
