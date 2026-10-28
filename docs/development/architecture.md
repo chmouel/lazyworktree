@@ -69,6 +69,7 @@ internal/app                 internal/cli
 | `internal/multiplexer/` | tmux, zellij, Herdr, shell, and container command assembly |
 | `internal/models/` | Shared data types such as worktrees, PRs, issues, CI checks, and status files |
 | `internal/commands/` | Helper commands such as symlink setup |
+| `internal/testenv/` | Test-only helper; packages whose tests run git call it from `TestMain` so a hook's `GIT_DIR` cannot point them at the real repository |
 
 ## TUI Architecture
 
