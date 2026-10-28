@@ -646,35 +646,44 @@ func TestCreateFromIssue_ReusesExistingBranch(t *testing.T) {
 	t.Parallel()
 
 	const branch = "issue-7-fix-bug"
-	const elsewhere = "/elsewhere/" + branch
 	showRefKey := filepath.Join("git", "show-ref", "--verify", "refs/heads/"+branch)
+	target := func(root string) string { return filepath.Join(root, "repo", branch) }
+	elsewhere := func(root string) string { return filepath.Join(root, "elsewhere", branch) }
 
 	tests := []struct {
 		name        string
 		noWorkspace bool
-		// attachedAt returns where the branch is checked out, or "" when it is not.
-		attachedAt func(targetPath string) string
-		failOn     string
-		wantPath   func(targetPath string) string
-		wantCalls  func(targetPath string) [][]string
-		wantErr    string
+		// attachedAt returns where the branch is checked out, or nil when it is not.
+		attachedAt func(root string) string
+		// staleAttached leaves the attached worktree directory missing.
+		staleAttached bool
+		failOn        string
+		wantPath      func(root string) string
+		wantCalls     func(root string) [][]string
+		wantErr       string
 	}{
 		{
 			name:     "detached branch gets a new worktree without -b",
-			wantPath: func(targetPath string) string { return targetPath },
-			wantCalls: func(targetPath string) [][]string {
-				return [][]string{{"git", "worktree", "add", targetPath, branch}}
+			wantPath: target,
+			wantCalls: func(root string) [][]string {
+				return [][]string{{"git", "worktree", "add", target(root), branch}}
 			},
 		},
 		{
 			name:       "branch checked out elsewhere returns that worktree",
-			attachedAt: func(string) string { return elsewhere },
-			wantPath:   func(string) string { return elsewhere },
+			attachedAt: elsewhere,
+			wantPath:   elsewhere,
 		},
 		{
 			name:       "branch checked out at the target path returns it without -U",
-			attachedAt: func(targetPath string) string { return targetPath },
-			wantPath:   func(targetPath string) string { return targetPath },
+			attachedAt: target,
+			wantPath:   target,
+		},
+		{
+			name:          "missing attached worktree asks for a prune",
+			attachedAt:    elsewhere,
+			staleAttached: true,
+			wantErr:       "which no longer exists; run \"git worktree prune\"",
 		},
 		{
 			name:        "no-workspace switches without creating the branch",
@@ -687,12 +696,12 @@ func TestCreateFromIssue_ReusesExistingBranch(t *testing.T) {
 		{
 			name:        "no-workspace names the worktree holding the branch",
 			noWorkspace: true,
-			attachedAt:  func(string) string { return elsewhere },
+			attachedAt:  elsewhere,
 			failOn:      "switch",
 			wantCalls: func(string) [][]string {
 				return [][]string{{"git", "switch", branch}}
 			},
-			wantErr: `branch "issue-7-fix-bug" is already checked out in worktree "/elsewhere/issue-7-fix-bug"`,
+			wantErr: `branch "issue-7-fix-bug" is already checked out in worktree`,
 		},
 	}
 
@@ -700,36 +709,35 @@ func TestCreateFromIssue_ReusesExistingBranch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
-			tmpDir := t.TempDir()
-			targetPath := filepath.Join(tmpDir, "repo", branch)
+			root := t.TempDir()
 
 			svc := &fakeGitService{
 				resolveRepoName:     "repo",
-				mainWorktreePath:    filepath.Join(tmpDir, "main"),
+				mainWorktreePath:    filepath.Join(root, "main"),
 				runCommandCheckedOK: true,
 				checkedFailOn:       tt.failOn,
 				runGitOutput:        map[string]string{showRefKey: "abc123 refs/heads/" + branch + "\n"},
 				issues:              []*models.IssueInfo{{Number: 7, Title: "fix bug"}},
 			}
 			if tt.attachedAt != nil {
-				attached := tt.attachedAt(targetPath)
+				attached := tt.attachedAt(root)
 				svc.worktrees = []*models.WorktreeInfo{{Path: attached, Branch: branch}}
-				if attached == targetPath {
-					require.NoError(t, os.MkdirAll(targetPath, 0o750))
+				if !tt.staleAttached {
+					require.NoError(t, os.MkdirAll(attached, 0o750))
 				}
 			}
-			cfg := &config.AppConfig{WorktreeDir: tmpDir}
+			cfg := &config.AppConfig{WorktreeDir: root}
 
 			got, err := CreateFromIssueWithFS(ctx, svc, cfg, 7, "main", tt.noWorkspace, true, DefaultFS)
 			if tt.wantErr != "" {
-				require.EqualError(t, err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tt.wantPath(targetPath), got)
+				assert.Equal(t, tt.wantPath(root), got)
 			}
 			var wantCalls [][]string
 			if tt.wantCalls != nil {
-				wantCalls = tt.wantCalls(targetPath)
+				wantCalls = tt.wantCalls(root)
 			}
 			assert.Equal(t, wantCalls, svc.runCommandCheckedCalls)
 		})

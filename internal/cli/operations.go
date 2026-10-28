@@ -746,6 +746,11 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 	}
 
 	if attachedPath != "" {
+		if _, err := fs.Stat(attachedPath); os.IsNotExist(err) {
+			return "", fmt.Errorf("branch %q belongs to worktree %q, which no longer exists; run \"git worktree prune\" and try again", branchName, attachedPath)
+		} else if err != nil {
+			return "", fmt.Errorf("failed to check path %s: %w", attachedPath, err)
+		}
 		if !silent {
 			fmt.Fprintf(os.Stderr, "Branch %q is already checked out in worktree %q\n", branchName, attachedPath)
 		}
