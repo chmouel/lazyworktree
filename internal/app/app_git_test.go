@@ -15,6 +15,8 @@ import (
 	appscreen "github.com/chmouel/lazyworktree/internal/app/screen"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFetchRemotesCompleteTriggersRefresh(t *testing.T) {
@@ -457,6 +459,117 @@ func TestRunCommandsWithTrustTofu(t *testing.T) {
 	}
 	if len(m.pending.Commands) != 1 {
 		t.Fatalf("expected pending commands to be set, got %v", m.pending.Commands)
+	}
+}
+
+type recordingCreateHook struct {
+	finalised []string
+	forgotten []string
+}
+
+func (h *recordingCreateHook) AddWorktree(_ context.Context, _ models.WorktreeAdd, runGit func() error) error {
+	return runGit()
+}
+
+func (h *recordingCreateHook) WorktreeRemoved(context.Context, string, bool) {}
+
+func (h *recordingCreateHook) FinaliseWorktree(_ context.Context, path string, _ map[string]string) error {
+	h.finalised = append(h.finalised, path)
+	return nil
+}
+
+func (h *recordingCreateHook) ForgetWorktree(path string) {
+	h.forgotten = append(h.forgotten, path)
+}
+
+func TestRunCreateInitCompletesSetupBeforeAfter(t *testing.T) {
+	tests := []struct {
+		name          string
+		initCmds      []string
+		trustMode     string
+		wantFinalised bool
+	}{
+		{name: "no init commands", wantFinalised: true},
+		{name: "init commands succeed", initCmds: []string{"true"}, wantFinalised: true},
+		{name: "trust mode never skips commands", initCmds: []string{"false"}, trustMode: "never", wantFinalised: true},
+		{name: "init commands fail", initCmds: []string{"exit 3"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir(), TrustMode: tt.trustMode}, "")
+			hook := &recordingCreateHook{}
+			m.state.services.git.SetWorktreeHook(hook)
+			path := t.TempDir()
+			afterCalls := 0
+			after := func() tea.Msg {
+				afterCalls++
+				assert.Equal(t, 1, len(hook.finalised)+len(hook.forgotten), "the setup completes before after runs")
+				return nil
+			}
+
+			cmd := m.runCreateInit(path, nil, tt.initCmds, after)
+			require.NotNil(t, cmd)
+			cmd()
+
+			assert.Equal(t, 1, afterCalls)
+			if tt.wantFinalised {
+				assert.Equal(t, []string{path}, hook.finalised)
+				assert.Empty(t, hook.forgotten)
+			} else {
+				assert.Empty(t, hook.finalised)
+				assert.Equal(t, []string{path}, hook.forgotten)
+			}
+		})
+	}
+}
+
+func TestRunCreateInitTrustPrompt(t *testing.T) {
+	tests := []struct {
+		name          string
+		choose        func(*appscreen.TrustScreen) tea.Cmd
+		wantAfter     int
+		wantFinalised bool
+	}{
+		{name: "trust runs then finalises", choose: func(s *appscreen.TrustScreen) tea.Cmd { return s.OnTrust() }, wantAfter: 1, wantFinalised: true},
+		{name: "block skips commands and finalises", choose: func(s *appscreen.TrustScreen) tea.Cmd { return s.OnBlock() }, wantAfter: 1, wantFinalised: true},
+		{name: "cancel keeps the worktree without setup", choose: func(s *appscreen.TrustScreen) tea.Cmd { return s.OnCancel() }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
+			hook := &recordingCreateHook{}
+			m.state.services.git.SetWorktreeHook(hook)
+			trustPath := filepath.Join(t.TempDir(), ".wt.yaml")
+			require.NoError(t, os.WriteFile(trustPath, []byte("init_commands: [true]"), 0o600))
+			m.repoConfigPath = trustPath
+			m.repoConfig = &config.RepoConfig{}
+			m.setLoadingScreen("Creating worktree...")
+			path := t.TempDir()
+			afterCalls := 0
+			after := func() tea.Msg {
+				afterCalls++
+				return nil
+			}
+
+			cmd := m.runCreateInit(path, nil, []string{"true"}, after)
+			require.NotNil(t, cmd, "a trust prompt must not leave callers with a nil command")
+			assert.Nil(t, cmd())
+			assert.Zero(t, afterCalls, "after waits for the trust decision")
+			assert.Empty(t, hook.finalised)
+			trustScreen, ok := m.state.ui.screenManager.Current().(*appscreen.TrustScreen)
+			require.True(t, ok, "the trust prompt replaces the loading screen")
+			assert.Equal(t, "Cancel Setup", trustScreen.CancelLabel, "cancelling cannot undo the created worktree")
+
+			msg := tt.choose(trustScreen)()
+			assert.Equal(t, tt.wantAfter, afterCalls)
+			if tt.wantFinalised {
+				assert.Equal(t, []string{path}, hook.finalised)
+				return
+			}
+			assert.Empty(t, hook.finalised)
+			assert.Equal(t, []string{path}, hook.forgotten)
+			assert.IsType(t, worktreesLoadedMsg{}, msg, "cancel refreshes the worktrees")
+		})
 	}
 }
 

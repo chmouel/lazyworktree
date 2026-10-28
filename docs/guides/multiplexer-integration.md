@@ -161,6 +161,29 @@ Grouped workspaces are recognised by their checkout path as well as by the LazyW
 
 Deleting a worktree from LazyWorktree, or with `lazyworktree delete` or `lazyworktree cleanup`, closes its Herdr workspaces in every running Herdr session, along with any programmes running in them. The workspace hosting LazyWorktree itself is left open.
 
+### Creating Worktrees with Herdr
+
+Herdr can create the worktree itself, so each new worktree arrives as a workspace grouped under its repository. This is off by default; enable it in your configuration:
+
+```yaml
+use_herdr_for_workspace_create: true
+herdr_workspace_create_layout: H # optional
+```
+
+For a single run, pass `--config=lw.use_herdr_for_workspace_create=true`. The setting applies to every creation path: `lazyworktree create`, the TUI, and the shell helpers that launch it.
+
+- Without `herdr_workspace_create_layout`, the worktree gets Herdr's plain workspace, labelled with the worktree name, in the current Herdr session (or the default session outside Herdr).
+- With a layout key, the custom command bound to that key supplies the session, label, tabs and environment, exactly as pressing the key in the worktrees pane would. A binding in the worktrees pane wins over a universal one. The command's `worktree_group` setting is ignored, because creation through Herdr always groups. When the key is missing or has no workspace-mode `herdr` block, LazyWorktree warns and uses the plain workspace.
+- `herdr_session` is expanded before the worktree exists, so only the worktree, branch and repository variables are available to it; pull request, issue and other contextual values are empty at that point.
+
+LazyWorktree still prepares branches itself, so branch tracking and pull request upstreams are unchanged. A detached commit or tag is checked out with Git and then opened in Herdr. Should Herdr fail, the worktree is created with Git instead, and a branch Herdr left behind is deleted only when LazyWorktree created it.
+
+The layout is applied once the init commands have finished. If they fail and the worktree is removed, its workspace is closed too; if the worktree is kept, the workspace stays as Herdr's plain workspace. A workspace that was already open is never laid out or closed by creation, because LazyWorktree cannot prove it created it; deleting the worktree closes it as usual.
+
+When a `.wt` file awaits trust, **Block (Skip)** skips its commands but still applies the layout, whilst **Cancel Setup** keeps the worktree and skips both the commands and the layout.
+
+New workspaces are focused only inside a Herdr client attached to the target session, and only when the layout command sets `attach` (plain workspaces always qualify). A TUI started by the shell helpers, or with `--output-selection`, never focuses them, so that it stays in front until you leave it and the helper can change directory. In the TUI, Herdr warnings go to the debug log; the CLI prints them on stderr.
+
 ### Named Session per Worktree
 
 ```yaml

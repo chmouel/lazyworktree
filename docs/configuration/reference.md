@@ -20,6 +20,8 @@ This page is generated from `internal/config/config.go`. Run `make docs-sync` af
 | `auto_fetch_prs` | `bool` | `false` | Automatically fetch PR/MR data. |
 | `disable_pr` | `bool` | `false` | Disable PR/MR integration. |
 | `prune_stale_branches` | `bool` | `false` | Include merged branches without worktrees in prune. |
+| `use_herdr_for_workspace_create` | `bool` | `false` | Let Herdr create new worktrees as workspaces grouped under the repository. Off unless enabled. |
+| `herdr_workspace_create_layout` | `string` | `none` | Custom command key whose `herdr` block lays out workspaces created with `use_herdr_for_workspace_create`, resolved as in the worktrees pane. Empty uses Herdr's plain worktree workspace. |
 | `search_auto_select` | `bool` | `false` | Focus filter and auto-select first match. |
 | `fuzzy_finder_input` | `bool` | `false` | Enable fuzzy helper input in selection dialogues. |
 | `max_name_length` | `int` | `95` | Maximum displayed worktree name length. |

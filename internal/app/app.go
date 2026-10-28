@@ -22,6 +22,7 @@ import (
 	"github.com/chmouel/lazyworktree/internal/git"
 	log "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/multiplexer"
 	"github.com/chmouel/lazyworktree/internal/security"
 	"github.com/chmouel/lazyworktree/internal/theme"
 	"github.com/chmouel/lazyworktree/internal/utils"
@@ -484,6 +485,10 @@ func NewModel(cfg *config.AppConfig, initialFilter string) *Model {
 	gitService.SetGitPager(cfg.GitPager)
 	gitService.SetGitPagerArgs(cfg.GitPagerArgs)
 	gitService.SetCIRemote(cfg.CIRemote)
+	// Herdr warnings land in the debug log, like the git service's notices.
+	if creator := multiplexer.NewHerdrWorktreeCreator(cfg, gitService.ResolveRepoName, nil); creator != nil {
+		gitService.SetWorktreeHook(creator)
+	}
 	trustManager := security.NewTrustManager()
 
 	columns := []table.Column{
@@ -858,7 +863,7 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 			worktrees, err := m.state.services.git.GetWorktrees(m.ctx)
 			return worktreesLoadedMsg{worktrees: worktrees, err: err}
 		}
-		return m, m.runCommandsWithTrust(initCmds, msg.targetPath, env, after)
+		return m, m.runCreateInit(msg.targetPath, env, initCmds, after)
 
 	case createFromIssueResultMsg:
 		m.loading.active = false
@@ -880,7 +885,10 @@ func (m *Model) updateModel(msg tea.Msg) (tea.Model, tea.Cmd) {
 			worktrees, err := m.state.services.git.GetWorktrees(m.ctx)
 			return worktreesLoadedMsg{worktrees: worktrees, err: err}
 		}
-		return m, m.runCommandsWithTrust(initCmds, msg.targetPath, env, after)
+		return m, m.runCreateInit(msg.targetPath, env, initCmds, after)
+
+	case createInitMsg:
+		return m, m.runCreateInit(msg.path, msg.env, msg.initCmds, msg.after)
 
 	case renameWorktreeResultMsg:
 		if msg.err != nil {

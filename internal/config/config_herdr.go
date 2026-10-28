@@ -42,3 +42,26 @@ func parseHerdrCommand(data map[string]any) *HerdrCommand {
 	}
 	return cmd
 }
+
+// HerdrCreateLayout returns the custom command whose herdr block lays out the
+// workspaces Herdr creates for new worktrees when use_herdr_for_workspace_create
+// is enabled. The key resolves like a key press in the worktrees pane, so a
+// worktrees binding wins over a universal one. A nil command selects Herdr's
+// plain worktree workspace; the warning explains why a configured key cannot
+// be used.
+func (c *AppConfig) HerdrCreateLayout() (*CustomCommand, string) {
+	key := strings.TrimSpace(c.HerdrWorkspaceCreateLayout)
+	if key == "" {
+		return nil, ""
+	}
+	cmd, ok := c.CustomCommands.Lookup(PaneWorktrees, key)
+	switch {
+	case !ok:
+		return nil, "herdr_workspace_create_layout: custom command " + key + " not found; using a plain Herdr worktree workspace"
+	case cmd.Herdr == nil:
+		return nil, "herdr_workspace_create_layout: custom command " + key + " has no herdr block; using a plain Herdr worktree workspace"
+	case cmd.Herdr.Mode != HerdrModeWorkspace:
+		return nil, "herdr_workspace_create_layout: custom command " + key + " uses session mode, which cannot hold a worktree group; using a plain Herdr worktree workspace"
+	}
+	return cmd, ""
+}

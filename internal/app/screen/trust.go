@@ -21,6 +21,10 @@ type TrustScreen struct {
 	OnTrust  func() tea.Cmd // Called when user trusts the commands
 	OnBlock  func() tea.Cmd // Called when user blocks/skips the commands
 	OnCancel func() tea.Cmd // Called when user cancels the operation
+
+	// CancelLabel replaces the cancel button text when the operation cannot be
+	// cancelled as a whole, such as a worktree that already exists.
+	CancelLabel string
 }
 
 // NewTrustScreen warns the user when a repo config has changed or is untrusted.
@@ -105,7 +109,7 @@ func (s *TrustScreen) View() string {
 
 	cancelButton := buttonStyle.
 		Foreground(s.Thm.ErrorFg).
-		Render("[Cancel Operation]")
+		Render(s.cancelLabel())
 
 	content := fmt.Sprintf(
 		"%s\n\n%s  %s  %s",
@@ -121,4 +125,11 @@ func (s *TrustScreen) View() string {
 // SetTheme updates the theme for this screen.
 func (s *TrustScreen) SetTheme(thm *theme.Theme) {
 	s.Thm = thm
+}
+
+func (s *TrustScreen) cancelLabel() string {
+	if s.CancelLabel != "" {
+		return "[" + s.CancelLabel + "]"
+	}
+	return "[Cancel Operation]"
 }

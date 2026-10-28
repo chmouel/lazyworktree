@@ -286,6 +286,23 @@ pr_branch_name_template: "pr-{number}-{title}"
 merge_method: "rebase"
 
 # ============================================================================
+# HERDR
+# ============================================================================
+
+# Let Herdr create new worktrees as workspaces grouped under their repository
+# instead of creating them with Git and opening a workspace afterwards.
+# Applies to `lazyworktree create`, the TUI, and the shell helpers.
+# LazyWorktree still prepares the branch, and falls back to Git if Herdr fails.
+use_herdr_for_workspace_create: false
+
+# Custom command key whose herdr block lays out workspaces created with
+# use_herdr_for_workspace_create. The key resolves as in the worktrees pane,
+# so a worktrees binding wins over a universal one. The layout runs after the
+# init commands. Leave empty for Herdr's plain workspace.
+# Example: "H" refers to the Herdr command defined under custom_commands below.
+# herdr_workspace_create_layout: H
+
+# ============================================================================
 # SECURITY
 # ============================================================================
 
@@ -440,6 +457,20 @@ custom_commands:
       show_help: true
       zellij:
         session_name: "wt:$WORKTREE_NAME"
+        attach: true
+        on_exists: "switch"
+        windows:
+          - name: claude
+            command: claude
+          - name: shell
+            command: zsh
+          - name: lazygit
+            command: lazygit
+    "H":
+      description: Herdr workspace
+      show_help: true
+      herdr:
+        mode: workspace
         attach: true
         on_exists: "switch"
         windows:

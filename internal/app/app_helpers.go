@@ -16,6 +16,7 @@ import (
 	"github.com/chmouel/lazyworktree/internal/cli"
 	log "github.com/chmouel/lazyworktree/internal/log"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/chmouel/lazyworktree/internal/multiplexer"
 	"github.com/chmouel/lazyworktree/internal/utils"
 )
 
@@ -560,6 +561,15 @@ func (m *Model) findOrphanedWorktreeDirs() []string {
 		}
 	}
 	return orphans
+}
+
+// KeepHerdrCreatedWorkspacesInBackground stops Herdr from focusing the
+// workspaces of worktrees created in this session. Shell helpers cd into the
+// selection only after the TUI exits, so focus must stay with it until then.
+func (m *Model) KeepHerdrCreatedWorkspacesInBackground() {
+	if creator, ok := m.state.services.git.WorktreeHook().(*multiplexer.HerdrWorktreeCreator); ok {
+		creator.NoFocus = true
+	}
 }
 
 // GetSelectedPath returns the selected worktree path for shell integration.

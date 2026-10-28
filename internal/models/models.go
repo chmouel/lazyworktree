@@ -176,3 +176,14 @@ const (
 	PRFetchStatusError      = "error"       // PR fetch encountered an error
 	PRFetchStatusNoPR       = "no_pr"       // No PR exists for this branch
 )
+
+// WorktreeAdd is a `git worktree add` command that an integration may take
+// over. Ref is the commit-ish to check out, or the start point of NewBranch;
+// Dir is the directory git runs in.
+type WorktreeAdd struct {
+	Path      string
+	Ref       string
+	NewBranch string
+	Track     bool
+	Dir       string
+}

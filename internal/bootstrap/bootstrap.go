@@ -204,6 +204,9 @@ func runTUI(_ context.Context, cmd *cli.Command) error {
 	}
 
 	model := app.NewModel(cfg, "")
+	if cmd.String("output-selection") != "" {
+		model.KeepHerdrCreatedWorkspacesInBackground()
+	}
 	p := tea.NewProgram(model, tea.WithInput(os.Stdin))
 
 	_, err = p.Run()

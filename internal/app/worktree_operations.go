@@ -246,7 +246,7 @@ func (m *Model) showCreateFromChangesInput(wt *models.WorktreeInfo, currentBranc
 				err:       err,
 			}
 		}
-		return m.runCommandsWithTrust(initCmds, targetPath, env, after)
+		return m.runCreateInit(targetPath, env, initCmds, after)
 	}
 
 	inputScr.OnCancel = func() tea.Cmd {
@@ -466,7 +466,7 @@ func (m *Model) executeCreateWithChanges(wt *models.WorktreeInfo, currentBranch,
 				err:       err,
 			}
 		}
-		return m.runCommandsWithTrust(initCmds, targetPath, env, after)()
+		return createInitMsg{path: targetPath, env: env, initCmds: initCmds, after: after}
 	}
 }
 
@@ -491,7 +491,7 @@ func (m *Model) executeCreateWithoutChanges(currentBranch, newBranch, targetPath
 				err:       err,
 			}
 		}
-		return m.runCommandsWithTrust(initCmds, targetPath, env, after)()
+		return createInitMsg{path: targetPath, env: env, initCmds: initCmds, after: after}
 	}
 }
 

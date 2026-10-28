@@ -975,8 +975,41 @@ func FindWorktreeByPathOrName(pathOrName string, worktrees []*models.WorktreeInf
 	return nil, fmt.Errorf("worktree not found: %s", pathOrName)
 }
 
-// runInitCommands runs init commands with TOFU trust checks.
+// runInitCommands runs init commands with TOFU trust checks, then completes the
+// worktree's setup through the worktree hook, if any. On failure the hook's
+// state is left to the caller's rollback.
 func runInitCommands(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branch, wtPath string, lazyCtx appservices.LazyWorktreeContext, silent bool) error {
+	if err := execInitCommands(ctx, gitSvc, cfg, branch, wtPath, lazyCtx, silent); err != nil {
+		return err
+	}
+	hook := worktreeHookOf(gitSvc)
+	if hook == nil {
+		return nil
+	}
+	mainPath := gitSvc.GetMainWorktreePath(ctx)
+	env := buildCommandEnvWithContext(branch, wtPath, mainPath, gitSvc.ResolveRepoName(ctx), lazyCtx)
+	if err := hook.FinaliseWorktree(ctx, wtPath, env); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+	}
+	return nil
+}
+
+// forgetWorktreeSetup stops the worktree hook from completing the setup of a
+// worktree kept after its init commands failed.
+func forgetWorktreeSetup(gitSvc gitService, wtPath string) {
+	if hook := worktreeHookOf(gitSvc); hook != nil {
+		hook.ForgetWorktree(wtPath)
+	}
+}
+
+func worktreeHookOf(gitSvc gitService) git.WorktreeHook {
+	if svc, ok := gitSvc.(interface{ WorktreeHook() git.WorktreeHook }); ok {
+		return svc.WorktreeHook()
+	}
+	return nil
+}
+
+func execInitCommands(ctx context.Context, gitSvc gitService, cfg *config.AppConfig, branch, wtPath string, lazyCtx appservices.LazyWorktreeContext, silent bool) error {
 	// Collect init commands from global and repo config
 	commands := make([]string, 0)
 	commands = append(commands, cfg.InitCommands...)
@@ -1272,6 +1305,8 @@ func createWorktreeWithChanges(ctx context.Context, gitSvc gitService, cfg *conf
 
 	// Run init commands
 	if err := runInitCommands(ctx, gitSvc, cfg, newBranch, targetPath, appservices.LazyWorktreeContext{Type: "diff"}, silent); err != nil {
+		// The moved changes live in the worktree now, so it stays.
+		forgetWorktreeSetup(gitSvc, targetPath)
 		return err
 	}
 

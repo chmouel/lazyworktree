@@ -210,6 +210,8 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 - Inside Herdr, workspace mode focuses the workspace in place
 - Workspaces nest under their repository in the Herdr sidebar (set 'worktree_group: false' to disable)
 - Deleting a worktree closes its Herdr workspaces in every running session
+- 'use_herdr_for_workspace_create: true' lets Herdr create new worktrees; 'herdr_workspace_create_layout' names a key whose layout is applied after init
+- On the trust prompt for a new worktree, Cancel Setup keeps the worktree but skips its commands and layout
 - A workspace in another Herdr session shows attach instructions, because Herdr cannot switch sessions from inside a running client
 
 **{{HELP_CONFIGURATION}}Container Execution**

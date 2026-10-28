@@ -18,6 +18,7 @@ import (
 
 	appservices "github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
+	"github.com/chmouel/lazyworktree/internal/git"
 	"github.com/chmouel/lazyworktree/internal/models"
 	"github.com/chmouel/lazyworktree/internal/security"
 )
@@ -936,6 +937,73 @@ func TestRunInitCommands(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error with no commands: %v", err)
 	}
+}
+
+type recordingWorktreeHook struct {
+	git.WorktreeHook
+	finalised []string
+	env       map[string]string
+	forgotten []string
+}
+
+func (h *recordingWorktreeHook) FinaliseWorktree(_ context.Context, path string, env map[string]string) error {
+	h.finalised = append(h.finalised, path)
+	h.env = env
+	return errors.New("layout failed")
+}
+
+func (h *recordingWorktreeHook) ForgetWorktree(path string) {
+	h.forgotten = append(h.forgotten, path)
+}
+
+type hookedFakeGitService struct {
+	*fakeGitService
+	hook *recordingWorktreeHook
+}
+
+func (s hookedFakeGitService) WorktreeHook() git.WorktreeHook { return s.hook }
+
+func TestRunInitCommandsFinalisesWorktreeHook(t *testing.T) {
+	tests := []struct {
+		name          string
+		initCommands  []string
+		initErr       error
+		wantFinalised bool
+	}{
+		{name: "init commands succeed", initCommands: []string{"echo init"}, wantFinalised: true},
+		{name: "no init commands", wantFinalised: true},
+		{name: "init commands fail", initCommands: []string{"false"}, initErr: errors.New("boom")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mainPath := t.TempDir()
+			wtPath := filepath.Join(mainPath, "worktree")
+			hook := &recordingWorktreeHook{}
+			svc := hookedFakeGitService{
+				fakeGitService: &fakeGitService{mainWorktreePath: mainPath, resolveRepoName: testRepoName, executedCommands: tt.initErr},
+				hook:           hook,
+			}
+			cfg := &config.AppConfig{InitCommands: tt.initCommands}
+			lazyCtx := appservices.LazyWorktreeContext{Type: "pr", Number: "7"}
+
+			err := runInitCommands(context.Background(), svc, cfg, "feat", wtPath, lazyCtx, true)
+			if tt.initErr != nil {
+				require.Error(t, err)
+				assert.Empty(t, hook.finalised, "a failed init leaves the hook to the rollback")
+				return
+			}
+			require.NoError(t, err, "finalisation errors are only warnings")
+			assert.Equal(t, []string{wtPath}, hook.finalised)
+			assert.Equal(t, "7", hook.env["LAZYWORKTREE_NUMBER"])
+		})
+	}
+}
+
+func TestForgetWorktreeSetupUsesHook(t *testing.T) {
+	hook := &recordingWorktreeHook{}
+	forgetWorktreeSetup(hookedFakeGitService{fakeGitService: &fakeGitService{}, hook: hook}, "/wt")
+	assert.Equal(t, []string{"/wt"}, hook.forgotten)
+	forgetWorktreeSetup(&fakeGitService{}, "/wt")
 }
 
 func TestRunTerminateCommands(t *testing.T) {

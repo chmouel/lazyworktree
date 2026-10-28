@@ -597,6 +597,32 @@ func (m *Model) collectTerminateCommands() []string {
 	return cmds
 }
 
+type commandTrust int
+
+const (
+	commandTrustSkip commandTrust = iota
+	commandTrustRun
+	commandTrustPrompt
+)
+
+// commandTrust decides whether repository commands run, are skipped, or need
+// the user's trust first, and returns the trust file to ask about.
+func (m *Model) commandTrust() (commandTrust, string) {
+	trustMode := strings.ToLower(strings.TrimSpace(m.config.TrustMode))
+	if trustMode == "never" {
+		return commandTrustSkip, ""
+	}
+	trustPath := m.repoConfigPath
+	status := security.TrustStatusTrusted
+	if m.repoConfig != nil && trustPath != "" {
+		status = m.state.services.trustManager.CheckTrust(trustPath)
+	}
+	if trustMode == "always" || status == security.TrustStatusTrusted {
+		return commandTrustRun, ""
+	}
+	return commandTrustPrompt, trustPath
+}
+
 func (m *Model) runCommandsWithTrust(cmds []string, cwd string, env map[string]string, after func() tea.Msg) tea.Cmd {
 	if len(cmds) == 0 {
 		if after == nil {
@@ -605,57 +631,124 @@ func (m *Model) runCommandsWithTrust(cmds []string, cwd string, env map[string]s
 		return after
 	}
 
-	trustMode := strings.ToLower(strings.TrimSpace(m.config.TrustMode))
-	// If trust mode set to never, skip repo commands
-	if trustMode == "never" {
+	decision, trustPath := m.commandTrust()
+	switch decision {
+	case commandTrustSkip:
 		if after == nil {
 			return nil
 		}
 		return after
-	}
-
-	// Determine trust status if repo config exists
-	trustPath := m.repoConfigPath
-	status := security.TrustStatusTrusted
-	if m.repoConfig != nil && trustPath != "" {
-		status = m.state.services.trustManager.CheckTrust(trustPath)
-	}
-
-	if trustMode == "always" || status == security.TrustStatusTrusted {
+	case commandTrustRun:
 		return m.runCommands(cmds, cwd, env, after)
 	}
 
 	// TOFU: prompt user
-	if trustPath != "" {
-		m.pending.Commands = cmds
-		m.pending.CommandEnv = env
-		m.pending.CommandCwd = cwd
-		m.pending.After = after
-		m.pending.TrustPath = trustPath
-		ts := screen.NewTrustScreen(trustPath, cmds, m.theme)
-		ts.OnTrust = func() tea.Cmd {
-			if m.pending.TrustPath != "" {
-				_ = m.state.services.trustManager.TrustFile(m.pending.TrustPath)
-			}
-			cmd := m.runCommands(m.pending.Commands, m.pending.CommandCwd, m.pending.CommandEnv, m.pending.After)
-			m.clearPendingTrust()
-			return cmd
+	m.pending.Commands = cmds
+	m.pending.CommandEnv = env
+	m.pending.CommandCwd = cwd
+	m.pending.After = after
+	m.pending.TrustPath = trustPath
+	ts := screen.NewTrustScreen(trustPath, cmds, m.theme)
+	ts.OnTrust = func() tea.Cmd {
+		if m.pending.TrustPath != "" {
+			_ = m.state.services.trustManager.TrustFile(m.pending.TrustPath)
 		}
-		ts.OnBlock = func() tea.Cmd {
-			after := m.pending.After
-			m.clearPendingTrust()
-			if after != nil {
-				return after
-			}
-			return nil
-		}
-		ts.OnCancel = func() tea.Cmd {
-			m.clearPendingTrust()
-			return nil
-		}
-		m.state.ui.screenManager.Push(ts)
+		cmd := m.runCommands(m.pending.Commands, m.pending.CommandCwd, m.pending.CommandEnv, m.pending.After)
+		m.clearPendingTrust()
+		return cmd
 	}
+	ts.OnBlock = func() tea.Cmd {
+		after := m.pending.After
+		m.clearPendingTrust()
+		if after != nil {
+			return after
+		}
+		return nil
+	}
+	ts.OnCancel = func() tea.Cmd {
+		m.clearPendingTrust()
+		return nil
+	}
+	m.state.ui.screenManager.Push(ts)
 	return nil
+}
+
+// createInitMsg asks the update loop to run a new worktree's init commands, so
+// a trust prompt is never pushed from a command goroutine.
+type createInitMsg struct {
+	path     string
+	env      map[string]string
+	initCmds []string
+	after    func() tea.Msg
+}
+
+// runCreateInit runs the init commands of a new worktree with trust checks and
+// completes its setup through the worktree hook before after runs. It never
+// returns nil. after runs at most once: cancelling the trust prompt keeps the
+// worktree without any further setup and refreshes the worktrees instead.
+func (m *Model) runCreateInit(path string, env map[string]string, initCmds []string, after func() tea.Msg) tea.Cmd {
+	finish := func(initErr error) tea.Msg {
+		m.completeCreateSetup(path, env, initErr)
+		if after != nil {
+			return after()
+		}
+		if initErr != nil {
+			return errMsg{err: initErr}
+		}
+		return nil
+	}
+	run := func() tea.Msg {
+		return finish(m.state.services.git.ExecuteCommands(m.ctx, initCmds, path, env))
+	}
+	skip := func() tea.Msg { return finish(nil) }
+	if len(initCmds) == 0 {
+		return skip
+	}
+
+	decision, trustPath := m.commandTrust()
+	switch decision {
+	case commandTrustSkip:
+		return skip
+	case commandTrustRun:
+		return run
+	}
+
+	m.loading.active = false
+	m.clearLoadingScreen()
+	ts := screen.NewTrustScreen(trustPath, initCmds, m.theme)
+	ts.CancelLabel = "Cancel Setup"
+	ts.OnTrust = func() tea.Cmd {
+		_ = m.state.services.trustManager.TrustFile(trustPath)
+		return run
+	}
+	ts.OnBlock = func() tea.Cmd { return skip }
+	ts.OnCancel = func() tea.Cmd {
+		return func() tea.Msg {
+			m.completeCreateSetup(path, env, errCreateSetupCancelled)
+			worktrees, err := m.state.services.git.GetWorktrees(m.ctx)
+			return worktreesLoadedMsg{worktrees: worktrees, err: err}
+		}
+	}
+	m.state.ui.screenManager.Push(ts)
+	return func() tea.Msg { return nil }
+}
+
+var errCreateSetupCancelled = errors.New("worktree setup cancelled")
+
+// completeCreateSetup finishes or abandons the worktree hook's setup of a new
+// worktree. Failures are only logged, since the worktree itself is ready.
+func (m *Model) completeCreateSetup(path string, env map[string]string, initErr error) {
+	hook := m.state.services.git.WorktreeHook()
+	if hook == nil {
+		return
+	}
+	if initErr != nil {
+		hook.ForgetWorktree(path)
+		return
+	}
+	if err := hook.FinaliseWorktree(m.ctx, path, env); err != nil {
+		m.debugf("herdr: completing the workspace of %s: %v", path, err)
+	}
 }
 
 func (m *Model) runCommands(cmds []string, cwd string, env map[string]string, after func() tea.Msg) tea.Cmd {
