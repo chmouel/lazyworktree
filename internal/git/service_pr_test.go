@@ -202,7 +202,7 @@ func TestCreateWorktreeFromPR(t *testing.T) {
 		runGit(t, testRepo, "config", "commit.gpgsign", "false")
 
 		stub := "#!/bin/sh\n" +
-			"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"merge_requests/1\" ]; then\n" +
+			"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"projects/:id/merge_requests/1\" ]; then\n" +
 			"  echo '{\"sha\":\"" + featureSHA + "\",\"source_branch\":\"feature-branch\"}'\n" +
 			"  exit 0\n" +
 			"fi\n" +
@@ -251,7 +251,7 @@ func TestCreateWorktreeFromPR(t *testing.T) {
 		runGit(t, testRepo, "config", "commit.gpgsign", "false")
 
 		stub := "#!/bin/sh\n" +
-			"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"merge_requests/1\" ]; then\n" +
+			"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"projects/:id/merge_requests/1\" ]; then\n" +
 			"  echo '{\"diff_refs\":{\"head_sha\":\"" + featureSHA + "\"},\"source_branch\":\"feature-branch\"}'\n" +
 			"  exit 0\n" +
 			"fi\n" +
