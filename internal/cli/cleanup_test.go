@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -206,6 +207,54 @@ func TestCleanupAllIncludesEveryCandidate(t *testing.T) {
 	branchItem := findCleanupItem(summary.Items, CleanupKindBranch)
 	require.NotNil(t, branchItem)
 	assert.Equal(t, "stale", branchItem.Branch)
+}
+
+func TestCleanupClosesHerdrWorkspacesOfRemovedOrphan(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake herdr uses a POSIX shell script")
+	}
+	worktreeDir := t.TempDir()
+	repoDir := filepath.Join(worktreeDir, "repo")
+	orphanPath := filepath.Join(repoDir, "orphan")
+	require.NoError(t, os.MkdirAll(orphanPath, 0o750))
+
+	binDir := t.TempDir()
+	logPath := filepath.Join(binDir, "herdr.log")
+	script := `#!/bin/sh
+printf '%s\n' "$*" >> "$HERDR_TEST_LOG"
+case "$1 $2" in
+	"session list") echo '{"sessions":[]}';;
+	"workspace list") echo '{"result":{"workspaces":[{"workspace_id":"w9","label":"orphan","worktree":{"checkout_path":"` + orphanPath + `"}}]}}';;
+	*) echo '{}';;
+esac
+`
+	require.NoError(t, os.WriteFile(filepath.Join(binDir, "herdr"), []byte(script), 0o700)) // #nosec G306 -- test fixture
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("HERDR_TEST_LOG", logPath)
+	t.Setenv("HERDR_SESSION", "")
+	t.Setenv("HERDR_SOCKET_PATH", "")
+	t.Setenv("HERDR_PANE_ID", "")
+
+	svc := &fakeGitService{
+		resolveRepoName:     "repo",
+		mainWorktreePath:    "/main",
+		mainBranch:          "main",
+		runCommandCheckedOK: true,
+		worktrees:           []*models.WorktreeInfo{{Path: "/main", Branch: "main", IsMain: true}},
+	}
+	cfg := config.DefaultConfig()
+	cfg.WorktreeDir = worktreeDir
+	cfg.DisablePR = true
+
+	var stderr bytes.Buffer
+	summary, err := Cleanup(context.Background(), svc, cfg, true, false, strings.NewReader(""), &stderr)
+	require.NoError(t, err)
+	assert.Equal(t, 1, summary.Orphans)
+	assert.NoDirExists(t, orphanPath)
+
+	logBytes, err := os.ReadFile(logPath) // #nosec G304 -- test log path
+	require.NoError(t, err)
+	assert.Contains(t, string(logBytes), "workspace close w9")
 }
 
 func TestCleanupAllSkipsDirtyWorktreeAndContinues(t *testing.T) {
