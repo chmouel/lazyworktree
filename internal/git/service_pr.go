@@ -60,7 +60,7 @@ func (s *Service) fetchPRRefInfo(ctx context.Context, prNumber int, remoteBranch
 
 	case gitHostGitLab:
 		mrRaw := s.RunGit(ctx, []string{
-			"glab", "api", fmt.Sprintf("merge_requests/%d", prNumber),
+			"glab", "api", fmt.Sprintf("projects/:id/merge_requests/%d", prNumber),
 		}, "", []int{0}, true, true)
 		if mrRaw == "" {
 			s.notify(fmt.Sprintf("Failed to get MR #%d info", prNumber), "error")

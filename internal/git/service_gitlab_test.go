@@ -34,7 +34,7 @@ func withStubbedPath(t *testing.T, dir string) {
 
 func TestFetchGitLabPRs(t *testing.T) {
 	stub := "#!/bin/sh\n" +
-		"if [ \"$1\" = \"api\" ]; then\n" +
+		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"projects/:id/merge_requests?state=all&per_page=100\" ]; then\n" +
 		"  echo '[{\"iid\":1,\"state\":\"opened\",\"title\":\"One\",\"web_url\":\"https://example.com/1\",\"source_branch\":\"feature\",\"draft\":true,\"author\":{\"username\":\"alice\",\"name\":\"Alice\",\"avatar_url\":\"https://gitlab.example.com/uploads/alice.png\",\"bot\":false}},{\"iid\":2,\"state\":\"closed\",\"title\":\"Two\",\"web_url\":\"https://example.com/2\",\"source_branch\":\"closed\",\"draft\":false}]'\n" +
 		"  exit 0\n" +
 		"fi\n" +
@@ -59,7 +59,7 @@ func TestFetchGitLabPRs(t *testing.T) {
 
 func TestFetchGitLabOpenPRs(t *testing.T) {
 	stub := "#!/bin/sh\n" +
-		"if [ \"$1\" = \"api\" ]; then\n" +
+		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"projects/:id/merge_requests?state=opened&per_page=100\" ]; then\n" +
 		"  echo '[{\"iid\":1,\"state\":\"opened\",\"title\":\"One\",\"web_url\":\"https://example.com/1\",\"source_branch\":\"feature\"},{\"iid\":2,\"state\":\"closed\",\"title\":\"Two\",\"web_url\":\"https://example.com/2\",\"source_branch\":\"closed\"}]'\n" +
 		"  exit 0\n" +
 		"fi\n" +
@@ -112,7 +112,7 @@ func TestFetchGitLabCIFallbackArray(t *testing.T) {
 
 func TestFetchGitLabOpenIssues(t *testing.T) {
 	stub := "#!/bin/sh\n" +
-		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"issues?state=opened&per_page=100\" ]; then\n" +
+		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"projects/:id/issues?state=opened&per_page=100\" ]; then\n" +
 		"  echo '[{\"iid\":1,\"state\":\"opened\",\"title\":\"Issue One\",\"description\":\"Description one\",\"web_url\":\"https://example.com/issues/1\",\"author\":{\"username\":\"user1\",\"name\":\"User One\",\"bot\":false}},{\"iid\":2,\"state\":\"closed\",\"title\":\"Issue Two\",\"description\":\"Description two\",\"web_url\":\"https://example.com/issues/2\",\"author\":{\"username\":\"user2\",\"name\":\"User Two\",\"bot\":true}}]'\n" +
 		"  exit 0\n" +
 		"fi\n" +
@@ -138,7 +138,7 @@ func TestFetchGitLabOpenIssues(t *testing.T) {
 
 func TestFetchGitLabOpenIssuesEmptyResponse(t *testing.T) {
 	stub := "#!/bin/sh\n" +
-		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"issues?state=opened&per_page=100\" ]; then\n" +
+		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"projects/:id/issues?state=opened&per_page=100\" ]; then\n" +
 		"  echo '[]'\n" +
 		"  exit 0\n" +
 		"fi\n" +
@@ -154,7 +154,7 @@ func TestFetchGitLabOpenIssuesEmptyResponse(t *testing.T) {
 
 func TestFetchGitLabOpenIssuesInvalidJSON(t *testing.T) {
 	stub := "#!/bin/sh\n" +
-		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"issues?state=opened&per_page=100\" ]; then\n" +
+		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"projects/:id/issues?state=opened&per_page=100\" ]; then\n" +
 		"  echo 'invalid json'\n" +
 		"  exit 0\n" +
 		"fi\n" +
@@ -178,7 +178,7 @@ func TestFetchGitLabOpenIssuesInvalidJSON(t *testing.T) {
 
 func TestFetchAllOpenIssuesGitLab(t *testing.T) {
 	stub := "#!/bin/sh\n" +
-		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"issues?state=opened&per_page=100\" ]; then\n" +
+		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"projects/:id/issues?state=opened&per_page=100\" ]; then\n" +
 		"  echo '[{\"iid\":1,\"state\":\"opened\",\"title\":\"Issue One\",\"description\":\"Description\",\"web_url\":\"https://gitlab.com/repo/issues/1\",\"author\":{\"username\":\"user1\",\"name\":\"User One\",\"bot\":false}}]'\n" +
 		"  exit 0\n" +
 		"fi\n" +
@@ -201,7 +201,7 @@ func TestFetchAllOpenIssuesGitLab(t *testing.T) {
 
 func TestFetchIssueGitLab(t *testing.T) {
 	stub := "#!/bin/sh\n" +
-		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"issues/42\" ]; then\n" +
+		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"projects/:id/issues/42\" ]; then\n" +
 		"  echo '{\"iid\":42,\"state\":\"opened\",\"title\":\"Test Issue\",\"description\":\"Test description\",\"web_url\":\"https://gitlab.com/repo/issues/42\",\"author\":{\"username\":\"testuser\",\"name\":\"Test User\",\"bot\":false}}'\n" +
 		"  exit 0\n" +
 		"fi\n" +
@@ -224,7 +224,7 @@ func TestFetchIssueGitLab(t *testing.T) {
 
 func TestFetchPRGitLab(t *testing.T) {
 	stub := "#!/bin/sh\n" +
-		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"merge_requests/123\" ]; then\n" +
+		"if [ \"$1\" = \"api\" ] && [ \"$2\" = \"projects/:id/merge_requests/123\" ]; then\n" +
 		"  echo '{\"iid\":123,\"state\":\"opened\",\"title\":\"Test MR\",\"description\":\"Test description\",\"web_url\":\"https://gitlab.com/repo/merge_requests/123\",\"source_branch\":\"feature\",\"target_branch\":\"main\",\"author\":{\"username\":\"testuser\",\"name\":\"Test User\",\"bot\":false},\"draft\":false}'\n" +
 		"  exit 0\n" +
 		"fi\n" +

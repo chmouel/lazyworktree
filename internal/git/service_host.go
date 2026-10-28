@@ -17,24 +17,46 @@ func (s *Service) DetectHost(ctx context.Context) string {
 		if s.gitHost != "" {
 			return
 		}
-		s.gitHost = hostFromRemoteURL(s.getOriginRemoteURL(ctx))
+		remoteURL := s.getOriginRemoteURL(ctx)
+		s.gitHost = hostFromRemoteURL(remoteURL)
+		if s.gitHost == gitHostUnknown && s.isGlabConfiguredHost(ctx, hostnameFromRemoteURL(remoteURL)) {
+			s.gitHost = gitHostGitLab
+		}
 	})
 	return s.gitHost
 }
 
+// isGlabConfiguredHost reports whether glab has a configuration for hostname,
+// which identifies self-managed GitLab instances whose hostname does not
+// contain "gitlab".
+func (s *Service) isGlabConfiguredHost(ctx context.Context, hostname string) bool {
+	if hostname == "" {
+		return false
+	}
+	out := s.RunGit(ctx, []string{"glab", "config", "get", "api_host", "--host", hostname}, "", []int{0}, true, true)
+	return out != ""
+}
+
 var remoteHostPattern = regexp.MustCompile(`(?:git@|https?://|ssh://|git://)(?:[^@]+@)?([^/:]+)`)
 
-// hostFromRemoteURL identifies the forge a remote URL points at.
-func hostFromRemoteURL(remoteURL string) string {
+// hostnameFromRemoteURL extracts the lower-cased hostname from a remote URL.
+func hostnameFromRemoteURL(remoteURL string) string {
 	if remoteURL == "" {
-		return gitHostUnknown
+		return ""
 	}
 	matches := remoteHostPattern.FindStringSubmatch(remoteURL)
 	if len(matches) <= 1 {
-		return gitHostUnknown
+		return ""
 	}
-	hostname := strings.ToLower(matches[1])
+	return strings.ToLower(matches[1])
+}
+
+// hostFromRemoteURL identifies the forge a remote URL points at.
+func hostFromRemoteURL(remoteURL string) string {
+	hostname := hostnameFromRemoteURL(remoteURL)
 	switch {
+	case hostname == "":
+		return gitHostUnknown
 	case strings.Contains(hostname, gitHostGithub):
 		return gitHostGithub
 	case strings.Contains(hostname, gitHostGitLab):
