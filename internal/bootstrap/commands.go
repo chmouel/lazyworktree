@@ -2058,7 +2058,11 @@ func executeHerdrAction(ctx context.Context, herdrCfg *config.HerdrCommand, cont
 	workspaceID := existing.ID
 
 	if workspaceID == "" {
-		workspace, err := h.CreateWorkspace(ctx, label, key, wt.Path, windows, env, herdrCfg.Attach)
+		source := ""
+		if herdrCfg.WorktreeGroup {
+			source = multiplexer.HerdrSourceCheckout(ctx, wt.Path)
+		}
+		workspace, err := h.CreateWorktreeWorkspace(ctx, label, key, source, wt.Path, windows, env, herdrCfg.Attach)
 		if err != nil {
 			return err
 		}

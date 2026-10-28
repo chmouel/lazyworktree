@@ -98,3 +98,35 @@ func TestDefaultConfigIncludesHerdrCommand(t *testing.T) {
 		t.Error("expected default herdr command to show in help")
 	}
 }
+
+func TestParseHerdrCommandWorktreeGroup(t *testing.T) {
+	tests := []struct {
+		name  string
+		value any
+		want  bool
+	}{
+		{name: "defaults to grouping", value: nil, want: true},
+		{name: "can be disabled", value: false, want: false},
+		{name: "accepts string booleans", value: "false", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			herdr := map[string]any{}
+			if tt.value != nil {
+				herdr["worktree_group"] = tt.value
+			}
+			cmds, _ := parseCustomCommands(map[string]any{
+				"custom_commands": map[string]any{
+					PaneUniversal: map[string]any{"H": map[string]any{"herdr": herdr}},
+				},
+			})
+			cmd := cmds[PaneUniversal]["H"]
+			if cmd == nil || cmd.Herdr == nil {
+				t.Fatal("expected herdr command to be parsed")
+			}
+			if cmd.Herdr.WorktreeGroup != tt.want {
+				t.Errorf("worktree_group = %v, want %v", cmd.Herdr.WorktreeGroup, tt.want)
+			}
+		})
+	}
+}

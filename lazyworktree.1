@@ -1568,6 +1568,8 @@ For Herdr workspaces or sessions, the following fields are available:
 .IP \(bu 2
 \fBNormalised names\fR: in session mode, on_exists: kill and on_exists: new act on the normalised session name, because Herdr sessions carry no worktree tag. When sanitisation makes two worktrees share a session name, killing or incrementing one can target the other worktree's session. Workspaces are found by their worktree tag instead.
 .IP \(bu 2
+\fBworktree_group\fR: If true, open workspaces with herdr worktree open so they nest under their repository in the Herdr sidebar (default: true). Herdr opens the repository's main workspace when needed, and the repository is trusted. Bare repositories, or a refusal from Herdr, fall back to a plain workspace. Grouped workspaces are also matched by checkout path, so workspaces opened from Herdr's own picker are reused, listed and killed like tagged ones. Set to false for plain workspaces.
+.IP \(bu 2
 \fBwindows\fR: List of tab definitions. Each tab has: name (supports env vars), command (empty uses default shell), cwd (default: $WORKTREE_PATH). If omitted, creates a single shell tab. The first tab uses the name and cwd of the first window.
 .RE
 .PP

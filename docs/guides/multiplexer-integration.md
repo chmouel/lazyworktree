@@ -153,6 +153,12 @@ custom_commands:
 
 By default the workspace is created in the session LazyWorktree is running in, or in the default Herdr session when no session is ambient. An empty `herdr_session` inherits the current session; set `herdr_session: default` to target the default session explicitly. A configured session that matches the one you are attached to reuses your current Herdr socket, so focusing works even when Herdr was started with a custom socket path. LazyWorktree starts a detached Herdr server when the target session is not running.
 
+### Worktree Grouping
+
+Workspaces are opened with `herdr worktree open`, as Herdr's own worktree picker does, so each one nests under its repository in the Herdr sidebar. Herdr opens the repository's main workspace alongside when it is not already open, and the repository is trusted on your behalf. When the worktree has no main checkout (a bare repository) or Herdr refuses the request, LazyWorktree falls back to a plain workspace. Set `worktree_group: false` to always create plain workspaces.
+
+Grouped workspaces are recognised by their checkout path as well as by the LazyWorktree tag, so a workspace opened through Herdr's own picker is reused, listed in the command palette, and replaced by `on_exists: kill` like one LazyWorktree created. Herdr refuses to close a repository workspace while worktree workspaces are grouped under it; close those first.
+
 ### Named Session per Worktree
 
 ```yaml
@@ -180,6 +186,7 @@ custom_commands:
 | `herdr_session` | string | `""` | Herdr session hosting the workspace (workspace mode only; empty inherits the current session, `default` targets the default session) |
 | `attach` | bool | `true` | Attach or focus immediately; if `false`, show modal with instructions |
 | `on_exists` | string | `switch` | Behaviour if the workspace or session exists: `switch`, `attach`, `kill`, `new` (for Herdr, `attach` is an alias of `switch`) |
+| `worktree_group` | bool | `true` | Open workspaces through Herdr's worktree support so they nest under their repository in the sidebar; `false` creates plain workspaces |
 | `windows` | list | `[{name: "shell"}]` | Tab definitions for the workspace |
 
 #### Tab Fields
@@ -262,7 +269,7 @@ Several untagged sessions sharing one name (Herdr allows duplicate workspace lab
 
 zellij sessions and Herdr sessions (session mode) carry no tag and are still found by name only. The workspace inside a Herdr session is tagged as usual.
 
-Herdr forgets workspace tokens when its server restarts, although workspaces and labels survive. Running the custom command again finds the workspace by its name and tags it once more. Until then, the palette lists it only if its label starts with `session_prefix`, and if its name no longer matches `session_name` (for instance after a pull request title change) a new workspace is created instead.
+Herdr forgets workspace tokens when its server restarts, although workspaces and labels survive. Grouped workspaces (see [Worktree Grouping](#worktree-grouping)) are still found by their checkout path. Plain workspaces are found by their name, and running the custom command again tags them once more. Until then, the palette lists a plain workspace only if its label starts with `session_prefix`, and if its name no longer matches `session_name` (for instance after a pull request title change) a new workspace is created instead.
 
 ### Session Prefix
 

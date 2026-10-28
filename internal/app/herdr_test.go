@@ -423,8 +423,50 @@ if [ "$1" = "workspace" ]; then
 	esac
 	exit 0
 fi
+if [ "$1" = "worktree" ]; then
+	echo '{"result":{"already_open":false,"workspace":{"workspace_id":"w5","label":"feat"},"tab":{"tab_id":"w5:t1"},"root_pane":{"pane_id":"w5:p1"}}}'
+	exit 0
+fi
 echo '{}'
 `
+
+func TestCreateHerdrLayoutGroupsWorktreeUnderRepository(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	root := t.TempDir()
+	repo := filepath.Join(root, "repo")
+	wtPath := filepath.Join(root, "feat")
+	runGit(t, root, "init", "-q", repo)
+	runGit(t, repo, "-c", "commit.gpgsign=false", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init")
+	runGit(t, repo, "worktree", "add", "-q", wtPath, "-b", "feat")
+	logPath := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", logPath)
+	writeFakeHerdrBinary(t, fakeHerdrLayoutScript)
+
+	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir()}, "")
+	msg := m.createHerdrLayout("herdr", &config.HerdrCommand{
+		Mode:          config.HerdrModeWorkspace,
+		OnExists:      "switch",
+		Attach:        true,
+		WorktreeGroup: true,
+	}, &models.WorktreeInfo{Path: wtPath, Branch: "feat"}, "feat", "", []multiplexer.ResolvedWindow{{Cwd: wtPath}}, nil, false, false)
+
+	ready, ok := msg.(herdrReadyMsg)
+	if !ok {
+		t.Fatalf("expected herdrReadyMsg, got %T: %v", msg, msg)
+	}
+	if ready.workspaceID != "w5" {
+		t.Errorf("workspace = %q, want w5 from herdr worktree open", ready.workspaceID)
+	}
+	log := readHerdrTestLog(t, logPath)
+	if !strings.Contains(log, "worktree open --cwd "+repo+" --path "+wtPath) {
+		t.Errorf("expected the worktree to be opened from its main checkout, got:\n%s", log)
+	}
+	if strings.Contains(log, "workspace create") {
+		t.Errorf("expected no plain workspace creation, got:\n%s", log)
+	}
+}
 
 func TestCreateHerdrLayoutReusesExistingWorkspace(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "herdr.log")
@@ -492,6 +534,23 @@ func TestGetHerdrWorkspacesListsTaggedWorkspaces(t *testing.T) {
 	got := m.getHerdrWorkspaces()
 	if len(got) != 1 || got[0].ID != "w1" {
 		t.Fatalf("workspaces = %+v, want only the tagged one", got)
+	}
+	if desc := m.describeMultiplexerTarget("herdr workspace", got[0].WorktreeKey(), multiplexer.HerdrWorktreeKey); desc != "herdr workspace for feat (feature/x)" {
+		t.Errorf("description = %q", desc)
+	}
+}
+
+func TestGetHerdrWorkspacesListsRepoWorktreeWorkspaces(t *testing.T) {
+	writeFakeHerdrBinary(t, `echo '{"result":{"workspaces":[
+		{"workspace_id":"w1","label":"feat","worktree":{"checkout_path":"/repo/feat"}},
+		{"workspace_id":"w2","label":"elsewhere","worktree":{"checkout_path":"/other/repo"}}
+	]}}'`)
+
+	m := NewModel(&config.AppConfig{WorktreeDir: t.TempDir(), SessionPrefix: "wt-"}, "")
+	m.state.data.worktrees = []*models.WorktreeInfo{{Path: "/repo/feat", Branch: "feature/x"}}
+	got := m.getHerdrWorkspaces()
+	if len(got) != 1 || got[0].ID != "w1" {
+		t.Fatalf("workspaces = %+v, want only this repository's worktree workspace", got)
 	}
 	if desc := m.describeMultiplexerTarget("herdr workspace", got[0].WorktreeKey(), multiplexer.HerdrWorktreeKey); desc != "herdr workspace for feat (feature/x)" {
 		t.Errorf("description = %q", desc)
