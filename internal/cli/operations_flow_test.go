@@ -11,6 +11,8 @@ import (
 	appservices "github.com/chmouel/lazyworktree/internal/app/services"
 	"github.com/chmouel/lazyworktree/internal/config"
 	"github.com/chmouel/lazyworktree/internal/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateFromPR_NotFound(t *testing.T) {
@@ -637,6 +639,73 @@ func TestCreateFromIssue_NoWorkspace_BranchCreateFailure(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to create branch from issue #1") {
 		t.Fatalf("expected branch creation error, got: %v", err)
+	}
+}
+
+func TestCreateFromIssue_ReusesExistingBranch(t *testing.T) {
+	t.Parallel()
+
+	const branch = "issue-7-fix-bug"
+	showRefKey := filepath.Join("git", "show-ref", "--verify", "refs/heads/"+branch)
+
+	tests := []struct {
+		name         string
+		noWorkspace  bool
+		attachedPath string
+		wantCalls    func(targetPath string) [][]string
+	}{
+		{
+			name: "detached branch gets a new worktree without -b",
+			wantCalls: func(targetPath string) [][]string {
+				return [][]string{{"git", "worktree", "add", targetPath, branch}}
+			},
+		},
+		{
+			name:         "branch checked out elsewhere returns that worktree",
+			attachedPath: "/elsewhere/" + branch,
+			wantCalls:    func(string) [][]string { return nil },
+		},
+		{
+			name:        "no-workspace switches without creating the branch",
+			noWorkspace: true,
+			wantCalls: func(string) [][]string {
+				return [][]string{{"git", "switch", branch}}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			tmpDir := t.TempDir()
+			targetPath := filepath.Join(tmpDir, "repo", branch)
+
+			svc := &fakeGitService{
+				resolveRepoName:     "repo",
+				mainWorktreePath:    filepath.Join(tmpDir, "main"),
+				runCommandCheckedOK: true,
+				runGitOutput:        map[string]string{showRefKey: "abc123 refs/heads/" + branch + "\n"},
+				issues:              []*models.IssueInfo{{Number: 7, Title: "fix bug"}},
+			}
+			if tt.attachedPath != "" {
+				svc.worktrees = []*models.WorktreeInfo{{Path: tt.attachedPath, Branch: branch}}
+			}
+			cfg := &config.AppConfig{WorktreeDir: tmpDir}
+
+			got, err := CreateFromIssueWithFS(ctx, svc, cfg, 7, "main", tt.noWorkspace, true, DefaultFS)
+			require.NoError(t, err)
+
+			switch {
+			case tt.attachedPath != "":
+				assert.Equal(t, tt.attachedPath, got)
+			case tt.noWorkspace:
+				assert.Equal(t, branch, got)
+			default:
+				assert.Equal(t, targetPath, got)
+			}
+			assert.Equal(t, tt.wantCalls(targetPath), svc.runCommandCheckedCalls)
+		})
 	}
 }
 

@@ -167,7 +167,7 @@ Create worktree from PR number. Fetches the specified PR and generates the workt
 .
 .TP
 .B \-\-from\-issue \fINUMBER\fR
-Create worktree from issue number. Fetches the specified issue and creates a worktree with a sanitised branch name derived from the \fBissue_branch_name_template\fR (default: issue-{number}-{title}, e.g., issue-42-fix-memory-leak). Uses the current branch as the base; combine with \-\-from\-branch to specify a different base.
+Create worktree from issue number. Fetches the specified issue and creates a worktree with a sanitised branch name derived from the \fBissue_branch_name_template\fR (default: issue-{number}-{title}, e.g., issue-42-fix-memory-leak). Uses the current branch as the base; combine with \-\-from\-branch to specify a different base. If the branch already exists locally it is reused instead; when it is already checked out in a worktree, that worktree's path is returned.
 .
 .TP
 .B \-\-from\-issue\-interactive\fR, \fB\-I\fR
