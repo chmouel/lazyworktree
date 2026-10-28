@@ -10,6 +10,8 @@ LazyWorktree surfaces pull/merge request information and CI state directly in th
 
 LazyWorktree auto-detects the forge from your repository remote.
 
+Self-managed GitLab instances whose hostname does not contain `gitlab` are recognised when `glab` has a configuration for that host, for example after `glab auth login --hostname code.example.com`.
+
 ## Status Indicators
 
 For worktrees linked to PR/MR items:
