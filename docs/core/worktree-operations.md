@@ -103,6 +103,8 @@ When creating from a PR or issue, LazyWorktree:
 3. Checks out the branch and sets up the worktree
 4. Optionally generates a note from the description (if `worktree_note_script` is configured)
 
+From the command line, `lazyworktree create --from-issue` reuses the issue branch when it already exists locally. If that branch is already checked out in a worktree, the path of that worktree is returned.
+
 !!! tip
     Configure `pr_branch_name_template` and `issue_branch_name_template` to control how branch names are derived. See [Branch Naming](../configuration/branch-naming.md).
 
