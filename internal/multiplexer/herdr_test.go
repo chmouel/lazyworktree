@@ -965,6 +965,82 @@ func TestHerdrResolveWorkspaceReusesCheckoutWorkspace(t *testing.T) {
 	assert.Equal(t, "opened in herdr", label)
 }
 
+func TestCloseHerdrWorktreeWorkspaces(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_SESSION", "")
+	t.Setenv("HERDR_SOCKET_PATH", "")
+	t.Setenv("HERDR_PANE_ID", "w4:p1")
+	t.Setenv("HERDR_TEST_LOG", logPath)
+	key := HerdrWorktreeKey("/w")
+	workspaces := fmt.Sprintf(`[
+		{"workspace_id":"w1","label":"tagged","tokens":{"lazyworktree_id":%q}},
+		{"workspace_id":"w2","label":"grouped","worktree":{"checkout_path":"/w"}},
+		{"workspace_id":"w3","label":"other","worktree":{"checkout_path":"/other"}},
+		{"workspace_id":"w4","label":"mine","worktree":{"checkout_path":"/w"}}
+	]`, key)
+	bin := writeFakeHerdr(t, strings.Replace(fakeHerdrScript,
+		`{"result":{"workspaces":[]}}`, `{"result":{"workspaces":`+workspaces+`}}`, 1))
+
+	closed, err := CloseHerdrWorktreeWorkspaces(context.Background(), bin, "/w")
+	require.NoError(t, err)
+	assert.Equal(t, 2, closed)
+
+	logBytes, err := os.ReadFile(logPath) // #nosec G304 -- test log path
+	require.NoError(t, err)
+	log := string(logBytes)
+	assert.Contains(t, log, "workspace close w1")
+	assert.Contains(t, log, "workspace close w2")
+	assert.NotContains(t, log, "workspace close w3")
+	assert.NotContains(t, log, "workspace close w4", "the workspace hosting LazyWorktree must stay open")
+}
+
+func TestCloseHerdrWorktreeWorkspacesAcrossRunningSessions(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_SESSION", "")
+	t.Setenv("HERDR_SOCKET_PATH", "")
+	t.Setenv("HERDR_PANE_ID", "w4:p1")
+	t.Setenv("HERDR_TEST_LOG", logPath)
+	bin := writeFakeHerdr(t, `
+printf '%s\n' "$*" >> "$HERDR_TEST_LOG"
+session=default
+if [ "$1" = "--session" ]; then session=$2; shift 2; fi
+case "$1 $2" in
+	"session list") echo '{"sessions":[{"name":"default","default":true,"running":true},{"name":"proj","running":true},{"name":"broken","running":true},{"name":"stopped","running":false}]}';;
+	"workspace list")
+		case "$session" in
+			default) echo '{"result":{"workspaces":[{"workspace_id":"w1","worktree":{"checkout_path":"/w"}},{"workspace_id":"w4","worktree":{"checkout_path":"/w"}}]}}';;
+			proj) echo '{"result":{"workspaces":[{"workspace_id":"w4","worktree":{"checkout_path":"/w"}},{"workspace_id":"w5","worktree":{"checkout_path":"/other"}}]}}';;
+			*) echo 'unreachable' >&2; exit 1;;
+		esac;;
+	"workspace close") echo '{}';;
+esac
+`)
+
+	closed, err := CloseHerdrWorktreeWorkspaces(context.Background(), bin, "/w")
+	require.Error(t, err, "a running session that cannot be listed is reported")
+	assert.Contains(t, err.Error(), "unreachable")
+	assert.Equal(t, 2, closed)
+
+	logBytes, err := os.ReadFile(logPath) // #nosec G304 -- test log path
+	require.NoError(t, err)
+	log := string(logBytes)
+	assert.Contains(t, log, "\nworkspace close w1\n", "the ambient session is cleaned")
+	assert.NotContains(t, log, "\nworkspace close w4\n", "the workspace hosting LazyWorktree must stay open")
+	assert.Contains(t, log, "--session proj workspace close w4", "workspace IDs only identify the host in the ambient session")
+	assert.NotContains(t, log, "close w5")
+	assert.NotContains(t, log, "--session stopped")
+	assert.NotContains(t, log, "--session default", "the ambient session is not visited twice")
+}
+
+func TestCloseHerdrWorktreeWorkspacesWithoutServer(t *testing.T) {
+	t.Setenv("HERDR_SESSION", "")
+	bin := writeFakeHerdr(t, `echo '{"error":{"code":"server_not_running"}}' >&2; exit 1`)
+
+	closed, err := CloseHerdrWorktreeWorkspaces(context.Background(), bin, "/w")
+	require.NoError(t, err)
+	assert.Zero(t, closed)
+}
+
 func TestHerdrCloseWorkspaceExplainsGroupClose(t *testing.T) {
 	t.Setenv("HERDR_SESSION", "")
 	bin := writeFakeHerdr(t, `echo '{"error":{"code":"workspace_group_close_required"}}' >&2; exit 1`)

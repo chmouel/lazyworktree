@@ -894,6 +894,9 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 
 				ok1 := m.state.services.git.RunCommandChecked(m.ctx, []string{"git", "worktree", "remove", "--force", wt.Path}, "", fmt.Sprintf("Failed to remove worktree %s", wt.Path))
 				ok2 := m.state.services.git.RunCommandChecked(m.ctx, []string{"git", "branch", "-D", wt.Branch}, "", fmt.Sprintf("Failed to delete branch %s", wt.Branch))
+				if ok1 {
+					m.closeHerdrWorktreeWorkspaces(wt.Path)
+				}
 				if ok1 && ok2 {
 					pruned++
 				} else {
@@ -1050,8 +1053,11 @@ func (m *Model) deleteWorktreeCmd(wt *models.WorktreeInfo) func() tea.Cmd {
 	env := m.buildCommandEnvForWorktree(wt)
 	terminateCmds := m.collectTerminateCommands()
 	afterCmd := func() tea.Msg {
-		m.state.services.git.RunCommandChecked(m.ctx, []string{"git", "worktree", "remove", "--force", wt.Path}, "", fmt.Sprintf("Failed to remove worktree %s", wt.Path))
+		removed := m.state.services.git.RunCommandChecked(m.ctx, []string{"git", "worktree", "remove", "--force", wt.Path}, "", fmt.Sprintf("Failed to remove worktree %s", wt.Path))
 		m.state.services.git.RunCommandChecked(m.ctx, []string{"git", "branch", "-D", wt.Branch}, "", fmt.Sprintf("Failed to delete branch %s", wt.Branch))
+		if removed {
+			m.closeHerdrWorktreeWorkspaces(wt.Path)
+		}
 
 		worktrees, err := m.state.services.git.GetWorktrees(m.ctx)
 		return worktreesLoadedMsg{
@@ -1086,6 +1092,7 @@ func (m *Model) deleteWorktreeOnlyCmd(wt *models.WorktreeInfo) func() tea.Cmd {
 				err:    fmt.Errorf("worktree deletion failed"),
 			}
 		}
+		m.closeHerdrWorktreeWorkspaces(wt.Path)
 
 		return worktreeDeletedMsg{
 			path:   wt.Path,

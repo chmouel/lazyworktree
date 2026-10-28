@@ -386,3 +386,14 @@ func matchingHerdrPrefix(name string, prefixes []string) (string, bool) {
 	}
 	return "", false
 }
+
+// closeHerdrWorktreeWorkspaces closes the Herdr workspaces left behind by a
+// deleted worktree. Failures are only logged, since the worktree is gone.
+func (m *Model) closeHerdrWorktreeWorkspaces(path string) {
+	closed, err := multiplexer.CloseHerdrWorktreeWorkspaces(m.ctx, "", path)
+	if err != nil {
+		m.debugf("herdr: closing workspaces for %s: %v", path, err)
+	} else if closed > 0 {
+		m.debugf("herdr: closed %d workspace(s) for %s", closed, path)
+	}
+}

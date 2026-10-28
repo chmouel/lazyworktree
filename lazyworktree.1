@@ -1570,6 +1570,8 @@ For Herdr workspaces or sessions, the following fields are available:
 .IP \(bu 2
 \fBworktree_group\fR: If true, open workspaces with herdr worktree open so they nest under their repository in the Herdr sidebar (default: true). Herdr opens the repository's main workspace when needed, and the repository is trusted. Bare repositories, or a refusal from Herdr, fall back to a plain workspace. Grouped workspaces are also matched by checkout path, so workspaces opened from Herdr's own picker are reused, listed and killed like tagged ones. Set to false for plain workspaces.
 .IP \(bu 2
+\fBDeleting worktrees\fR: deleting a worktree from the TUI, delete or cleanup closes its Herdr workspaces in every running Herdr session, stopping their programmes. The workspace hosting lazyworktree is left open.
+.IP \(bu 2
 \fBwindows\fR: List of tab definitions. Each tab has: name (supports env vars), command (empty uses default shell), cwd (default: $WORKTREE_PATH). If omitted, creates a single shell tab. The first tab uses the name and cwd of the first window.
 .RE
 .PP

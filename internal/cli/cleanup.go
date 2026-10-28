@@ -379,6 +379,9 @@ func executeCleanup(
 				"",
 				fmt.Sprintf("Failed to delete branch %s", candidate.branch),
 			)
+			if removed {
+				closeHerdrWorkspaces(ctx, candidate.worktree.Path, silent, stderr)
+			}
 			item := CleanupItem{
 				Kind:          CleanupKindWorktree,
 				Path:          candidate.worktree.Path,

@@ -159,6 +159,8 @@ Workspaces are opened with `herdr worktree open`, as Herdr's own worktree picker
 
 Grouped workspaces are recognised by their checkout path as well as by the LazyWorktree tag, so a workspace opened through Herdr's own picker is reused, listed in the command palette, and replaced by `on_exists: kill` like one LazyWorktree created. Herdr refuses to close a repository workspace while worktree workspaces are grouped under it; close those first.
 
+Deleting a worktree from LazyWorktree, or with `lazyworktree delete` or `lazyworktree cleanup`, closes its Herdr workspaces in every running Herdr session, along with any programmes running in them. The workspace hosting LazyWorktree itself is left open.
+
 ### Named Session per Worktree
 
 ```yaml
