@@ -713,6 +713,14 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 	}
 	branchName := utils.GenerateIssueWorktreeName(selectedIssue, template, "")
 	branchExists := localBranchExists(ctx, gitSvc, branchName)
+	attachedPath := ""
+	if branchExists {
+		worktrees, err := gitSvc.GetWorktrees(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to inspect worktrees for issue #%d: %w", issueNumber, err)
+		}
+		attachedPath, _ = findWorktreePathForBranch(worktrees, branchName)
+	}
 
 	if noWorkspace {
 		if !branchExists && !gitSvc.RunCommandChecked(
@@ -729,9 +737,19 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 			"",
 			fmt.Sprintf("Failed to switch to branch %s", branchName),
 		) {
+			if attachedPath != "" {
+				return "", fmt.Errorf("branch %q is already checked out in worktree %q", branchName, attachedPath)
+			}
 			return "", fmt.Errorf("failed to switch to branch %s", branchName)
 		}
 		return branchName, nil
+	}
+
+	if attachedPath != "" {
+		if !silent {
+			fmt.Fprintf(os.Stderr, "Branch %q is already checked out in worktree %q\n", branchName, attachedPath)
+		}
+		return attachedPath, nil
 	}
 
 	// Construct target path
@@ -755,16 +773,6 @@ func CreateFromIssueWithFS(ctx context.Context, gitSvc gitService, cfg *config.A
 
 	addArgs := []string{"git", "worktree", "add", "-b", branchName, targetPath, baseBranch}
 	if branchExists {
-		worktrees, err := gitSvc.GetWorktrees(ctx)
-		if err != nil {
-			return "", fmt.Errorf("failed to inspect worktrees for issue #%d: %w", issueNumber, err)
-		}
-		if worktreePath, attached := findWorktreePathForBranch(worktrees, branchName); attached {
-			if !silent {
-				fmt.Fprintf(os.Stderr, "Branch %q is already checked out in worktree %q\n", branchName, worktreePath)
-			}
-			return worktreePath, nil
-		}
 		if !silent {
 			fmt.Fprintf(os.Stderr, "Reusing existing branch %q\n", branchName)
 		}

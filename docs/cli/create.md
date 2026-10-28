@@ -55,3 +55,4 @@ Issue-specific branch behaviour:
 
 - branch name is generated from `issue_branch_name_template`
 - if that branch already exists locally, it is reused rather than created from the base branch; when it is already checked out in a worktree, that worktree's path is returned
+- with `--no-workspace`, an existing issue branch is switched to directly; if another worktree holds it, the error names that worktree
