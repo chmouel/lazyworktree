@@ -38,5 +38,7 @@ repos:
         name: go test
         language: system
         types: [go]
-        entry: go test ./...
+        # Hooks in a linked worktree export an absolute GIT_DIR; drop it so
+        # git commands in tests cannot reach this repository.
+        entry: sh -c 'unset $(git rev-parse --local-env-vars); exec go test ./...'
         pass_filenames: false
