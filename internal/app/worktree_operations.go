@@ -939,6 +939,7 @@ func (m *Model) performMergedWorktreeCheck() tea.Cmd {
 					failed++
 				} else {
 					orphansDeleted++
+					m.closeHerdrWorktreeWorkspaces(orphanPath)
 				}
 			}
 

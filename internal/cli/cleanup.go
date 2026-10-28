@@ -438,6 +438,7 @@ func executeCleanup(
 				item.Error = err.Error()
 			} else {
 				result.orphans++
+				closeHerdrWorkspaces(ctx, candidate.orphanPath, silent, stderr)
 			}
 			result.items = append(result.items, item)
 		}
