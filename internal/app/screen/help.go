@@ -209,6 +209,7 @@ Supported: Letters (a-z, A-Z), numbers (0-9), and hyphens (-). See help for full
 - Commands with a 'herdr' section open a workspace or session per worktree
 - Inside Herdr, workspace mode focuses the workspace in place
 - Workspaces nest under their repository in the Herdr sidebar (set 'worktree_group: false' to disable)
+- Deleting a worktree closes its Herdr workspaces in every running session
 - A workspace in another Herdr session shows attach instructions, because Herdr cannot switch sessions from inside a running client
 
 **{{HELP_CONFIGURATION}}Container Execution**

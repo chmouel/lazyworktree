@@ -822,6 +822,56 @@ func (h *Herdr) CloseWorkspace(ctx context.Context, workspaceID string) error {
 	return err
 }
 
+// CloseHerdrWorktreeWorkspaces closes the workspaces that belong to the
+// worktree at path in the current or default Herdr session and in every other
+// running session, and returns how many were closed. It does nothing when
+// Herdr is not installed or no server is running, and never closes the
+// workspace hosting the calling process.
+func CloseHerdrWorktreeWorkspaces(ctx context.Context, bin, path string) (int, error) {
+	if bin == "" {
+		var err error
+		if bin, err = exec.LookPath("herdr"); err != nil {
+			return 0, nil
+		}
+	}
+	// The ambient session goes first through its own routing; workspace IDs are
+	// per session, so the hosting workspace is only recognised there.
+	sessions := []string{""}
+	if listed, err := ListHerdrSessions(ctx, bin); err == nil {
+		ambient := HerdrAmbientSession()
+		for _, session := range listed {
+			if session.Running && session.Name != ambient {
+				sessions = append(sessions, session.Name)
+			}
+		}
+	}
+	key := HerdrWorktreeKey(path)
+	own, _, _ := strings.Cut(strings.TrimSpace(os.Getenv("HERDR_PANE_ID")), ":")
+	closed := 0
+	var errs []error
+	for _, session := range sessions {
+		h := &Herdr{Bin: bin, Session: session}
+		workspaces, err := h.Workspaces(ctx)
+		if err != nil {
+			if session != "" {
+				errs = append(errs, err)
+			}
+			continue
+		}
+		for _, workspace := range workspaces {
+			if workspace.WorktreeKey() != key || (session == "" && own != "" && workspace.ID == own) {
+				continue
+			}
+			if err := h.CloseWorkspace(ctx, workspace.ID); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			closed++
+		}
+	}
+	return closed, errors.Join(errs...)
+}
+
 // HerdrSourceCheckout returns the main checkout of the repository holding the
 // worktree at path, which Herdr's worktree commands start from. It is empty for
 // bare repositories, which Herdr cannot group, and when Git cannot list them.

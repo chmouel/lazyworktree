@@ -855,7 +855,16 @@ func DeleteWorktree(ctx context.Context, gitSvc gitService, cfg *config.AppConfi
 		}
 	}
 
+	closeHerdrWorkspaces(ctx, selectedWorktree.Path, silent, os.Stderr)
 	return nil
+}
+
+// closeHerdrWorkspaces closes the Herdr workspaces left behind by a deleted
+// worktree, warning rather than failing because the worktree is already gone.
+func closeHerdrWorkspaces(ctx context.Context, path string, silent bool, stderr io.Writer) {
+	if _, err := multiplexer.CloseHerdrWorktreeWorkspaces(ctx, "", path); err != nil && !silent {
+		fmt.Fprintf(stderr, "Warning: %v\n", err)
+	}
 }
 
 // RenameWorktree renames a worktree. The branch is renamed only when the
