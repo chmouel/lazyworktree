@@ -1,7 +1,7 @@
 charm.land/bubbles/v2 v2.2.1 h1:Fq1+qm5hV6GkvzLQDhCBpXXE5tLgvh1PRriCLwSvIQU=
 charm.land/bubbles/v2 v2.2.1/go.mod h1:wdMgn+sje1KNXdwFizIWjbf328fIUBxqEmJ/vYPo8yc=
-charm.land/bubbletea/v2 v2.1.0 h1:A9fj9h5LFrvQhQHFNggp8K8rvY6CUfgn9dMbb6p2HIw=
-charm.land/bubbletea/v2 v2.1.0/go.mod h1:xWHeyxIX9/wiFU2kgPW04ojOZyTzrWf+8lGjUCaftiU=
+charm.land/bubbletea/v2 v2.1.1 h1:S1S9l37pCZGrj1JexBcr9x4Nr3MVeM42InqCYM/tDpU=
+charm.land/bubbletea/v2 v2.1.1/go.mod h1:xWHeyxIX9/wiFU2kgPW04ojOZyTzrWf+8lGjUCaftiU=
 charm.land/lipgloss/v2 v2.0.6 h1:EaGKeuA8FvF+v2BT5VmZd2LoYLaMZJXA5n34th8nCIQ=
 charm.land/lipgloss/v2 v2.0.6/go.mod h1:ipDDJNSGa1hlwDtSfW1s2/xR8Vdhbut4PXh2zEKZd0Q=
 github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ4pzQ=
@@ -59,8 +59,8 @@ github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWD
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 github.com/urfave/cli/v3 v3.14.0 h1:a8414NQlHJs0c/iBsulKLzlES0n/lEAskbL2LKpU4/s=
 github.com/urfave/cli/v3 v3.14.0/go.mod h1:vXn6HxPNccJSzQr2QvwVncOKrgYGIHU0HY5h8B2nQj4=
-github.com/xo/terminfo v1.2.0 h1:d0ZTOCpuGE0lwSAOs0zcJjwz3jWQyqcRt9XbGJpCOl4=
-github.com/xo/terminfo v1.2.0/go.mod h1:lGzkSo8Fe7IRh/w+Gqz7n5mDog4FVXCj3gy/DYTBqio=
+github.com/xo/terminfo v1.3.0 h1:KstyePbNW6UaLq9y12+544VK4aTP3Eku/sym3a9+UgQ=
+github.com/xo/terminfo v1.3.0/go.mod h1:lGzkSo8Fe7IRh/w+Gqz7n5mDog4FVXCj3gy/DYTBqio=
 go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
 go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
 golang.org/x/sync v0.24.0 h1:iqiDrGoDgyuvAKrhLQthUEzU/R378N78gXbBjxed7oA=
