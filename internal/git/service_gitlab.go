@@ -42,7 +42,7 @@ func normalizeGitLabState(state string) string {
 }
 
 func (s *Service) fetchGitLabPRs(ctx context.Context) (map[string]*models.PRInfo, error) {
-	prRaw := s.RunGit(ctx, []string{"glab", "api", "merge_requests?state=all&per_page=100"}, "", []int{0}, false, false)
+	prRaw := s.RunGit(ctx, []string{"glab", "api", "projects/:id/merge_requests?state=all&per_page=100"}, "", []int{0}, false, false)
 	if prRaw == "" {
 		return make(map[string]*models.PRInfo), nil
 	}
@@ -136,7 +136,7 @@ func (s *Service) fetchGitLabPRForWorktreeWithError(ctx context.Context, worktre
 }
 
 func (s *Service) fetchGitLabOpenPRs(ctx context.Context) ([]*models.PRInfo, error) {
-	prRaw := s.RunGit(ctx, []string{"glab", "api", "merge_requests?state=opened&per_page=100"}, "", []int{0}, false, false)
+	prRaw := s.RunGit(ctx, []string{"glab", "api", "projects/:id/merge_requests?state=opened&per_page=100"}, "", []int{0}, false, false)
 	if prRaw == "" {
 		return []*models.PRInfo{}, nil
 	}
@@ -189,7 +189,7 @@ func (s *Service) fetchGitLabOpenPRs(ctx context.Context) ([]*models.PRInfo, err
 
 // fetchGitLabPR fetches a single PR (merge request) by number from GitLab.
 func (s *Service) fetchGitLabPR(ctx context.Context, prNumber int) (*models.PRInfo, error) {
-	prRaw := s.RunGit(ctx, []string{"glab", "api", fmt.Sprintf("merge_requests/%d", prNumber)}, "", []int{0}, false, false)
+	prRaw := s.RunGit(ctx, []string{"glab", "api", fmt.Sprintf("projects/:id/merge_requests/%d", prNumber)}, "", []int{0}, false, false)
 	if prRaw == "" {
 		return nil, fmt.Errorf("PR #%d not found", prNumber)
 	}
@@ -234,7 +234,7 @@ func (s *Service) fetchGitLabPR(ctx context.Context, prNumber int) (*models.PRIn
 }
 
 func (s *Service) fetchGitLabOpenIssues(ctx context.Context) ([]*models.IssueInfo, error) {
-	issueRaw := s.RunGit(ctx, []string{"glab", "api", "issues?state=opened&per_page=100"}, "", []int{0}, false, false)
+	issueRaw := s.RunGit(ctx, []string{"glab", "api", "projects/:id/issues?state=opened&per_page=100"}, "", []int{0}, false, false)
 	if issueRaw == "" {
 		return []*models.IssueInfo{}, nil
 	}
@@ -277,7 +277,7 @@ func (s *Service) fetchGitLabOpenIssues(ctx context.Context) ([]*models.IssueInf
 
 // fetchGitLabIssue fetches a single issue by number from GitLab.
 func (s *Service) fetchGitLabIssue(ctx context.Context, issueNumber int) (*models.IssueInfo, error) {
-	issueRaw := s.RunGit(ctx, []string{"glab", "api", fmt.Sprintf("issues/%d", issueNumber)}, "", []int{0}, false, false)
+	issueRaw := s.RunGit(ctx, []string{"glab", "api", fmt.Sprintf("projects/:id/issues/%d", issueNumber)}, "", []int{0}, false, false)
 	if issueRaw == "" {
 		return nil, fmt.Errorf("issue #%d not found", issueNumber)
 	}
